@@ -5,6 +5,8 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
+import { useOrgStore } from '@/stores/org-store';
+import { useAuth } from '@/contexts/auth-context';
 
 const releaseTypes = [
   { value: 'single', label: 'Single' },
@@ -26,6 +28,8 @@ const releaseStatuses = [
 export default function EditReleasePage() {
   const router = useRouter();
   const params = useParams();
+  const { user } = useAuth();
+  const { activeOrgId } = useOrgStore();
   const id = params.id as string;
 
   const [title, setTitle] = useState('');
@@ -44,6 +48,8 @@ export default function EditReleasePage() {
   const [explicit, setExplicit] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
+  const [releaseOrgId, setReleaseOrgId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -51,8 +57,14 @@ export default function EditReleasePage() {
       const db = getDb();
       if (!db) return;
       const snap = await getDoc(doc(db, 'releases', id));
-      if (!snap.exists()) return;
+      if (!snap.exists()) { setLoading(false); return; }
       const data = snap.data();
+      if (activeOrgId && data.organizationId && data.organizationId !== activeOrgId) {
+        setForbidden(true);
+        setLoading(false);
+        return;
+      }
+      setReleaseOrgId((data.organizationId as string) ?? null);
       setTitle(data.title ?? '');
       setReleaseType(data.releaseType ?? 'single');
       setStatus(data.status ?? 'draft');
@@ -78,6 +90,8 @@ export default function EditReleasePage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
+    if (!user) return;
+    if (activeOrgId && releaseOrgId && releaseOrgId !== activeOrgId) return;
     setSubmitting(true);
     const db = getDb();
     if (!db) return;
@@ -99,6 +113,16 @@ export default function EditReleasePage() {
       updatedAt: Timestamp.now(),
     });
     router.push(`/releases/${id}`);
+  }
+
+  if (forbidden) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-2">Access Denied</p>
+        <p className="text-sm text-zinc-500 mb-4">You do not have permission to edit this release.</p>
+        <Link href="/dashboard" className="text-sm text-zinc-900 dark:text-zinc-100 underline underline-offset-4">Go to Dashboard</Link>
+      </div>
+    );
   }
 
   if (loading) {

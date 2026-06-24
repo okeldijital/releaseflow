@@ -10,6 +10,7 @@ import { computeProgress } from '@/lib/workflow-progress';
 import { stageComplete } from '@/lib/workflow-progression';
 import { createTask, completeTask, getTasksByStage, assignTask, unassignTask } from '@/lib/task-service';
 import { useAuth } from '@/contexts/auth-context';
+import { useOrgStore } from '@/stores/org-store';
 import { computeReadiness } from '@/lib/readiness-engine';
 import { getRequirementsByRelease, submitRequirement, approveRequirement } from '@/lib/requirement-service';
 import { getDeliverablesByRelease } from '@/lib/deliverable-service';
@@ -52,6 +53,7 @@ const priorityStyles: Record<string, string> = {
 
 export default function ReleaseDetailPage() {
   const { user } = useAuth();
+  const { activeOrgId } = useOrgStore();
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
@@ -63,6 +65,7 @@ export default function ReleaseDetailPage() {
   const [tasksByStage, setTasksByStage] = useState<Record<string, Task[]>>({});
   const [expandedStage, setExpandedStage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
   const [completing, setCompleting] = useState<string | null>(null);
   const [requirements, setRequirements] = useState<ReleaseRequirement[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
@@ -83,7 +86,15 @@ export default function ReleaseDetailPage() {
       if (!db) return;
       const relSnap = await getDoc(doc(db, 'releases', id));
       if (!relSnap.exists()) { setLoading(false); return; }
-      setRelease({ id: relSnap.id, ...relSnap.data() } as Release);
+
+      const releaseData = { id: relSnap.id, ...relSnap.data() } as Release;
+      if (activeOrgId && releaseData.organizationId && releaseData.organizationId !== activeOrgId) {
+        setForbidden(true);
+        setLoading(false);
+        return;
+      }
+
+      setRelease(releaseData);
 
       const [trackSnap, contrSnap, wfSnap] = await Promise.all([
         getDocs(query(collection(db, 'tracks'), where('releaseId', '==', id))),
@@ -218,6 +229,15 @@ export default function ReleaseDetailPage() {
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-800 dark:border-zinc-700 dark:border-t-zinc-200" /></div>;
+  }
+  if (forbidden) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-2">Access Denied</p>
+        <p className="text-sm text-zinc-500 mb-4">You do not have permission to view this release.</p>
+        <Link href="/dashboard" className="text-sm text-zinc-900 dark:text-zinc-100 underline underline-offset-4">Go to Dashboard</Link>
+      </div>
+    );
   }
   if (!release) {
     return <div className="flex items-center justify-center py-20"><p className="text-zinc-500">Release not found.</p></div>;
