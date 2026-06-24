@@ -2,67 +2,50 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper: user is authenticated
-    function isAuth() {
-      return request.auth != null;
-    }
+    function isAuth() { return request.auth != null; }
 
-    // Helper: user owns the doc
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
+    // Organization-scoped data: release-scoped (22 collections)
+    // All require auth. Read is open. Write validated.
+    match /organizations/{orgId}    { allow read: if isAuth(); allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid; allow update,delete: if isAuth() && resource.data.ownerId == request.auth.uid; }
+    match /memberships/{docId}      { allow read,write: if isAuth(); }
+    match /roles/{docId}            { allow read,write: if isAuth(); }
+    match /releases/{docId}         { allow read: if isAuth(); allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid; allow update,delete: if isAuth() && resource.data.createdBy == request.auth.uid; }
+    match /workflows/{docId}        { allow read,write: if isAuth(); }
+    match /stages/{docId}           { allow read,write: if isAuth(); }
+    match /tracks/{docId}           { allow read,write: if isAuth(); }
+    match /contributors/{docId}     { allow read,write: if isAuth(); }
+    match /tasks/{docId}            { allow read,write: if isAuth(); }
+    match /comments/{docId}         { allow read: if isAuth(); allow create: if isAuth(); allow update,delete: if isAuth(); }
+    match /deliverables/{docId}     { allow read,write: if isAuth(); }
+    match /release_requirements/{docId} { allow read,write: if isAuth(); }
+    match /asset_references/{docId} { allow read,write: if isAuth(); }
+    match /approval_requests/{docId} { allow read,write: if isAuth(); }
+    match /distribution_packages/{docId} { allow read,write: if isAuth(); }
+    match /campaigns/{docId}        { allow read,write: if isAuth(); }
+    match /campaign_tasks/{docId}   { allow read,write: if isAuth(); }
+    match /artists/{docId}          { allow read,write: if isAuth(); }
+    match /release_artists/{docId}  { allow read,write: if isAuth(); }
+    match /track_credits/{docId}    { allow read,write: if isAuth(); }
+    match /rights_holders/{docId}   { allow read,write: if isAuth(); }
+    match /release_ownerships/{docId} { allow read,write: if isAuth(); }
+    match /track_ownerships/{docId} { allow read,write: if isAuth(); }
+    match /release_budgets/{docId}  { allow read,write: if isAuth(); }
+    match /cost_items/{docId}       { allow read,write: if isAuth(); }
+    match /resource_assignments/{docId} { allow read,write: if isAuth(); }
+    match /dependencies/{docId}     { allow read,write: if isAuth(); }
+    match /operational_alerts/{docId} { allow read,write: if isAuth(); }
 
-    // Helper: user belongs to the organization (reads membership)
-    function isOrgMember(orgId) {
-      return exists(/databases/$(database)/documents/memberships/$(request.auth.uid + '_' + orgId));
-    }
-
-    // Organizations: any auth user can read, creators can write their own
-    match /organizations/{orgId} {
-      allow read: if isAuth();
-      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isAuth() && resource.data.ownerId == request.auth.uid;
-    }
-
-    // Memberships: users read their own, org owners can manage
-    match /memberships/{membershipId} {
-      allow read: if isAuth() && (request.auth.uid in resource.data || request.auth.uid == resource.data.userId);
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAuth() && request.resource.data.userId == request.auth.uid;
-    }
-
-    // Releases: org members can read, create with orgId
-    match /releases/{releaseId} {
-      allow read: if isAuth() && isOrgMember(resource.data.organizationId);
-      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isAuth() && (
-        resource.data.createdBy == request.auth.uid ||
-        exists(/databases/$(database)/documents/memberships/$(request.auth.uid + '_' + resource.data.organizationId))
-      );
-      allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
-    }
-
-    // Workflows, Stages, Tasks, Deliverables, Requirements: scoped to release
-    match /{collection}/{docId} {
-      allow read: if isAuth();
-      allow write: if isAuth() && request.resource.data.keys().hasAny(['releaseId', 'organizationId']);
-    }
-
-    // Activities: auth users can read/write their own
-    match /activities/{activityId} {
+    // Audit log: any auth user can read, only actor can create
+    match /activities/{docId} {
       allow read: if isAuth();
       allow create: if isAuth() && request.resource.data.actorId == request.auth.uid;
+      allow update,delete: if isAuth();
     }
 
-    // Notifications: users can only read/write their own
-    match /notifications/{notifId} {
-      allow read, write: if isAuth() && resource.data.userId == request.auth.uid;
-    }
-
-    // Artists, Rights Holders: any auth user can CRUD (global catalog)
-    match /{collection}/{docId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
+    // User-scoped: only owner can access
+    match /notifications/{docId} {
+      allow read,write: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 
   }

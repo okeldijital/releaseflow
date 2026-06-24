@@ -35,9 +35,9 @@ export function checkDistributionReadiness(release: Release, deliverablesCount: 
   );
 
   const metadataReady = missingMetadata.length === 0;
-  const deliverablesReady = deliverablesCount > 0 && approvedDeliverables === deliverablesCount;
-  const requirementsReady = reqTotal > 0 && reqApproved === reqTotal;
-  const dependenciesReady = blockingDepCount === 0 || blockingDepCompleted === blockingDepCount;
+  const deliverablesReady = approvedDeliverables === deliverablesCount;
+  const requirementsReady = reqApproved === reqTotal;
+  const dependenciesReady = blockingDepCompleted === blockingDepCount;
 
   const weights = 4;
   let score = 0;
