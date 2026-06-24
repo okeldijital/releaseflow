@@ -2,6 +2,7 @@ import { collection, doc, addDoc, getDocs, getDoc, query, where, orderBy, limit,
 import { getDb } from '@/lib/firebase';
 import { getRequirementsByRelease } from '@/lib/requirement-service';
 import { getDeliverablesByRelease } from '@/lib/deliverable-service';
+import { getBlockingDependencies } from '@/lib/dependency-service';
 import type { Release, DistributionPackage } from '@/app/(app)/types';
 
 const REQUIRED_METADATA_FIELDS: (keyof Release)[] = [
@@ -21,12 +22,14 @@ export interface DistributionReadiness {
   metadataReady: boolean;
   deliverablesReady: boolean;
   requirementsReady: boolean;
+  dependenciesReady: boolean;
   missingMetadata: string[];
   missingDeliverables: number;
   missingRequirements: number;
+  missingDependencies: number;
 }
 
-export function checkDistributionReadiness(release: Release, deliverablesCount: number, approvedDeliverables: number, reqTotal: number, reqApproved: number): DistributionReadiness {
+export function checkDistributionReadiness(release: Release, deliverablesCount: number, approvedDeliverables: number, reqTotal: number, reqApproved: number, blockingDepCount: number, blockingDepCompleted: number): DistributionReadiness {
   const missingMetadata = REQUIRED_METADATA_FIELDS.filter(
     (f) => !release[f],
   );
@@ -34,23 +37,27 @@ export function checkDistributionReadiness(release: Release, deliverablesCount: 
   const metadataReady = missingMetadata.length === 0;
   const deliverablesReady = deliverablesCount > 0 && approvedDeliverables === deliverablesCount;
   const requirementsReady = reqTotal > 0 && reqApproved === reqTotal;
+  const dependenciesReady = blockingDepCount === 0 || blockingDepCompleted === blockingDepCount;
 
-  const weights = 3;
+  const weights = 4;
   let score = 0;
   if (metadataReady) score++;
   if (deliverablesReady) score++;
   if (requirementsReady) score++;
+  if (dependenciesReady) score++;
   const completeness = Math.round((score / weights) * 100);
 
   return {
-    canDistribute: metadataReady && deliverablesReady && requirementsReady,
+    canDistribute: metadataReady && deliverablesReady && requirementsReady && dependenciesReady,
     completeness,
     metadataReady,
     deliverablesReady,
     requirementsReady,
+    dependenciesReady,
     missingMetadata,
     missingDeliverables: deliverablesCount - approvedDeliverables,
     missingRequirements: reqTotal - reqApproved,
+    missingDependencies: blockingDepCount - blockingDepCompleted,
   };
 }
 
@@ -58,10 +65,11 @@ export async function generateDistributionPackage(releaseId: string): Promise<st
   const db = getDb();
   if (!db) throw new Error('Firestore not initialized');
 
-  const [relSnap, reqs, dels] = await Promise.all([
+  const [relSnap, reqs, dels, blockingDeps] = await Promise.all([
     getDoc(doc(db, 'releases', releaseId)),
     getRequirementsByRelease(releaseId),
     getDeliverablesByRelease(releaseId),
+    getBlockingDependencies(releaseId),
   ]);
 
   if (!relSnap.exists()) throw new Error('Release not found');
@@ -76,6 +84,8 @@ export async function generateDistributionPackage(releaseId: string): Promise<st
     approvedDels,
     reqs.length,
     approvedReqs,
+    blockingDeps.length,
+    blockingDeps.filter((d) => d.status === 'completed').length,
   );
 
   const existingSnap = await getDocs(

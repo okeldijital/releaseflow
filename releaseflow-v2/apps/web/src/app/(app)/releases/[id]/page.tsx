@@ -16,7 +16,8 @@ import { getDeliverablesByRelease } from '@/lib/deliverable-service';
 import { checkDistributionReadiness, generateDistributionPackage, getLatestDistributionPackage } from '@/lib/distribution-service';
 import { validateReleaseOwnership } from '@/lib/rights-service';
 import type { OwnershipValidation } from '@/lib/rights-service';
-import type { Release, Track, Contributor, Workflow, Stage, Task, ReleaseRequirement, Deliverable, DistributionPackage } from '../../types';
+import { getDependenciesByRelease } from '@/lib/dependency-service';
+import type { Release, Track, Contributor, Workflow, Stage, Task, ReleaseRequirement, Deliverable, Dependency, DistributionPackage } from '../../types';
 
 const stageStatusStyles: Record<string, string> = {
   not_started: 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900',
@@ -65,6 +66,7 @@ export default function ReleaseDetailPage() {
   const [completing, setCompleting] = useState<string | null>(null);
   const [requirements, setRequirements] = useState<ReleaseRequirement[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
+  const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [distPackage, setDistPackage] = useState<DistributionPackage | null>(null);
   const [ownership, setOwnership] = useState<OwnershipValidation | null>(null);
 
@@ -115,6 +117,9 @@ export default function ReleaseDetailPage() {
       ]);
       setRequirements(reqData);
       setDeliverables(delData);
+
+      const depData = await getDependenciesByRelease(id);
+      setDependencies(depData);
 
       const pkg = await getLatestDistributionPackage(id);
       setDistPackage(pkg);
@@ -219,13 +224,15 @@ export default function ReleaseDetailPage() {
   }
 
   const progress = computeProgress(stages);
-  const readiness = computeReadiness(requirements, stages, deliverables);
+  const readiness = computeReadiness(requirements, stages, deliverables, dependencies);
   const distReadiness = release ? checkDistributionReadiness(
     release,
     deliverables.length,
     deliverables.filter((d) => d.status === 'approved').length,
     requirements.length,
     requirements.filter((r) => r.status === 'approved').length,
+    dependencies.filter((d) => d.blocking).length,
+    dependencies.filter((d) => d.blocking && d.status === 'completed').length,
   ) : null;
 
   return (
@@ -273,6 +280,9 @@ export default function ReleaseDetailPage() {
           ) : null}
           {readiness.breakdown.deliverables ? (
             <span className="rounded bg-zinc-100 dark:bg-zinc-800 px-2 py-1">Deliverables {readiness.breakdown.deliverables.approved}/{readiness.breakdown.deliverables.total}</span>
+          ) : null}
+          {readiness.breakdown.dependencies ? (
+            <span className="rounded bg-zinc-100 dark:bg-zinc-800 px-2 py-1">Dependencies {readiness.breakdown.dependencies.completed}/{readiness.breakdown.dependencies.totalBlocking}</span>
           ) : null}
         </div>
 
@@ -501,6 +511,9 @@ export default function ReleaseDetailPage() {
             </span>
             <span className={`rounded-full px-2 py-0.5 ${distReadiness.requirementsReady ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400'}`}>
               {distReadiness.requirementsReady ? '✓' : '✗'} Requirements ({distReadiness.missingRequirements} missing)
+            </span>
+            <span className={`rounded-full px-2 py-0.5 ${distReadiness.dependenciesReady ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400'}`}>
+              {distReadiness.dependenciesReady ? '✓' : '✗'} Dependencies ({distReadiness.missingDependencies} missing)
             </span>
           </div>
 

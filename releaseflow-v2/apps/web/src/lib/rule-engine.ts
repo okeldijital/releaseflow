@@ -1,6 +1,7 @@
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
-import type { Task, Stage, Deliverable, ReleaseRequirement, Campaign, ReleaseBudget } from '@/app/(app)/types';
+import { checkDependencyRules } from '@/lib/dependency-health';
+import type { Task, Stage, Deliverable, ReleaseRequirement, Campaign, ReleaseBudget, Dependency } from '@/app/(app)/types';
 
 export interface RuleFinding {
   releaseId: string;
@@ -28,13 +29,14 @@ export async function runRules(releaseId: string): Promise<RuleFinding[]> {
   if (!db) return [];
   const findings: RuleFinding[] = [];
 
-  const [taskSnap, stageSnap, delSnap, reqSnap, campaignSnap, budgetSnap] = await Promise.all([
+  const [taskSnap, stageSnap, delSnap, reqSnap, campaignSnap, budgetSnap, depSnap] = await Promise.all([
     getDocs(query(collection(db, 'tasks'), where('releaseId', '==', releaseId), where('status', '!=', 'done'))),
     getDocs(query(collection(db, 'stages'), where('releaseId', '==', releaseId))),
     getDocs(query(collection(db, 'deliverables'), where('releaseId', '==', releaseId))),
     getDocs(query(collection(db, 'release_requirements'), where('releaseId', '==', releaseId))),
     getDocs(query(collection(db, 'campaigns'), where('releaseId', '==', releaseId))),
     getDocs(query(collection(db, 'release_budgets'), where('releaseId', '==', releaseId), orderBy('createdAt', 'desc'))),
+    getDocs(query(collection(db, 'dependencies'), where('releaseId', '==', releaseId))),
   ]);
 
   const now = new Date();
@@ -84,6 +86,10 @@ export async function runRules(releaseId: string): Promise<RuleFinding[]> {
       }
     }
   }
+
+  const dependencies = depSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Dependency);
+  const depFindings = checkDependencyRules(releaseId, dependencies);
+  findings.push(...depFindings);
 
   return findings;
 }

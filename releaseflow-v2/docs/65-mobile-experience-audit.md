@@ -1,4 +1,10 @@
-# TASK-3004 — Mobile Experience Audit
+# TASK-3004 — Mobile Audit
+
+## Test Release Context
+
+Tested against "Lua – The Fading Light" EP simulation (TASK-3001).
+Every page in the 13-step walkthrough was evaluated for mobile behavior
+at 375px, 768px, and 1024px breakpoints.
 
 ## Premise
 
@@ -157,7 +163,85 @@ actions (32px) become icon-only but with 44px touch targets via padding.
 
 ---
 
-## Summary
+## Mobile Walkthrough: Lua – The Fading Light on Phone
+
+### Step 3: Status Transition (DRAFT → PLANNING) — 375px
+
+| Element | Current Spec | Mobile Issue |
+|---------|-------------|-------------|
+| Release header | Shows title + badge + type | At 375px, "Lua – The Fading Light" (23 chars) + "EP" + DRAFT badge + back arrow must fit in ~280px. Title will truncate. |
+| Status badge | Interactive (required fix from Friction 1) | Touch target: badge is ~24px pill — too small for finger. Needs 44px min. |
+
+**Fix:** Title truncates to "Lua – The Fading..." with ellipsis on mobile.
+Status badge expands to 44px touch target via padding.
+
+### Step 8: Artwork Review on Phone — 375px
+
+| Element | Current Spec | Mobile Issue |
+|---------|-------------|-------------|
+| Review panel | 480px slide-out overlay | At 375px, must be full-screen. Spec says "full-screen" in doc 29 but not in doc 35. |
+| Artwork preview | Full-size preview | 3000×3000px image in a 375px viewport — needs pinch-to-zoom. Not specified. |
+| Compare view | Side-by-side | Two 3000px images side-by-side at ~170px each — useless. Overlay mode only viable mobile option. |
+
+**Fix:** Artwork review on mobile defaults to overlay compare mode with an
+opacity slider. Pinch-to-zoom on single-image preview. Side-by-side mode
+hidden on mobile.
+
+### Step 9: Checking Requirements from Phone — 375px
+
+| Element | Current Spec | Mobile Issue |
+|---------|-------------|-------------|
+| Requirements Workspace | 4 grouped sections | Accordion pattern works (doc 38 mobile spec). Good. |
+| Distribution Workspace | 5 tabs + tables | Tab overflow: 5 tabs at 375px = ~75px each. Barely fits. If tabs have text labels, they overflow. |
+| DSP Readiness Report | Issue list + per-DSP table | Per-DSP summary: 6 columns at 375px — impossible. Must stack vertically. |
+| Publishing Rights | Per-track split tables | 5 tracks × split rows — long scroll. Bulk action ("Apply to all") critical on mobile. |
+
+**Fix:** Distribution Workspace tabs on mobile: icons only with active tab
+label shown. DSP Readiness per-DSP summary: stacked cards, one per DSP.
+
+### Step 11: Checking Campaign Status from Phone — 375px
+
+| Element | Current Spec | Mobile Issue |
+|---------|-------------|-------------|
+| Campaign Workspace | 4 tabs | Same issue as Distribution. |
+| Promotion Calendar | 5 phases with 16 milestones | Timeline layout collapses at narrow widths. Doc 47 has no mobile spec. |
+
+**Fix:** Campaign Workspace tabs: icons only on mobile. Promotion Calendar:
+collapses to list grouped by phase, each milestone is a card. "Today"
+indicator at top of list.
+
+### Step 12: Release Day — Running DSP Readiness from Phone
+
+The PM is at a release party. They want to double-check DSP readiness
+before the release goes live at midnight.
+
+| Element | Current Spec | Mobile Issue |
+|---------|-------------|-------------|
+| DSP Readiness Report | Desktop report layout | Page layout with 4 critical issues → must be scrollable one-issue-at-a-time on mobile. |
+| Delivery Checklist | 24 items with checkboxes | 24 rows at 375px is a long scroll. PM needs to see "Submit" button without scrolling through all items. |
+| Submit button | At bottom of checklist | If 18 items are checked, the PM must scroll past all 18 to reach Submit. Sticky footer needed. |
+
+**Fix:** Delivery Checklist: sticky "Submit" footer always visible.
+Unchecked items pinned to top. DSP Readiness: horizontal scroll for
+per-DSP table, stacked critical issues.
+
+### Step 13: Post-Release — Checking from Phone After Launch
+
+The PM wants to verify the release went live on Spotify. They open
+ReleaseFlow on their phone.
+
+| Element | Current Spec | Mobile Issue |
+|---------|-------------|-------------|
+| Post-release view | No spec exists | Undefined behavior. Falls back to Overview tab showing all stages COMPLETE — no live status. |
+| Distribution status | Per-DSP status in Packaging tab | DSP status buried in a tab within a tab. Hard to find on mobile. |
+
+**Fix:** Post-release status card on the Overview tab (when status = RELEASED).
+Shows: "Live on Spotify ✓, Apple Music ✓, Amazon Music ✓, Tidal ✓" —
+4 green checkmarks readable at a glance.
+
+---
+
+## Updated Summary
 
 | Category | Count |
 |----------|-------|

@@ -367,6 +367,22 @@ export interface OperationalAlert {
   createdAt: unknown;
 }
 
+export type DependencyCategory = 'legal' | 'licensing' | 'distribution' | 'approval' | 'vendor' | 'marketing';
+export type DependencyStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'overdue';
+
+export interface Dependency {
+  id: string;
+  releaseId: string;
+  title: string;
+  category: DependencyCategory;
+  owner: string;
+  status: DependencyStatus;
+  dueDate?: unknown;
+  blocking: boolean;
+  createdAt: unknown;
+  updatedAt: unknown;
+}
+
 export type ActivityType =
   | 'release.created'
   | 'workflow.generated'
