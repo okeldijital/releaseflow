@@ -1,0 +1,14 @@
+{
+  "name": "@releaseflow/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "echo 'no src'",
+    "typecheck": "echo 'no src'",
+    "clean": "rm -rf dist .turbo"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}
