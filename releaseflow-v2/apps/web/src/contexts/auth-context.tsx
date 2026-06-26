@@ -14,7 +14,18 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({ user: undefined, loading: true });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [env] = useState(() => validateEnvironment());
+  const [env] = useState(() => {
+  const result = validateEnvironment();
+
+  console.log("Environment validation:", result);
+
+  console.log("Direct env:", {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  });
+
+  return result;
+});;
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
