@@ -169,7 +169,7 @@ describe('Task data model', () => {
   it('assigneeId is optional', () => {
     const task = {
       id: 't1', stageId: 's1', releaseId: 'r1', title: 'Task',
-      status: 'todo', priority: 'low',
+      status: 'todo', priority: 'low', assigneeId: undefined,
       createdAt: new Date(), updatedAt: new Date(),
     };
     expect(task.assigneeId).toBeUndefined();

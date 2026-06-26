@@ -3,21 +3,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
-import { getTasksByAssignee } from '@/lib/task-service';
+import { getTasksByAssignee, completeTask } from '@/lib/task-service';
 import { getPendingRequestsByApprover, approveRequest, rejectRequest } from '@/lib/approval-service';
-import { getDeliverablesByRelease } from '@/lib/deliverable-service';
 import { getNotificationsByUser, markAsRead, archiveNotification } from '@/lib/notification-service';
 import { fmtDate } from '@/lib/utils';
-import { getDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
-import type { Task, ApprovalRequest, Deliverable, Notification as Notif } from '../types';
-
-const priorityStyles: Record<string, string> = {
-  low: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
-  medium: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  high: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-  critical: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
-};
+import { Card, Badge, StatusBadge, Button, EmptyState, Skeleton } from '@releaseflow/ui';
+import type { Task, ApprovalRequest, Notification as Notif } from '../types';
 
 function toDate(ts: unknown): Date | null {
   if (!ts) return null;
@@ -35,8 +28,8 @@ export default function ContributorPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [reviews, setReviews] = useState<ApprovalRequest[]>([]);
-  const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [notifications, setNotifications] = useState<Notif[]>([]);
+  const [deadlines, setDeadlines] = useState<Task[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -47,53 +40,55 @@ export default function ContributorPage() {
       const db = getDb();
       if (!db) { setLoading(false); return; }
 
-      const [taskData, reviewData, notifData] = await Promise.all([
+      const [taskData, reviewData, notifData, taskSnap] = await Promise.all([
         getTasksByAssignee(uid),
         getPendingRequestsByApprover(uid),
         getNotificationsByUser(uid),
+        getDocs(query(
+          collection(db, 'tasks'),
+          where('assigneeId', '==', uid),
+          where('status', '!=', 'done'),
+          orderBy('dueDate', 'asc'),
+        )),
       ]);
+
       setTasks(taskData);
       setReviews(reviewData);
       setNotifications(notifData);
       setUnreadCount(notifData.filter((n) => !n.read).length);
 
-      const releaseIds = [
-        ...new Set([
-          ...taskData.map((t) => t.releaseId),
-          ...(await Promise.all(reviewData.map(async (r) => {
-            const s = await getDoc(doc(db, 'deliverables', r.deliverableId));
-            return s.data()?.releaseId;
-          }))).filter(Boolean) as string[],
-        ]),
-      ];
-
-      const delData: Deliverable[] = [];
-      for (const rid of releaseIds) {
-        const d = await getDeliverablesByRelease(rid);
-        delData.push(...d);
-      }
       const now = new Date();
-      const overdue = delData.filter((d) => {
-        if (d.status === 'approved' || d.status === 'archived') return false;
-        const dd = toDate(d.createdAt as never);
-        return dd && dd.getTime() < now.getTime();
-      });
-      setDeliverables(overdue);
+      const week = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const upcoming = taskSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as Task)
+        .filter((t) => {
+          const due = toDate(t.dueDate);
+          return due && due > now && due < week;
+        })
+        .sort((a, b) => {
+          const ad = toDate(a.dueDate)?.getTime() ?? 0;
+          const bd = toDate(b.dueDate)?.getTime() ?? 0;
+          return ad - bd;
+        });
+      setDeadlines(upcoming);
       setLoading(false);
     }
     load();
   }, [user]);
 
+  async function handleComplete(taskId: string) {
+    await completeTask(taskId, '', '', user?.uid ?? '');
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+  }
+
   async function handleApprove(requestId: string, _deliverableId: string) {
     await approveRequest(requestId, user?.uid ?? '', '');
-    const updated = await getPendingRequestsByApprover(user?.uid ?? '');
-    setReviews(updated);
+    setReviews(await getPendingRequestsByApprover(user?.uid ?? ''));
   }
 
   async function handleReject(requestId: string, _deliverableId: string) {
     await rejectRequest(requestId, user?.uid ?? '', '');
-    const updated = await getPendingRequestsByApprover(user?.uid ?? '');
-    setReviews(updated);
+    setReviews(await getPendingRequestsByApprover(user?.uid ?? ''));
   }
 
   async function handleMarkRead(notifId: string) {
@@ -110,118 +105,176 @@ export default function ContributorPage() {
     setUnreadCount(updated.filter((n) => !n.read).length);
   }
 
-  if (loading) {
-    return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-800 dark:border-zinc-700 dark:border-t-zinc-200" /></div>;
-  }
+  if (loading) return (
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
+      <Skeleton className="h-8 w-56 mb-8" />
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-4 mb-6">
+        <Skeleton variant="card" /><Skeleton variant="card" /><Skeleton variant="card" /><Skeleton variant="card" />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
+          <Skeleton variant="card" className="h-48" />
+          <Skeleton variant="card" className="h-32" />
+          <Skeleton variant="card" className="h-40" />
+        </div>
+        <div className="space-y-6">
+          <Skeleton variant="card" className="h-56" />
+          <Skeleton variant="card" className="h-24" />
+        </div>
+      </div>
+    </div>
+  );
+
+  const doneTasks = tasks.filter((t) => t.status === 'done').length;
+  const upcomingDeadlines = deadlines.filter((t) => {
+    const d = toDate(t.dueDate);
+    return d && d.getTime() < Date.now() + 24 * 60 * 60 * 1000;
+  }).length;
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Contributor Dashboard</h1>
-          <p className="text-sm text-zinc-500 mt-1">{user?.email}</p>
+          <h1 className="text-2xl font-bold text-text-900">Contributor Dashboard</h1>
+          <p className="text-sm text-text-500 mt-1">{user?.email}</p>
         </div>
         {unreadCount > 0 ? (
-          <span className="rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-3 py-1 text-xs font-medium">{unreadCount} unread</span>
+          <span className="rounded-full bg-primary-50 text-primary-500 px-3 py-1 text-xs font-medium">{unreadCount} unread</span>
         ) : null}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Assigned Tasks ({tasks.length})</h2>
-          {tasks.length === 0 ? (
-            <p className="text-sm text-zinc-400">No assigned tasks.</p>
-          ) : (
-            <div className="space-y-2">
-              {tasks.map((t) => (
-                <Link key={t.id} href={`/releases/${t.releaseId}`}
-                  className="flex items-center justify-between rounded-lg border border-zinc-100 dark:border-zinc-800 px-3 py-2.5 hover:shadow-sm transition-shadow">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50 truncate">{t.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`text-xs capitalize rounded-full px-1.5 py-0.5 ${priorityStyles[t.priority] ?? ''}`}>{t.priority}</span>
-                      <span className="text-xs text-zinc-400 capitalize">{t.status.replace(/_/g, ' ')}</span>
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-4 mb-6">
+        <Card padding="sm">
+          <p className="text-xs text-text-500">Assigned</p>
+          <p className="text-2xl font-bold text-text-900 mt-0.5">{tasks.length}</p>
+        </Card>
+        <Card padding="sm">
+          <p className="text-xs text-text-500">Done</p>
+          <p className="text-2xl font-bold text-success-500 mt-0.5">{doneTasks}</p>
+        </Card>
+        <Card padding="sm">
+          <p className="text-xs text-text-500">Reviews</p>
+          <p className="text-2xl font-bold text-warning-500 mt-0.5">{reviews.length}</p>
+        </Card>
+        <Card padding="sm">
+          <p className="text-xs text-text-500">Due Today</p>
+          <p className="text-2xl font-bold text-danger-500 mt-0.5">{upcomingDeadlines}</p>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
+          <Card padding="sm">
+            <h2 className="text-sm font-semibold text-text-900 mb-3">Assigned Tasks ({tasks.length})</h2>
+            {tasks.length === 0 ? (
+              <EmptyState title="No assigned tasks" description="Tasks assigned to you will appear here." />
+            ) : (
+              <div className="space-y-1.5">
+                {tasks.slice(0, 8).map((t) => (
+                  <div key={t.id} className="flex items-center justify-between rounded border border-surface-100 px-3 py-2.5 hover:border-surface-200 transition-colors">
+                    <div className="min-w-0 flex-1 flex items-center gap-3">
+                      <button onClick={() => handleComplete(t.id)}
+                        className={`shrink-0 w-4 h-4 rounded border ${t.status === 'done' ? 'bg-success-500 border-success-500' : 'border-surface-300 hover:border-primary-500'} flex items-center justify-center`}>
+                        {t.status === 'done' ? <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> : null}
+                      </button>
+                      <Link href={`/releases/${t.releaseId}`} className="min-w-0 flex-1">
+                        <p className={`text-sm truncate ${t.status === 'done' ? 'line-through text-text-400' : 'text-text-700'}`}>{t.title}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Badge label={t.priority} color={t.priority === 'critical' || t.priority === 'high' ? 'bg-danger-50 text-danger-500' : t.priority === 'medium' ? 'bg-warning-50 text-warning-500' : 'bg-surface-100 text-text-500'} size="sm" />
+                          <StatusBadge status={t.status} />
+                        </div>
+                      </Link>
                     </div>
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
+                ))}
+              </div>
+            )}
+          </Card>
 
-        <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Pending Reviews ({reviews.length})</h2>
-          {reviews.length === 0 ? (
-            <p className="text-sm text-zinc-400">No pending reviews.</p>
-          ) : (
-            <div className="space-y-2">
-              {reviews.map((r) => (
-                <div key={r.id} className="flex items-center justify-between rounded-lg border border-zinc-100 dark:border-zinc-800 px-3 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50 truncate">Review Request</p>
-                    <p className="text-xs text-zinc-400">Deliverable: {r.deliverableId}</p>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => handleApprove(r.id, r.deliverableId)}
-                      className="rounded px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30">Approve</button>
-                    <button onClick={() => handleReject(r.id, r.deliverableId)}
-                      className="rounded px-2 py-0.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30">Reject</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Overdue Deliverables ({deliverables.length})</h2>
-          {deliverables.length === 0 ? (
-            <p className="text-sm text-zinc-400">No overdue deliverables.</p>
-          ) : (
-            <div className="space-y-2">
-              {deliverables.map((d) => (
-                <Link key={d.id} href={`/releases/${d.releaseId}`}
-                  className="flex items-center justify-between rounded-lg border border-red-100 dark:border-red-800 bg-red-50 dark:bg-red-950 px-3 py-2.5 hover:shadow-sm transition-shadow">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-red-700 dark:text-red-300 truncate">{d.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-red-400 capitalize">{d.type}</span>
-                      <span className="text-xs text-red-400">{d.status}</span>
+          <Card padding="sm">
+            <h2 className="text-sm font-semibold text-text-900 mb-3">Pending Approvals ({reviews.length})</h2>
+            {reviews.length === 0 ? (
+              <EmptyState title="No pending approvals" description="Nothing needs your review right now." />
+            ) : (
+              <div className="space-y-1.5">
+                {reviews.slice(0, 6).map((r) => (
+                  <div key={r.id} className="flex items-center justify-between rounded border border-warning-100 bg-warning-50 dark:border-warning-800 dark:bg-warning-950 px-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-text-900 truncate">Review Request</p>
+                      <p className="text-xs text-text-400">Deliverable: {r.deliverableId.slice(0, 8)}...</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 ml-3">
+                      <Button size="sm" variant="primary" onClick={() => handleApprove(r.id, r.deliverableId)}>Approve</Button>
+                      <Button size="sm" variant="danger" onClick={() => handleReject(r.id, r.deliverableId)}>Reject</Button>
                     </div>
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
+                ))}
+              </div>
+            )}
+          </Card>
 
-        <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Notifications ({notifications.length})</h2>
-          {notifications.length === 0 ? (
-            <p className="text-sm text-zinc-400">No notifications.</p>
-          ) : (
-            <div className="space-y-2">
-              {notifications.map((n) => (
-                <div key={n.id} className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${n.read ? 'border-zinc-100 dark:border-zinc-800' : 'border-blue-100 dark:border-blue-800 bg-blue-50 dark:bg-blue-950'}`}>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm font-medium truncate ${n.read ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-900 dark:text-zinc-50'}`}>{n.title}</p>
-                    <p className="text-xs text-zinc-400 truncate mt-0.5">{n.message}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-zinc-400 capitalize">{n.type.replace(/_/g, ' ')}</span>
-                      <span className="text-xs text-zinc-400">{fmtDate(n.createdAt)}</span>
+          <Card padding="sm">
+            <h2 className="text-sm font-semibold text-text-900 mb-3">Upcoming Deadlines ({deadlines.length})</h2>
+            {deadlines.length === 0 ? (
+              <EmptyState title="No deadlines this week" description="Nothing due in the next 7 days." />
+            ) : (
+              <div className="space-y-1.5">
+                {deadlines.slice(0, 8).map((d) => (
+                  <div key={d.id} className="flex items-center justify-between rounded border border-surface-100 px-3 py-2.5">
+                    <Link href={`/releases/${d.releaseId}`} className="min-w-0 flex-1">
+                      <p className="text-sm text-text-700 truncate">{d.title}</p>
+                    </Link>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <Badge label={d.priority} color={d.priority === 'critical' || d.priority === 'high' ? 'bg-danger-50 text-danger-500' : 'bg-surface-100 text-text-500'} size="sm" />
+                      <span className="text-xs text-text-400">{fmtDate(d.dueDate)}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!n.read ? (
-                      <button onClick={() => handleMarkRead(n.id)} className="rounded px-1.5 py-0.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30">Read</button>
-                    ) : null}
-                    <button onClick={() => handleArchive(n.id)} className="rounded px-1.5 py-0.5 text-xs text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">✕</button>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card padding="sm">
+            <h2 className="text-sm font-semibold text-text-900 mb-3">Notifications ({notifications.length})</h2>
+            {notifications.length === 0 ? (
+              <EmptyState title="No notifications" description="You're all caught up." />
+            ) : (
+              <div className="space-y-1.5">
+                {notifications.slice(0, 8).map((n) => (
+                  <div key={n.id} className={`rounded border px-3 py-2.5 ${n.read ? 'border-surface-100' : 'border-info-100 bg-info-50 dark:border-info-800 dark:bg-info-950'}`}>
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm font-medium truncate ${n.read ? 'text-text-500' : 'text-text-900'}`}>{n.title}</p>
+                        <p className="text-xs text-text-400 truncate mt-0.5">{n.message}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge label={n.type.replace(/_/g, ' ')} color="bg-surface-100 text-text-500" size="sm" />
+                          <span className="text-xs text-text-400">{fmtDate(n.createdAt)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 ml-2">
+                        {!n.read ? (
+                          <button onClick={() => handleMarkRead(n.id)} className="text-xs text-primary-500 hover:underline">Read</button>
+                        ) : null}
+                        <button onClick={() => handleArchive(n.id)} className="text-xs text-text-400 hover:text-text-700">✕</button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card padding="sm">
+            <h2 className="text-sm font-semibold text-text-900 mb-3">Quick Links</h2>
+            <div className="space-y-1 text-sm">
+              <Link href="/releases" className="block text-text-500 hover:text-text-900 py-1">View Releases</Link>
+              <Link href="/operations" className="block text-text-500 hover:text-text-900 py-1">Operations Center</Link>
+              <Link href="/brief" className="block text-text-500 hover:text-text-900 py-1">Daily Brief</Link>
             </div>
-          )}
-        </section>
+          </Card>
+        </div>
       </div>
     </div>
   );

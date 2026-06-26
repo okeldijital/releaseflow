@@ -7,7 +7,7 @@ export interface Organization {
 }
 
 export type ReleaseType = 'single' | 'ep' | 'album' | 'remix' | 'compilation';
-export type ReleaseStatus = 'draft' | 'planning' | 'in_production' | 'ready_for_distribution' | 'released' | 'archived';
+export type ReleaseStatus = 'draft' | 'planning' | 'in_production' | 'on_hold' | 'ready_for_distribution' | 'released' | 'cancelled' | 'archived';
 
 export interface Release {
   id: string;
@@ -408,7 +408,8 @@ export type ActivityType =
   | 'campaign.activated'
   | 'campaign.completed'
   | 'campaign.task.created'
-  | 'campaign.task.completed';
+  | 'campaign.task.completed'
+  | 'release.status.changed';
 
 export interface Activity {
   id: string;

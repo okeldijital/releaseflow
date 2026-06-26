@@ -6,7 +6,7 @@ import { computeWorkflowHealth } from '@/lib/workflow-health';
 import type { Stage, ReleaseRequirement, Deliverable, Release, Dependency } from '@/app/(app)/types';
 
 const mockRelease = {
-  id: 'r1', title: 'Test', releaseType: 'single', status: 'in_progress',
+  id: 'r1', title: 'Test', releaseType: 'single', status: 'in_production',
   organizationId: 'o1', createdBy: 'u1', createdAt: new Date(),
   upc: '123', catalogNumber: 'CAT1', label: 'Test Label', copyright: '(c)',
   pLine: '(p)', cLine: '(c)', genre: 'Pop', subgenre: '', language: 'en', explicit: false,

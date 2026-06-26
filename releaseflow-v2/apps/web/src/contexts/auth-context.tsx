@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
+import { validateEnvironment } from '@/lib/env-validator';
+import { ConfigErrorScreen } from '@/components/config-error';
 
 interface AuthContextValue {
   user: User | null | undefined;
@@ -12,24 +14,35 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({ user: undefined, loading: true });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [env] = useState(() => validateEnvironment());
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!env.valid) {
+      setLoading(false);
+      return;
+    }
+
     const auth = getAuthInstance();
     if (!auth) return;
+
     const unsub = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
     });
+
     return unsub;
-  }, []);
+  }, [env.valid]);
+
+  if (!env.valid) {
+    return <ConfigErrorScreen missing={env.missing} present={env.present} />;
+  }
 
   return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }

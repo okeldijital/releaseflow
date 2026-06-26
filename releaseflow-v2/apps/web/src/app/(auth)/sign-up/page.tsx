@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
+import { Button, Card } from '@releaseflow/ui';
 
 export default function SignUpPage() {
   const { user, loading } = useAuth();
@@ -14,6 +15,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!loading && user) router.push('/onboarding');
@@ -23,75 +25,65 @@ export default function SignUpPage() {
   if (user) return null;
 
   async function handleGoogle() {
-    try {
-      setError('');
-      const auth = getAuthInstance();
-      if (!auth) throw new Error('Auth not initialized');
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      router.push('/onboarding');
-    } catch (err) {
-      setError((err as Error).message);
-    }
+    try { setError(''); const auth = getAuthInstance(); if (!auth) throw new Error('Auth not initialized');
+      await signInWithPopup(auth, new GoogleAuthProvider()); router.push('/onboarding');
+    } catch (err) { setError((err as Error).message); }
   }
 
   async function handleEmail(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      setError('');
-      const auth = getAuthInstance();
-      if (!auth) throw new Error('Auth not initialized');
-      await createUserWithEmailAndPassword(auth, email, password);
-      router.push('/onboarding');
-    } catch (err) {
-      setError((err as Error).message);
-    }
+    e.preventDefault(); setError(''); setSubmitting(true);
+    try { const auth = getAuthInstance(); if (!auth) throw new Error('Auth not initialized');
+      await createUserWithEmailAndPassword(auth, email, password); router.push('/onboarding');
+    } catch (err) { setError((err as Error).message); } finally { setSubmitting(false); }
   }
 
   return (
-    <div className="space-y-5">
-      <div className="text-center">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Create an account</h1>
-        <p className="mt-1 text-sm text-zinc-500">Fill in the form to get started</p>
+    <Card padding="lg" className="w-full max-w-sm">
+      <div className="text-center mb-6">
+        <div className="h-10 w-10 rounded-lg bg-primary-500 mx-auto mb-3 flex items-center justify-center">
+          <span className="text-white font-bold text-sm">R</span>
+        </div>
+        <h1 className="text-xl font-bold text-text-900">Create an account</h1>
+        <p className="text-sm text-text-500 mt-1">Fill in the form to get started</p>
       </div>
 
-      {error && (
-        <div className="rounded-lg bg-red-50 dark:bg-red-950 p-3 text-sm text-red-600 dark:text-red-400">{error}</div>
-      )}
+      {error ? (
+        <div className="rounded-lg bg-danger-50 text-danger-500 p-3 text-sm mb-4">{error}</div>
+      ) : null}
 
       <form onSubmit={handleEmail} className="space-y-4">
         <div>
-          <label htmlFor="displayName" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Name</label>
+          <label htmlFor="displayName" className="block text-sm font-medium text-text-700 mb-1.5">Name</label>
           <input id="displayName" type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900"
+            className="w-full rounded-lg border border-surface-300 bg-white px-3 py-2.5 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             placeholder="Your name" />
         </div>
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Email</label>
+          <label htmlFor="email" className="block text-sm font-medium text-text-700 mb-1.5">Email</label>
           <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900"
+            className="w-full rounded-lg border border-surface-300 bg-white px-3 py-2.5 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             placeholder="you@example.com" required />
         </div>
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Password</label>
+          <label htmlFor="password" className="block text-sm font-medium text-text-700 mb-1.5">Password</label>
           <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900"
+            className="w-full rounded-lg border border-surface-300 bg-white px-3 py-2.5 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required minLength={6} />
         </div>
-        <button type="submit" className="w-full rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors">Sign up with Email</button>
+        <Button type="submit" fullWidth loading={submitting}>Sign up with Email</Button>
       </form>
 
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-zinc-200 dark:border-zinc-800" /></div>
-        <div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-zinc-900 px-2 text-zinc-400">Or continue with</span></div>
+      <div className="relative my-5">
+        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-surface-200" /></div>
+        <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-text-400">Or continue with</span></div>
       </div>
 
-      <button onClick={handleGoogle} className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">Google</button>
+      <Button variant="outline" fullWidth onClick={handleGoogle}>Google</Button>
 
-      <p className="text-center text-sm text-zinc-500">
+      <p className="text-center text-sm text-text-500 mt-6">
         Already have an account?{' '}
-        <Link href="/sign-in" className="font-medium text-zinc-900 dark:text-zinc-100 underline underline-offset-4">Sign in</Link>
+        <Link href="/sign-in" className="font-medium text-primary-500 hover:text-primary-600 underline underline-offset-4">Sign in</Link>
       </p>
-    </div>
+    </Card>
   );
 }

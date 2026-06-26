@@ -22,8 +22,8 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-800 dark:border-zinc-700 dark:border-t-zinc-200" />
+      <div className="flex min-h-screen items-center justify-center bg-surface-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-surface-300 border-t-primary-500" />
       </div>
     );
   }
@@ -31,7 +31,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
   if (!user) return null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
+    <div className="flex min-h-screen flex-col bg-surface-50">
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-12">
         <div className="mb-10">
           <div className="flex items-center justify-between">
@@ -41,38 +41,22 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
                   <div
                     className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
                       s.step < currentStep
-                        ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                        ? 'bg-primary-500 text-white'
                         : s.step === currentStep
-                          ? 'border-2 border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100'
-                          : 'border-2 border-zinc-300 text-zinc-400 dark:border-zinc-700 dark:text-zinc-500'
+                          ? 'border-2 border-primary-500 text-primary-500'
+                          : 'border-2 border-surface-300 text-text-400'
                     }`}
                   >
                     {s.step < currentStep ? (
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                       </svg>
-                    ) : (
-                      s.step
-                    )}
+                    ) : s.step}
                   </div>
-                  <span
-                    className={`text-sm font-medium ${
-                      s.step <= currentStep
-                        ? 'text-zinc-900 dark:text-zinc-100'
-                        : 'text-zinc-400 dark:text-zinc-500'
-                    }`}
-                  >
-                    {s.label}
-                  </span>
+                  <span className={`text-sm font-medium ${s.step <= currentStep ? 'text-text-900' : 'text-text-400'}`}>{s.label}</span>
                 </div>
                 {s.step < steps.length && (
-                  <div
-                    className={`mx-4 h-px w-16 ${
-                      s.step < currentStep
-                        ? 'bg-zinc-900 dark:bg-zinc-100'
-                        : 'bg-zinc-200 dark:bg-zinc-800'
-                    }`}
-                  />
+                  <div className={`mx-4 h-px w-16 ${s.step < currentStep ? 'bg-primary-500' : 'bg-surface-200'}`} />
                 )}
               </div>
             ))}
