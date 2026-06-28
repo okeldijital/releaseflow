@@ -1,93 +1,220 @@
+/* ───────────────────────────────────────────────────────────────────────
+ * ReleaseFlow Design Token System (PDS-13) — `--rf-*` mirror
+ *
+ * Mirrors the tokens defined in `app/globals.css` (the @theme block) under
+ * the `rf-` namespace mandated by PDS-13 § "CSS Variable Mapping" so any
+ * code referencing `var(--rf-color-primary-500)`, `var(--rf-space-24)`,
+ * etc. resolves — even when consumed outside the Tailwind pipeline.
+ * ─────────────────────────────────────────────────────────────────────── */
+
 @layer base {
   :root {
-    --color-primary-500: #CC5500;
-    --color-secondary-500: #D4A373;
+    /* ─── Color.Primary (PDS-13) ──────────────────────────────────── */
+    --rf-color-primary-50:  #FFF5EE;
+    --rf-color-primary-100: #FFE6CC;
+    --rf-color-primary-200: #FFCC99;
+    --rf-color-primary-300: #FFB266;
+    --rf-color-primary-400: #FF9933;
+    --rf-color-primary-500: #CC5500;
+    --rf-color-primary-600: #B34A00;
+    --rf-color-primary-700: #8A3900;
+    --rf-color-primary-800: #5C2600;
+    --rf-color-primary-900: #2E1300;
 
-    --color-surface-50: #FAF6F1;
-    --color-surface-100: #F4EEE7;
-    --color-surface-200: #EDE5DC;
-    --color-surface-300: #E5DBD0;
-    --color-surface-900: #1E1B18;
+    /* ─── Color.Surface (PDS-13) ──────────────────────────────────── */
+    --rf-color-surface-0:   #FFFFFF;
+    --rf-color-surface-50:  #FAF8F5;
+    --rf-color-surface-100: #F4F0EB;
+    --rf-color-surface-200: #EAE5DE;
+    --rf-color-surface-300: #DDD7CE;
+    --rf-color-surface-400: #C9C2B8;
+    --rf-color-surface-500: #B5ADA2;
+    --rf-color-surface-600: #8A8278;
+    --rf-color-surface-700: #6B6360;
+    --rf-color-surface-800: #3A342F;
+    --rf-color-surface-900: #1E1A17;
+    --rf-color-surface-950: #130F0C;
 
-    --color-text-900: #2C2419;
-    --color-text-700: #5C5348;
-    --color-text-500: #8B8276;
-    --color-text-400: #A39A8E;
+    /* ─── Color.Text (PDS-13) ─────────────────────────────────────── */
+    --rf-color-text-primary:   #2A2319;
+    --rf-color-text-secondary: #6D665F;
+    --rf-color-text-tertiary:  #78716C;
+    --rf-color-text-disabled:  #BDB4A8;
+    --rf-color-text-inverse:   #FFFFFF;
 
-    --color-success-500: #2E7D32;
-    --color-success-50: #E8F5E9;
-    --color-warning-500: #ED6C02;
-    --color-warning-50: #FFF3E0;
-    --color-danger-500: #D32F2F;
-    --color-danger-50: #FFEBEE;
-    --color-info-500: #0288D1;
-    --color-info-50: #E1F5FE;
+    /* ─── Color.Feedback (PDS-13) ─────────────────────────────────── */
+    --rf-color-success-50:  #EDFAF0;
+    --rf-color-success-100: #C8EDCF;
+    --rf-color-success-500: #2A7D34;
+    --rf-color-success-600: #22682B;
+    --rf-color-success-700: #1A5221;
 
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --radius-xl: 24px;
+    --rf-color-warning-50:  #FFF8EB;
+    --rf-color-warning-100: #FFE8B0;
+    --rf-color-warning-500: #D97706;
+    --rf-color-warning-600: #B45309;
+    --rf-color-warning-700: #92400E;
 
-    --shadow-card: 0 1px 3px rgba(44, 36, 25, 0.06), 0 1px 2px rgba(44, 36, 25, 0.04);
-    --shadow-elevated: 0 4px 6px rgba(44, 36, 25, 0.06), 0 2px 4px rgba(44, 36, 25, 0.04);
-    --shadow-modal: 0 20px 60px rgba(44, 36, 25, 0.12), 0 8px 16px rgba(44, 36, 25, 0.08);
+    --rf-color-danger-50:  #FFF1F1;
+    --rf-color-danger-100: #FECACA;
+    --rf-color-danger-500: #C53030;
+    --rf-color-danger-600: #A12626;
+    --rf-color-danger-700: #7E1D1D;
+
+    --rf-color-info-50:  #EFF8FF;
+    --rf-color-info-100: #BFDBFE;
+    --rf-color-info-500: #1D6FA4;
+    --rf-color-info-600: #185D8A;
+    --rf-color-info-700: #124A6F;
+
+    /* ─── Color.Workflow (PDS-13) ─────────────────────────────────── */
+    --rf-color-workflow-planning:     #78716C;
+    --rf-color-workflow-recording:    #1D6FA4;
+    --rf-color-workflow-mixing:       #6D28D9;
+    --rf-color-workflow-mastering:    #BE185D;
+    --rf-color-workflow-artwork:      #D97706;
+    --rf-color-workflow-publishing:   #0F766E;
+    --rf-color-workflow-distribution: #15803D;
+    --rf-color-workflow-released:     #2A7D34;
+
+    /* ─── Status (PDS-13) ─────────────────────────────────────────── */
+    --rf-color-status-healthy:   var(--rf-color-success-500);
+    --rf-color-status-attention: var(--rf-color-warning-500);
+    --rf-color-status-blocked:   var(--rf-color-danger-500);
+    --rf-color-status-critical:  var(--rf-color-danger-600);
+    --rf-color-status-released:  var(--rf-color-workflow-released);
+
+    /* ─── Border (PDS-13) ─────────────────────────────────────────── */
+    --rf-color-border-subtle:  var(--rf-color-surface-200);
+    --rf-color-border-default: var(--rf-color-surface-300);
+    --rf-color-border-strong:  var(--rf-color-surface-400);
+    --rf-color-border-focus:   var(--rf-color-primary-500);
+    --rf-color-border-error:   var(--rf-color-danger-500);
+
+    /* ─── Typography — sizes / line-heights / weights (PDS-13) ────── */
+    --rf-text-display-xl-size:   3rem;
+    --rf-text-display-xl-lh:     3.5rem;
+    --rf-text-display-xl-weight: 700;
+
+    --rf-text-display-l-size:    2.25rem;
+    --rf-text-display-l-lh:      2.75rem;
+    --rf-text-display-l-weight:  700;
+
+    --rf-text-display-m-size:    1.875rem;
+    --rf-text-display-m-lh:      2.375rem;
+    --rf-text-display-m-weight:  700;
+
+    --rf-text-heading-1-size:    1.5rem;
+    --rf-text-heading-1-lh:      2rem;
+    --rf-text-heading-1-weight:  600;
+
+    --rf-text-heading-2-size:    1.25rem;
+    --rf-text-heading-2-lh:      1.75rem;
+    --rf-text-heading-2-weight:  600;
+
+    --rf-text-heading-3-size:    1.125rem;
+    --rf-text-heading-3-lh:      1.625rem;
+    --rf-text-heading-3-weight:  600;
+
+    --rf-text-heading-4-size:    1rem;
+    --rf-text-heading-4-lh:      1.5rem;
+    --rf-text-heading-4-weight:  600;
+
+    --rf-text-body-large-size:   1rem;
+    --rf-text-body-large-lh:     1.5rem;
+    --rf-text-body-large-weight: 400;
+
+    --rf-text-body-size:         0.875rem;
+    --rf-text-body-lh:           1.25rem;
+    --rf-text-body-weight:       400;
+
+    --rf-text-body-small-size:   0.75rem;
+    --rf-text-body-small-lh:     1.125rem;
+    --rf-text-body-small-weight: 400;
+
+    --rf-text-caption-size:      0.6875rem;
+    --rf-text-caption-lh:        1rem;
+    --rf-text-caption-weight:    400;
+
+    --rf-text-label-size:        0.75rem;
+    --rf-text-label-lh:          1rem;
+    --rf-text-label-weight:      500;
+
+    --rf-text-overline-size:     0.625rem;
+    --rf-text-overline-lh:       0.875rem;
+    --rf-text-overline-weight:   600;
+    --rf-text-overline-tracking: 0.08em;
+
+    /* ─── Spacing — 8-point system (PDS-13) ───────────────────────── */
+    --rf-space-4:  0.25rem;
+    --rf-space-8:  0.5rem;
+    --rf-space-12: 0.75rem;
+    --rf-space-16: 1rem;
+    --rf-space-24: 1.5rem;
+    --rf-space-32: 2rem;
+    --rf-space-48: 3rem;
+    --rf-space-64: 4rem;
+    --rf-space-96: 6rem;
+
+    /* ─── Radius (PDS-13) ─────────────────────────────────────────── */
+    --rf-radius-none: 0;
+    --rf-radius-sm:   6px;
+    --rf-radius-md:   10px;
+    --rf-radius-lg:   14px;
+    --rf-radius-xl:   20px;
+    --rf-radius-2xl:  28px;
+    --rf-radius-full: 9999px;
+
+    /* ─── Shadow (PDS-13) — warm-tinted, editorial ────────────────── */
+    --rf-shadow-none:    none;
+    --rf-shadow-card:    0 1px 3px rgba(42, 35, 25, 0.06), 0 1px 2px rgba(42, 35, 25, 0.04);
+    --rf-shadow-raised:  0 4px 12px rgba(42, 35, 25, 0.08), 0 2px 4px rgba(42, 35, 25, 0.05);
+    --rf-shadow-modal:   0 24px 72px rgba(42, 35, 25, 0.14), 0 8px 24px rgba(42, 35, 25, 0.08);
+    --rf-shadow-overlay: 0 8px 24px rgba(42, 35, 25, 0.10);
+    --rf-shadow-focus:   0 0 0 3px rgba(204, 85, 0, 0.18);
+
+    /* ─── Motion (PDS-13) ─────────────────────────────────────────── */
+    --rf-motion-instant: 0ms;
+    --rf-motion-fast:    100ms;
+    --rf-motion-normal:  200ms;
+    --rf-motion-slow:    300ms;
+
+    /* ─── Easing (PDS-13) ──────────────────────────────────────────── */
+    --rf-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --rf-ease-enter:    cubic-bezier(0, 0, 0.2, 1);
+    --rf-ease-exit:     cubic-bezier(0.4, 0, 1, 1);
+
+    /* ─── Elevation (PDS-13) — z-index ────────────────────────────── */
+    --rf-elevation-base:   0;
+    --rf-elevation-card:   10;
+    --rf-elevation-drawer: 40;
+    --rf-elevation-modal:  50;
+    --rf-elevation-toast:  100;
+
+    /* ─── Layout (PDS-13) ──────────────────────────────────────────── */
+    --rf-container-narrow:   640px;
+    --rf-container-standard: 1024px;
+    --rf-container-wide:     1280px;
+    --rf-sidebar-width:      240px;
+    --rf-context-rail-width: 320px;
+    --rf-header-height:      64px;
+
+    /* ─── Icon (PDS-13) ───────────────────────────────────────────── */
+    --rf-icon-size-sm: 16px;
+    --rf-icon-size-md: 20px;
+    --rf-icon-size-lg: 24px;
+    --rf-icon-stroke:  1.75;
+
+    /* ─── Avatar (PDS-13) ─────────────────────────────────────────── */
+    --rf-avatar-sm: 24px;
+    --rf-avatar-md: 32px;
+    --rf-avatar-lg: 40px;
+    --rf-avatar-xl: 56px;
+
+    /* ─── Opacity (PDS-13) ────────────────────────────────────────── */
+    --rf-opacity-disabled: 0.4;
+    --rf-opacity-hover:    0.08;
+    --rf-opacity-pressed:  0.12;
+    --rf-opacity-loading:  0.6;
   }
-}
-
-@theme inline {
-  --color-primary-500: var(--color-primary-500);
-  --color-secondary-500: var(--color-secondary-500);
-
-  --color-surface-50: var(--color-surface-50);
-  --color-surface-100: var(--color-surface-100);
-  --color-surface-200: var(--color-surface-200);
-  --color-surface-300: var(--color-surface-300);
-  --color-surface-900: var(--color-surface-900);
-
-  --color-text-900: var(--color-text-900);
-  --color-text-700: var(--color-text-700);
-  --color-text-500: var(--color-text-500);
-  --color-text-400: var(--color-text-400);
-
-  --color-success-500: var(--color-success-500);
-  --color-success-50: var(--color-success-50);
-  --color-warning-500: var(--color-warning-500);
-  --color-warning-50: var(--color-warning-50);
-  --color-danger-500: var(--color-danger-500);
-  --color-danger-50: var(--color-danger-50);
-  --color-info-500: var(--color-info-500);
-  --color-info-50: var(--color-info-50);
-
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
-  --radius-xl: var(--radius-xl);
-
-  --shadow-card: var(--shadow-card);
-  --shadow-elevated: var(--shadow-elevated);
-  --shadow-modal: var(--shadow-modal);
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-@layer utilities {
-  .animate-slide-up { animation: slideUp 200ms ease-out; }
-  .animate-fade-in { animation: fadeIn 150ms ease-out; }
-}
-
-.page-transition {
-  animation: fadeIn 150ms ease-out;
 }

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
-import { Button, Card } from '@releaseflow/ui';
+import { Alert, Button, Card, Input } from '@releaseflow/ui';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -30,17 +30,12 @@ export default function ForgotPasswordPage() {
       </div>
 
       {sent ? (
-        <div className="rounded-lg bg-success-50 text-success-500 p-4 text-sm text-center">Check your email for a password reset link.</div>
+        <Alert type="success" message="Check your email for a password reset link." />
       ) : (
         <>
-          {error ? <div className="rounded-lg bg-danger-50 text-danger-500 p-3 text-sm mb-4">{error}</div> : null}
+          {error ? <Alert type="error" message={error} dismissible onDismiss={() => setError('')} /> : null}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-text-700 mb-1.5">Email</label>
-              <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-surface-300 bg-white px-3 py-2.5 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="you@example.com" required />
-            </div>
+            <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required />
             <Button type="submit" fullWidth loading={submitting}>Send Reset Link</Button>
           </form>
         </>

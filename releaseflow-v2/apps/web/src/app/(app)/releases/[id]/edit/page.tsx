@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { useState, useEffect, FormEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
-import { getDb } from '@/lib/firebase';
 import { useOrgStore } from '@/stores/org-store';
 import { useAuth } from '@/contexts/auth-context';
+import { fetchRelease, editRelease } from '@/lib/release-service';
+import type { ReleaseRecord } from '@/lib/release-repository';
+import { Button, Card, Input, Select, LoadingState, EmptyState } from '@releaseflow/ui';
 
 const releaseTypes = [
   { value: 'single', label: 'Single' },
@@ -51,25 +52,25 @@ export default function EditReleasePage() {
   const [forbidden, setForbidden] = useState(false);
   const [releaseOrgId, setReleaseOrgId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
-      const db = getDb();
-      if (!db) return;
-      const snap = await getDoc(doc(db, 'releases', id));
-      if (!snap.exists()) { setLoading(false); return; }
-      const data = snap.data();
+      const data = await fetchRelease(id);
+      if (!data) { setLoading(false); return; }
       if (activeOrgId && data.organizationId && data.organizationId !== activeOrgId) {
         setForbidden(true);
         setLoading(false);
         return;
       }
-      setReleaseOrgId((data.organizationId as string) ?? null);
+      setReleaseOrgId(data.organizationId ?? null);
       setTitle(data.title ?? '');
       setReleaseType(data.releaseType ?? 'single');
       setStatus(data.status ?? 'draft');
       if (data.targetReleaseDate) {
-        const d = data.targetReleaseDate.toDate ? data.targetReleaseDate.toDate() : new Date(data.targetReleaseDate.seconds * 1000);
+        const d = (data.targetReleaseDate as { toDate?: () => Date; seconds?: number }).toDate
+          ? (data.targetReleaseDate as { toDate: () => Date }).toDate()
+          : new Date((data.targetReleaseDate as { seconds: number }).seconds * 1000);
         setTargetReleaseDate(d.toISOString().split('T')[0] ?? '');
       }
       setUpc(data.upc ?? '');
@@ -85,7 +86,7 @@ export default function EditReleasePage() {
       setLoading(false);
     }
     load();
-  }, [id]);
+  }, [id, activeOrgId]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -93,150 +94,100 @@ export default function EditReleasePage() {
     if (!user) return;
     if (activeOrgId && releaseOrgId && releaseOrgId !== activeOrgId) return;
     setSubmitting(true);
-    const db = getDb();
-    if (!db) return;
-    await updateDoc(doc(db, 'releases', id), {
-      title,
-      releaseType,
-      status,
-      targetReleaseDate: targetReleaseDate ? Timestamp.fromDate(new Date(targetReleaseDate)) : null,
-      upc: upc || null,
-      catalogNumber: catalogNumber || null,
-      label: label || null,
-      copyright: copyright || null,
-      pLine: pLine || null,
-      cLine: cLine || null,
-      genre: genre || null,
-      subgenre: subgenre || null,
-      language: language || null,
-      explicit: explicit || null,
-      updatedAt: Timestamp.now(),
-    });
-    router.push(`/releases/${id}`);
+    setError(null);
+    try {
+      await editRelease(id, {
+        title,
+        releaseType: releaseType as ReleaseRecord['releaseType'],
+        status: status as ReleaseRecord['status'],
+        targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null,
+        upc: upc || null,
+        catalogNumber: catalogNumber || null,
+        label: label || null,
+        copyright: copyright || null,
+        pLine: pLine || null,
+        cLine: cLine || null,
+        genre: genre || null,
+        subgenre: subgenre || null,
+        language: language || null,
+        explicit: explicit || null,
+      }, user.uid);
+      router.push(`/releases/${id}`);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (forbidden) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-2">Access Denied</p>
-        <p className="text-sm text-zinc-500 mb-4">You do not have permission to edit this release.</p>
-        <Link href="/dashboard" className="text-sm text-zinc-900 dark:text-zinc-100 underline underline-offset-4">Go to Dashboard</Link>
-      </div>
+      <EmptyState
+        title="Access Denied"
+        description="You do not have permission to edit this release."
+        action={{ label: 'Go to Dashboard', onClick: () => router.push('/dashboard') }}
+      />
     );
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-800" /></div>;
+    return <div className="flex items-center justify-center py-20"><LoadingState /></div>;
   }
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
-      <Link href={`/releases/${id}`} className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 mb-6 inline-block">&larr; Back to release</Link>
-      <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-8">Edit Release</h1>
+      <Link href={`/releases/${id}`} className="text-sm text-text-500 hover:text-text-900 dark:hover:text-surface-100 mb-6 inline-block">&larr; Back to release</Link>
+      <h1 className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-8">Edit Release</h1>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Title</label>
-          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Release title"
-            className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Release Type</label>
-          <select value={releaseType} onChange={(e) => setReleaseType(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-900">
-            {releaseTypes.map((rt) => <option key={rt.value} value={rt.value}>{rt.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-900">
-            {releaseStatuses.map((rs) => <option key={rs.value} value={rs.value}>{rs.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Target Release Date <span className="text-zinc-400 font-normal">(optional)</span></label>
-          <input type="date" value={targetReleaseDate} onChange={(e) => setTargetReleaseDate(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-        </div>
+      <Card padding="lg">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Release title" label="Title" />
+          <Select label="Release Type" options={releaseTypes.map((rt) => ({ value: rt.value, label: rt.label }))} value={releaseType} onChange={setReleaseType} />
+          <Select label="Status" options={releaseStatuses.map((rs) => ({ value: rs.value, label: rs.label }))} value={status} onChange={setStatus} />
+          <Input type="date" value={targetReleaseDate} onChange={(e) => setTargetReleaseDate(e.target.value)} label="Target Release Date" hint="Optional" />
 
-        <div>
-          <button type="button" onClick={() => setShowMetadata(!showMetadata)}
-            className="flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
-            <svg className={`w-4 h-4 transition-transform ${showMetadata ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            Metadata
-          </button>
-        </div>
-
-        {showMetadata ? (
-          <div className="space-y-4 pl-6 border-l-2 border-zinc-200 dark:border-zinc-700">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">UPC</label>
-                <input type="text" value={upc} onChange={(e) => setUpc(e.target.value)} placeholder="012345678901"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Catalog Number</label>
-                <input type="text" value={catalogNumber} onChange={(e) => setCatalogNumber(e.target.value)} placeholder="CAT-001"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Label</label>
-                <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label name"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Genre</label>
-                <input type="text" value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Electronic"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Subgenre</label>
-                <input type="text" value={subgenre} onChange={(e) => setSubgenre(e.target.value)} placeholder="House"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Language</label>
-                <input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="English"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Copyright</label>
-                <input type="text" value={copyright} onChange={(e) => setCopyright(e.target.value)} placeholder="&#169; 2025 Label Name"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">P-Line</label>
-                <input type="text" value={pLine} onChange={(e) => setPLine(e.target.value)} placeholder="℗ 2025 Label Name"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">C-Line</label>
-                <input type="text" value={cLine} onChange={(e) => setCLine(e.target.value)} placeholder="&#169; 2025 Label Name"
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-              </div>
-              <div className="flex items-end">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={explicit} onChange={(e) => setExplicit(e.target.checked)}
-                    className="rounded border-zinc-300 dark:border-zinc-700 text-zinc-900 focus:ring-zinc-900" />
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Explicit Content</span>
-                </label>
-              </div>
-            </div>
+          <div>
+            <button type="button" onClick={() => setShowMetadata(!showMetadata)}
+              className="flex items-center gap-2 text-sm font-medium text-text-500 hover:text-text-900 dark:hover:text-surface-100 transition-colors">
+              <svg className={`w-4 h-4 transition-transform ${showMetadata ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              Metadata
+            </button>
           </div>
-        ) : null}
 
-        <div className="flex items-center gap-4 pt-2">
-          <button type="submit" disabled={submitting || !title.trim()}
-            className="rounded-lg bg-zinc-900 dark:bg-zinc-100 px-6 py-2.5 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed">
-            {submitting ? 'Saving...' : 'Save Changes'}
-          </button>
-          <Link href={`/releases/${id}`} className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">Cancel</Link>
-        </div>
-      </form>
+          {showMetadata ? (
+            <div className="space-y-4 pl-6 border-l-2 border-surface-200 dark:border-surface-600">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input type="text" value={upc} onChange={(e) => setUpc(e.target.value)} placeholder="012345678901" label="UPC" />
+                <Input type="text" value={catalogNumber} onChange={(e) => setCatalogNumber(e.target.value)} placeholder="CAT-001" label="Catalog Number" />
+                <Input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label name" label="Label" />
+                <Input type="text" value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Electronic" label="Genre" />
+                <Input type="text" value={subgenre} onChange={(e) => setSubgenre(e.target.value)} placeholder="House" label="Subgenre" />
+                <Input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="English" label="Language" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input type="text" value={copyright} onChange={(e) => setCopyright(e.target.value)} placeholder="&#169; 2025 Label Name" label="Copyright" />
+                <Input type="text" value={pLine} onChange={(e) => setPLine(e.target.value)} placeholder="&#8482; 2025 Label Name" label="P-Line" />
+                <Input type="text" value={cLine} onChange={(e) => setCLine(e.target.value)} placeholder="&#169; 2025 Label Name" label="C-Line" />
+                <div className="flex items-end">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={explicit} onChange={(e) => setExplicit(e.target.checked)}
+                      className="rounded border-surface-300 dark:border-surface-600 text-text-900 focus:ring-primary-500" />
+                    <span className="text-sm font-medium text-text-700 dark:text-surface-300">Explicit Content</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {error && <p className="text-sm text-danger-500">{error}</p>}
+          <div className="flex items-center gap-4 pt-2">
+            <Button type="submit" variant="primary" disabled={submitting || !title.trim()} loading={submitting}>
+              {submitting ? 'Saving...' : 'Save Changes'}
+            </Button>
+            <Link href={`/releases/${id}`} className="text-sm text-text-500 hover:text-text-900 dark:hover:text-surface-100">Cancel</Link>
+          </div>
+        </form>
+      </Card>
     </div>
   );
 }

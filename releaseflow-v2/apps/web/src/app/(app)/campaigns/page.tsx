@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useOrgStore } from '@/stores/org-store';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
+import { Button, Card, EmptyState, LoadingState, StatusBadge } from '@releaseflow/ui';
 import type { Campaign } from '../types';
 
 const typeLabels: Record<string, string> = {
@@ -16,6 +18,7 @@ const typeLabels: Record<string, string> = {
 };
 
 export default function CampaignsPage() {
+  const router = useRouter();
   const { activeOrgId } = useOrgStore();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,40 +45,33 @@ export default function CampaignsPage() {
   }, [activeOrgId]);
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-800" /></div>;
+    return <LoadingState />;
   }
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Campaigns</h1>
-        <Link href="/campaigns/new" className="rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200">New Campaign</Link>
+        <h1 className="text-2xl font-bold text-text-900 dark:text-surface-50">Campaigns</h1>
+        <Link href="/campaigns/new"><Button variant="primary">New Campaign</Button></Link>
       </div>
 
       {!activeOrgId ? (
-        <div className="text-center py-16 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700">
-          <p className="text-zinc-500">Select an organization first.</p>
-        </div>
+        <EmptyState title="Select an organization first." />
       ) : campaigns.length === 0 ? (
-        <div className="text-center py-16 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700">
-          <p className="text-zinc-500 mb-1">No campaigns yet.</p>
-          <Link href="/campaigns/new" className="text-sm text-zinc-900 dark:text-zinc-100 underline underline-offset-4">Create your first campaign</Link>
-        </div>
+        <EmptyState title="No campaigns yet." action={{ label: 'Create your first campaign', onClick: () => router.push('/campaigns/new') }} />
       ) : (
         <div className="space-y-3">
           {campaigns.map((c) => (
-            <Link key={c.id} href={`/campaigns/${c.id}`} className="block rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-zinc-900 dark:text-zinc-50">{c.name}</p>
-                  <p className="text-sm text-zinc-500 mt-0.5">{typeLabels[c.type] ?? c.type} &middot; {c.status}</p>
+            <Link key={c.id} href={`/campaigns/${c.id}`}>
+              <Card hover clickable>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-text-900 dark:text-surface-50">{c.name}</p>
+                    <p className="text-sm text-text-500 mt-0.5">{typeLabels[c.type] ?? c.type} &middot; {c.status}</p>
+                  </div>
+                  <StatusBadge status={c.status} />
                 </div>
-                <span className={`text-xs capitalize rounded-full px-2.5 py-0.5 ${
-                  c.status === 'active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' :
-                  c.status === 'completed' ? 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400' :
-                  'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                }`}>{c.status}</span>
-              </div>
+              </Card>
             </Link>
           ))}
         </div>

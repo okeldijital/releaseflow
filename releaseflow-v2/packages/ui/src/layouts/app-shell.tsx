@@ -1,9 +1,10 @@
 import { type ReactNode, useState } from 'react';
-import { Sidebar, type NavItem } from '../navigation/sidebar';
+import { Sidebar, type NavItem, type NavSection } from '../navigation/sidebar';
 import { Topbar, Breadcrumbs } from '../navigation/topbar';
 
 interface AppShellProps {
   navItems: NavItem[];
+  navSections: NavSection[];
   activePath: string;
   onNavigate: (href: string) => void;
   userEmail?: string;
@@ -15,8 +16,16 @@ interface AppShellProps {
 }
 
 export function AppShell({
-  navItems, activePath, onNavigate, userEmail, userImage, onSignOut,
-  breadcrumbItems, topbarChildren, children,
+  navItems,
+  navSections,
+  activePath,
+  onNavigate,
+  userEmail,
+  userImage,
+  onSignOut,
+  breadcrumbItems,
+  topbarChildren,
+  children,
 }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -24,6 +33,7 @@ export function AppShell({
     <div className="flex min-h-screen bg-surface-50 dark:bg-surface-950">
       <Sidebar
         items={navItems}
+        sections={navSections}
         activePath={activePath}
         onNavigate={onNavigate}
         userEmail={userEmail}
@@ -32,11 +42,23 @@ export function AppShell({
         collapsed={collapsed}
         onToggle={() => setCollapsed(!collapsed)}
       />
+
       <div className="flex flex-1 flex-col min-w-0">
-        <Topbar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} breadcrumbs={breadcrumbItems ? <Breadcrumbs items={breadcrumbItems} /> : undefined}>
+        <Topbar
+          collapsed={collapsed}
+          onToggle={() => setCollapsed(!collapsed)}
+          breadcrumbs={
+            breadcrumbItems && breadcrumbItems.length > 0 ? (
+              <Breadcrumbs items={breadcrumbItems} />
+            ) : undefined
+          }
+        >
           {topbarChildren}
         </Topbar>
-        <main className="flex-1">{children}</main>
+
+        <main id="main-content" className="flex-1 animate-fade-in">
+          {children}
+        </main>
       </div>
     </div>
   );
@@ -50,11 +72,12 @@ interface WorkspaceLayoutProps {
 export function WorkspaceLayout({ children, contextRail }: WorkspaceLayoutProps) {
   return (
     <div className="flex flex-1">
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        {children}
-      </div>
+      <div className="flex-1 min-w-0 overflow-y-auto">{children}</div>
       {contextRail ? (
-        <aside className="hidden lg:block w-80 shrink-0 border-l border-surface-200 bg-surface-100 overflow-y-auto sticky top-16 h-[calc(100vh-4rem)]">
+        <aside
+          className="hidden xl:flex xl:flex-col w-80 shrink-0 border-l border-surface-200 bg-surface-50 dark:bg-surface-900 dark:border-surface-700 overflow-y-auto sticky top-16 h-[calc(100vh-4rem)]"
+          aria-label="Context panel"
+        >
           {contextRail}
         </aside>
       ) : null}
@@ -70,19 +93,13 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ metrics, workArea, activity }: DashboardLayoutProps) {
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8 space-y-6">
+    <div className="mx-auto max-w-5xl px-6 py-8 space-y-8">
       {metrics ? (
-        <div className="grid gap-4 sm:grid-cols-3">
-          {metrics}
-        </div>
+        <div className="grid gap-4 sm:grid-cols-3">{metrics}</div>
       ) : null}
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          {workArea}
-        </div>
-        <div className="space-y-6">
-          {activity}
-        </div>
+        <div className="lg:col-span-2 space-y-6">{workArea}</div>
+        <div className="space-y-6">{activity}</div>
       </div>
     </div>
   );

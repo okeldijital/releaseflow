@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
+import { LoadingState } from '@releaseflow/ui';
 
 const steps = [
   { label: 'Organization', step: 1 },
@@ -20,13 +21,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
     if (!loading && !user) router.replace('/sign-in');
   }, [user, loading, router]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-surface-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-surface-300 border-t-primary-500" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingState />;
 
   if (!user) return null;
 

@@ -1,90 +1,32 @@
-import { collection, addDoc, updateDoc, Timestamp } from 'firebase/firestore';
-import { getDb } from '@/lib/firebase';
-import { getStageTemplatesForReleaseType, initialStageStatus } from '@/lib/workflow-templates';
-import type { Release, ActivityType } from '@/app/(app)/types';
+import { getWorkflow, getStages, createActivity, getActivities } from './workflow-repository';
+import { getStageTemplatesForReleaseType } from './workflow-templates';
+import type { ActivityRecord } from './workflow-repository';
 
-export async function generateWorkflowForRelease(
-  releaseId: string,
-  releaseType: Release['releaseType'],
-  actorId: string,
-) {
-  const db = getDb();
-  if (!db) throw new Error('Firestore not initialized');
+export type { WorkflowRecord, StageRecord, ActivityRecord } from './workflow-repository';
 
-  const templates = getStageTemplatesForReleaseType(releaseType);
-  if (templates.length === 0) return;
+export async function fetchWorkflow(releaseId: string) {
+  return getWorkflow(releaseId);
+}
 
-  const workflowRef = await addDoc(collection(db, 'workflows'), {
-    releaseId,
-    templateId: releaseType,
-    status: 'in_progress',
-    progress: 0,
-    currentStageId: null,
-    startedAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-  });
-
-  const workflowId = workflowRef.id;
-
-  let firstStageId: string | null = null;
-  const now = Timestamp.now();
-  for (const tpl of templates) {
-    const stageRef = await addDoc(collection(db, 'stages'), {
-      workflowId,
-      name: tpl.name,
-      order: tpl.order,
-      status: tpl.order === 1 ? 'in_progress' : initialStageStatus,
-      startedAt: tpl.order === 1 ? now : null,
-      dueDate: null,
-      assignedRole: tpl.assignedRole ?? null,
-      completedAt: null,
-    });
-    if (tpl.order === 1) firstStageId = stageRef.id;
-  }
-
-  const updates: Record<string, unknown> = {
-    currentStageId: firstStageId,
-    status: 'in_progress',
-    progress: 0,
-  };
-  await updateDoc(workflowRef, updates);
-
-  await Promise.all([
-    logActivity({
-      type: 'workflow.generated',
-      releaseId,
-      workflowId,
-      actorId,
-    }),
-    logActivity({
-      type: 'stage.started',
-      releaseId,
-      workflowId,
-      stageId: firstStageId ?? undefined,
-      actorId,
-    }),
-  ]);
-
-  return workflowId;
+export async function fetchStages(workflowId: string) {
+  return getStages(workflowId);
 }
 
 export async function logActivity(fields: {
-  type: ActivityType;
+  type: string;
   releaseId: string;
-  workflowId?: string;
-  stageId?: string;
+  workflowId?: string | null;
+  stageId?: string | null;
   actorId: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> | null;
 }) {
-  const db = getDb();
-  if (!db) return;
-  await addDoc(collection(db, 'activities'), {
-    type: fields.type,
-    releaseId: fields.releaseId,
-    workflowId: fields.workflowId ?? null,
-    stageId: fields.stageId ?? null,
-    actorId: fields.actorId,
-    metadata: fields.metadata ?? null,
-    createdAt: Timestamp.now(),
-  });
+  return createActivity(fields);
+}
+
+export async function fetchActivity(releaseId: string, max = 50) {
+  return getActivities(releaseId, max);
+}
+
+export function getStageTemplates(releaseType: string) {
+  return getStageTemplatesForReleaseType(releaseType as 'single' | 'ep' | 'album' | 'remix' | 'compilation');
 }

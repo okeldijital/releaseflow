@@ -15,7 +15,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-800 dark:border-zinc-700 dark:border-t-zinc-200" />
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-surface-300 border-t-surface-800 dark:border-surface-600 dark:border-t-surface-200" />
     </div>
   );
 }

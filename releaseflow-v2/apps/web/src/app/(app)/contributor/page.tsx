@@ -270,7 +270,7 @@ export default function ContributorPage() {
             <h2 className="text-sm font-semibold text-text-900 mb-3">Quick Links</h2>
             <div className="space-y-1 text-sm">
               <Link href="/releases" className="block text-text-500 hover:text-text-900 py-1">View Releases</Link>
-              <Link href="/operations" className="block text-text-500 hover:text-text-900 py-1">Operations Center</Link>
+              <Link href="/dashboard" className="block text-text-500 hover:text-text-900 py-1">Operations Center</Link>
               <Link href="/brief" className="block text-text-500 hover:text-text-900 py-1">Daily Brief</Link>
             </div>
           </Card>

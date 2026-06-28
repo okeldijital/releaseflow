@@ -32,6 +32,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@releaseflow/domain-ui':
+        specifier: workspace:*
+        version: link:../../packages/domain-ui
       firebase:
         specifier: ^11.10.0
         version: 11.10.0
@@ -81,6 +84,25 @@ importers:
 
   packages/config:
     devDependencies:
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+
+  packages/domain-ui:
+    dependencies:
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
       typescript:
         specifier: ^5.8.0
         version: 5.9.3

@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { getDb } from '@/lib/firebase';
+import { getUserRole } from '@/lib/organization-repository';
 
 export type AppRole = 'owner' | 'admin' | 'release_manager' | 'contributor' | 'viewer';
 
@@ -24,21 +23,9 @@ export const useRoleStore = create<RoleState>((set) => ({
   role: 'viewer',
   loading: true,
   resolveRole: async (userId: string) => {
-    const db = getDb();
-    if (!db) { set({ role: 'contributor', loading: false }); return; }
     try {
-      const snap = await getDocs(
-        query(collection(db, 'memberships'), where('userId', '==', userId), where('status', '==', 'active')),
-      );
-      if (!snap.empty) {
-        const firstDoc = snap.docs[0];
-        if (firstDoc) {
-          const membership = firstDoc.data() as { roleId: string };
-          set({ role: mapRoleIdToAppRole(membership.roleId), loading: false });
-          return;
-        }
-      }
-      set({ role: 'contributor', loading: false });
+      const roleId = await getUserRole(userId);
+      set({ role: mapRoleIdToAppRole(roleId), loading: false });
     } catch {
       set({ role: 'contributor', loading: false });
     }

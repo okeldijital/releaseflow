@@ -8,6 +8,7 @@ import { useOrgStore } from '@/stores/org-store';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { createCampaign } from '@/lib/campaign-service';
+import { Button, Card, Input, Select } from '@releaseflow/ui';
 
 const campaignTypes = [
   { value: 'pre_save', label: 'Pre-Save' },
@@ -62,36 +63,21 @@ export default function NewCampaignPage() {
 
   return (
     <div className="mx-auto max-w-lg px-6 py-8">
-      <Link href="/campaigns" className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 mb-6 inline-block">&larr; Back</Link>
-      <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-8">New Campaign</h1>
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Name</label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Summer Release Campaign"
-            className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Type</label>
-          <select value={type} onChange={(e) => setType(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-900">
-            {campaignTypes.map((ct) => <option key={ct.value} value={ct.value}>{ct.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Release</label>
-          <select value={releaseId} onChange={(e) => setReleaseId(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-900">
-            {releases.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-4 pt-2">
-          <button type="submit" disabled={submitting || !name.trim() || !releaseId}
-            className="rounded-lg bg-zinc-900 dark:bg-zinc-100 px-6 py-2.5 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50">
-            {submitting ? 'Creating...' : 'Create Campaign'}
-          </button>
-          <Link href="/campaigns" className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">Cancel</Link>
-        </div>
-      </form>
+      <Link href="/campaigns" className="text-sm text-text-500 hover:text-text-900 dark:hover:text-surface-100 mb-6 inline-block">&larr; Back</Link>
+      <h1 className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-8">New Campaign</h1>
+      <Card padding="lg">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Input label="Name" type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Summer Release Campaign" />
+          <Select label="Type" options={campaignTypes} value={type} onChange={(v) => setType(v)} />
+          <Select label="Release" options={releases.map((r) => ({ value: r.id, label: r.title }))} value={releaseId} onChange={(v) => setReleaseId(v)} />
+          <div className="flex items-center gap-4 pt-2">
+            <Button type="submit" loading={submitting} disabled={submitting || !name.trim() || !releaseId}>
+              {submitting ? 'Creating...' : 'Create Campaign'}
+            </Button>
+            <Link href="/campaigns" className="text-sm text-text-500 hover:text-text-900 dark:hover:text-surface-100">Cancel</Link>
+          </div>
+        </form>
+      </Card>
     </div>
   );
 }

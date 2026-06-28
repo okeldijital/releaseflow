@@ -10,15 +10,19 @@ interface TopbarProps {
 
 export function Topbar({ collapsed, onToggle, breadcrumbs, children }: TopbarProps) {
   return (
-    <header className="sticky top-0 z-10 border-b border-surface-200 bg-white/80 dark:bg-surface-900/80 backdrop-blur">
-      <div className="flex h-16 items-center justify-between px-4 lg:px-6">
-        <div className="flex items-center gap-4">
-          <SidebarMobileToggle collapsed={collapsed} onToggle={onToggle} />
+    <header className="sticky top-0 z-20 border-b border-surface-200 bg-white/90 backdrop-blur-md dark:bg-surface-900/90 dark:border-surface-700">
+      <div className="flex h-16 items-center gap-3 px-4 lg:px-6">
+        <SidebarMobileToggle collapsed={collapsed} onToggle={onToggle} />
+
+        <div className="flex-1 min-w-0">
           {breadcrumbs}
         </div>
-        <div className="flex items-center gap-4 ml-auto">
-          {children}
-        </div>
+
+        {children ? (
+          <div className="flex items-center gap-3 ml-auto shrink-0">
+            {children}
+          </div>
+        ) : null}
       </div>
     </header>
   );
@@ -30,17 +34,44 @@ interface BreadcrumbsProps {
 
 export function Breadcrumbs({ items }: BreadcrumbsProps) {
   return (
-    <nav className="flex items-center gap-1 text-sm">
-      {items.map((item, i) => (
-        <span key={i} className="flex items-center gap-1">
-          {i > 0 ? <span className="text-text-300">/</span> : null}
-          {item.href ? (
-            <a href={item.href} className="text-text-500 hover:text-text-900 transition-colors">{item.label}</a>
-          ) : (
-            <span className="text-text-700 font-medium">{item.label}</span>
-          )}
-        </span>
-      ))}
+    <nav aria-label="Breadcrumb">
+      <ol className="flex items-center gap-2 text-sm">
+        {items.map((item, i) => (
+          <li key={i} className="flex items-center gap-2">
+            {i > 0 ? (
+              <svg
+                className="h-3 w-3 text-text-300 shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            ) : null}
+            {item.href && i < items.length - 1 ? (
+              <a
+                href={item.href}
+                className="text-text-400 hover:text-text-700 transition-colors duration-100 dark:text-text-500 dark:hover:text-text-300"
+              >
+                {item.label}
+              </a>
+            ) : (
+              <span
+                className="font-medium text-text-800 dark:text-text-200"
+                aria-current={i === items.length - 1 ? 'page' : undefined}
+              >
+                {item.label}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
     </nav>
   );
 }

@@ -63,33 +63,25 @@ describe('Artist status', () => {
 });
 
 describe('Artist service — module structure', () => {
-  it('exports all artist functions', async () => {
+  it('exports all core artist functions', async () => {
     const mod = await import('@/lib/artist-service');
-    expect(typeof mod.createArtist).toBe('function');
-    expect(typeof mod.updateArtist).toBe('function');
-    expect(typeof mod.getArtists).toBe('function');
-    expect(typeof mod.getArtist).toBe('function');
-    expect(typeof mod.linkArtistToRelease).toBe('function');
-    expect(typeof mod.getArtistsByRelease).toBe('function');
-    expect(typeof mod.addTrackCredit).toBe('function');
-    expect(typeof mod.getCreditsByTrack).toBe('function');
-    expect(typeof mod.getCreditsByArtist).toBe('function');
+    expect(typeof mod.createNewArtist).toBe('function');
+    expect(typeof mod.editArtist).toBe('function');
+    expect(typeof mod.fetchArtists).toBe('function');
+    expect(typeof mod.fetchArtist).toBe('function');
+    expect(typeof mod.fetchArtistReleases).toBe('function');
+    expect(typeof mod.fetchCreditsByArtist).toBe('function');
     expect(typeof mod.checkArtistReadiness).toBe('function');
   });
 
-  it('createArtist takes 1 parameter', async () => {
+  it('createNewArtist takes 1 parameter', async () => {
     const mod = await import('@/lib/artist-service');
-    expect(mod.createArtist.length).toBe(1);
+    expect(mod.createNewArtist.length).toBe(1);
   });
 
-  it('updateArtist takes 2 parameters', async () => {
+  it('editArtist takes 2 parameters', async () => {
     const mod = await import('@/lib/artist-service');
-    expect(mod.updateArtist.length).toBe(2);
-  });
-
-  it('linkArtistToRelease takes 4 parameters', async () => {
-    const mod = await import('@/lib/artist-service');
-    expect(mod.linkArtistToRelease.length).toBe(4);
+    expect(mod.editArtist.length).toBe(2);
   });
 });
 

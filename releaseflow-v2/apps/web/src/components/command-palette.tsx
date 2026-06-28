@@ -85,11 +85,33 @@ export function CommandPalette() {
         setResults([]);
         setSelected(0);
       }
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape' && open) {
+        e.preventDefault();
+        setOpen(false);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const dialog = document.querySelector('[role="dialog"]');
+    if (!dialog) return;
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'input, button, [tabindex]:not([tabindex="-1"])'
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    };
+    dialog.addEventListener('keydown', trap as EventListener);
+    first?.focus();
+    return () => dialog.removeEventListener('keydown', trap as EventListener);
+  }, [open]);
 
   if (!open) return null;
 
@@ -103,7 +125,7 @@ export function CommandPalette() {
     { id: 'nav-rel', title: 'Releases', type: 'release', href: '/releases' },
     { id: 'nav-art', title: 'Artists', type: 'artist', href: '/artists' },
     { id: 'nav-camp', title: 'Campaigns', type: 'campaign', href: '/campaigns' },
-    { id: 'nav-ops', title: 'Operations Center', type: 'contributor', href: '/operations' },
+    { id: 'nav-ops', title: 'Operations Center', type: 'contributor', href: '/dashboard' },
     { id: 'nav-app', title: 'Approvals', type: 'contributor', href: '/approvals' },
     { id: 'nav-con', title: 'Contributor', type: 'contributor', href: '/contributor' },
   ];
@@ -112,10 +134,15 @@ export function CommandPalette() {
 
   return (
     <>
-      <div className="fixed inset-0 z-[90] bg-black/30" onClick={() => setOpen(false)} />
-      <div className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[91] w-full max-w-lg bg-white dark:bg-surface-900 rounded-xl border border-surface-200 shadow-modal overflow-hidden">
+      <div className="fixed inset-0 z-[90] bg-black/30" onClick={() => setOpen(false)} aria-hidden="true" />
+      <div
+        className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[91] w-full max-w-lg bg-white dark:bg-surface-900 rounded-xl border border-surface-200 shadow-modal overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
+      >
         <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-200">
-          <svg className="w-5 h-5 text-text-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <svg className="w-5 h-5 text-text-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
             autoFocus
             value={queryText}
@@ -127,21 +154,28 @@ export function CommandPalette() {
             }}
             placeholder="Search releases, artists, campaigns..."
             className="flex-1 bg-transparent text-sm text-text-900 placeholder:text-text-400 outline-none"
+            role="combobox"
+            aria-expanded={true}
+            aria-controls="palette-results"
+            aria-activedescendant={display[selected] ? `palette-option-${selected}` : undefined}
           />
           <kbd className="text-xs text-text-400 bg-surface-100 rounded px-1.5 py-0.5">ESC</kbd>
         </div>
 
         {searching ? (
-          <div className="p-4 text-sm text-text-400 text-center">Searching...</div>
+          <div className="p-4 text-sm text-text-400 text-center" role="status">Searching...</div>
         ) : display.length === 0 ? (
-          <div className="p-4 text-sm text-text-400 text-center">No results found.</div>
+          <div className="p-4 text-sm text-text-400 text-center" role="status">No results found.</div>
         ) : (
-          <div className="max-h-64 overflow-y-auto py-2">
+          <div className="max-h-64 overflow-y-auto py-2" id="palette-results" role="listbox">
             {!queryText ? <p className="px-4 py-1 text-xs font-medium text-text-400 uppercase">Navigate</p> : null}
             {display.map((item, i) => (
               <button
                 key={item.id}
+                id={`palette-option-${i}`}
                 onClick={() => navigate(item.href)}
+                role="option"
+                aria-selected={i === selected}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${i === selected ? 'bg-surface-100' : 'hover:bg-surface-50'}`}
               >
                 <span className={`text-xs rounded px-1.5 py-0.5 shrink-0 ${

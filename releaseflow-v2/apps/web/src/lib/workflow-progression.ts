@@ -1,9 +1,13 @@
-import { collection, doc, getDocs, query, where, orderBy, updateDoc, Timestamp } from 'firebase/firestore';
-import { getDb } from '@/lib/firebase';
-import { computeProgress } from '@/lib/workflow-progress';
-import { computeWorkflowHealth } from '@/lib/workflow-health';
-import { logActivity } from '@/lib/workflow-service';
+import { Timestamp } from 'firebase/firestore';
+import { getStages, updateStage, updateWorkflow, createActivity } from './workflow-repository';
+import { computeProgress } from './workflow-progress';
+import { computeWorkflowHealth } from './workflow-health';
+import type { StageRecord } from './workflow-repository';
 import type { Stage } from '@/app/(app)/types';
+
+function toStage(s: StageRecord): Stage {
+  return s as unknown as Stage;
+}
 
 export async function stageComplete(
   workflowId: string,
@@ -11,26 +15,13 @@ export async function stageComplete(
   releaseId: string,
   actorId: string,
 ) {
-  const db = getDb();
-  if (!db) throw new Error('Firestore not initialized');
-
-  const stagesSnap = await getDocs(
-    query(
-      collection(db, 'stages'),
-      where('workflowId', '==', workflowId),
-      orderBy('order', 'asc'),
-    ),
-  );
-
-  const stages = stagesSnap.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  })) as Stage[];
+  const stages = await getStages(workflowId);
+  if (stages.length === 0) throw new Error('No stages found in workflow');
 
   const currentIdx = stages.findIndex((s) => s.id === stageId);
   if (currentIdx === -1) throw new Error('Stage not found in workflow');
 
-  const currentStage = stages[currentIdx] as Stage;
+  const currentStage = toStage(stages[currentIdx] as StageRecord);
   const completedAt = Timestamp.now();
 
   const startedAt = currentStage.startedAt
@@ -40,7 +31,7 @@ export async function stageComplete(
     ? daysBetween(startedAt, completedAt.toDate())
     : 0;
 
-  await updateDoc(doc(db, 'stages', stageId), {
+  await updateStage(stageId, {
     status: 'completed',
     completedAt,
     daysInStage,
@@ -50,27 +41,27 @@ export async function stageComplete(
 
   const progressData = computeProgress(
     stages.map((s, i) =>
-      i === currentIdx ? { ...s, status: 'completed' as const } : s,
+      i === currentIdx ? { ...toStage(s), status: 'completed' as const } : toStage(s),
     ),
   );
 
   if (nextIdx < stages.length) {
-    const nextStage = stages[nextIdx] as Stage;
+    const nextStage = toStage(stages[nextIdx] as StageRecord);
     const now = Timestamp.now();
-    await updateDoc(doc(db, 'stages', nextStage.id), {
+    await updateStage(nextStage.id, {
       status: 'in_progress',
       startedAt: now,
     });
 
     const health = computeWorkflowHealth({
       stages: stages.map((s, i) => {
-        if (i === currentIdx) return { ...s, status: 'completed' as const };
-        if (i === nextIdx) return { ...s, status: 'in_progress' as const, startedAt: now };
-        return s;
+        if (i === currentIdx) return { ...toStage(s), status: 'completed' as const };
+        if (i === nextIdx) return { ...toStage(s), status: 'in_progress' as const, startedAt: now };
+        return toStage(s);
       }),
     });
 
-    await updateDoc(doc(db, 'workflows', workflowId), {
+    await updateWorkflow(workflowId, {
       status: 'in_progress',
       currentStageId: nextStage.id,
       progress: progressData.progress,
@@ -79,7 +70,7 @@ export async function stageComplete(
     });
 
     await Promise.all([
-      logActivity({
+      createActivity({
         type: 'stage.completed',
         releaseId,
         workflowId,
@@ -87,7 +78,7 @@ export async function stageComplete(
         actorId,
         metadata: { stageName: currentStage.name, daysInStage },
       }),
-      logActivity({
+      createActivity({
         type: 'stage.started',
         releaseId,
         workflowId,
@@ -99,11 +90,11 @@ export async function stageComplete(
   } else {
     const health = computeWorkflowHealth({
       stages: stages.map((s, i) =>
-        i === currentIdx ? { ...s, status: 'completed' as const } : s,
+        i === currentIdx ? { ...toStage(s), status: 'completed' as const } : toStage(s),
       ),
     });
 
-    await updateDoc(doc(db, 'workflows', workflowId), {
+    await updateWorkflow(workflowId, {
       status: 'completed',
       currentStageId: null,
       progress: 100,
@@ -111,7 +102,7 @@ export async function stageComplete(
       updatedAt: Timestamp.now(),
     });
 
-    await logActivity({
+    await createActivity({
       type: 'stage.completed',
       releaseId,
       workflowId,
