@@ -1,5 +1,5 @@
 import {
-  doc, getDocs, addDoc, updateDoc,
+  doc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, Timestamp,
 } from 'firebase/firestore';
 import { getDb } from './firebase';
@@ -93,4 +93,10 @@ export async function completeAssignment(assignmentId: string): Promise<void> {
     status: 'completed',
     updatedAt: Timestamp.now(),
   });
+}
+
+export async function deleteAssignment(assignmentId: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  await deleteDoc(doc(db, 'assignments', assignmentId));
 }

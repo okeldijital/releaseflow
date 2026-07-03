@@ -6,7 +6,6 @@ import {
   updateRelease,
   updateReleaseStatus,
 } from './release-repository';
-import { logActivity } from './workflow-service';
 import type {
   ReleaseStatus,
 } from '@/app/(app)/types';
@@ -58,14 +57,45 @@ export async function changeReleaseStatus(
 
 export async function removeRelease(
   releaseId: string,
-  actorId: string,
+  _actorId: string,
 ): Promise<void> {
-  await logActivity({
-    type: 'release.deleted' as 'release.created',
-    releaseId,
-    actorId,
-    metadata: { deletedAt: new Date().toISOString() },
-  });
+  const { getTracksByRelease, removeTrackFromRelease } = await import('./release-track-repository');
+  const { removeTrack } = await import('./track-service');
+  const { getAssignmentsByEntity, deleteAssignment } = await import('./assignment-repository');
+  const { getActivityByEntity, deleteActivityEvent } = await import('./activity-service');
+  const { getAssetsByRelease, deleteAsset } = await import('./asset-repository');
+
+  const assets = await getAssetsByRelease(releaseId);
+  for (const asset of assets) {
+    await deleteAsset(asset.id);
+  }
+
+  const releaseActivities = await getActivityByEntity('release', releaseId);
+  for (const activity of releaseActivities) {
+    await deleteActivityEvent(activity.id);
+  }
+
+  const releaseAssignments = await getAssignmentsByEntity('release', releaseId);
+  for (const assignment of releaseAssignments) {
+    await deleteAssignment(assignment.id);
+  }
+
+  const trackRecords = await getTracksByRelease(releaseId);
+  for (const record of trackRecords) {
+    const trackAssignments = await getAssignmentsByEntity('track', record.trackId);
+    for (const assignment of trackAssignments) {
+      await deleteAssignment(assignment.id);
+    }
+
+    const trackActivities = await getActivityByEntity('track', record.trackId);
+    for (const activity of trackActivities) {
+      await deleteActivityEvent(activity.id);
+    }
+
+    await removeTrackFromRelease(record.id);
+    await removeTrack(record.trackId);
+  }
+
   return deleteRelease(releaseId);
 }
 

@@ -1,5 +1,5 @@
 import {
-  getDocs, addDoc,
+  getDocs, addDoc, deleteDoc, doc,
   collection, query, where, orderBy, limit,
   Timestamp,
 } from 'firebase/firestore';
@@ -76,6 +76,12 @@ export async function getRecentActivity(
     ),
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ActivityEventRecord);
+}
+
+export async function deleteActivityEvent(eventId: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  await deleteDoc(doc(db, 'activity_events', eventId));
 }
 
 export async function getActivityByUser(

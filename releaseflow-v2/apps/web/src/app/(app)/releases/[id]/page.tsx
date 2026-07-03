@@ -6,13 +6,15 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { PersonAssigner } from '@/components/person-assigner';
-import { fetchRelease } from '@/lib/release-service';
+import { fetchRelease, removeRelease } from '@/lib/release-service';
+import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
+import { toast } from '@/stores/toast-store';
 import { getDeliverablesByRelease } from '@/lib/deliverable-service';
 import { getTracksByRelease } from '@/lib/release-track-repository';
 import { getTasksByEntity } from '@/lib/task-service';
 import { getActivityByEntity } from '@/lib/activity-service';
 import { fmtDate } from '@/lib/utils';
-import { Button, Badge, StatusBadge, Skeleton, EmptyState, LoadingState, Tabs } from '@releaseflow/ui';
+import { Button, Badge, StatusBadge, Skeleton, EmptyState, LoadingState, Tabs, ConfirmationDialog } from '@releaseflow/ui';
 import type { Release, Deliverable, Task } from '../../types';
 import type { ReleaseTrackRecord } from '@/lib/release-track-repository';
 import type { TrackRecord } from '@/lib/track-repository';
@@ -212,6 +214,8 @@ export default function ReleaseWorkspacePage() {
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteRole, setInviteRole] = useState<(typeof INVITE_ROLES)[number]>('Graphic Designer');
   const [loading, setLoading] = useState(true);
@@ -275,6 +279,20 @@ export default function ReleaseWorkspacePage() {
   useEffect(() => {
     if (!visibleTabs.some((t) => t.id === tab)) setTab('overview');
   }, [tab, visibleTabs]);
+
+  async function handleDeleteRelease() {
+    if (!user) return;
+    setDeleting(true);
+    try {
+      await removeRelease(releaseId, user.uid);
+      toast.success('Release deleted.');
+      router.push('/releases');
+    } catch {
+      toast.error('Could not delete release.', 'Please try again.');
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  }
 
   /* ─── Readiness calculation ─────────────────────────────────────────── */
   const readinessMap: Record<ReadinessCat, boolean> = {
@@ -373,7 +391,35 @@ export default function ReleaseWorkspacePage() {
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <Button size="sm" variant="outline" onClick={() => setRolePickerOpen(true)}>Invite Person</Button>
           <Button size="sm" variant="primary" onClick={() => router.push(`/releases/${releaseId}/edit`)}>Edit Release</Button>
-          <Button size="sm" variant="outline" aria-label="More release actions">•••</Button>
+          <EntityOverflowMenu
+            aria-label="More release actions"
+            items={[
+              {
+                id: 'edit',
+                label: 'Edit Release',
+                onClick: () => router.push(`/releases/${releaseId}/edit`),
+              },
+              {
+                id: 'duplicate',
+                label: 'Duplicate Release',
+                disabled: true,
+                secondaryLabel: 'Coming Soon',
+              },
+              {
+                id: 'archive',
+                label: 'Archive Release',
+                disabled: true,
+                secondaryLabel: 'Coming Soon',
+              },
+              {
+                id: 'delete',
+                label: 'Delete Release',
+                variant: 'danger',
+                separatorBefore: true,
+                onClick: () => setDeleteOpen(true),
+              },
+            ]}
+          />
         </div>
       </div>
 
@@ -707,6 +753,18 @@ export default function ReleaseWorkspacePage() {
         contextRole={inviteRole}
         organizationId={activeOrgId}
         currentUserId={user?.uid ?? 'unknown'}
+      />
+
+      <ConfirmationDialog
+        open={deleteOpen}
+        onClose={() => { if (!deleting) setDeleteOpen(false); }}
+        onConfirm={handleDeleteRelease}
+        title="Delete Release"
+        message={`Are you sure you want to delete "${release.title}"? This action cannot be undone.`}
+        confirmLabel="Delete Release"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleting}
       />
 
     </div>
