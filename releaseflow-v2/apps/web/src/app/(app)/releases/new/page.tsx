@@ -10,7 +10,7 @@ import { createNewTrack } from '@/lib/track-service';
 import { getStageTemplatesForReleaseType } from '@/lib/workflow-templates';
 import { getRequirementNamesForReleaseType } from '@/lib/requirement-templates';
 import { PersonAssigner } from '@/components/person-assigner';
-import { ArtistFieldPicker, type ArtistOption } from '@/components/artist-field-picker';
+import { ArtistFieldPicker, FeaturedArtistsPicker, type ArtistOption } from '@/components/artist-field-picker';
 import { fetchArtists } from '@/lib/artist-service';
 import {
   countRecordingTypes,
@@ -515,8 +515,6 @@ function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, remov
   back: () => void;
   next: () => void;
 }) {
-  const [featuredPicker, setFeaturedPicker] = useState<Record<string, string>>({});
-
   function handleNext() {
     if (!validateRemixTracks()) return;
     next();
@@ -568,24 +566,14 @@ function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, remov
                       </div>
                     );
                   })}
-                  <select
-                    value={featuredPicker[t.id] ?? ''}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v && v !== '__invite__') {
-                        addFeaturedArtist(t.id, v);
-                        setFeaturedPicker((p) => ({ ...p, [t.id]: '' }));
-                      } else if (v === '__invite__') {
-                        setFeaturedPicker((p) => ({ ...p, [t.id]: '__invite__' }));
-                      }
-                    }}
-                    className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none"
-                  >
-                    <option value="">Add featuring artist...</option>
-                    {artists.filter((a) => a.id !== t.primaryArtistId && !t.featuredArtistIds.includes(a.id)).map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
+                  <FeaturedArtistsPicker
+                    artists={artists}
+                    organizationId={activeOrgId}
+                    primaryArtistId={t.primaryArtistId}
+                    featuredArtistIds={t.featuredArtistIds}
+                    onAdd={(artistId) => addFeaturedArtist(t.id, artistId)}
+                    onArtistCreated={onArtistCreated}
+                  />
                 </div>
               </div>
             ) : (

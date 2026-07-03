@@ -20,7 +20,7 @@ import {
 } from '@/lib/asset-lifecycle-service';
 import { createInvitation } from '@/lib/invitation-repository';
 import { PersonAssigner } from '@/components/person-assigner';
-import { ArtistFieldPicker, type ArtistOption } from '@/components/artist-field-picker';
+import { ArtistFieldPicker, FeaturedArtistsPicker, type ArtistOption } from '@/components/artist-field-picker';
 import { fetchArtists } from '@/lib/artist-service';
 import {
   suggestRemixDisplayTitle,
@@ -819,19 +819,14 @@ function BasicsStep({
                 </div>
               );
             })}
-            <select
-              value=""
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v && !featuredArtistIds.includes(v)) setFeaturedArtistIds((p) => [...p, v]);
-              }}
-              className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none"
-            >
-              <option value="">+ Add Artist</option>
-              {artists.filter((a) => a.id !== primaryArtistId && !featuredArtistIds.includes(a.id)).map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
+            <FeaturedArtistsPicker
+              artists={artists}
+              organizationId={activeOrgId}
+              primaryArtistId={primaryArtistId}
+              featuredArtistIds={featuredArtistIds}
+              onAdd={(artistId) => setFeaturedArtistIds((p) => [...p, artistId])}
+              onArtistCreated={onArtistCreated}
+            />
           </div>
         </div>
       ) : (
