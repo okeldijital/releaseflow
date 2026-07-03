@@ -74,7 +74,7 @@ export default function DiagnosticsPage() {
     <div className="mx-auto max-w-2xl px-4 sm:px-6 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-text-900">System Health</h1>
+          <p className="text-2xl font-bold text-text-900">System Health</p>
           <p className="text-sm text-text-500 mt-1">
             {d.environment.valid
               ? 'All systems operational'

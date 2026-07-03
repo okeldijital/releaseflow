@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { useOrgStore } from '@/stores/org-store';
 import { addRightsHolder } from '@/lib/rights-service';
 import { Button, Card, Input, Select } from '@releaseflow/ui';
 
@@ -16,6 +17,7 @@ const holderTypes = [
 
 export default function NewRightsHolderPage() {
   const router = useRouter();
+  const { activeOrgId } = useOrgStore();
   const [name, setName] = useState('');
   const [type, setType] = useState('artist');
   const [contact, setContact] = useState('');
@@ -27,7 +29,7 @@ export default function NewRightsHolderPage() {
     if (!name.trim()) return;
     setSubmitting(true);
     try {
-      await addRightsHolder(name.trim(), type as never, contact.trim() || undefined, territory.trim() || undefined);
+      await addRightsHolder(name.trim(), type as never, activeOrgId ?? '', contact.trim() || undefined, territory.trim() || undefined);
       router.push('/rights-holders');
     } catch (err) {
       console.error(err);
@@ -38,7 +40,7 @@ export default function NewRightsHolderPage() {
   return (
     <div className="mx-auto max-w-lg px-6 py-8">
       <Link href="/rights-holders" className="text-sm text-text-500 hover:text-text-900 dark:hover:text-surface-100 mb-6 inline-block">&larr; Back</Link>
-      <h1 className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-8">Add Rights Holder</h1>
+      <p className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-8">Add Rights Holder</p>
 
       <Card padding="md">
         <form onSubmit={handleSubmit} className="space-y-4">

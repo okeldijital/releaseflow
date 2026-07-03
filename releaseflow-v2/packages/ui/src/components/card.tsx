@@ -28,7 +28,7 @@ const elevationClasses: Record<CardElevation, string> = {
 export function Card({
   children,
   padding = 'md',
-  elevation = 'card',
+  elevation = 'none',
   hover = false,
   clickable = false,
   className = '',
@@ -36,15 +36,13 @@ export function Card({
   return (
     <div
       className={`
-        rounded-lg border border-surface-200 bg-white
-        ${elevationClasses[elevation]}
-        transition-shadow duration-200 ease-out
-        dark:bg-surface-900 dark:border-surface-700
-        ${paddingClasses[padding]}
-        ${hover || clickable ? 'hover:shadow-raised' : ''}
-        ${clickable ? 'cursor-pointer active:shadow-card' : ''}
-        ${className}
-      `.trim()}
+         rounded-lg bg-white dark:bg-surface-900
+         ${elevationClasses[elevation]}
+         ${hover || clickable ? 'hover:shadow-raised transition-shadow duration-150' : ''}
+         ${clickable ? 'cursor-pointer' : ''}
+         ${paddingClasses[padding]}
+         ${className}
+       `.trim()}
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
       onKeyDown={
@@ -83,10 +81,10 @@ export function MetricCard({
   return (
     <div
       className={`
-        rounded-lg border border-surface-200 bg-white shadow-card p-6
-        dark:bg-surface-900 dark:border-surface-700
-        ${className}
-      `.trim()}
+         rounded-lg bg-white shadow-card p-6
+         dark:bg-surface-900
+         ${className}
+       `.trim()}
     >
       <div className="flex items-start justify-between">
         <p className="text-xs font-medium text-text-500 uppercase tracking-wider">{label}</p>
@@ -134,11 +132,11 @@ export function WorkspaceCard({
   return (
     <div
       className={`
-        rounded-lg border border-surface-200 bg-white shadow-card p-4
-        hover:shadow-raised transition-shadow duration-200
-        dark:bg-surface-900 dark:border-surface-700
-        ${className}
-      `.trim()}
+         rounded-lg bg-white shadow-card p-4
+         hover:shadow-raised transition-shadow duration-200
+         dark:bg-surface-900
+         ${className}
+       `.trim()}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">

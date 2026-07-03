@@ -10,6 +10,8 @@ export interface CreateTaskFields {
   priority?: TaskPriority;
   assigneeId?: string;
   dueDate?: Date;
+  entityType?: 'release' | 'track';
+  entityId?: string;
 }
 
 export async function createTask(
@@ -31,6 +33,8 @@ export async function createTask(
     priority: fields.priority ?? 'medium',
     assigneeId: fields.assigneeId ?? null,
     dueDate: fields.dueDate ? Timestamp.fromDate(fields.dueDate) : null,
+    entityType: fields.entityType ?? null,
+    entityId: fields.entityId ?? null,
     createdAt: now,
     updatedAt: now,
   });
@@ -182,6 +186,26 @@ export async function getTasksByAssignee(assigneeId: string): Promise<Task[]> {
       where('status', '!=', 'done'),
       orderBy('status'),
       orderBy('priority', 'desc'),
+      orderBy('createdAt', 'desc'),
+    ),
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Task);
+}
+
+export async function markTaskDone(taskId: string) {
+  const db = getDb();
+  if (!db) return;
+  await updateDoc(doc(db, 'tasks', taskId), { status: 'done', updatedAt: Timestamp.now() });
+}
+
+export async function getTasksByEntity(entityType: string, entityId: string): Promise<Task[]> {
+  const db = getDb();
+  if (!db) return [];
+  const snap = await getDocs(
+    query(
+      collection(db, 'tasks'),
+      where('entityType', '==', entityType),
+      where('entityId', '==', entityId),
       orderBy('createdAt', 'desc'),
     ),
   );

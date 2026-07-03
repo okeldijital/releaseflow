@@ -18,16 +18,16 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className={`flex flex-col items-center justify-center py-16 px-6 text-center ${className}`}
+      className={`flex flex-col items-center justify-center py-20 px-6 text-center ${className}`}
     >
       {icon ? (
-        <div className="mb-4 rounded-full bg-surface-100 p-4 text-text-300 dark:bg-surface-800 dark:text-text-500">
+        <div className="mb-6 rounded-full bg-surface-100 p-5 text-text-300 dark:bg-surface-800 dark:text-text-500">
           {icon}
         </div>
       ) : (
-        <div className="mb-4 rounded-full bg-surface-100 p-4 dark:bg-surface-800">
+        <div className="mb-6 rounded-full bg-surface-100 p-5 dark:bg-surface-800">
           <svg
-            className="h-6 w-6 text-text-300 dark:text-text-500"
+            className="h-7 w-7 text-text-300 dark:text-text-500"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -42,9 +42,9 @@ export function EmptyState({
           </svg>
         </div>
       )}
-      <p className="text-sm font-semibold text-text-800 dark:text-text-200">{title}</p>
+      <p className="text-base font-semibold text-text-800 dark:text-text-200">{title}</p>
       {description ? (
-        <p className="mt-1 max-w-xs text-sm text-text-500 dark:text-text-400 leading-5">
+        <p className="mt-3 max-w-sm text-sm text-text-500 dark:text-text-400 leading-6">
           {description}
         </p>
       ) : null}
@@ -52,7 +52,7 @@ export function EmptyState({
         <Button
           variant="tertiary"
           size="sm"
-          className="mt-6"
+          className="mt-8"
           onClick={action.onClick}
         >
           {action.label}

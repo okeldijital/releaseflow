@@ -84,6 +84,8 @@ export interface Contributor {
   createdAt: unknown;
 }
 
+export type TrackStatus = 'draft' | 'active' | 'archived';
+
 export type ArtistType = 'original_artist' | 'remix_artist' | 'cover_artist' | 'producer' | 'dj' | 'band' | 'label';
 export type ArtistStatus = 'active' | 'inactive';
 
@@ -158,6 +160,8 @@ export interface Task {
   priority: TaskPriority;
   assigneeId?: string;
   dueDate?: unknown;
+  entityType?: string;
+  entityId?: string;
   createdAt: unknown;
   updatedAt: unknown;
 }
@@ -208,6 +212,8 @@ export interface AssetReference {
 }
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type LifecycleState = 'draft' | 'requested' | 'under_review' | 'approved' | 'rejected' | 'changes_requested';
+export type ApprovalEntityType = 'release' | 'track' | 'specification' | 'asset' | 'deliverable';
 
 export interface ApprovalRequest {
   id: string;
@@ -215,15 +221,25 @@ export interface ApprovalRequest {
   requesterId: string;
   approverId: string;
   status: ApprovalStatus;
+  entityType?: ApprovalEntityType;
+  entityId?: string;
+  lifecycleState?: LifecycleState;
+  dueDate?: string | null;
+  notes?: string | null;
   respondedAt?: unknown;
   createdAt: unknown;
+  organizationId?: string;
 }
 
 export type NotificationType =
   | 'approval.requested'
   | 'approval.responded'
   | 'task.assigned'
-  | 'mention';
+  | 'mention'
+  | 'approval'
+  | 'comment'
+  | 'assignment'
+  | 'deadline';
 
 export interface Notification {
   id: string;

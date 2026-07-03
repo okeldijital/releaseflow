@@ -44,7 +44,7 @@ export default function BudgetsPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <h1 className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-8">Budgets</h1>
+      <p className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-8">Budgets</p>
 
       {myUtil ? (
         <Card padding="sm" className="mb-8">

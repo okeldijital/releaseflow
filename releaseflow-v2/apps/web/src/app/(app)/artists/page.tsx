@@ -27,13 +27,14 @@ export default function ArtistsPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Artists</h1>
+          <p className="text-[1.75rem] font-semibold text-surface-50 tracking-tight">Artists</p>
+          <p className="mt-1 text-sm text-text-400">Artists connected to your catalogue.</p>
           {artists.length > 0 ? (
-            <p className="mt-0.5 text-sm text-text-500">{artists.length} artist{artists.length !== 1 ? 's' : ''}</p>
+            <p className="mt-0.5 text-sm text-text-400">{artists.length} artist{artists.length !== 1 ? 's' : ''}</p>
           ) : null}
         </div>
         <Link href="/artists/new">
-          <Button variant="primary" size="md">
+          <Button variant="primary" size="md" className="rounded-xl">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -43,7 +44,7 @@ export default function ArtistsPage() {
       </div>
 
       {artists.length === 0 ? (
-        <EmptyState title="No artists yet" description="Add your first artist to start building your roster." action={{ label: 'Add Artist', onClick: () => router.push('/artists/new') }} />
+        <EmptyState title="No artists yet" description="Add your first artist to connect them to releases." action={{ label: 'Add Artist', onClick: () => router.push('/artists/new') }} />
       ) : (
         <div className="overflow-hidden rounded-xl border border-surface-200/80 bg-white divide-y divide-surface-100/80 dark:bg-surface-900 dark:border-surface-700/80 dark:divide-surface-800">
           {artists.map((a) => (

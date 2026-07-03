@@ -92,10 +92,10 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
 
   if (loading) {
     return (
-      <div className={`w-full overflow-x-auto rounded-md border border-surface-200 dark:border-surface-700 ${className}`}>
+      <div className={`w-full overflow-x-auto bg-white dark:bg-surface-900 ${className}`}>
         <table className="w-full" role="table">
           <thead>
-            <tr className="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-700">
+            <tr className="border-b border-surface-200/50 dark:border-surface-700/50">
               {selectable ? <th className="px-4 py-3 w-10" /> : null}
               {columns.map((col) => (
                 <th key={col.key} className="px-4 py-3 text-left" style={{ width: col.width }}>
@@ -106,7 +106,7 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
           </thead>
           <tbody>
             {Array.from({ length: 5 }).map((_, i) => (
-              <tr key={i} className="border-b border-surface-100 dark:border-surface-800">
+              <tr key={i} className="border-b border-surface-100/60 dark:border-surface-800/60 last:border-0">
                 {selectable ? (
                   <td className="px-4 py-3">
                     <div className={`h-4 w-4 ${shimmer}`} />
@@ -126,10 +126,10 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
   }
 
   return (
-    <div className={`w-full overflow-x-auto rounded-md border border-surface-200 bg-white dark:bg-surface-900 dark:border-surface-700 ${className}`}>
+    <div className={`w-full overflow-x-auto bg-white dark:bg-surface-900 ${className}`}>
       <table className="w-full" role="table">
         <thead>
-          <tr className="bg-surface-50 dark:bg-surface-800/40 border-b border-surface-200 dark:border-surface-700">
+          <tr className="border-b border-surface-200/50 dark:border-surface-700/50">
             {selectable ? (
               <th className={`pl-4 ${headPy} w-10`}>
                 <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} />
@@ -194,7 +194,7 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
                 <tr
                   key={rowId}
                   className={`
-                    border-b border-surface-100 dark:border-surface-800
+                    border-b border-surface-100/60 dark:border-surface-800/60
                     last:border-0
                     transition-colors duration-100
                     ${onRowClick ? 'cursor-pointer' : ''}
@@ -283,18 +283,18 @@ export function DataGrid<T extends Record<string, unknown> = Record<string, unkn
                   clipRule="evenodd"
                 />
               </svg>
-              <input
-                type="text"
-                placeholder={searchPlaceholder}
-                aria-label={searchPlaceholder}
-                className="h-10 w-full rounded-md border border-surface-200 bg-white pl-9 pr-3 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500 dark:bg-surface-900 dark:border-surface-700 dark:text-text-100 dark:placeholder:text-text-500 transition-colors duration-100"
-              />
+               <input
+                 type="text"
+                 placeholder={searchPlaceholder}
+                 aria-label={searchPlaceholder}
+                 className="h-10 w-full rounded-md bg-white pl-9 pr-3 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:bg-surface-900 dark:text-text-100 dark:placeholder:text-text-500 transition-colors duration-100"
+               />
             </div>
           ) : null}
           {filters?.map((filter) => (
             <div
               key={filter.key}
-              className="inline-flex items-center gap-2 rounded-md border border-surface-200 bg-white px-3 h-10 dark:bg-surface-900 dark:border-surface-700"
+              className="inline-flex items-center gap-2 rounded-md bg-white px-3 h-10 dark:bg-surface-900"
             >
               <span className="text-xs font-medium text-text-500">{filter.label}</span>
               <select

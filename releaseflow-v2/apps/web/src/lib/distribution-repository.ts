@@ -107,3 +107,45 @@ export async function getEvents(packageId: string): Promise<DistributionEventRec
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DistributionEventRecord);
 }
+
+export interface DistributionHistoryRecord {
+  id: string;
+  packageId: string;
+  releaseId: string;
+  actor: string;
+  destination: string;
+  result: 'success' | 'failed' | 'scheduled' | 'delivered' | 'published';
+  notes?: string;
+  timestamp: unknown;
+}
+
+export async function recordDistributionEvent(
+  packageId: string,
+  releaseId: string,
+  actor: string,
+  destination: string,
+  result: DistributionHistoryRecord['result'],
+  notes?: string,
+): Promise<string> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore not initialized');
+  const ref = await addDoc(collection(db, 'distribution_history'), {
+    packageId,
+    releaseId,
+    actor,
+    destination,
+    result,
+    notes: notes ?? null,
+    timestamp: Timestamp.now(),
+  });
+  return ref.id;
+}
+
+export async function getDistributionHistory(releaseId: string): Promise<DistributionHistoryRecord[]> {
+  const db = getDb();
+  if (!db) return [];
+  const snap = await getDocs(
+    query(collection(db, 'distribution_history'), where('releaseId', '==', releaseId), orderBy('timestamp', 'desc')),
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DistributionHistoryRecord);
+}

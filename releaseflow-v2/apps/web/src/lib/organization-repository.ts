@@ -96,6 +96,15 @@ export async function getMembershipsByOrg(orgId: string): Promise<MembershipReco
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as MembershipRecord);
 }
 
+export async function updateOrganization(
+  orgId: string,
+  data: Partial<Pick<OrganizationRecord, 'name' | 'slug'>>,
+): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  await updateDoc(doc(db, 'organizations', orgId), { ...data });
+}
+
 export async function getUserRole(userId: string): Promise<string> {
   const db = getDb();
   if (!db) return 'contributor';

@@ -19,15 +19,17 @@ export interface OwnershipValidation {
 export async function addRightsHolder(
   name: string,
   type: string,
+  orgId: string,
   contact?: string,
   territory?: string,
 ): Promise<string> {
   if (!name.trim()) throw new Error('Rights holder name is required');
-  return createRightsHolder(name.trim(), type, contact, territory);
+  if (!orgId) throw new Error('Organization ID is required');
+  return createRightsHolder(name.trim(), type, orgId, contact, territory);
 }
 
-export async function fetchRightsHolders(): Promise<RightsHolderRecord[]> {
-  return getRightsHolders();
+export async function fetchRightsHolders(orgId?: string): Promise<RightsHolderRecord[]> {
+  return getRightsHolders(orgId);
 }
 
 export async function fetchRightsHolder(id: string): Promise<RightsHolderRecord | null> {

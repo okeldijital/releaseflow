@@ -135,7 +135,7 @@ export default function ContributorPage() {
     <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-text-900">Contributor Dashboard</h1>
+          <p className="text-2xl font-bold text-text-900">Contributor Dashboard</p>
           <p className="text-sm text-text-500 mt-1">{user?.email}</p>
         </div>
         {unreadCount > 0 ? (

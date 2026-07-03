@@ -24,14 +24,15 @@ export default function ReleasesPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Releases</h1>
+          <p className="text-[1.75rem] font-semibold text-surface-50 tracking-tight">Releases</p>
+          <p className="mt-1 text-sm text-text-400">Manage every release from planning to distribution.</p>
           {releases.length > 0 ? (
-            <p className="mt-0.5 text-sm text-text-500">{releases.length} release{releases.length !== 1 ? 's' : ''}</p>
+            <p className="mt-0.5 text-sm text-text-400">{releases.length} release{releases.length !== 1 ? 's' : ''}</p>
           ) : null}
         </div>
         {activeOrgId ? (
           <Link href="/releases/new">
-            <Button variant="primary" size="md">
+            <Button variant="primary" size="md" className="rounded-xl">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
@@ -52,7 +53,7 @@ export default function ReleasesPage() {
       ) : releases.length === 0 ? (
         <EmptyState
           title="No releases yet"
-          description="Create your first release to start managing music operations."
+          description="Create your first release to begin managing production, legal, distribution and collaboration."
           action={{ label: 'Create Release', onClick: () => router.push('/releases/new') }}
         />
       ) : (

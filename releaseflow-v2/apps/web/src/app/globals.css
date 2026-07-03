@@ -1,5 +1,9 @@
 @import 'tailwindcss';
 
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "../../../../packages/domain-ui/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
+
 /* ───────────────────────────────────────────────────────────────────────
  * ReleaseFlow Design Token System (PDS-13)
  *
@@ -334,6 +338,72 @@
   animation: fadeIn 160ms var(--ease-enter);
 }
 
+/* ─── Unified canvas — radial glow behind content ─────────────────────── */
+
+.app-canvas-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 30%, rgba(204,85,0,0.04) 0%, transparent 70%);
+}
+
+/* ─── Dark mode — RFDS luminance model ────────────────────────────────── */
+
+.dark {
+  --color-surface-0: #0D0A08;
+  --color-surface-50: #191511;
+  --color-surface-100: #26211B;
+  --color-surface-200: #3A342F;
+  --color-surface-300: #4E4741;
+  --color-surface-400: #635A53;
+  --color-surface-500: #8A8278;
+  --color-surface-600: #A09990;
+  --color-surface-700: #B5ADA2;
+  --color-surface-800: #C9C2B8;
+  --color-surface-900: #F4F0EB;
+  --color-surface-950: #FAF8F5;
+
+  --color-text-50: #1E1A17;
+  --color-text-100: #2A251F;
+  --color-text-200: #3A342F;
+  --color-text-300: #4B4440;
+  --color-text-400: #78716C;
+  --color-text-500: #857D76;
+  --color-text-600: #BDB4A8;
+  --color-text-700: #D0C8BC;
+  --color-text-800: #E4DDD4;
+  --color-text-900: #F5F0EA;
+
+  --color-primary-50:  #2E1300;
+  --color-primary-100: #5C2600;
+  --color-primary-200: #8A3900;
+  --color-primary-300: #CC5500;
+  --color-primary-400: #FF9933;
+  --color-primary-500: #FFB266;
+  --color-primary-600: #FFCC99;
+  --color-primary-700: #FFD9B3;
+  --color-primary-800: #FFE6CC;
+  --color-primary-900: #FFF5EE;
+
+  --color-secondary-50:  #5A3C1E;
+  --color-secondary-100: #7A5630;
+  --color-secondary-200: #9A7145;
+  --color-secondary-300: #C08D5C;
+  --color-secondary-400: #D4A373;
+  --color-secondary-500: #D6B07A;
+  --color-secondary-600: #E0C49C;
+  --color-secondary-700: #EBD9BE;
+  --color-secondary-800: #F5EDE0;
+  --color-secondary-900: #FBF7F0;
+
+  --color-border-subtle: var(--color-surface-400);
+  --color-border-default: var(--color-surface-500);
+  --color-border-strong: var(--color-surface-600);
+  --color-border-focus: var(--color-primary-400);
+}
+
+
 /* ─── Base layer ─────────────────────────────────────────────────────── */
 
 @layer base {
@@ -580,6 +650,16 @@
   ::selection {
     background: rgba(204, 85, 0, 0.15);
     color: var(--color-text-900);
+  }
+
+  /* Reduced motion — respect OS preference */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   /* Scrollbar — subtle, brand-tinted */

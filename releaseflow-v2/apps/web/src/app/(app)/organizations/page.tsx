@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   getOrganizationsByUser, getPendingMemberships, createOrganization,
-  acceptMembership, removeMembership, getMembershipsByOrg, updateMembershipRole,
+  acceptMembership, removeMembership,
 } from '@/lib/organization-repository';
 import type { OrganizationRecord, MembershipRecord } from '@/lib/organization-repository';
 import { Button, Card, Input, EmptyState, LoadingState } from '@releaseflow/ui';
@@ -63,7 +63,7 @@ export default function OrganizationsPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <h1 className="text-2xl font-bold text-text-900 mb-8">Organizations</h1>
+      <p className="text-2xl font-bold text-text-900 mb-8">Organizations</p>
 
       <Card padding="lg" className="mb-8">
         <h2 className="text-sm font-semibold text-text-900 mb-4">Create Organization</h2>

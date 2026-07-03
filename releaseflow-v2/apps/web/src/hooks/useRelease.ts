@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useOrgStore } from '@/stores/org-store';
 import { fetchRelease, fetchReleasesByOrg } from '@/lib/release-service';
-import { getReleasesByOrganization } from '@/lib/release-repository';
 import type { ReleaseRecord } from '@/lib/release-repository';
 
 interface UseReleaseResult {
@@ -21,7 +20,7 @@ interface UseReleasesResult {
 }
 
 export function useRelease(releaseId: string): UseReleaseResult {
-  const { activeOrgId } = useOrgStore();
+  const { activeOrgId, orgVersion } = useOrgStore();
   const [release, setRelease] = useState<ReleaseRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,11 +37,12 @@ export function useRelease(releaseId: string): UseReleaseResult {
         setError(null);
       }
     } catch (err) {
-      setError((err as Error).message);
+      setError('Failed to load release. Please try again.');
+      if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') console.error('useRelease:', err);
     } finally {
       setLoading(false);
     }
-  }, [releaseId, activeOrgId]);
+  }, [releaseId, activeOrgId, orgVersion]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -50,7 +50,7 @@ export function useRelease(releaseId: string): UseReleaseResult {
 }
 
 export function useReleases(): UseReleasesResult {
-  const { activeOrgId } = useOrgStore();
+  const { activeOrgId, orgVersion } = useOrgStore();
   const [releases, setReleases] = useState<ReleaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,11 +67,12 @@ export function useReleases(): UseReleasesResult {
       setReleases(data);
       setError(null);
     } catch (err) {
-      setError((err as Error).message);
+      setError('Failed to load releases. Please try again.');
+      if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') console.error('useReleases:', err);
     } finally {
       setLoading(false);
     }
-  }, [activeOrgId]);
+  }, [activeOrgId, orgVersion]);
 
   useEffect(() => { load(); }, [load]);
 

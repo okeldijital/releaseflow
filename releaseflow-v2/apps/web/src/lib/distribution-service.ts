@@ -2,10 +2,26 @@ import {
   createPackage, updatePackage, getLatestPackage,
   getPackagesByRelease, getReleaseData, recordEvent, getEvents,
 } from './distribution-repository';
+import {
+  createDistributionChannel,
+} from './distribution-channel-repository';
+import {
+  createDistributionSchedule,
+  getScheduleByRelease,
+  updateDistributionSchedule,
+} from './distribution-schedule-repository';
+import {
+  createTrackDelivery,
+  getDeliveriesByRelease,
+} from './distribution-delivery-repository';
+import { getTracksByRelease } from './release-track-repository';
 import { getRequirementsByRelease } from './requirement-service';
 import { getDeliverablesByRelease } from './deliverable-service';
 import { getBlockingDependencies } from './dependency-service';
 import type { DistributionPackageRecord, DistributionEventRecord } from './distribution-repository';
+import type { DistributionChannel, DistributionChannelRecord } from './distribution-channel-repository';
+import type { DistributionScheduleRecord } from './distribution-schedule-repository';
+import type { TrackDeliveryVariant, TrackDeliveryRecord } from './distribution-delivery-repository';
 import type { Release } from '@/app/(app)/types';
 
 export type { DistributionPackageRecord, DistributionEventRecord } from './distribution-repository';
@@ -131,4 +147,74 @@ export function getDistributionReadinessSummary(readiness: DistributionReadiness
   if (!readiness.requirementsReady) blockers.push(`${readiness.missingRequirements} pending requirements`);
   if (!readiness.dependenciesReady) blockers.push(`${readiness.missingDependencies} unresolved dependencies`);
   return { ready: readiness.canDistribute, blockers };
+}
+
+export async function addDistributionChannel(
+  releaseId: string,
+  orgId: string,
+  channel: DistributionChannel,
+): Promise<DistributionChannelRecord> {
+  return createDistributionChannel({ releaseId, organizationId: orgId, channel });
+}
+
+export async function setReleaseSchedule(
+  releaseId: string,
+  orgId: string,
+  releaseDate: string,
+  distributionDate?: string,
+  presaveDate?: string,
+  announcementDate?: string,
+): Promise<DistributionScheduleRecord> {
+  const existing = await getScheduleByRelease(releaseId);
+  if (existing) {
+    await updateDistributionSchedule(existing.id, {
+      releaseDate,
+      distributionDate: distributionDate ?? null,
+      presaveDate: presaveDate ?? null,
+      announcementDate: announcementDate ?? null,
+    });
+    return { ...existing, releaseDate, distributionDate, presaveDate, announcementDate };
+  }
+  return createDistributionSchedule({
+    releaseId,
+    organizationId: orgId,
+    releaseDate,
+    distributionDate: distributionDate ?? null,
+    presaveDate: presaveDate ?? null,
+    announcementDate: announcementDate ?? null,
+  });
+}
+
+export async function addTrackDelivery(
+  trackId: string,
+  releaseId: string,
+  orgId: string,
+  variant: TrackDeliveryVariant,
+): Promise<TrackDeliveryRecord> {
+  return createTrackDelivery({ trackId, releaseId, organizationId: orgId, variant });
+}
+
+export interface TrackDeliveryStatus {
+  trackId: string;
+  trackTitle: string;
+  variants: { variant: string; deliveryId: string; status: string }[];
+}
+
+export async function getReleaseDeliveryStatus(releaseId: string): Promise<TrackDeliveryStatus[]> {
+  const [releaseTracks, deliveries] = await Promise.all([
+    getTracksByRelease(releaseId),
+    getDeliveriesByRelease(releaseId),
+  ]);
+  return releaseTracks.map((rt) => {
+    const trackDeliveries = deliveries.filter((d) => d.trackId === rt.trackId);
+    return {
+      trackId: rt.trackId,
+      trackTitle: rt.track?.title ?? 'Unknown Track',
+      variants: trackDeliveries.map((d) => ({
+        variant: d.variant,
+        deliveryId: d.id,
+        status: d.status,
+      })),
+    };
+  });
 }

@@ -1,13 +1,14 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { useRoleStore } from '@/stores/role-store';
 import { signOut as firebaseSignOut } from 'firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
 import { AppShell, Skeleton } from '@releaseflow/ui';
+import { CommandPalette } from '@/components/command-palette';
 import type { NavItem, NavSection } from '@releaseflow/ui';
 import { getOrganizationsByUser } from '@/lib/organization-repository';
 import type { OrganizationRecord } from '@/lib/organization-repository';
@@ -46,6 +47,12 @@ const navItems: NavItem[] = [
     section: 'operations',
   },
   {
+    label: 'Tracks',
+    icon: NavIcon({ d: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }),
+    href: '/tracks',
+    section: 'operations',
+  },
+  {
     label: 'Artists',
     icon: NavIcon({ d: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' }),
     href: '/artists',
@@ -71,66 +78,11 @@ const navItems: NavItem[] = [
   },
 ];
 
-const pathLabels: Record<string, string> = {
-  '/dashboard': 'Operations',
-  '/releases': 'Releases',
-  '/artists': 'Artists',
-  '/assets': 'Assets',
-  '/people': 'People',
-  '/work': 'Work',
-  '/administration': 'Administration',
-  '/campaigns': 'Campaigns',
-  '/approvals': 'Approvals',
-  '/budgets': 'Budgets',
-  '/brief': 'Brief',
-  '/organizations': 'Organization',
-  '/contributor': 'Contributor',
-  '/rights-holders': 'Rights Holders',
-  '/audit': 'Audit',
-  '/diagnostics': 'Diagnostics',
-};
-
-function buildBreadcrumbs(pathname: string): { label: string; href?: string }[] {
-  const segments = pathname.split('/').filter(Boolean);
-  const crumbs: { label: string; href?: string }[] = [];
-
-  for (let i = 0; i < segments.length; i++) {
-    const segment = segments[i]!;
-    const href = '/' + segments.slice(0, i + 1).join('/');
-
-    if (/^[a-f0-9-]{20,}$/.test(segment)) {
-      if (crumbs.length > 0) {
-        crumbs.push({ label: segment.slice(0, 8) + '...', href: undefined });
-      }
-      continue;
-    }
-
-    const key = '/' + segment;
-    if (pathLabels[key]) {
-      crumbs.push({ label: pathLabels[key], href });
-    } else if (segments[i - 1] === 'releases' && i === segments.length - 1) {
-      crumbs.push({ label: 'Detail', href: undefined });
-    } else if (segment === 'new') {
-      crumbs.push({ label: 'New', href });
-    } else if (segment === 'edit') {
-      crumbs.push({ label: 'Edit', href });
-    } else if (segment === 'audit') {
-      crumbs.push({ label: 'Audit', href });
-    } else if (segment === 'diagnostics') {
-      crumbs.push({ label: 'Diagnostics', href });
-    } else {
-      crumbs.push({ label: segment, href: undefined });
-    }
-  }
-
-  return crumbs;
-}
-
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const { activeOrgId, setActiveOrgId, setOrgsLoaded } = useOrgStore();
+  const { activeOrgId, setActiveOrgId, setOrgsLoaded, switchingOrg } = useOrgStore();
   const { resolveRole } = useRoleStore();
   const [orgs, setOrgs] = useState<OrganizationRecord[]>([]);
 
@@ -147,8 +99,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       setOrgsLoaded(true);
     });
   }, [user, setActiveOrgId, setOrgsLoaded]);
-
-  const breadcrumbItems = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
 
   if (loading) {
     return (
@@ -205,6 +155,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    <>
     <AppShell
         navItems={navItems}
         navSections={navSections}
@@ -212,7 +163,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         onNavigate={(href) => router.push(href)}
         userEmail={user.email ?? undefined}
         onSignOut={handleSignOut}
-        breadcrumbItems={breadcrumbItems}
         topbarChildren={
           orgs.length > 0 ? (
             <select
@@ -232,5 +182,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         {children}
       </AppShell>
+      {switchingOrg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-950/30 backdrop-blur-sm transition-all duration-300">
+          <div className="rounded-xl bg-surface-50 px-6 py-4 shadow-raised border border-surface-200/80 animate-scale-in">
+            <div className="flex items-center gap-3">
+              <div className="h-4 w-4 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
+              <span className="text-sm text-text-600">Switching organisation&hellip;</span>
+            </div>
+          </div>
+        </div>
+      )}
+      <CommandPalette />
+    </>
   );
 }

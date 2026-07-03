@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { useOrgStore } from '@/stores/org-store';
 import { createNewArtist } from '@/lib/artist-service';
 import { Button, Card, Input, Select, TextArea } from '@releaseflow/ui';
 
@@ -18,6 +19,7 @@ const artistTypes = [
 
 export default function NewArtistPage() {
   const router = useRouter();
+  const { activeOrgId } = useOrgStore();
   const [name, setName] = useState('');
   const [artistType, setArtistType] = useState('original_artist');
   const [bio, setBio] = useState('');
@@ -41,6 +43,7 @@ export default function NewArtistPage() {
       const id = await createNewArtist({
         name: name.trim(),
         artistType: artistType as never,
+        organizationId: activeOrgId ?? '',
         bio: bio.trim() || undefined,
         country: country.trim() || undefined,
         genres: genres ? genres.split(',').map((g) => g.trim()).filter(Boolean) : undefined,
@@ -56,8 +59,8 @@ export default function NewArtistPage() {
 
   return (
     <div className="mx-auto max-w-lg px-6 py-8">
-      <Link href="/artists" className="text-sm text-text-500 hover:text-text-900 dark:hover:text-surface-100 mb-6 inline-block">&larr; Back</Link>
-      <h1 className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-8">New Artist</h1>
+      <Link href="/artists" className="text-sm text-text-400 hover:text-surface-50 mb-6 inline-block">&larr; Back</Link>
+      <p className="text-2xl font-bold text-surface-50 mb-8">New Artist</p>
 
       <Card padding="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -73,7 +76,7 @@ export default function NewArtistPage() {
           </div>
 
           <details className="group">
-            <summary className="text-sm font-medium text-text-500 hover:text-text-900 dark:hover:text-surface-100 cursor-pointer">Social Links</summary>
+            <summary className="text-sm font-medium text-text-400 hover:text-surface-50 cursor-pointer">Social Links</summary>
             <div className="mt-3 space-y-3 pl-2">
               <Input label="Instagram" type="text" value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="Instagram URL" />
               <Input label="Spotify" type="text" value={spotify} onChange={(e) => setSpotify(e.target.value)} placeholder="Spotify URL" />
@@ -85,7 +88,7 @@ export default function NewArtistPage() {
             <Button type="submit" loading={submitting} disabled={submitting || !name.trim()}>
               {submitting ? 'Creating...' : 'Create Artist'}
             </Button>
-            <Link href="/artists" className="text-sm text-text-500 hover:text-text-900 dark:hover:text-surface-100">Cancel</Link>
+            <Link href="/artists" className="text-sm text-text-400 hover:text-surface-50">Cancel</Link>
           </div>
         </form>
       </Card>

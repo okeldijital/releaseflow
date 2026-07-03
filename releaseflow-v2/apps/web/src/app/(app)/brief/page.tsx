@@ -99,7 +99,7 @@ export default function BriefPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <h1 className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-2">Daily Brief</h1>
+      <p className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-2">Daily Brief</p>
       <p className="text-sm text-text-500 mb-8">Operational overview for today</p>
 
       {!activeOrgId ? (

@@ -27,10 +27,10 @@ const borderAccentClasses: Record<ToastType, string> = {
 };
 
 const iconBgClasses: Record<ToastType, string> = {
-  info: 'bg-info-50 text-info-500',
-  success: 'bg-success-50 text-success-500',
-  warning: 'bg-warning-50 text-warning-500',
-  error: 'bg-danger-50 text-danger-500',
+  info: 'bg-info-50 text-info-500 dark:bg-info-500/15 dark:text-info-400',
+  success: 'bg-success-50 text-success-500 dark:bg-success-500/15 dark:text-success-400',
+  warning: 'bg-warning-50 text-warning-500 dark:bg-warning-500/15 dark:text-warning-400',
+  error: 'bg-danger-50 text-danger-500 dark:bg-danger-500/15 dark:text-danger-400',
 };
 
 const ToastIcon = ({ type }: { type: ToastType }) => {
@@ -101,7 +101,7 @@ export function Toast({
     <div
       role={isCritical ? 'alert' : 'status'}
       aria-live="polite"
-      className={`bg-white rounded-md shadow-raised border border-surface-200 p-4 border-l-4 max-w-sm animate-slide-up
+      className={`bg-white dark:bg-surface-800 rounded-md shadow-raised border border-surface-200 dark:border-surface-600 p-4 border-l-4 max-w-sm animate-slide-up
         ${borderAccentClasses[type]}
         ${className}
       `}
@@ -111,13 +111,13 @@ export function Toast({
           <ToastIcon type={type} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-text-900">{title}</p>
-          {message ? <p className="text-xs text-text-500 mt-1">{message}</p> : null}
+          <p className="text-sm font-medium text-text-900 dark:text-text-100">{title}</p>
+          {message ? <p className="text-xs text-text-500 dark:text-text-400 mt-1">{message}</p> : null}
           {action ? (
             <button
               type="button"
               onClick={action.onClick}
-              className="text-xs font-medium text-primary-500 hover:text-primary-600 mt-2 transition-colors duration-100"
+              className="text-xs font-medium text-primary-500 hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 mt-2 transition-colors duration-100"
             >
               {action.label}
             </button>
@@ -128,7 +128,7 @@ export function Toast({
             type="button"
             aria-label="Dismiss"
             onClick={handleDismiss}
-            className="shrink-0 p-1 rounded text-text-400 hover:text-text-700 transition-colors duration-100"
+            className="shrink-0 p-1 rounded text-text-400 hover:text-text-700 dark:text-text-500 dark:hover:text-text-200 transition-colors duration-100"
           >
             <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
               <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z" />

@@ -9,7 +9,6 @@ import {
 import { logActivity } from './workflow-service';
 import type {
   ReleaseStatus,
-  ReleaseType,
 } from '@/app/(app)/types';
 import type { CreateReleaseFields, UpdateReleaseFields } from './release-repository';
 

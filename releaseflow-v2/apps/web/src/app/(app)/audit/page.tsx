@@ -37,7 +37,7 @@ export default function AuditPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
-      <h1 className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-2">System Audit</h1>
+      <p className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-2">System Audit</p>
       <p className="text-sm text-text-500 mb-8">Permissions, activity coverage, data integrity, performance</p>
 
       <div className="space-y-6">

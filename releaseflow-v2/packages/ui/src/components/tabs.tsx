@@ -18,9 +18,9 @@ interface TabsProps {
 }
 
 const variantContainerClasses: Record<TabVariant, string> = {
-  underline: 'border-b border-surface-200 dark:border-surface-700',
+  underline: 'border-b border-surface-200/70 dark:border-surface-700/70',
   pill: 'flex-wrap gap-1',
-  border: 'gap-0 border-b border-surface-200 dark:border-surface-700',
+  border: 'gap-0 border-b border-surface-200/70 dark:border-surface-700/70',
 };
 
 const variantTabClasses: Record<TabVariant, string> = {
@@ -32,7 +32,7 @@ const variantTabClasses: Record<TabVariant, string> = {
 const variantActiveClasses: Record<TabVariant, string> = {
   underline: 'border-primary-500 text-primary-600 dark:text-primary-400',
   pill: 'bg-primary-500 text-white shadow-sm',
-  border: 'bg-white text-text-900 border-surface-200 dark:border-surface-700 shadow-card -mb-px',
+  border: 'bg-white text-text-900 border-surface-200 dark:bg-surface-900 dark:text-text-50 dark:border-surface-600 shadow-card -mb-px',
 };
 
 export function Tabs({

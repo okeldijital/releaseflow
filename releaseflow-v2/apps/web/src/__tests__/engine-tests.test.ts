@@ -80,17 +80,17 @@ describe('Workflow Progress', () => {
 });
 
 describe('Workflow Health', () => {
-  it('returns red when a stage is blocked', () => {
+  it('returns Critical when a stage is blocked', () => {
     const stages: Stage[] = [
       { id: '1', workflowId: 'w1', name: 'A', order: 1, status: 'blocked' },
     ];
-    expect(computeWorkflowHealth({ stages })).toBe('red');
+    expect(computeWorkflowHealth({ stages })).toBe('Critical');
   });
 
-  it('returns green when all stages completed', () => {
+  it('returns Excellent when all stages completed', () => {
     const stages: Stage[] = [
       { id: '1', workflowId: 'w1', name: 'A', order: 1, status: 'completed' },
     ];
-    expect(computeWorkflowHealth({ stages })).toBe('green');
+    expect(computeWorkflowHealth({ stages })).toBe('Excellent');
   });
 });

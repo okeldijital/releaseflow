@@ -47,7 +47,6 @@ export default function EditReleasePage() {
   const [subgenre, setSubgenre] = useState('');
   const [language, setLanguage] = useState('');
   const [explicit, setExplicit] = useState(false);
-  const [showMetadata, setShowMetadata] = useState(false);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [releaseOrgId, setReleaseOrgId] = useState<string | null>(null);
@@ -136,58 +135,71 @@ export default function EditReleasePage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
-      <Link href={`/releases/${id}`} className="text-sm text-text-500 hover:text-text-900 dark:hover:text-surface-100 mb-6 inline-block">&larr; Back to release</Link>
-      <h1 className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-8">Edit Release</h1>
+      <Link href={`/releases/${id}`} className="text-sm text-text-400 hover:text-surface-50 mb-6 inline-block">&larr; Back to release</Link>
+      <div className="mb-8">
+        <p className="text-2xl font-bold text-surface-50">Edit Release</p>
+        <p className="mt-1 text-sm text-text-400">Update release details without restarting setup.</p>
+      </div>
 
-      <Card padding="lg">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Release title" label="Title" />
-          <Select label="Release Type" options={releaseTypes.map((rt) => ({ value: rt.value, label: rt.label }))} value={releaseType} onChange={setReleaseType} />
-          <Select label="Status" options={releaseStatuses.map((rs) => ({ value: rs.value, label: rs.label }))} value={status} onChange={setStatus} />
-          <Input type="date" value={targetReleaseDate} onChange={(e) => setTargetReleaseDate(e.target.value)} label="Target Release Date" hint="Optional" />
-
-          <div>
-            <button type="button" onClick={() => setShowMetadata(!showMetadata)}
-              className="flex items-center gap-2 text-sm font-medium text-text-500 hover:text-text-900 dark:hover:text-surface-100 transition-colors">
-              <svg className={`w-4 h-4 transition-transform ${showMetadata ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-              Metadata
-            </button>
-          </div>
-
-          {showMetadata ? (
-            <div className="space-y-4 pl-6 border-l-2 border-surface-200 dark:border-surface-600">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Input type="text" value={upc} onChange={(e) => setUpc(e.target.value)} placeholder="012345678901" label="UPC" />
-                <Input type="text" value={catalogNumber} onChange={(e) => setCatalogNumber(e.target.value)} placeholder="CAT-001" label="Catalog Number" />
-                <Input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label name" label="Label" />
-                <Input type="text" value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Electronic" label="Genre" />
-                <Input type="text" value={subgenre} onChange={(e) => setSubgenre(e.target.value)} placeholder="House" label="Subgenre" />
-                <Input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="English" label="Language" />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Input type="text" value={copyright} onChange={(e) => setCopyright(e.target.value)} placeholder="&#169; 2025 Label Name" label="Copyright" />
-                <Input type="text" value={pLine} onChange={(e) => setPLine(e.target.value)} placeholder="&#8482; 2025 Label Name" label="P-Line" />
-                <Input type="text" value={cLine} onChange={(e) => setCLine(e.target.value)} placeholder="&#169; 2025 Label Name" label="C-Line" />
-                <div className="flex items-end">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={explicit} onChange={(e) => setExplicit(e.target.checked)}
-                      className="rounded border-surface-300 dark:border-surface-600 text-text-900 focus:ring-primary-500" />
-                    <span className="text-sm font-medium text-text-700 dark:text-surface-300">Explicit Content</span>
-                  </label>
-                </div>
-              </div>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <Card padding="lg">
+          <h2 className="text-sm font-semibold text-surface-50 mb-4">Release Details</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <Input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Release title" label="Release Title" />
             </div>
-          ) : null}
-
-          {error && <p className="text-sm text-danger-500">{error}</p>}
-          <div className="flex items-center gap-4 pt-2">
-            <Button type="submit" variant="primary" disabled={submitting || !title.trim()} loading={submitting}>
-              {submitting ? 'Saving...' : 'Save Changes'}
-            </Button>
-            <Link href={`/releases/${id}`} className="text-sm text-text-500 hover:text-text-900 dark:hover:text-surface-100">Cancel</Link>
+            <Select label="Release Type" options={releaseTypes.map((rt) => ({ value: rt.value, label: rt.label }))} value={releaseType} onChange={setReleaseType} />
+            <Select label="Status" options={releaseStatuses.map((rs) => ({ value: rs.value, label: rs.label }))} value={status} onChange={setStatus} />
+            <Input type="date" value={targetReleaseDate} onChange={(e) => setTargetReleaseDate(e.target.value)} label="Release Date" hint="Optional" />
+            <Input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label name" label="Company / Label" />
           </div>
-        </form>
-      </Card>
+        </Card>
+
+        <Card padding="lg">
+          <h2 className="text-sm font-semibold text-surface-50 mb-4">Artists</h2>
+          <p className="text-sm text-text-400">Artist links are managed from the release workspace and track workspaces.</p>
+        </Card>
+
+        <Card padding="lg">
+          <h2 className="text-sm font-semibold text-surface-50 mb-4">Genre & Language</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input type="text" value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Electronic" label="Genre" />
+            <Input type="text" value={subgenre} onChange={(e) => setSubgenre(e.target.value)} placeholder="House" label="Subgenre" />
+            <Input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="English" label="Language" />
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={explicit} onChange={(e) => setExplicit(e.target.checked)}
+                  className="rounded border-surface-300 text-surface-50 focus:ring-primary-500" />
+                <span className="text-sm font-medium text-surface-100">Explicit Content</span>
+              </label>
+            </div>
+          </div>
+        </Card>
+
+        <Card padding="lg">
+          <h2 className="text-sm font-semibold text-surface-50 mb-4">Artwork</h2>
+          <p className="text-sm text-text-400">Artwork is managed from the artwork card in the Release Workspace.</p>
+        </Card>
+
+        <Card padding="lg">
+          <h2 className="text-sm font-semibold text-surface-50 mb-4">Metadata</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input type="text" value={upc} onChange={(e) => setUpc(e.target.value)} placeholder="012345678901" label="UPC" />
+            <Input type="text" value={catalogNumber} onChange={(e) => setCatalogNumber(e.target.value)} placeholder="CAT-001" label="Catalog Number" />
+            <Input type="text" value={copyright} onChange={(e) => setCopyright(e.target.value)} placeholder="(c) 2026 Label Name" label="Copyright" />
+            <Input type="text" value={pLine} onChange={(e) => setPLine(e.target.value)} placeholder="(p) 2026 Label Name" label="P-Line" />
+            <Input type="text" value={cLine} onChange={(e) => setCLine(e.target.value)} placeholder="(c) 2026 Label Name" label="C-Line" />
+          </div>
+        </Card>
+
+        {error && <p className="text-sm text-danger-500">{error}</p>}
+        <div className="flex items-center gap-4 pt-2">
+          <Button type="submit" variant="primary" disabled={submitting || !title.trim()} loading={submitting}>
+            {submitting ? 'Saving...' : 'Save Changes'}
+          </Button>
+          <Link href={`/releases/${id}`} className="text-sm text-text-400 hover:text-surface-50">Cancel</Link>
+        </div>
+      </form>
     </div>
   );
 }

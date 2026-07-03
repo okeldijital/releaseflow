@@ -38,7 +38,7 @@ export async function validateDataIntegrity(orgId: string): Promise<IntegrityRep
     { name: 'stages', fk: 'releaseId' },
     { name: 'deliverables', fk: 'releaseId' },
     { name: 'campaigns', fk: 'releaseId' },
-    { name: 'budgets', fk: 'releaseId' },
+    { name: 'release_budgets', fk: 'releaseId' },
     { name: 'release_requirements', fk: 'releaseId' },
     { name: 'release_ownerships', fk: 'releaseId' },
   ];

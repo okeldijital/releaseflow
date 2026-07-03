@@ -31,7 +31,7 @@ describe('Approval service — module structure', () => {
 
   it('createApprovalRequest takes 4 params', async () => {
     const mod = await import('@/lib/approval-service');
-    expect(mod.createApprovalRequest.length).toBe(4);
+    expect(mod.createApprovalRequest.length).toBe(6);
   });
 
   it('approveRequest takes 3 params', async () => {

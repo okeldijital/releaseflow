@@ -1,6 +1,5 @@
 import { getWorkflow, getStages, createActivity, getActivities } from './workflow-repository';
 import { getStageTemplatesForReleaseType } from './workflow-templates';
-import type { ActivityRecord } from './workflow-repository';
 
 export type { WorkflowRecord, StageRecord, ActivityRecord } from './workflow-repository';
 

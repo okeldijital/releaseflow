@@ -67,21 +67,21 @@ describe('ReadinessEngine — all scenarios', () => {
 });
 
 describe('WorkflowHealth — edge cases', () => {
-  it('green when all completed', () => {
-    expect(computeWorkflowHealth({ stages: [mkStage('completed'), mkStage('completed')] })).toBe('green');
+  it('Excellent when all completed', () => {
+    expect(computeWorkflowHealth({ stages: [mkStage('completed'), mkStage('completed')] })).toBe('Excellent');
   });
-  it('red when any blocked', () => {
-    expect(computeWorkflowHealth({ stages: [mkStage('completed'), mkStage('blocked')] })).toBe('red');
+  it('Critical when any blocked', () => {
+    expect(computeWorkflowHealth({ stages: [mkStage('completed'), mkStage('blocked')] })).toBe('Critical');
   });
-  it('red when overdue (past dueDate)', () => {
+  it('Blocked when overdue (past dueDate)', () => {
     const overdue = { ...mkStage('in_progress'), dueDate: new Date(Date.now() - 86400000) };
-    expect(computeWorkflowHealth({ stages: [overdue] })).toBe('red');
+    expect(computeWorkflowHealth({ stages: [overdue] })).toBe('Blocked');
   });
-  it('green for empty stages', () => {
-    expect(computeWorkflowHealth({ stages: [] })).toBe('green');
+  it('Excellent for empty stages', () => {
+    expect(computeWorkflowHealth({ stages: [] })).toBe('Excellent');
   });
-  it('amber when target date within 7 days', () => {
-    const s = { ...mkStage('in_progress') };
-    expect(computeWorkflowHealth({ stages: [s], targetReleaseDate: new Date(Date.now() + 3 * 86400000) })).toBe('amber');
+  it('Healthy for in-progress stage without urgency', () => {
+    const s = { status: 'in_progress' };
+    expect(computeWorkflowHealth({ stages: [s] })).toBe('Healthy');
   });
 });

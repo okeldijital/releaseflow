@@ -1,933 +1,714 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { fmtDate } from '@/lib/utils';
-import { computeProgress } from '@/lib/workflow-progress';
-import { stageComplete } from '@/lib/workflow-progression';
-import { createTask, completeTask, getTasksByStage, assignTask, unassignTask } from '@/lib/task-service';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
-import { computeReadiness } from '@/lib/readiness-engine';
-import { getRequirementsByRelease, submitRequirement, approveRequirement } from '@/lib/requirement-service';
+import { PersonAssigner } from '@/components/person-assigner';
+import { fetchRelease } from '@/lib/release-service';
 import { getDeliverablesByRelease } from '@/lib/deliverable-service';
-import { checkDistributionReadiness, generateDistributionPackage, getLatestDistributionPackage } from '@/lib/distribution-service';
-import { validateReleaseOwnership } from '@/lib/rights-service';
-import type { OwnershipValidation } from '@/lib/rights-service';
-import { getDependenciesByRelease } from '@/lib/dependency-service';
-import { fetchStages } from '@/lib/workflow-service';
-import { fetchRelease, removeRelease, changeReleaseStatus } from '@/lib/release-service';
-import { useWorkflow, useActivity } from '@/hooks/useWorkflow';
-import {
-  Card, Badge, StatusBadge, ProgressBar, Button, EmptyState, LoadingState, Skeleton, Drawer, Tabs,
-  WorkspaceLayout,
-} from '@releaseflow/ui';
-import {
-  ReleaseJourney, HealthRing, ReadinessStack, ContextRail, WorkflowBoard, OperationalSummary,
-} from '@releaseflow/domain-ui';
-import type { Release, ReleaseStatus, Workflow, Stage, Task, ReleaseRequirement, Deliverable, Dependency, DistributionPackage } from '../../types';
+import { getTracksByRelease } from '@/lib/release-track-repository';
+import { getTasksByEntity } from '@/lib/task-service';
+import { getActivityByEntity } from '@/lib/activity-service';
+import { fmtDate } from '@/lib/utils';
+import { Button, Badge, StatusBadge, Skeleton, EmptyState, LoadingState, Tabs } from '@releaseflow/ui';
+import type { Release, Deliverable, Task } from '../../types';
+import type { ReleaseTrackRecord } from '@/lib/release-track-repository';
+import type { TrackRecord } from '@/lib/track-repository';
+import type { ActivityEventRecord } from '@/lib/activity-service';
 
-const TAB_IDS = [
-  'overview', 'workflow', 'assets', 'distribution', 'campaigns',
-  'budget', 'rights', 'credits', 'activity', 'settings',
-] as const;
-type TabId = typeof TAB_IDS[number];
+/* ─── helpers ────────────────────────────────────────────────────────────── */
 
-const TAB_LABELS: Record<TabId, string> = {
-  overview: 'Overview', workflow: 'Workflow', assets: 'Assets',
-  distribution: 'Distribution', campaigns: 'Campaigns', budget: 'Budget',
-  rights: 'Rights', credits: 'Credits', activity: 'Activity', settings: 'Settings',
-};
-
-const STATUS_TRANSITIONS: Record<string, { label: string; status: ReleaseStatus; destructive?: boolean; needsReason?: boolean }[]> = {
-  draft: [
-    { label: 'Begin Planning', status: 'planning' },
-    { label: 'Cancel Release', status: 'cancelled', destructive: true },
-  ],
-  planning: [
-    { label: 'Start Production', status: 'in_production' },
-    { label: 'Cancel Release', status: 'cancelled', destructive: true },
-  ],
-  in_production: [
-    { label: 'Put On Hold', status: 'on_hold', needsReason: true },
-    { label: 'Mark Ready', status: 'ready_for_distribution' },
-    { label: 'Cancel Release', status: 'cancelled', destructive: true },
-  ],
-  on_hold: [
-    { label: 'Resume Production', status: 'in_production' },
-    { label: 'Cancel Release', status: 'cancelled', destructive: true },
-  ],
-  ready_for_distribution: [
-    { label: 'Publish Release', status: 'released' },
-    { label: 'Re-Open Release', status: 'in_production' },
-    { label: 'Cancel Release', status: 'cancelled', destructive: true },
-  ],
-};
-
-function daysUntil(d: Date): number {
-  return Math.max(0, Math.floor((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+function relativeDate(ts: unknown): string {
+  if (!ts) return '';
+  let d: Date;
+  if (ts instanceof Date) { d = ts; }
+  else if (typeof ts === 'object' && ts !== null && 'seconds' in ts) { d = new Date((ts as { seconds: number }).seconds * 1000); }
+  else if (typeof ts === 'string') { d = new Date(ts); }
+  else { return ''; }
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffMs = target.getTime() - today.getTime();
+  const diffDays = Math.round(diffMs / 86400000);
+  if (diffDays < -1) return `${Math.abs(diffDays)} days overdue`;
+  if (diffDays === -1) return 'Yesterday (overdue)';
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Tomorrow';
+  if (diffDays < 7) return `In ${diffDays} days`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default function ReleaseDetailPage() {
+function isOverdue(ts: unknown): boolean {
+  if (!ts) return false;
+  let d: Date;
+  if (ts instanceof Date) { d = ts; }
+  else if (typeof ts === 'object' && ts !== null && 'seconds' in ts) { d = new Date((ts as { seconds: number }).seconds * 1000); }
+  else if (typeof ts === 'string') { d = new Date(ts); }
+  else return false;
+  return d < new Date();
+}
+
+function dateValue(ts: unknown): number {
+  if (!ts) return Infinity;
+  if (ts instanceof Date) return ts.getTime();
+  if (typeof ts === 'object' && ts !== null && 'seconds' in ts) return (ts as { seconds: number }).seconds * 1000;
+  if (typeof ts === 'string') {
+    const time = new Date(ts).getTime();
+    return Number.isNaN(time) ? Infinity : time;
+  }
+  return Infinity;
+}
+
+function taskDateBucket(ts: unknown): number {
+  const value = dateValue(ts);
+  if (value === Infinity) return 4;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(value);
+  const targetDay = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  const diffDays = Math.round((targetDay.getTime() - today.getTime()) / 86400000);
+  if (diffDays < 0) return 0;
+  if (diffDays === 0) return 1;
+  if (diffDays === 1) return 2;
+  return 3;
+}
+
+function timeAgo(ts: unknown): string {
+  if (!ts) return '';
+  let d: Date;
+  if (ts instanceof Date) { d = ts; }
+  else if (typeof ts === 'object' && ts !== null && 'seconds' in ts) { d = new Date((ts as { seconds: number }).seconds * 1000); }
+  else if (typeof ts === 'string') { d = new Date(ts); }
+  else return '';
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} days ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function fmtDuration(secs: number | undefined): string {
+  if (!secs) return '—';
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function titleCase(value: string): string {
+  return value
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function fieldValue(record: unknown, keys: string[]): string | undefined {
+  if (!record || typeof record !== 'object') return undefined;
+  const source = record as Record<string, unknown>;
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+  return undefined;
+}
+
+function isInvitationPending(task: Task): boolean {
+  return Boolean(fieldValue(task, ['invitationId', 'invitationEmail', 'pendingInvitationId']));
+}
+
+function taskActionLabel(task: Task): string {
+  if (isInvitationPending(task)) return 'View Invitation';
+  if (!task.assigneeId) return 'Assign';
+  return 'Open Task';
+}
+
+/* ─── activity event label ───────────────────────────────────────────────── */
+
+const TECHNICAL_ACTIONS = new Set([
+  'firestore.write', 'hook.refresh', 'system.sync', 'system.recalculate',
+  'workflow.generated', // internal
+]);
+
+function humaniseActivity(ev: ActivityEventRecord): string | null {
+  if (TECHNICAL_ACTIONS.has(ev.action)) return null;
+  const labels: Record<string, string> = {
+    'release.created': 'created this release',
+    'stage.started': `started stage ${ev.metadata?.stageName ?? ''}`,
+    'stage.completed': `completed stage ${ev.metadata?.stageName ?? ''}`,
+    'task.created': `created task "${ev.metadata?.title ?? ''}"`,
+    'task.completed': `completed a task`,
+    'task.assigned': `assigned a task`,
+    'deliverable.created': `added deliverable "${ev.metadata?.title ?? ''}"`,
+    'deliverable.approved': `approved a deliverable`,
+    'deliverable.rejected': `rejected a deliverable`,
+    'deliverable.updated': `updated a deliverable`,
+    'approval.requested': `requested an approval`,
+    'approval.approved': `approved`,
+    'approval.rejected': `rejected an approval`,
+    'comment.added': `left a comment`,
+    'release.status.changed': `changed status to ${ev.metadata?.newStatus ?? ''}`,
+    'campaign.created': `created a campaign`,
+  };
+  return labels[ev.action] ?? ev.action.replace(/[._]/g, ' ');
+}
+
+/* ─── readiness categories ───────────────────────────────────────────────── */
+
+const READINESS_CATS = ['Audio', 'Artwork', 'Metadata', 'Rights', 'Distribution', 'Marketing'] as const;
+type ReadinessCat = typeof READINESS_CATS[number];
+
+const EXPECTED_ASSETS = [
+  { id: 'cover-artwork', label: 'Cover Artwork', types: ['artwork'], missingAction: 'Upload' },
+  { id: 'master-wav', label: 'Master WAV', types: ['audio'], missingAction: 'Upload' },
+  { id: 'instrumental', label: 'Instrumental', types: ['audio'], match: ['instrumental'], missingAction: 'Upload' },
+  { id: 'lyrics', label: 'Lyrics', types: ['document', 'metadata'], match: ['lyric'], missingAction: 'Assign Copywriter' },
+  { id: 'story-artwork', label: 'Story Artwork', types: ['artwork'], match: ['story'], missingAction: 'Assign Designer' },
+  { id: 'press-kit', label: 'Press Kit', types: ['document', 'other'], match: ['press kit', 'epk'], missingAction: 'Invite Designer' },
+  { id: 'email-banner', label: 'Email Banner', types: ['artwork', 'other'], match: ['email', 'banner'], missingAction: 'Assign Designer' },
+  { id: 'tiktok-video', label: 'TikTok Video', types: ['video'], match: ['tiktok', 'tik tok'], missingAction: 'Invite Videographer' },
+] as const;
+
+/* ─── Main Page ──────────────────────────────────────────────────────────── */
+
+type TabId = 'overview' | 'workflow' | 'campaign' | 'rights' | 'budget' | 'settings';
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'overview',  label: 'Overview'  },
+  { id: 'workflow',  label: 'Workflow'  },
+  { id: 'campaign',  label: 'Campaign'  },
+  { id: 'rights',    label: 'Rights'    },
+  { id: 'budget',    label: 'Budget'    },
+  { id: 'settings',  label: 'Settings'  },
+];
+
+const INVITE_ROLES = [
+  'Mixing Engineer',
+  'Mastering Engineer',
+  'Graphic Designer',
+  'Marketing Manager',
+  'Photographer',
+  'Videographer',
+  'Copywriter',
+  'Social Media Manager',
+  'Producer',
+  'Artist',
+] as const;
+
+export default function ReleaseWorkspacePage() {
   const { user } = useAuth();
   const { activeOrgId } = useOrgStore();
   const router = useRouter();
   const params = useParams();
-  const id = params.id as string;
+  const releaseId = params.id as string;
 
-  const [tab, setTab] = useState<TabId>('overview');
   const [release, setRelease] = useState<Release | null>(null);
-  const [workflow, setWorkflow] = useState<Workflow | null>(null);
-  const [stages, setStages] = useState<Stage[]>([]);
-  const [tasksByStage, setTasksByStage] = useState<Record<string, Task[]>>({});
-  const [requirements, setRequirements] = useState<ReleaseRequirement[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
-  const [dependencies, setDependencies] = useState<Dependency[]>([]);
-  const [distPackage, setDistPackage] = useState<DistributionPackage | null>(null);
-  const [ownership, setOwnership] = useState<OwnershipValidation | null>(null);
+  const [tracks, setTracks] = useState<(ReleaseTrackRecord & { track: TrackRecord | null })[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
+  const [activitiesLoaded, setActivitiesLoaded] = useState(false);
+  const [rolePickerOpen, setRolePickerOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteRole, setInviteRole] = useState<(typeof INVITE_ROLES)[number]>('Graphic Designer');
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
-  const [completing, setCompleting] = useState<string | null>(null);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskPriority, setNewTaskPriority] = useState('medium');
-  const [newTaskAssignee, setNewTaskAssignee] = useState('');
-  const [creatingTask, setCreatingTask] = useState(false);
-  const [statusOpen, setStatusOpen] = useState(false);
-  const [holdReason, setHoldReason] = useState('');
-  const [confirmTransition, setConfirmTransition] = useState<{ label: string; status: ReleaseStatus; destructive?: boolean; needsReason?: boolean } | null>(null);
-  const [updating, setUpdating] = useState(false);
+  const [tab, setTab] = useState<TabId>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`rf-tab-release-${releaseId}`);
+      if (saved && TABS.some((t) => t.id === saved)) return saved as TabId;
+    }
+    return 'overview';
+  });
 
-  const actorId = user?.uid ?? 'unknown';
+  const visibleTabs = useMemo(() => TABS.filter((t) => (
+    t.id === 'overview' ||
+    t.id === 'workflow' ||
+    t.id === 'settings' ||
+    (t.id === 'campaign' && deliverables.some((d) => d.type === 'video' || d.type === 'other')) ||
+    (t.id === 'rights' && Boolean(release?.copyright || release?.pLine || release?.cLine)) ||
+    (t.id === 'budget' && false)
+  )), [deliverables, release?.cLine, release?.copyright, release?.pLine]);
 
-  const { workflow: wfData, stages: wfStages, loading: wfLoading } = useWorkflow(id);
-  const { activities, loading: activityLoading } = useActivity(id);
-
+  /* Load core data immediately */
   useEffect(() => {
     async function load() {
-      const releaseData = await fetchRelease(id);
-      if (!releaseData) { setLoading(false); return; }
-
-      if (activeOrgId && releaseData.organizationId && releaseData.organizationId !== activeOrgId) {
+      setLoading(true);
+      const rel = await fetchRelease(releaseId);
+      if (!rel) { setLoading(false); return; }
+      if (activeOrgId && rel.organizationId && rel.organizationId !== activeOrgId) {
         setForbidden(true); setLoading(false); return;
       }
-      setRelease(releaseData as unknown as Release);
+      setRelease(rel as unknown as Release);
+
+      const [del, trk, tsk] = await Promise.all([
+        getDeliverablesByRelease(releaseId),
+        getTracksByRelease(releaseId),
+        getTasksByEntity('release', releaseId),
+      ]);
+      setDeliverables(del);
+      setTracks(trk);
+      setTasks(tsk);
       setLoading(false);
     }
     load();
-  }, [id, activeOrgId]);
+  }, [releaseId, activeOrgId]);
 
+  /* Lazy-load activity */
   useEffect(() => {
-    if (!wfLoading) {
-      if (wfData) setWorkflow(wfData as unknown as Workflow);
-      else setWorkflow(null);
-      if (wfStages.length > 0) {
-        setStages(wfStages as unknown as Stage[]);
-        (async () => {
-          const tasksMap: Record<string, Task[]> = {};
-          for (const s of wfStages) tasksMap[s.id] = await getTasksByStage(s.id);
-          setTasksByStage(tasksMap);
-        })();
-      }
-    }
-  }, [wfData, wfStages, wfLoading]);
-
-  useEffect(() => {
-    if (!release) return;
-    Promise.all([
-      getRequirementsByRelease(id),
-      getDeliverablesByRelease(id),
-      getDependenciesByRelease(id),
-      getLatestDistributionPackage(id),
-      validateReleaseOwnership(id),
-    ]).then(([reqData, delData, depData, pkg, ownershipValidation]) => {
-      setRequirements(reqData);
-      setDeliverables(delData);
-      setDependencies(depData);
-      setDistPackage(pkg as unknown as DistributionPackage);
-      setOwnership(ownershipValidation);
+    if (!releaseId) return;
+    getActivityByEntity('release', releaseId).then((data) => {
+      setActivities(data);
+      setActivitiesLoaded(true);
     });
-  }, [id, release]);
+  }, [releaseId]);
 
-  async function handleCompleteStage(stageId: string) {
-    if (!workflow) return;
-    setCompleting(stageId);
-    try {
-      await stageComplete(workflow.id, stageId, id, actorId);
-      const updatedStages = await fetchStages(workflow.id);
-      setStages(updatedStages as unknown as Stage[]);
-    } catch (err) { console.error(err); }
-    finally { setCompleting(null); }
-  }
+  const handleTabChange = useCallback((id: string) => {
+    setTab(id as TabId);
+    localStorage.setItem(`rf-tab-release-${releaseId}`, id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [releaseId]);
 
-  async function handleAddTask(stageId: string, e: FormEvent) {
-    e.preventDefault();
-    if (!newTaskTitle.trim()) return;
-    setCreatingTask(true);
-    try {
-      await createTask(stageId, id, actorId, { title: newTaskTitle.trim(), priority: newTaskPriority as Task['priority'], assigneeId: newTaskAssignee.trim() || undefined });
-      const updated = await getTasksByStage(stageId);
-      setTasksByStage((prev) => ({ ...prev, [stageId]: updated }));
-      setNewTaskTitle(''); setNewTaskPriority('medium'); setNewTaskAssignee('');
-    } catch (err) { console.error(err); } finally { setCreatingTask(false); }
-  }
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.id === tab)) setTab('overview');
+  }, [tab, visibleTabs]);
 
-  async function handleCompleteTask(stageId: string, taskId: string) {
-    await completeTask(taskId, id, stageId, actorId);
-    const updated = await getTasksByStage(stageId);
-    setTasksByStage((prev) => ({ ...prev, [stageId]: updated }));
-  }
+  /* ─── Readiness calculation ─────────────────────────────────────────── */
+  const readinessMap: Record<ReadinessCat, boolean> = {
+    Audio:        deliverables.some((d) => d.type === 'audio'    && d.status === 'approved'),
+    Artwork:      deliverables.some((d) => d.type === 'artwork'  && d.status === 'approved'),
+    Metadata:     !!(release?.upc),
+    Rights:       false, // resolved by rights service — default safe
+    Distribution: false, // resolved by dist service — default safe
+    Marketing:    deliverables.some((d) => d.type === 'other'    && d.status === 'approved'),
+  };
+  const readyCount   = Object.values(readinessMap).filter(Boolean).length;
+  const readinessPct = Math.round((readyCount / READINESS_CATS.length) * 100);
 
-  async function handleAssignTask(stageId: string, taskId: string, assigneeId: string) {
-    if (!assigneeId.trim()) await unassignTask(taskId, id, stageId, actorId);
-    else await assignTask(taskId, assigneeId.trim(), id, stageId, actorId);
-    const updated = await getTasksByStage(stageId);
-    setTasksByStage((prev) => ({ ...prev, [stageId]: updated }));
-  }
+  /* ─── Task priority sort ─────────────────────────────────────────────── */
+  const pendingTasks = tasks
+    .filter((t) => t.status !== 'done')
+    .sort((a, b) => {
+      const bucketDiff = taskDateBucket(a.dueDate) - taskDateBucket(b.dueDate);
+      if (bucketDiff !== 0) return bucketDiff;
+      return dateValue(a.dueDate) - dateValue(b.dueDate);
+    });
 
-  async function handleSubmitReq(reqId: string) { await submitRequirement(reqId); setRequirements(await getRequirementsByRelease(id)); }
-  async function handleApproveReq(reqId: string) { await approveRequirement(reqId); setRequirements(await getRequirementsByRelease(id)); }
-  async function handleGeneratePackage() { await generateDistributionPackage(id); setDistPackage(await getLatestDistributionPackage(id) as unknown as DistributionPackage); }
-
-  async function handleDelete() {
-    if (!confirm('This permanently removes the release and all associated operational data.')) return;
-    await removeRelease(id, actorId);
-    router.push('/releases');
-  }
-
-  async function handleStatusTransition(status: ReleaseStatus, reason?: string) {
-    setUpdating(true);
-    try {
-      await changeReleaseStatus(id, status, actorId, reason);
-      setRelease((prev) => prev ? { ...prev, status } : prev);
-    } catch (err) { console.error(err); }
-    finally { setUpdating(false); }
-  }
-
-  if (loading) return (
-    <div className="flex min-h-screen bg-surface-50">
-      <div className="flex-1 max-w-6xl mx-auto px-6 py-8">
-        <Skeleton className="h-4 w-32 mb-6" />
-        <div className="flex items-start gap-6 mb-8">
-          <Skeleton className="h-20 w-20 rounded-lg" />
-          <div className="space-y-2 flex-1">
-            <Skeleton className="h-8 w-64" />
-            <Skeleton className="h-4 w-48" />
+  /* ─── Loading skeleton ───────────────────────────────────────────────── */
+  if (loading) {
+    return (
+      <div className="px-5 sm:px-8 py-8 max-w-6xl mx-auto animate-fade-in">
+        <Skeleton className="h-4 w-28 mb-8" />
+        <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_220px] gap-6 mb-8">
+          <Skeleton className="h-[200px] rounded-xl" />
+          <div className="space-y-3">
+            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-4 w-1/3" />
           </div>
+          <Skeleton className="h-[200px] rounded-xl" />
         </div>
-        <div className="flex gap-1 border-b border-surface-200 mb-6">
-          <Skeleton className="h-8 w-20 mr-3" /><Skeleton className="h-8 w-20 mr-3" /><Skeleton className="h-8 w-20" />
-        </div>
-        <div className="space-y-6">
-          <Skeleton variant="card" className="h-48" />
+        <Skeleton className="h-10 w-full mb-6" />
+        <div className="space-y-4">
           <Skeleton variant="card" className="h-32" />
+          <Skeleton variant="card" className="h-48" />
+          <Skeleton variant="card" className="h-40" />
         </div>
       </div>
-    </div>
-  );
-  if (forbidden) return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-surface-50 py-20">
-      <p className="text-lg font-semibold text-text-900 mb-2">Access Denied</p>
-      <p className="text-sm text-text-500 mb-4">You do not have permission to view this release.</p>
-      <Link href="/dashboard" className="text-sm text-primary-500 underline underline-offset-4">Go to Dashboard</Link>
-    </div>
-  );
-  if (!release) return <div className="flex min-h-screen items-center justify-center bg-surface-50"><EmptyState title="Release not found" /></div>;
+    );
+  }
 
-  const currentStage = workflow?.currentStageId ? stages.find((s) => s.id === workflow.currentStageId)?.name ?? release.status.replace(/_/g, ' ') : release.status.replace(/_/g, ' ');
-  const progress = computeProgress(stages);
-  const readiness = computeReadiness(requirements, stages, deliverables, dependencies);
-  const distReadiness = checkDistributionReadiness(
-    release, deliverables.length, deliverables.filter((d) => d.status === 'approved').length,
-    requirements.length, requirements.filter((r) => r.status === 'approved').length,
-    dependencies.filter((d) => d.blocking).length, dependencies.filter((d) => d.blocking && d.status === 'completed').length,
-  );
-  const blockingDeps = dependencies.filter((d) => d.blocking);
-  const activeBlockingDeps = blockingDeps.filter((d) => d.status !== 'completed');
-  const completedBlockingDeps = blockingDeps.filter((d) => d.status === 'completed').length;
+  if (forbidden) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-96 px-6 py-20">
+        <p className="text-base font-semibold text-text-900 mb-1">Access Denied</p>
+        <p className="text-sm text-text-500 mb-5">You don't have access to this release.</p>
+        <Link href="/releases" className="text-sm font-medium text-primary-500 hover:text-primary-600 transition-colors">← Back to Releases</Link>
+      </div>
+    );
+  }
 
-  const journeyStages = stages.map((s) => {
-    const statusMap: Record<string, 'completed' | 'current' | 'pending' | 'blocked'> = {
-      completed: 'completed', in_progress: 'current', not_started: 'pending',
-      blocked: 'blocked', review: 'current', approved: 'completed',
-    };
-    return { id: s.id, label: s.name, status: statusMap[s.status] ?? 'pending', date: s.dueDate ? fmtDate(s.dueDate) : undefined };
+  if (!release) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <EmptyState title="Release not found" description="This release doesn't exist or has been removed." action={{ label: 'Back to Releases', onClick: () => router.push('/releases') }} />
+      </div>
+    );
+  }
+
+  /* ─── Artwork placeholder colour ─────────────────────────────────────── */
+  const artworkColors = ['bg-primary-600','bg-purple-600','bg-teal-600','bg-pink-600','bg-amber-600'];
+  const artworkColor  = artworkColors[(release.title.charCodeAt(0) ?? 0) % artworkColors.length];
+  const artworkAsset  = deliverables.find((d) => d.type === 'artwork' && d.status === 'approved');
+  const artworkUrl = (artworkAsset as unknown as { url?: string } | undefined)?.url;
+  const artistName = fieldValue(release, ['artistName', 'artist', 'primaryArtist']) ?? 'Artist not linked';
+  const companyName = release.label ?? fieldValue(release, ['company', 'companyName']) ?? 'Company not set';
+  const meaningfulActivities = activities.filter((ev) => humaniseActivity(ev) !== null);
+  const assetChecklist = EXPECTED_ASSETS.map((asset) => {
+    const match = deliverables.find((d) => {
+      const title = d.title.toLowerCase();
+      const typeMatch = (asset.types as readonly string[]).includes(d.type);
+      const titleMatch =
+        title.toLowerCase().includes(asset.label.toLowerCase());
+      return titleMatch || (typeMatch && asset.id === 'cover-artwork' && d.type === 'artwork') || (typeMatch && asset.id === 'master-wav' && d.type === 'audio');
+    });
+    return { ...asset, deliverable: match, received: match?.status === 'approved' };
   });
 
-  const workflowCompletionPct = stages.length > 0
-    ? Math.round((stages.filter((s) => s.status === 'completed').length / stages.length) * 100)
-    : 0;
-
-  const readinessCategories: Record<string, { status: 'ready' | 'not-ready'; description?: string; guidance?: string }> = {
-    Audio: { status: deliverables.filter((d) => d.type === 'audio' && d.status === 'approved').length > 0 ? 'ready' : 'not-ready', description: `${deliverables.filter((d) => d.type === 'audio' && d.status === 'approved').length} of ${deliverables.filter((d) => d.type === 'audio').length} approved` },
-    Artwork: { status: deliverables.filter((d) => d.type === 'artwork' && d.status === 'approved').length > 0 ? 'ready' : 'not-ready', description: deliverables.filter((d) => d.type === 'artwork').length > 0 ? 'Pending approval' : 'No artwork deliverables' },
-    Metadata: { status: release.upc ? 'ready' : 'not-ready', description: release.upc ? 'Complete' : 'UPC required' },
-    Rights: { status: ownership?.valid ? 'ready' : 'not-ready', description: ownership?.valid ? 'Cleared' : (ownership?.issues?.[0] ?? 'Not cleared') },
-    Distribution: { status: distPackage ? 'ready' : 'not-ready', description: distPackage ? `${distPackage.completeness}% complete` : 'Not configured' },
-    Marketing: { status: 'not-ready', description: 'Not started' },
-    Legal: { status: 'not-ready', description: 'Not reviewed' },
-  };
-  const readyCount = Object.values(readinessCategories).filter((c) => c.status === 'ready').length;
-
-  const attentionItems = [
-    ...activeBlockingDeps.map((d) => ({ id: d.id, label: d.title, type: 'deadline' as const })),
-    ...requirements.filter((r) => r.status === 'submitted').map((r) => ({ id: r.id, label: `Review: ${r.name}`, type: 'review' as const })),
-  ];
-
-  const targetDays = release.targetReleaseDate instanceof Date ? daysUntil(release.targetReleaseDate) : undefined;
-
-  const contextRailContent = (
-    <div className="p-4 space-y-6">
-      <HealthRing
-        size="md"
-        health={readiness.percentage}
-        readiness={readiness.percentage}
-        timelineConfidence={readiness.percentage}
-        workflowCompletion={workflowCompletionPct}
-        currentStage={currentStage}
-        daysUntilRelease={targetDays}
-      />
-      <ReadinessStack categories={readinessCategories} />
-      <ContextRail
-        releaseName={release.title}
-        releaseType={release.releaseType}
-        currentStage={currentStage}
-        releaseDate={release.targetReleaseDate ? fmtDate(release.targetReleaseDate) : 'Not set'}
-        health={readiness.percentage}
-        attentionItems={attentionItems}
-      />
-    </div>
-  );
-
-  const tabs = TAB_IDS.map((t) => ({
-    id: t,
-    label: TAB_LABELS[t],
-    count: t === 'assets' ? deliverables.length : t === 'credits' ? undefined : t === 'activity' ? undefined : undefined,
-  }));
-
-  const healthPillClass = readiness.percentage >= 80
-    ? 'bg-success-50 text-success-500' : readiness.percentage >= 50
-    ? 'bg-warning-50 text-warning-500' : 'bg-danger-50 text-danger-500';
-  const healthPillLabel = readiness.percentage >= 80 ? 'Healthy' : readiness.percentage >= 50 ? 'Attention' : 'Critical';
-
   return (
-    <WorkspaceLayout contextRail={contextRailContent}>
-      <div className="px-6 py-6">
-        <Link href="/releases" className="text-sm text-text-500 hover:text-text-900 mb-4 inline-block">&larr; Back to releases</Link>
+    <div className="px-5 sm:px-8 py-8 max-w-6xl mx-auto page-transition">
 
-        {/* ===== Release Header (Hero) ===== */}
-        <header className="mb-8">
-          <div className="flex items-start gap-5">
-            <div className="w-20 h-20 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
-              <svg className="w-8 h-8 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-              </svg>
+      {/* ── Back navigation + action bar ─────────────────────────────── */}
+      <div className="flex items-center justify-between mb-6 gap-4">
+        <Link href="/releases" className="inline-flex items-center gap-1.5 text-sm text-text-400 hover:text-text-700 transition-colors duration-150">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Releases
+        </Link>
+
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Button size="sm" variant="outline" onClick={() => setRolePickerOpen(true)}>Invite Person</Button>
+          <Button size="sm" variant="primary" onClick={() => router.push(`/releases/${releaseId}/edit`)}>Edit Release</Button>
+          <Button size="sm" variant="outline" aria-label="More release actions">•••</Button>
+        </div>
+      </div>
+
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <section className="grid grid-cols-1 lg:grid-cols-[240px_1fr_260px] gap-6 mb-8" aria-label="Release overview">
+
+        {/* Artwork */}
+        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-3 flex flex-col gap-3">
+          <p className="text-xs font-semibold text-text-500 uppercase tracking-wider px-1">Artwork</p>
+          <div className={`w-full aspect-square rounded-xl flex items-center justify-center overflow-hidden shadow-card ring-1 ring-white/10 ${artworkAsset ? 'bg-surface-950' : artworkColor}`}>
+            {artworkAsset ? (
+              <img src={artworkUrl ?? ''} alt={`${release.title} artwork`} className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).classList.add(artworkColor ?? 'bg-orange-600'); }} />
+            ) : (
+              <span className="text-white text-6xl font-bold select-none">{release.title.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
+          {artworkAsset ? (
+            <div className="grid grid-cols-3 gap-2">
+              <Button size="sm" variant="outline" className="text-xs" onClick={() => handleTabChange('workflow')}>Replace</Button>
+              <Button size="sm" variant="outline" className="text-xs" disabled={!artworkUrl} onClick={() => artworkUrl && window.open(artworkUrl, '_blank')}>Download</Button>
+              <Button size="sm" variant="outline" className="text-xs" disabled={!artworkUrl} onClick={() => artworkUrl && window.open(artworkUrl, '_blank')}>Preview</Button>
             </div>
+          ) : (
+            <div className="space-y-3 px-1 pb-1">
+              <p className="text-sm text-text-500">No artwork uploaded.</p>
+              <Button size="sm" variant="primary" className="w-full text-xs" onClick={() => handleTabChange('workflow')}>Upload Artwork</Button>
+            </div>
+          )}
+        </div>
 
-            <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold text-text-900 truncate">{release.title}</h1>
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <Badge label={release.releaseType} color="bg-surface-100 text-text-700" />
-                {release.genre ? <Badge label={release.genre} color="bg-surface-100 text-text-500" size="sm" /> : null}
-                {release.targetReleaseDate instanceof Date ? (
-                  <span className="text-xs text-text-400">{fmtDate(release.targetReleaseDate)}</span>
-                ) : null}
-              </div>
+        {/* Release info */}
+        <div className="flex flex-col gap-3 min-w-0">
+          <div>
+            <h1 className="text-2xl font-semibold text-text-900 tracking-tight leading-tight">{release.title}</h1>
+            <p className="text-sm text-text-500 mt-1">{artistName}</p>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <Badge label={titleCase(release.releaseType)} color="bg-surface-100 text-text-600" />
+              <StatusBadge status={release.status} />
+            </div>
+          </div>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+            <dt className="text-text-400 whitespace-nowrap">Type</dt>            <dd className="text-text-700 truncate">{titleCase(release.releaseType)}</dd>
+            <dt className="text-text-400 whitespace-nowrap">Company</dt>         <dd className="text-text-700 truncate">{companyName}</dd>
+            <dt className="text-text-400 whitespace-nowrap">Catalog</dt>         <dd className="text-text-700 truncate">{release.catalogNumber ?? 'Not assigned'}</dd>
+            <dt className="text-text-400 whitespace-nowrap">Release Date</dt>    <dd className="text-text-700">{release.targetReleaseDate ? fmtDate(release.targetReleaseDate) : 'Not scheduled'}</dd>
+            <dt className="text-text-400 whitespace-nowrap">Genre</dt>           <dd className="text-text-700 truncate">{release.genre ?? 'Not set'}</dd>
+            <dt className="text-text-400 whitespace-nowrap">Language</dt>        <dd className="text-text-700">{release.language ?? 'Not set'}</dd>
+            <dt className="text-text-400 whitespace-nowrap">Status</dt>          <dd><StatusBadge status={release.status} /></dd>
+          </dl>
+        </div>
 
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${healthPillClass}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${
-                    readiness.percentage >= 80 ? 'bg-success-500' : readiness.percentage >= 50 ? 'bg-warning-500' : 'bg-danger-500'
-                  }`} />
-                  {healthPillLabel}
-                  <span className="font-normal opacity-70 ml-0.5">{readiness.percentage}%</span>
-                </span>
+        {/* Readiness card */}
+        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Release Readiness</p>
+            <span className={`text-2xl font-semibold tabular-nums ${readinessPct >= 80 ? 'text-success-600' : readinessPct >= 50 ? 'text-warning-600' : 'text-danger-600'}`}>{readinessPct}%</span>
+          </div>
+          <div className="h-1.5 w-full bg-surface-200 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full transition-all duration-500 ${readinessPct >= 80 ? 'bg-success-500' : readinessPct >= 50 ? 'bg-warning-500' : 'bg-danger-500'}`} style={{ width: `${readinessPct}%` }} />
+          </div>
+          <ul className="space-y-1.5">
+            {READINESS_CATS.map((cat) => (
+              <li key={cat} className="flex items-center gap-2 text-xs">
+                {readinessMap[cat]
+                  ? <svg className="h-3.5 w-3.5 text-success-500 shrink-0" viewBox="0 0 16 16" fill="currentColor"><path fillRule="evenodd" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z" clipRule="evenodd" /></svg>
+                  : <span className="h-3.5 w-3.5 rounded-full border-2 border-surface-300 shrink-0 inline-block" />}
+                <span className={readinessMap[cat] ? 'text-text-700' : 'text-text-400'}>{cat}</span>
+              </li>
+            ))}
+          </ul>
+          <button onClick={() => handleTabChange('workflow')} className="text-xs text-primary-500 hover:text-primary-600 font-medium text-left mt-auto transition-colors">View Checklist →</button>
+        </div>
+      </section>
 
-                <div className="relative">
-                  <button type="button" onClick={() => { setStatusOpen(!statusOpen); setConfirmTransition(null); }} className="cursor-pointer">
-                    <StatusBadge status={release.status} />
-                  </button>
-                  {statusOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => { setStatusOpen(false); setConfirmTransition(null); }} />
-                      <div className="absolute top-full left-0 mt-1 z-50 w-52 bg-white dark:bg-surface-900 border border-surface-200 rounded-lg shadow-modal overflow-hidden">
-                        {confirmTransition ? (
-                          confirmTransition.destructive ? (
-                            <div className="p-3">
-                              <p className="text-sm text-text-700 mb-3">This permanently cancels the release.</p>
-                              <div className="flex gap-2">
-                                <button type="button" onClick={async () => { await handleStatusTransition(confirmTransition.status); setStatusOpen(false); setConfirmTransition(null); }} disabled={updating} className="flex-1 rounded bg-danger-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-danger-600 disabled:opacity-50">Confirm</button>
-                                <button type="button" onClick={() => setConfirmTransition(null)} className="flex-1 rounded border border-surface-300 px-3 py-1.5 text-xs font-medium text-text-700 hover:bg-surface-100">Cancel</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="p-3">
-                              <input type="text" value={holdReason} onChange={(e) => setHoldReason(e.target.value)} placeholder="Reason (min 10 chars)" className="w-full rounded border border-surface-300 bg-white dark:bg-surface-800 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500 mb-2" autoFocus />
-                              <button type="button" onClick={async () => { await handleStatusTransition(confirmTransition.status, holdReason); setStatusOpen(false); setConfirmTransition(null); }} disabled={holdReason.trim().length < 10 || updating} className="w-full rounded bg-primary-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 disabled:opacity-50">Put On Hold</button>
-                            </div>
-                          )
-                        ) : (
-                          <div className="py-1">
-                            {(STATUS_TRANSITIONS[release.status] ?? []).map((t) => (
-                              <button key={t.status} type="button" onClick={() => { if (t.destructive || t.needsReason) { setConfirmTransition(t); if (t.needsReason) setHoldReason(''); } else { handleStatusTransition(t.status); setStatusOpen(false); } }} disabled={updating} className="w-full text-left px-3 py-2 text-sm hover:bg-surface-100 text-text-700 disabled:opacity-50">{t.label}</button>
-                            ))}
-                          </div>
-                        )}
+      {/* ── Overview workspace ───────────────────────────────────────── */}
+      <div className="space-y-8">
+
+          {/* § Pending Tasks */}
+          <section aria-label="Pending Tasks">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider">Pending Tasks</h2>
+              {pendingTasks.length > 6 && (
+                <button onClick={() => handleTabChange('workflow')} className="text-xs text-primary-500 hover:text-primary-600 font-medium transition-colors">View All Tasks</button>
+              )}
+            </div>
+            {pendingTasks.length === 0 ? (
+              <EmptyState title="Everything is up to date." description="No pending work." />
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {pendingTasks.slice(0, 6).map((task) => {
+                  const overdue = isOverdue(task.dueDate);
+                  const priorityColors: Record<string, string> = { critical: 'bg-danger-50 text-danger-600', high: 'bg-warning-50 text-warning-600', medium: 'bg-info-50 text-info-600', low: 'bg-surface-100 text-text-500' };
+                  return (
+                    <div key={task.id} className="rounded-xl border border-surface-200 bg-white shadow-card p-4 flex flex-col gap-2 text-left">
+                      <p className="text-sm font-medium text-text-900 leading-snug">{task.title}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <StatusBadge status={task.status} />
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${priorityColors[task.priority] ?? 'bg-surface-100 text-text-500'}`}>{task.priority}</span>
                       </div>
-                    </>
-                  )}
-                </div>
-
-                {ownership ? (
-                  <button type="button" onClick={() => setTab('rights')} className={`text-xs rounded-full px-2 py-0.5 cursor-pointer hover:underline ${ownership.valid ? 'bg-success-50 text-success-500' : 'bg-danger-50 text-danger-500'}`}>
-                    {ownership.valid ? 'Rights Ready' : 'Rights Incomplete'}
-                  </button>
-                ) : null}
-
-                {activeBlockingDeps.length > 0 ? (
-                  <button type="button" onClick={() => setTab('workflow')} className="text-xs rounded-full px-2 py-0.5 bg-danger-50 text-danger-500 cursor-pointer hover:underline">
-                    {activeBlockingDeps.length} blocker{activeBlockingDeps.length > 1 ? 's' : ''}
-                  </button>
-                ) : null}
+                      <p className="text-xs text-text-500 truncate">
+                        {isInvitationPending(task)
+                          ? 'Invitation Pending'
+                          : task.assigneeId
+                            ? <>Assigned to <span className="text-text-700">{task.assigneeId}</span></>
+                            : 'Unassigned'}
+                      </p>
+                      <p className={`text-xs font-medium ${overdue ? 'text-danger-500' : 'text-text-500'}`}>{task.dueDate ? relativeDate(task.dueDate) : 'No due date'}</p>
+                      <Button size="sm" variant={task.assigneeId ? 'outline' : 'primary'} className="mt-2 self-start" onClick={() => handleTabChange('workflow')}>
+                        {taskActionLabel(task)}
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
+            )}
+          </section>
+
+          {/* § Assets / Deliverables */}
+          <section aria-label="Assets">
+            <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-4">Assets</h2>
+            {assetChecklist.length === 0 ? (
+              <EmptyState title="No assets have been added to this release yet." action={{ label: 'Upload Asset', onClick: () => handleTabChange('workflow') }} />
+            ) : (
+              <div className="rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden">
+                {assetChecklist.map((asset, i) => {
+                  const d = asset.deliverable;
+                  const received = asset.received;
+                  const hasUrl = !!(d as unknown as { url?: string } | undefined)?.url;
+                  return (
+                    <div
+                      key={asset.id}
+                      className={`flex items-center gap-3 px-4 py-3 hover:bg-surface-50 transition-colors duration-100 cursor-pointer ${i > 0 ? 'border-t border-surface-100' : ''}`}
+                      onClick={() => { if (!hasUrl) return; window.open((d as unknown as { url: string }).url, '_blank'); }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (hasUrl) window.open((d as unknown as { url: string }).url, '_blank'); } }}
+                      aria-label={`${asset.label} — ${received ? 'received' : 'outstanding'}`}
+                    >
+                      {received
+                        ? <svg className="h-4 w-4 text-success-500 shrink-0" viewBox="0 0 16 16" fill="currentColor"><path fillRule="evenodd" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z" clipRule="evenodd" /></svg>
+                        : <span className="h-4 w-4 rounded-full border-2 border-surface-300 inline-block shrink-0" />}
+                      <span className="flex-1 min-w-0">
+                        <span className={`text-sm font-medium truncate block ${received ? 'text-text-800' : 'text-text-500'}`}>{asset.label}</span>
+                        <span className="text-xs text-text-400 capitalize">{d?.status?.replace(/_/g, ' ') ?? 'Not received'}</span>
+                      </span>
+                      {received ? (
+                        <span className="text-xs font-medium shrink-0 text-success-600">Received</span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant={asset.missingAction.startsWith('Upload') ? 'primary' : 'outline'}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (asset.missingAction.startsWith('Invite')) router.push('/people');
+                            else handleTabChange('workflow');
+                          }}
+                        >
+                          {asset.missingAction}
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* § Tracks */}
+          <section aria-label="Tracks">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider">Tracks</h2>
+              <Button size="sm" variant="outline" onClick={() => router.push(`/releases/${releaseId}/tracks/new`)}>+ Add Track</Button>
             </div>
-
-            <div className="flex flex-col items-end gap-2 shrink-0">
-              {release.status === 'in_production' ? (
-                <Button variant="primary" size="sm" onClick={() => workflow?.currentStageId ? handleCompleteStage(workflow.currentStageId) : undefined} disabled={completing !== null}>
-                  Advance Stage
-                </Button>
-              ) : null}
-              <div className="flex items-center gap-2">
-                <Link href={`/releases/${id}/edit`} className="rounded-lg border border-surface-300 px-3 py-1.5 text-xs font-medium text-text-700 hover:bg-surface-100">Edit</Link>
-                <button onClick={handleDelete} className="rounded-lg border border-surface-300 px-3 py-1.5 text-xs font-medium text-text-500 hover:bg-surface-100">Delete</button>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* ===== Release Journey ===== */}
-        <section className="mb-8">
-          <ReleaseJourney stages={journeyStages} />
-        </section>
-
-        {/* ===== Operational Summary ===== */}
-        <section className="mb-8">
-          <OperationalSummary
-            healthScore={readiness.percentage}
-            currentStage={currentStage}
-            completedStages={stages.filter((s) => s.status === 'completed').length}
-            totalStages={stages.length}
-            readyItems={readyCount}
-            totalItems={Object.keys(readinessCategories).length}
-            pendingApprovals={requirements.filter((r) => r.status === 'submitted').length}
-            blockers={activeBlockingDeps.length}
-            daysUntilRelease={targetDays ?? 0}
-            onDrillDown={(section) => {
-              if (section === 'workflow') setTab('workflow');
-              else if (section === 'readiness') setTab('rights');
-              else if (section === 'approvals') setTab('activity');
-              else if (section === 'blockers') setTab('workflow');
-            }}
-          />
-        </section>
-
-        {/* ===== Workspace Tabs ===== */}
-        <Tabs tabs={tabs} activeTab={tab} onChange={(t) => setTab(t as TabId)} variant="underline" className="mb-6" />
-
-        {/* ===== Active Tab Content ===== */}
-        {tab === 'overview' && (
-          <OverviewTab
-            readiness={readiness} distReadiness={distReadiness} distPackage={distPackage}
-            ownership={ownership} requirements={requirements} deliverables={deliverables}
-            blockingDeps={activeBlockingDeps} completedBlockingDeps={completedBlockingDeps}
-            handleSubmitReq={handleSubmitReq} handleApproveReq={handleApproveReq}
-            handleGeneratePackage={handleGeneratePackage}
-            onNavigateTab={setTab}
-          />
-        )}
-
-        {tab === 'workflow' && (
-          <WorkflowTab
-            workflow={workflow} stages={stages} progress={progress}
-            completing={completing} handleCompleteStage={handleCompleteStage}
-            tasksByStage={tasksByStage} deliverables={deliverables}
-            blockingDeps={activeBlockingDeps} completedBlockingDeps={completedBlockingDeps}
-            newTaskTitle={newTaskTitle} setNewTaskTitle={setNewTaskTitle}
-            newTaskPriority={newTaskPriority} setNewTaskPriority={setNewTaskPriority}
-            newTaskAssignee={newTaskAssignee} setNewTaskAssignee={setNewTaskAssignee}
-            creatingTask={creatingTask} handleAddTask={handleAddTask}
-            handleCompleteTask={handleCompleteTask} handleAssignTask={handleAssignTask}
-          />
-        )}
-
-        {tab === 'assets' && <AssetsTab deliverables={deliverables} />}
-
-        {tab === 'distribution' && (
-          <DistributionTab
-            distReadiness={distReadiness} distPackage={distPackage}
-            handleGeneratePackage={handleGeneratePackage}
-          />
-        )}
-
-        {tab === 'campaigns' && <CampaignsTab />}
-
-        {tab === 'budget' && <BudgetTab />}
-
-        {tab === 'rights' && ownership && <RightsTab ownership={ownership} />}
-
-        {tab === 'credits' && <CreditsTab />}
-
-        {tab === 'activity' && <ActivityTab activities={activities} loading={activityLoading} />}
-
-        {tab === 'settings' && <SettingsTab release={release} />}
-      </div>
-    </WorkspaceLayout>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Overview Tab — readiness, distribution, requirements summary              */
-/* -------------------------------------------------------------------------- */
-
-function OverviewTab({ readiness, distReadiness, distPackage, ownership, requirements, deliverables: _deliverables, blockingDeps: _blockingDeps, completedBlockingDeps: _completedBlockingDeps, handleSubmitReq, handleApproveReq, handleGeneratePackage, onNavigateTab }: {
-  readiness: ReturnType<typeof computeReadiness>; distReadiness: ReturnType<typeof checkDistributionReadiness>;
-  distPackage: DistributionPackage | null; ownership: OwnershipValidation | null;
-  requirements: ReleaseRequirement[]; deliverables: Deliverable[];
-  blockingDeps: Dependency[]; completedBlockingDeps: number;
-  handleSubmitReq: (id: string) => void; handleApproveReq: (id: string) => void;
-  handleGeneratePackage: () => void; onNavigateTab: (tab: TabId) => void;
-}) {
-  return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-text-900">Readiness</h2>
-          <span className={`h-2.5 w-2.5 rounded-full ${readiness.ready ? 'bg-success-500' : readiness.percentage >= 70 ? 'bg-warning-500' : 'bg-danger-500'}`} />
-        </div>
-        <ProgressBar value={readiness.percentage} color={readiness.ready ? 'bg-success-500' : readiness.percentage >= 70 ? 'bg-warning-500' : 'bg-danger-500'} showLabel className="mb-3" />
-        <div className="flex flex-wrap gap-2 text-xs mb-3">
-          <span className="rounded bg-surface-100 px-2 py-1">Requirements {readiness.breakdown.requirements.approved}/{readiness.breakdown.requirements.total}</span>
-          {readiness.breakdown.workflow ? <span className="rounded bg-surface-100 px-2 py-1">Workflow {readiness.breakdown.workflow.completed}/{readiness.breakdown.workflow.total}</span> : null}
-          {readiness.breakdown.deliverables ? <span className="rounded bg-surface-100 px-2 py-1">Deliverables {readiness.breakdown.deliverables.approved}/{readiness.breakdown.deliverables.total}</span> : null}
-          {readiness.breakdown.dependencies ? <span className="rounded bg-surface-100 px-2 py-1">Deps {readiness.breakdown.dependencies.completed}/{readiness.breakdown.dependencies.totalBlocking}</span> : null}
-        </div>
-        {readiness.missing.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {readiness.missing.map((m) => (
-              <button key={m} type="button" onClick={() => onNavigateTab('rights')} className="text-xs rounded bg-danger-50 text-danger-500 px-2 py-0.5 hover:underline cursor-pointer">{m}</button>
-            ))}
-          </div>
-        ) : null}
-      </Card>
-
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-text-900">Distribution</h2>
-          {distPackage ? <StatusBadge status={distPackage.status} /> : null}
-        </div>
-        <ProgressBar value={distReadiness.completeness} color={distReadiness.canDistribute ? 'bg-success-500' : 'bg-warning-500'} showLabel className="mb-3" />
-        <div className="flex flex-wrap gap-2 text-xs mb-3">
-          <span className={`rounded-full px-2 py-0.5 ${distReadiness.metadataReady ? 'bg-success-50 text-success-500' : 'bg-danger-50 text-danger-500'}`}>{distReadiness.metadataReady ? '\u2713' : '\u2717'} Metadata</span>
-          <span className={`rounded-full px-2 py-0.5 ${distReadiness.deliverablesReady ? 'bg-success-50 text-success-500' : 'bg-danger-50 text-danger-500'}`}>{distReadiness.deliverablesReady ? '\u2713' : '\u2717'} Deliverables</span>
-          <span className={`rounded-full px-2 py-0.5 ${distReadiness.requirementsReady ? 'bg-success-50 text-success-500' : 'bg-danger-50 text-danger-500'}`}>{distReadiness.requirementsReady ? '\u2713' : '\u2717'} Requirements</span>
-          <span className={`rounded-full px-2 py-0.5 ${distReadiness.dependenciesReady ? 'bg-success-50 text-success-500' : 'bg-danger-50 text-danger-500'}`}>{distReadiness.dependenciesReady ? '\u2713' : '\u2717'} Dependencies</span>
-        </div>
-        <Button size="sm" onClick={() => { handleGeneratePackage(); onNavigateTab('distribution'); }}>Generate Package</Button>
-      </Card>
-
-      {ownership ? (
-        <Card>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-text-900">Rights</h2>
-            <span className={`h-2.5 w-2.5 rounded-full ${ownership.valid ? 'bg-success-500' : 'bg-danger-500'}`} />
-          </div>
-          <div className="grid gap-2 grid-cols-2 text-xs mb-3">
-            {ownership.masterPct > 0 ? <div className="flex justify-between border border-surface-100 rounded p-2"><span className="text-text-500">Master</span><span className={ownership.masterPct === 100 ? 'text-success-500' : 'text-danger-500'}>{ownership.masterPct}%</span></div> : null}
-            {ownership.publishingPct > 0 ? <div className="flex justify-between border border-surface-100 rounded p-2"><span className="text-text-500">Publishing</span><span className={ownership.publishingPct === 100 ? 'text-success-500' : 'text-danger-500'}>{ownership.publishingPct}%</span></div> : null}
-          </div>
-          {ownership.issues.map((i) => <p key={i} className="text-xs text-danger-500">{i}</p>)}
-          <Button size="sm" variant="ghost" className="mt-2" onClick={() => onNavigateTab('rights')}>View all rights</Button>
-        </Card>
-      ) : null}
-
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-text-900">Requirements</h2>
-          <span className="text-xs text-text-400">{requirements.filter((r) => r.status === 'approved').length}/{requirements.length}</span>
-        </div>
-        {requirements.length === 0 ? <EmptyState title="No requirements" /> : (
-          <div className="space-y-1">
-            {requirements.slice(0, 5).map((r) => (
-              <div key={r.id} className="flex items-center justify-between rounded border border-surface-100 px-3 py-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${r.status === 'approved' ? 'bg-success-500' : r.status === 'submitted' ? 'bg-warning-500' : 'bg-surface-300'}`} />
-                  <span className={`text-sm truncate ${r.status === 'approved' ? 'line-through text-text-400' : 'text-text-700'}`}>{r.name}</span>
+            {tracks.length === 0 ? (
+              <EmptyState title="No tracks have been added." action={{ label: 'Add First Track', onClick: () => router.push(`/releases/${releaseId}/tracks/new`) }} />
+            ) : (
+              <div className="rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden">
+                <div className="hidden sm:grid grid-cols-[2rem_1fr_4rem_6rem_6rem_6rem] gap-x-4 px-4 py-2.5 border-b border-surface-100 bg-surface-50">
+                  <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider">#</span>
+                  <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider">Title</span>
+                  <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider text-right">Dur.</span>
+                  <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider">Mix</span>
+                  <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider">Master</span>
+                  <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider">Publishing</span>
                 </div>
-                <div className="flex gap-1 shrink-0 ml-2">
-                  {r.status === 'required' ? <Button size="sm" variant="outline" onClick={() => handleSubmitReq(r.id)}>Submit</Button> : null}
-                  {r.status === 'submitted' ? <Button size="sm" variant="primary" onClick={() => handleApproveReq(r.id)}>Approve</Button> : null}
-                </div>
+                {tracks.map((rt, i) => {
+                  const t = rt.track;
+                  return (
+                    <button
+                      key={rt.id}
+                      className={`w-full text-left flex sm:grid sm:grid-cols-[2rem_1fr_4rem_6rem_6rem_6rem] items-center gap-x-4 px-4 py-3.5 hover:bg-surface-50 transition-colors duration-100 ${i > 0 ? 'border-t border-surface-100' : ''}`}
+                      onClick={() => t && router.push(`/tracks/${t.id}`)}
+                      aria-label={t?.title ?? `Track ${rt.position}`}
+                    >
+                      <span className="text-sm text-text-400 font-mono w-8 shrink-0">{rt.position}</span>
+                      <span className="text-sm font-medium text-text-900 truncate flex-1">{t?.title ?? '—'}</span>
+                      <span className="text-xs text-text-500 text-right hidden sm:block">{fmtDuration(t?.duration)}</span>
+                      <span className="hidden sm:block"><StatusBadge status={(t as unknown as { mixStatus?: string })?.mixStatus ?? (t?.status === 'active' ? 'in_progress' : 'draft')} /></span>
+                      <span className="hidden sm:block"><StatusBadge status={(t as unknown as { masterStatus?: string })?.masterStatus ?? (t?.isrc ? 'ready' : 'draft')} /></span>
+                      <span className="hidden sm:block"><StatusBadge status={(t as unknown as { publishingStatus?: string })?.publishingStatus ?? (t?.isrc ? 'ready' : 'draft')} /></span>
+                    </button>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        )}
-      </Card>
-    </div>
-  );
-}
+            )}
+          </section>
 
-/* -------------------------------------------------------------------------- */
-/*  Workflow Tab — WorkflowBoard + task cards                                 */
-/* -------------------------------------------------------------------------- */
+          {/* § Activity */}
+          <section aria-label="Activity">
+            <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-4">Activity</h2>
+            {!activitiesLoaded ? (
+              <div className="flex justify-center py-10"><LoadingState text="Loading activity…" /></div>
+            ) : meaningfulActivities.length === 0 ? (
+              <EmptyState title="No activity on this release yet." />
+            ) : (
+              <div className="space-y-0 rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden">
+                {meaningfulActivities.slice(0, 12).map((ev, i) => {
+                  const label = humaniseActivity(ev);
+                  return (
+                    <div key={ev.id} className={`flex items-start gap-3 px-4 py-3 ${i > 0 ? 'border-t border-surface-100' : ''}`}>
+                      <div className="h-7 w-7 rounded-full bg-primary-50 flex items-center justify-center shrink-0 text-[11px] font-semibold text-primary-700 mt-0.5">
+                        {(ev.actorId ?? '?').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-text-700">
+                          <span className="font-medium text-text-900">{ev.actorId}</span>{' '}{label}
+                        </p>
+                        <p className="text-xs text-text-400 mt-0.5">{timeAgo(ev.createdAt)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
-function WorkflowTab({ workflow, stages, progress, completing, handleCompleteStage, tasksByStage, deliverables: _deliverables, blockingDeps, completedBlockingDeps, newTaskTitle, setNewTaskTitle, newTaskPriority, setNewTaskPriority, newTaskAssignee, setNewTaskAssignee, creatingTask, handleAddTask, handleCompleteTask, handleAssignTask }: {
-  workflow: Workflow | null; stages: Stage[]; progress: ReturnType<typeof computeProgress>;
-  completing: string | null; handleCompleteStage: (id: string) => void;
-  tasksByStage: Record<string, Task[]>; deliverables: Deliverable[];
-  blockingDeps: Dependency[]; completedBlockingDeps: number;
-  newTaskTitle: string; setNewTaskTitle: (v: string) => void;
-  newTaskPriority: string; setNewTaskPriority: (v: string) => void;
-  newTaskAssignee: string; setNewTaskAssignee: (v: string) => void;
-  creatingTask: boolean; handleAddTask: (stageId: string, e: FormEvent) => void;
-  handleCompleteTask: (stageId: string, taskId: string) => void;
-  handleAssignTask: (stageId: string, taskId: string, assigneeId: string) => void;
-}) {
-  const [selectedStage, setSelectedStage] = useState<Stage | null>(null);
-  if (!workflow || stages.length === 0) return <EmptyState title="No workflow" description="Create a release to generate a workflow." />;
-
-  const workflowBoardStages = stages.map((s) => {
-    const tasks = tasksByStage[s.id] ?? [];
-    const done = tasks.filter((t) => t.status === 'done').length;
-    const total = tasks.length;
-    const statusMap: Record<string, 'completed' | 'in-progress' | 'pending' | 'blocked' | 'at-risk'> = {
-      completed: 'completed', in_progress: 'in-progress', review: 'in-progress',
-      approved: 'completed', not_started: 'pending', blocked: 'blocked',
-    };
-    return {
-      id: s.id, name: s.name, status: statusMap[s.status] ?? 'pending',
-      owner: s.assignedRole ? { name: s.assignedRole.replace(/_/g, ' ') } : undefined,
-      progress: total > 0 ? Math.round((done / total) * 100) : 0,
-      dueDate: s.dueDate ? fmtDate(s.dueDate) : undefined,
-      dependencies: blockingDeps.length > 0 ? blockingDeps.map((d) => d.title) : undefined,
-    };
-  });
-
-  const columnColors: Record<string, string> = {
-    completed: 'border-success-200 bg-success-50/30',
-    in_progress: 'border-primary-200 bg-primary-50/30 ring-2 ring-primary-300',
-    blocked: 'border-danger-200 bg-danger-50/30',
-    review: 'border-warning-200 bg-warning-50/30',
-    approved: 'border-info-200 bg-info-50/30',
-    not_started: 'border-surface-200 bg-white',
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-text-900">Workflow Board</h2>
-        <span className="text-sm text-text-500">{progress.progress}%</span>
       </div>
 
-      {blockingDeps.length > 0 ? (
-        <div className="flex items-center gap-2 text-xs text-danger-500 bg-danger-50 rounded-lg px-3 py-2">
-          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
-          {completedBlockingDeps}/{blockingDeps.length} blocking dependencies — {blockingDeps.map((d) => d.title).join(', ')}
+      {/* ── Workspace Tabs ─────────────────────────────────────────────── */}
+      <Tabs
+        tabs={visibleTabs}
+        activeTab={tab}
+        onChange={handleTabChange}
+        variant="underline"
+        className="mt-10 mb-8"
+      />
+
+      {/* ── Non-overview placeholder tabs ─────────────────────────────── */}
+      {tab === 'workflow' && (
+        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-8 text-center">
+          <p className="text-sm font-medium text-text-700 mb-1">Workflow</p>
+          <p className="text-sm text-text-400">Full workflow management coming soon. Use the Pending Tasks section on Overview to action work.</p>
         </div>
-      ) : null}
+      )}
 
-      <WorkflowBoard stages={workflowBoardStages} showOwners showProgress className="mb-4" />
+      {tab === 'campaign' && (
+        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-8 text-center">
+          <EmptyState title="No campaigns yet" description="Campaigns will appear here once they are created for this release." />
+        </div>
+      )}
 
-      <div className="overflow-x-auto pb-2">
-        <div className="flex items-start gap-0 min-w-max">
-          {stages.map((s, idx) => {
-            const isCurrent = s.id === workflow.currentStageId;
-            const tasks = tasksByStage[s.id] ?? [];
-            const done = tasks.filter((t) => t.status === 'done').length;
-            return (
-              <div key={s.id} className="flex items-start">
+      {tab === 'rights' && (
+        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-8 text-center">
+          <EmptyState title="No rights records" description="Rights and ownership information will appear here once configured." />
+        </div>
+      )}
+
+      {tab === 'budget' && (
+        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-8 text-center">
+          <EmptyState title="No budget entries" description="Budget and cost information will appear here once entries are added." />
+        </div>
+      )}
+
+      {tab === 'settings' && (
+        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-6 max-w-lg">
+          <h2 className="text-base font-semibold text-text-900 mb-4">Release Settings</h2>
+          <div className="flex gap-3">
+            <Button variant="outline" size="sm" onClick={() => router.push(`/releases/${releaseId}/edit`)}>Edit Release</Button>
+          </div>
+        </div>
+      )}
+
+      {rolePickerOpen ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+          <button
+            className="absolute inset-0 bg-surface-900/60 backdrop-blur-sm"
+            onClick={() => setRolePickerOpen(false)}
+            aria-label="Close invite role picker"
+          />
+          <div className="relative z-10 w-full max-w-lg rounded-xl border border-surface-700 bg-surface-900 p-6 shadow-modal">
+            <h2 className="text-base font-semibold text-surface-50">Invite Person</h2>
+            <p className="mt-1 text-sm text-text-400">Choose the role this person should fill in the release workspace.</p>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              {INVITE_ROLES.map((role) => (
                 <button
-                  onClick={() => setSelectedStage(s)}
-                  className={`shrink-0 w-[140px] sm:w-[180px] rounded-lg border px-3 py-3 text-left transition-all hover:shadow-elevated ${columnColors[s.status] ?? columnColors.not_started} ${isCurrent ? 'ring-2 ring-primary-500' : ''} ${s.status === 'not_started' && !isCurrent ? 'opacity-70' : ''}`}
+                  key={role}
+                  onClick={() => setInviteRole(role)}
+                  className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition-all ${
+                    inviteRole === role
+                      ? 'border-primary-500/60 bg-primary-500/10 text-primary-300'
+                      : 'border-surface-700 bg-surface-800 text-text-300 hover:border-surface-600'
+                  }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-400">0{s.order}</span>
-                    <StatusBadge status={s.status} />
-                  </div>
-                  <p className="text-sm font-medium text-text-900 mb-2 truncate">{s.name}</p>
-                  <div className="space-y-1 text-xs">
-                    {s.assignedRole ? (
-                      <div className="flex items-center gap-1 text-text-500">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                        {s.assignedRole.replace(/_/g, ' ')}
-                      </div>
-                    ) : null}
-                    <div className="flex items-center gap-1 text-text-500">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-                      {done}/{tasks.length} tasks
-                    </div>
-                    {s.dueDate ? <div className="text-text-400">{fmtDate(s.dueDate)}</div> : null}
-                  </div>
-                  {s.status === 'blocked' && blockingDeps.length > 0 ? (
-                    <div className="mt-2 pt-2 border-t border-danger-200">
-                      <div className="text-xs text-danger-500 font-medium">{blockingDeps.length} blocking</div>
-                    </div>
-                  ) : null}
-                  {isCurrent && s.status !== 'completed' ? (
-                    <Button size="sm" variant="primary" className="mt-3 w-full" onClick={(e) => { e.stopPropagation(); handleCompleteStage(s.id); }} disabled={completing === s.id} loading={completing === s.id}>Complete</Button>
-                  ) : null}
+                  {role}
                 </button>
-                {idx < stages.length - 1 ? (
-                  <span className={`shrink-0 mx-0.5 sm:mx-1 mt-4 select-none ${s.status === 'completed' ? 'text-success-500' : 'text-surface-300'}`}>&rarr;</span>
-                ) : null}
-              </div>
-            );
-          })}
+              ))}
+            </div>
+            <div className="mt-6 flex items-center gap-3">
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => setRolePickerOpen(false)}>Cancel</Button>
+              <Button
+                size="sm"
+                variant="primary"
+                className="flex-1"
+                onClick={() => {
+                  setRolePickerOpen(false);
+                  setInviteOpen(true);
+                }}
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      <TasksSection
-        stages={stages} tasksByStage={tasksByStage} newTaskTitle={newTaskTitle} setNewTaskTitle={setNewTaskTitle}
-        newTaskPriority={newTaskPriority} setNewTaskPriority={setNewTaskPriority} newTaskAssignee={newTaskAssignee} setNewTaskAssignee={setNewTaskAssignee}
-        creatingTask={creatingTask} handleAddTask={handleAddTask} handleCompleteTask={handleCompleteTask} handleAssignTask={handleAssignTask}
+      <PersonAssigner
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        onAssign={() => setInviteOpen(false)}
+        contextLabel={`Invite ${inviteRole}`}
+        contextRole={inviteRole}
+        organizationId={activeOrgId}
+        currentUserId={user?.uid ?? 'unknown'}
       />
 
-      <Drawer open={!!selectedStage} onClose={() => setSelectedStage(null)} title={selectedStage?.name} position="right">
-        {selectedStage && (
-          <div className="p-4 space-y-4">
-            <div>
-              <p className="text-xs font-medium text-text-400 uppercase tracking-wider mb-1">Status</p>
-              <StatusBadge status={selectedStage.status} />
-              {selectedStage.dueDate ? <p className="text-xs text-text-500 mt-1">Due: {fmtDate(selectedStage.dueDate)}</p> : null}
-            </div>
-            <div>
-              <p className="text-xs font-medium text-text-400 uppercase tracking-wider mb-2">Tasks ({(tasksByStage[selectedStage.id] ?? []).length})</p>
-              {(tasksByStage[selectedStage.id] ?? []).slice(0, 8).map((t) => (
-                <div key={t.id} className="flex items-center gap-2 text-xs border border-surface-100 rounded p-1.5 mb-1">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.status === 'done' ? 'bg-success-500' : 'bg-surface-300'}`} />
-                  <span className={`truncate ${t.status === 'done' ? 'line-through text-text-400' : 'text-text-700'}`}>{t.title}</span>
-                </div>
-              ))}
-            </div>
-            {selectedStage.id === workflow.currentStageId && selectedStage.status !== 'completed' ? (
-              <Button size="sm" variant="primary" className="w-full" onClick={() => { handleCompleteStage(selectedStage.id); setSelectedStage(null); }} disabled={completing === selectedStage.id} loading={completing === selectedStage.id}>Complete Stage</Button>
-            ) : null}
-          </div>
-        )}
-      </Drawer>
-    </div>
-  );
-}
-
-function TasksSection({ stages, tasksByStage, newTaskTitle, setNewTaskTitle, newTaskPriority, setNewTaskPriority, newTaskAssignee, setNewTaskAssignee, creatingTask, handleAddTask, handleCompleteTask, handleAssignTask }: {
-  stages: Stage[]; tasksByStage: Record<string, Task[]>;
-  newTaskTitle: string; setNewTaskTitle: (v: string) => void; newTaskPriority: string; setNewTaskPriority: (v: string) => void;
-  newTaskAssignee: string; setNewTaskAssignee: (v: string) => void; creatingTask: boolean;
-  handleAddTask: (stageId: string, e: FormEvent) => void; handleCompleteTask: (stageId: string, taskId: string) => void;
-  handleAssignTask: (stageId: string, taskId: string, assigneeId: string) => void;
-}) {
-  const allTasks = Object.values(tasksByStage).flat();
-  const doneTasks = allTasks.filter((t) => t.status === 'done').length;
-  if (allTasks.length === 0) return null;
-
-  const priorityStyles: Record<string, string> = {
-    low: 'bg-surface-100 text-text-500', medium: 'bg-info-50 text-info-500',
-    high: 'bg-warning-50 text-warning-500', critical: 'bg-danger-50 text-danger-500',
-  };
-
-  return (
-    <div className="space-y-4 pt-6 border-t border-surface-200">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-text-900">Tasks ({doneTasks}/{allTasks.length})</h3>
-        <ProgressBar value={doneTasks} max={allTasks.length} size="sm" className="w-32" showLabel />
-      </div>
-      {stages.filter((s) => (tasksByStage[s.id]?.length ?? 0) > 0).map((s) => {
-        const tasks = tasksByStage[s.id] ?? [];
-        return (
-          <Card key={s.id} padding="sm">
-            <h4 className="text-xs font-medium text-text-900 mb-2">{s.name} ({tasks.filter((t) => t.status === 'done').length}/{tasks.length})</h4>
-            <div className="space-y-1.5">
-              {tasks.map((t) => (
-                <div key={t.id} className="flex items-center gap-3 rounded border border-surface-100 px-3 py-2">
-                  <button onClick={() => handleCompleteTask(s.id, t.id)} className={`shrink-0 w-4 h-4 rounded border ${t.status === 'done' ? 'bg-primary-500 border-primary-500' : 'border-surface-300 hover:border-primary-500'} flex items-center justify-center`}>
-                    {t.status === 'done' ? <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> : null}
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm truncate ${t.status === 'done' ? 'line-through text-text-400' : 'text-text-700'}`}>{t.title}</p>
-                    <Badge label={t.priority} color={priorityStyles[t.priority] ?? ''} size="sm" />
-                  </div>
-                  <input type="text" defaultValue={t.assigneeId ?? ''} placeholder="assignee" onBlur={(e) => { if (e.target.value !== (t.assigneeId ?? '')) handleAssignTask(s.id, t.id, e.target.value); }} className="w-24 rounded border border-surface-300 bg-white dark:bg-surface-800 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500" />
-                </div>
-              ))}
-            </div>
-            <form onSubmit={(e) => handleAddTask(s.id, e)} className="flex items-center gap-2 mt-2 pt-2 border-t border-surface-100">
-              <input type="text" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="New task..." className="flex-1 rounded border border-surface-300 bg-white dark:bg-surface-800 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500" />
-              <select value={newTaskPriority} onChange={(e) => setNewTaskPriority(e.target.value)} className="rounded border border-surface-300 bg-white dark:bg-surface-800 px-1 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500">
-                <option value="low">low</option><option value="medium">med</option><option value="high">high</option><option value="critical">crit</option>
-              </select>
-              <input type="text" value={newTaskAssignee} onChange={(e) => setNewTaskAssignee(e.target.value)} placeholder="assignee" className="w-24 rounded border border-surface-300 bg-white dark:bg-surface-800 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500" />
-              <Button size="sm" type="submit" disabled={creatingTask || !newTaskTitle.trim()}>Add</Button>
-            </form>
-          </Card>
-        );
-      })}
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Remaining Tabs                                                           */
-/* -------------------------------------------------------------------------- */
-
-function AssetsTab({ deliverables }: { deliverables: Deliverable[] }) {
-  if (deliverables.length === 0) return <EmptyState title="No assets" description="Deliverables will appear here when uploaded." />;
-  return (
-    <div className="space-y-2">
-      <h2 className="text-sm font-semibold text-text-900 mb-3">Assets ({deliverables.length})</h2>
-      {deliverables.map((d) => (
-        <div key={d.id} className="flex items-center justify-between rounded-lg border border-surface-200 bg-white px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-text-900 truncate">{d.title}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <Badge label={d.type} color="bg-surface-100 text-text-500" size="sm" />
-              {d.version ? <span className="text-xs text-text-400">{d.version}</span> : null}
-            </div>
-          </div>
-          <StatusBadge status={d.status} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DistributionTab({ distReadiness, distPackage, handleGeneratePackage }: {
-  distReadiness: ReturnType<typeof checkDistributionReadiness>;
-  distPackage: DistributionPackage | null;
-  handleGeneratePackage: () => void;
-}) {
-  return (
-    <div className="space-y-6">
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-text-900">Distribution Status</h2>
-          {distPackage ? <StatusBadge status={distPackage.status} /> : null}
-        </div>
-        <ProgressBar value={distReadiness.completeness} color={distReadiness.canDistribute ? 'bg-success-500' : 'bg-warning-500'} showLabel className="mb-3" />
-        <div className="grid gap-2 sm:grid-cols-2 text-xs">
-          <div className={`flex items-center justify-between rounded border px-3 py-2 ${distReadiness.metadataReady ? 'border-success-200 bg-success-50/20' : 'border-danger-200 bg-danger-50/20'}`}>
-            <span className="text-text-700">Metadata</span>
-            <span className={distReadiness.metadataReady ? 'text-success-500' : 'text-danger-500'}>{distReadiness.metadataReady ? 'Ready' : `${distReadiness.missingMetadata.length} missing`}</span>
-          </div>
-          <div className={`flex items-center justify-between rounded border px-3 py-2 ${distReadiness.deliverablesReady ? 'border-success-200 bg-success-50/20' : 'border-danger-200 bg-danger-50/20'}`}>
-            <span className="text-text-700">Deliverables</span>
-            <span className={distReadiness.deliverablesReady ? 'text-success-500' : 'text-danger-500'}>{distReadiness.deliverablesReady ? 'Ready' : `${distReadiness.missingDeliverables} missing`}</span>
-          </div>
-          <div className={`flex items-center justify-between rounded border px-3 py-2 ${distReadiness.requirementsReady ? 'border-success-200 bg-success-50/20' : 'border-danger-200 bg-danger-50/20'}`}>
-            <span className="text-text-700">Requirements</span>
-            <span className={distReadiness.requirementsReady ? 'text-success-500' : 'text-danger-500'}>{distReadiness.requirementsReady ? 'Ready' : `${distReadiness.missingRequirements} missing`}</span>
-          </div>
-          <div className={`flex items-center justify-between rounded border px-3 py-2 ${distReadiness.dependenciesReady ? 'border-success-200 bg-success-50/20' : 'border-danger-200 bg-danger-50/20'}`}>
-            <span className="text-text-700">Dependencies</span>
-            <span className={distReadiness.dependenciesReady ? 'text-success-500' : 'text-danger-500'}>{distReadiness.dependenciesReady ? 'Ready' : `${distReadiness.missingDependencies} missing`}</span>
-          </div>
-        </div>
-        <div className="mt-4">
-          <Button size="sm" onClick={handleGeneratePackage}>Generate Distribution Package</Button>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-function CampaignsTab() {
-  return <EmptyState title="No campaigns" description="Campaigns will appear here when created for this release." />;
-}
-
-function BudgetTab() {
-  return <EmptyState title="No budget data" description="Budget information will appear here when configured." />;
-}
-
-function RightsTab({ ownership }: { ownership: OwnershipValidation }) {
-  return (
-    <div className="space-y-6">
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-text-900">Rights Ownership</h2>
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${ownership.valid ? 'bg-success-50 text-success-500' : 'bg-danger-50 text-danger-500'}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${ownership.valid ? 'bg-success-500' : 'bg-danger-500'}`} />
-            {ownership.valid ? 'Cleared' : 'Incomplete'}
-          </span>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {ownership.masterPct > 0 ? (
-            <div className="border border-surface-200 rounded-lg p-4">
-              <p className="text-xs text-text-400 uppercase tracking-wider mb-2">Master Recording</p>
-              <div className="flex items-end justify-between">
-                <span className={`text-2xl font-bold ${ownership.masterPct === 100 ? 'text-success-500' : 'text-danger-500'}`}>{ownership.masterPct}%</span>
-                <span className="text-xs text-text-400">ownership</span>
-              </div>
-              <ProgressBar value={ownership.masterPct} color={ownership.masterPct === 100 ? 'bg-success-500' : 'bg-danger-500'} className="mt-2" size="sm" />
-            </div>
-          ) : null}
-          {ownership.publishingPct > 0 ? (
-            <div className="border border-surface-200 rounded-lg p-4">
-              <p className="text-xs text-text-400 uppercase tracking-wider mb-2">Publishing</p>
-              <div className="flex items-end justify-between">
-                <span className={`text-2xl font-bold ${ownership.publishingPct === 100 ? 'text-success-500' : 'text-danger-500'}`}>{ownership.publishingPct}%</span>
-                <span className="text-xs text-text-400">ownership</span>
-              </div>
-              <ProgressBar value={ownership.publishingPct} color={ownership.publishingPct === 100 ? 'bg-success-500' : 'bg-danger-500'} className="mt-2" size="sm" />
-            </div>
-          ) : null}
-        </div>
-        {ownership.issues.length > 0 && (
-          <div className="mt-4 space-y-1">
-            {ownership.issues.map((i) => <p key={i} className="text-xs text-danger-500 bg-danger-50 rounded px-2 py-1">{i}</p>)}
-          </div>
-        )}
-      </Card>
-    </div>
-  );
-}
-
-function CreditsTab() {
-  return <EmptyState title="No credits" description="Track credits will appear here when recorded." />;
-}
-
-function ActivityTab({ activities, loading }: { activities: { id: string; type: string; actorId: string; createdAt: Date }[]; loading: boolean }) {
-  if (loading) return <LoadingState text="Loading activity..." />;
-  if (activities.length === 0) return <EmptyState title="No activity" description="Activity will appear as actions are taken." />;
-  return (
-    <div className="space-y-2">
-      <h2 className="text-sm font-semibold text-text-900 mb-3">Activity ({activities.length})</h2>
-      {activities.map((a) => (
-        <div key={a.id} className="flex items-start gap-3 border-l-2 border-surface-200 pl-3 py-1">
-          <span className="h-1.5 w-1.5 mt-1.5 rounded-full bg-primary-500 shrink-0" />
-          <div><p className="text-sm text-text-700 capitalize">{a.type.replace(/_/g, ' ')}</p><p className="text-xs text-text-400">{a.actorId} &middot; {a.createdAt.toLocaleDateString()}</p></div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SettingsTab({ release }: { release: Release }) {
-  return (
-    <div className="space-y-6 max-w-lg">
-      <Card>
-        <h2 className="text-sm font-semibold text-text-900 mb-4">Release Metadata</h2>
-        <dl className="space-y-3 text-sm">
-          <div className="flex justify-between"><dt className="text-text-500">Title</dt><dd className="text-text-900 font-medium">{release.title}</dd></div>
-          <div className="flex justify-between"><dt className="text-text-500">Type</dt><dd className="text-text-700 capitalize">{release.releaseType}</dd></div>
-          {release.genre ? <div className="flex justify-between"><dt className="text-text-500">Genre</dt><dd className="text-text-700">{release.genre}</dd></div> : null}
-          {release.label ? <div className="flex justify-between"><dt className="text-text-500">Label</dt><dd className="text-text-700">{release.label}</dd></div> : null}
-          {release.upc ? <div className="flex justify-between"><dt className="text-text-500">UPC</dt><dd className="text-text-700 font-mono text-xs">{release.upc}</dd></div> : <div className="flex justify-between"><dt className="text-text-500">UPC</dt><dd className="text-text-400">&mdash;</dd></div>}
-          {release.catalogNumber ? <div className="flex justify-between"><dt className="text-text-500">Catalog</dt><dd className="text-text-700">{release.catalogNumber}</dd></div> : null}
-          {release.targetReleaseDate instanceof Date ? <div className="flex justify-between"><dt className="text-text-500">Release Date</dt><dd className="text-text-700">{fmtDate(release.targetReleaseDate)}</dd></div> : null}
-        </dl>
-      </Card>
-      <div className="flex gap-2">
-        <Link href={`/releases/${release.id}/edit`}><Button variant="outline" size="sm">Edit Metadata</Button></Link>
-      </div>
     </div>
   );
 }

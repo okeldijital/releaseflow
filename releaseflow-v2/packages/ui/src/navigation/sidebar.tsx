@@ -1,4 +1,7 @@
-import { type ReactNode } from 'react';
+'use client';
+
+import { type ReactNode, useRef, useEffect, useState } from 'react';
+import { Tooltip } from '../components/tooltip';
 
 export interface NavItem {
   label: string;
@@ -20,7 +23,8 @@ interface SidebarProps {
   userEmail?: string;
   userImage?: string;
   onSignOut: () => void;
-  collapsed?: boolean;
+  /** true = icon-rail (desktop) / drawer-closed (mobile) */
+  collapsed: boolean;
   onToggle: () => void;
 }
 
@@ -29,20 +33,38 @@ function isActive(activePath: string, item: NavItem): boolean {
   return activePath === item.href || activePath.startsWith(item.href + '/');
 }
 
+/** Stylised R logomark */
 function LogoMark() {
   return (
     <div
-      className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-500 shadow-sm shrink-0"
+      className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-500 shadow-sm shrink-0"
       aria-hidden="true"
     >
-      <svg
-        viewBox="0 0 20 20"
-        className="h-4 w-4 fill-white"
-        aria-hidden="true"
-      >
+      <svg viewBox="0 0 20 20" className="h-4 w-4 fill-white" aria-hidden="true">
         <path d="M4 3h6.5c2.485 0 4 1.343 4 3.5 0 1.5-.8 2.7-2 3.2L15 17h-2.7l-2.3-6.8H6.6V17H4V3zm2.6 2.2v3.5h3.7c1 0 1.7-.65 1.7-1.75S11.3 5.2 10.3 5.2H6.6z" />
       </svg>
     </div>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+function SignOutIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+      />
+    </svg>
   );
 }
 
@@ -53,11 +75,57 @@ export function Sidebar({
   onNavigate,
   userEmail,
   onSignOut,
-  collapsed = false,
+  collapsed,
   onToggle,
 }: SidebarProps) {
   const sectionLabelMap = new Map(sections.map((s) => [s.key, s.label]));
   const sectionOrder = sections.map((s) => s.key);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const startXRef = useRef(0);
+  const currentXRef = useRef(0);
+  const [isDragging, setIsDragging] = useState(false);
+
+  function handlePointerDown(e: React.PointerEvent) {
+    startXRef.current = e.clientX;
+    currentXRef.current = e.clientX;
+    setIsDragging(true);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e: React.PointerEvent) {
+    if (!isDragging) return;
+    currentXRef.current = e.clientX;
+  }
+
+  function handlePointerUp(_e: React.PointerEvent) {
+    if (!isDragging) return;
+    setIsDragging(false);
+    const delta = currentXRef.current - startXRef.current;
+    if (delta > 80) {
+      onToggle();
+    }
+  }
+
+  // Close on Escape (tablet/mobile drawer only)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !collapsed && window.matchMedia('(max-width: 1023px)').matches) {
+        onToggle();
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [collapsed, onToggle]);
+
+  // Move focus into sidebar when drawer opens on mobile
+  useEffect(() => {
+    if (!collapsed && window.matchMedia('(max-width: 1023px)').matches) {
+      const firstFocusable = sidebarRef.current?.querySelector<HTMLElement>(
+        'button,[href],input,select,[tabindex]:not([tabindex="-1"])',
+      );
+      firstFocusable?.focus();
+    }
+  }, [collapsed]);
 
   const grouped = items.reduce(
     (acc, item) => {
@@ -71,143 +139,272 @@ export function Sidebar({
 
   const initials = userEmail?.charAt(0).toUpperCase() ?? '?';
 
+  /*
+   * Navigate and auto-close on tablet/mobile.
+   * On desktop the drawer stays open after navigation.
+   */
+  function navigate(href: string) {
+    onNavigate(href);
+    if (window.matchMedia('(max-width: 1023px)').matches) onToggle();
+  }
+
+  /* ── Reusable button rows ─────────────────────────────────────────── */
+
+  const settingsButton = (
+    <button
+      onClick={() => navigate('/administration')}
+      className={`
+        flex w-full items-center gap-3 rounded-lg text-sm font-medium text-left
+        text-text-600 hover:bg-surface-100 hover:text-text-900
+        dark:text-text-400 dark:hover:bg-surface-800 dark:hover:text-surface-50
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40
+        transition-colors duration-150 min-h-[44px]
+        ${collapsed ? 'lg:justify-center lg:px-2 px-3 py-2.5' : 'px-3 py-2.5'}
+      `}
+    >
+      <span className="text-text-400 shrink-0"><SettingsIcon /></span>
+      <span className={`flex-1 ${collapsed ? 'lg:hidden' : ''}`}>Settings</span>
+    </button>
+  );
+
+  const signOutButton = (
+    <button
+      onClick={onSignOut}
+      className={`
+        flex w-full items-center gap-3 rounded-lg text-sm font-medium text-left
+        text-text-500 hover:bg-surface-100/20 hover:text-text-700
+        dark:hover:bg-danger-950/20 dark:hover:text-danger-400
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500/40
+        transition-colors duration-150 min-h-[44px]
+        ${collapsed ? 'lg:justify-center lg:px-2 px-3 py-2.5' : 'px-3 py-2.5'}
+      `}
+    >
+      <span className="text-text-400 shrink-0"><SignOutIcon /></span>
+      <span className={`flex-1 ${collapsed ? 'lg:hidden' : ''}`}>Sign out</span>
+    </button>
+  );
+
+  const userCard = (
+    <div
+      className={`
+        flex items-center gap-3 rounded-lg min-h-[44px]
+        ${collapsed ? 'lg:justify-center lg:px-2 px-3 py-2.5' : 'px-3 py-2.5'}
+      `}
+    >
+      <div
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/40 text-xs font-semibold text-primary-700 dark:text-primary-300 shadow-sm"
+        aria-hidden="true"
+      >
+        {initials}
+      </div>
+      <div className={`min-w-0 flex-1 ${collapsed ? 'lg:hidden' : ''}`}>
+        <p className="truncate text-xs font-medium text-text-700 dark:text-text-300">{userEmail}</p>
+      </div>
+    </div>
+  );
+
+  /* ── Sidebar element ────────────────────────────────────────────────
+   *
+   * Layout contract:
+   * • Desktop (≥1024px): fixed to the left edge, full-height, never
+   *   overlaps content — the content column gets its margin from the
+   *   parent flex container which reserves space for the sidebar.
+   *
+   *   `lg:relative` + parent flex makes the sidebar occupy natural
+   *   flex space so the content column sits to its right with no gap
+   *   or overlap.  This is simpler and more reliable than fixed+offset.
+   *
+   * • Tablet/Mobile (<1024px): slide-over drawer fixed to the left,
+   *   z-indexed above content. The backdrop handles dismiss.
+   *
+   * Motion: transition is on `width` (desktop) and `transform`
+   * (mobile). Both are gated by motion-safe so `prefers-reduced-motion`
+   * users get instant transitions.
+   * ─────────────────────────────────────────────────────────────────── */
   return (
     <>
-      {!collapsed ? (
-        <aside
-          className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-surface-200 bg-surface-50 lg:static lg:z-auto dark:bg-surface-900 dark:border-surface-700"
-          aria-label="Main navigation"
+      <aside
+        id="rf-sidebar"
+        ref={sidebarRef}
+        role="navigation"
+        aria-label="Main navigation"
+          className={`
+          fixed inset-y-0 left-0 z-40 flex flex-col h-full
+          touch-pan-y
+
+          motion-safe:transition-transform motion-safe:duration-200
+          ${collapsed ? '-translate-x-full' : 'translate-x-0'}
+
+          lg:relative lg:inset-auto lg:z-auto lg:translate-x-0
+
+          motion-safe:lg:transition-[width] motion-safe:lg:duration-200
+          ${collapsed ? 'lg:w-[72px]' : 'lg:w-[280px]'}
+
+          motion-reduce:transition-none
+          ${collapsed ? 'motion-reduce:lg:w-[72px]' : 'motion-reduce:lg:w-[280px]'}
+
+          bg-surface-950
+        `}
+        onPointerDown={window.matchMedia('(max-width: 1023px)').matches ? handlePointerDown : undefined}
+        onPointerMove={window.matchMedia('(max-width: 1023px)').matches ? handlePointerMove : undefined}
+        onPointerUp={window.matchMedia('(max-width: 1023px)').matches ? handlePointerUp : undefined}
+      >
+        {/* ── Desktop collapse/expand toggle button ─────────────────── */}
+        <button
+          onClick={onToggle}
+          className="
+            hidden lg:flex absolute -right-3.5 top-5 z-50
+            h-7 w-7 items-center justify-center rounded-full
+            border border-surface-200 dark:border-surface-700
+            bg-white dark:bg-surface-800
+            text-text-500 dark:text-text-400
+            shadow-sm
+            hover:bg-surface-50 hover:text-text-800 dark:hover:bg-surface-700 dark:hover:text-text-200
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30
+            transition-colors duration-150
+          "
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!collapsed}
+          aria-controls="rf-sidebar"
         >
-          <div className="flex h-16 items-center gap-3 border-b border-surface-200 px-6 dark:border-surface-700">
-            <LogoMark />
-            <span className="text-base font-semibold text-text-900 tracking-tight dark:text-text-50">
-              ReleaseFlow
-            </span>
-          </div>
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            {collapsed
+              ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+              : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+            }
+          </svg>
+        </button>
 
-          <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-6" aria-label="Site navigation">
-            {sectionOrder.map((key) => {
-              const groupItems = grouped[key];
-              if (!groupItems || groupItems.length === 0) return null;
-              const label = sectionLabelMap.get(key) ?? key;
+        {/* ── Zone 1 — Brand ───────────────────────────────────────── */}
+        <div className="flex h-16 items-center gap-2.5 px-5 shrink-0 overflow-hidden">
+          <LogoMark />
+          <span
+            className={`
+              text-[15px] font-semibold text-text-900 dark:text-surface-50
+              tracking-tight whitespace-nowrap overflow-hidden
+              transition-[opacity,max-width] duration-200
+              motion-reduce:transition-none
+              ${collapsed ? 'lg:opacity-0 lg:max-w-0' : 'opacity-100 max-w-full'}
+            `}
+          >
+            ReleaseFlow
+          </span>
+        </div>
 
-              return (
-                <div key={key}>
-                  <p
-                    className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-text-400 dark:text-text-500"
-                    role="heading"
-                    aria-level={2}
-                  >
-                    {label}
-                  </p>
+        {/* ── Zone 2 — Navigation ─────────────────────────────────── */}
+        <nav className="flex-1 overflow-y-auto py-4 space-y-4 px-3" aria-label="Site navigation">
+          {sectionOrder.map((key) => {
+            const groupItems = grouped[key];
+            if (!groupItems || groupItems.length === 0) return null;
+            const label = sectionLabelMap.get(key) ?? key;
 
-                  <ul className="space-y-1" role="list">
-                    {groupItems.map((item) => {
-                      const active = isActive(activePath, item);
-                      return (
-                        <li key={item.href}>
-                          <button
-                            onClick={() => onNavigate(item.href)}
-                            aria-current={active ? 'page' : undefined}
-                            className={`
-                              flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-left
-                              transition-colors duration-100 ease-out
-                              ${
-                                active
-                                  ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                                  : 'text-text-600 hover:bg-surface-100 hover:text-text-900 dark:text-text-400 dark:hover:bg-surface-800 dark:hover:text-text-100'
-                              }
-                            `.trim()}
-                          >
-                            <span
-                              className={`h-4 w-4 shrink-0 ${active ? 'text-primary-500' : 'text-text-400'}`}
-                              aria-hidden="true"
-                            >
-                              {item.icon}
-                            </span>
+            return (
+              <div key={key}>
+                {/* Section divider in collapsed mode, label in expanded */}
+                {collapsed
+                  ? null
+                  : <p className="mb-1 px-3 text-[10px] font-medium uppercase tracking-[0.1em] text-text-300/70 dark:text-text-600" role="heading" aria-level={2}>{label}</p>
+                }
 
-                            <span className="flex-1">{item.label}</span>
+                <ul className="space-y-1" role="list">
+                  {groupItems.map((item) => {
+                    const active = isActive(activePath, item);
 
-                            {active ? (
-                              <span
-                                className="h-2 w-2 rounded-full bg-primary-500 shrink-0"
-                                aria-hidden="true"
-                              />
-                            ) : null}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              );
-            })}
-          </nav>
+                    const btn = (
+                      <button
+                        onClick={() => navigate(item.href)}
+                        aria-current={active ? 'page' : undefined}
+                        className={`
+                          flex w-full items-center gap-2.5 rounded-md text-[13px] font-normal text-left
+                          transition-colors duration-150 min-h-[40px]
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30
+                          ${active
+                            ? 'text-text-900 dark:text-surface-50'
+                            : 'text-text-400 hover:text-text-700 dark:text-text-500 dark:hover:text-surface-50'}
+                          ${collapsed ? 'lg:justify-center lg:px-2 px-3 py-1.5' : 'px-3 py-1.5'}
+                        `}
+                      >
+                        <span
+                          className={`h-4 w-4 shrink-0 ${active ? 'text-primary-500' : 'text-text-400'}`}
+                          aria-hidden="true"
+                        >
+                          {item.icon}
+                        </span>
+                        <span className={`flex-1 ${collapsed ? 'lg:hidden' : ''}`}>
+                          {item.label}
+                        </span>
+                        {/* Active dot — only show in expanded mode */}
+                        {active && !collapsed && (
+                           <span className="h-1.5 w-1.5 rounded-full bg-primary-500 shrink-0 hidden lg:block" aria-hidden="true" />
+                        )}
+                      </button>
+                    );
 
-          <div className="border-t border-surface-200 px-3 py-3 dark:border-surface-700">
-            <div className="flex items-center gap-3 rounded-md px-3 py-2">
-              <div
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
-                aria-hidden="true"
-              >
-                {initials}
+                    return (
+                      <li key={item.href}>
+                        {/* Wrap with tooltip only in desktop collapsed (icon rail) mode */}
+                        <div className="hidden lg:block">
+                          {collapsed
+                            ? <Tooltip content={item.label} position="right" delay={150}>{btn}</Tooltip>
+                            : btn
+                          }
+                        </div>
+                        {/* Mobile always shows label */}
+                        <div className="lg:hidden">{btn}</div>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-text-800 dark:text-text-200">
-                  {userEmail}
-                </p>
-              </div>
-            </div>
+            );
+          })}
+        </nav>
 
-            <button
-              onClick={onSignOut}
-              className="mt-1 w-full rounded-md px-3 py-2 text-left text-sm text-text-500 hover:bg-surface-100 hover:text-text-800 dark:hover:bg-surface-800 dark:hover:text-text-200 transition-colors duration-100"
-            >
-              Sign out
-            </button>
+        {/* ── Zone 3 — User / Settings / Sign Out ─────────────────── */}
+        <div className="shrink-0 p-3 space-y-1">
+          {/* Settings */}
+          <div className="hidden lg:block">
+            {collapsed
+              ? <Tooltip content="Settings" position="right" delay={150}>{settingsButton}</Tooltip>
+              : settingsButton
+            }
           </div>
-        </aside>
-      ) : null}
+          <div className="lg:hidden">{settingsButton}</div>
 
-      {!collapsed ? (
+          {/* User card */}
+          <div className="hidden lg:block">
+            {collapsed
+              ? <Tooltip content={userEmail ?? 'Profile'} position="right" delay={150}>{userCard}</Tooltip>
+              : userCard
+            }
+          </div>
+          <div className="lg:hidden">{userCard}</div>
+
+          {/* Sign out */}
+          <div className="hidden lg:block">
+            {collapsed
+              ? <Tooltip content="Sign out" position="right" delay={150}>{signOutButton}</Tooltip>
+              : signOutButton
+            }
+          </div>
+          <div className="lg:hidden">{signOutButton}</div>
+        </div>
+      </aside>
+
+      {/* ── Backdrop — tablet/mobile only ───────────────────────────── */}
+      {!collapsed && (
         <div
-          className="fixed inset-0 z-30 bg-surface-900/30 backdrop-blur-sm lg:hidden"
+          className="
+            fixed inset-0 z-30
+            bg-surface-900/40 backdrop-blur-sm
+            lg:hidden
+            motion-safe:transition-opacity motion-safe:duration-200
+            motion-reduce:transition-none
+          "
           onClick={onToggle}
           aria-hidden="true"
         />
-      ) : null}
+      )}
     </>
-  );
-}
-
-export function SidebarMobileToggle({
-  collapsed,
-  onToggle,
-}: {
-  collapsed: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      className="rounded-md p-2 text-text-500 hover:bg-surface-100 hover:text-text-900 transition-colors duration-100 lg:hidden"
-      onClick={onToggle}
-      aria-label={collapsed ? 'Open navigation menu' : 'Close navigation menu'}
-      aria-expanded={!collapsed}
-    >
-      <svg
-        className="h-5 w-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.75}
-          d="M4 6h16M4 12h16M4 18h16"
-        />
-      </svg>
-    </button>
   );
 }

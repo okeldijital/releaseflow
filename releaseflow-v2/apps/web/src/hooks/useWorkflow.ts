@@ -26,7 +26,8 @@ export function useWorkflow(releaseId: string | undefined) {
       setStages(stg);
       setError(null);
     } catch (err) {
-      setError((err as Error).message);
+      setError('Failed to load workflow data. Please try again.');
+      if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') console.error('useWorkflow:', err);
     } finally {
       setLoading(false);
     }

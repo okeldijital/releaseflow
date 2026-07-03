@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useOrgStore } from '@/stores/org-store';
 import {
   fetchArtist, fetchArtists, fetchArtistReleases,
   fetchCreditsByArtist, fetchTrackTitle, checkArtistReadiness,
@@ -49,11 +50,12 @@ export function useArtist(artistId: string | undefined) {
 export function useArtists() {
   const [artists, setArtists] = useState<ArtistRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const { activeOrgId, orgVersion } = useOrgStore();
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchArtists();
+      const data = await fetchArtists(activeOrgId ?? undefined);
       setArtists(data);
     } catch {
       // silent
@@ -62,7 +64,7 @@ export function useArtists() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load, activeOrgId, orgVersion]);
 
   return { artists, loading, refresh: load };
 }

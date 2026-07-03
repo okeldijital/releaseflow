@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  fetchAsset, fetchAssetsByDeliverable, fetchAssetsByRelease,
+  fetchAsset, fetchAssetsByRelease,
   validateAsset, fetchAssetCompleteness,
 } from '@/lib/asset-service';
 import type { AssetRecord } from '@/lib/asset-repository';

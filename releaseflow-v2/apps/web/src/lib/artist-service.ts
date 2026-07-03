@@ -5,7 +5,6 @@ import {
   getArtist,
   getArtists,
   getArtistReleases,
-  getArtistsByRelease,
   getCreditsByArtist,
   getTrackTitle,
 } from './artist-repository';
@@ -26,6 +25,7 @@ export interface ArtistReadinessResult {
 
 export async function createNewArtist(fields: CreateArtistFields): Promise<string> {
   if (!fields.name.trim()) throw new Error('Artist name is required');
+  if (!fields.organizationId) throw new Error('Organization ID is required');
   return createArtist(fields);
 }
 
@@ -41,8 +41,8 @@ export async function fetchArtist(artistId: string): Promise<ArtistRecord | null
   return getArtist(artistId);
 }
 
-export async function fetchArtists(): Promise<ArtistRecord[]> {
-  return getArtists();
+export async function fetchArtists(orgId?: string): Promise<ArtistRecord[]> {
+  return getArtists(orgId);
 }
 
 export async function fetchArtistReleases(artistId: string) {

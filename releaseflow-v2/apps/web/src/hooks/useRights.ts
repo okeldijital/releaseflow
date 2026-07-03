@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useOrgStore } from '@/stores/org-store';
 import {
   fetchRightsHolders, fetchReleaseOwnerships, fetchTrackOwnerships,
   validateReleaseOwnership, validateTrackOwnership,
@@ -11,14 +12,15 @@ import type { OwnershipValidation } from '@/lib/rights-service';
 export function useRightsHolders() {
   const [holders, setHolders] = useState<RightsHolderRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const { activeOrgId, orgVersion } = useOrgStore();
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setHolders(await fetchRightsHolders());
+      setHolders(await fetchRightsHolders(activeOrgId ?? undefined));
     } catch { /* silent */ }
     finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
+  }, [activeOrgId]);
+  useEffect(() => { load(); }, [load, orgVersion]);
   return { holders, loading, refresh: load };
 }
 

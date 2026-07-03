@@ -117,7 +117,7 @@ export default function CampaignDetailPage() {
 
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-text-900 dark:text-surface-50">{campaign.name}</h1>
+          <p className="text-2xl font-bold text-text-900 dark:text-surface-50">{campaign.name}</p>
           <div className="flex gap-2 mt-2">
             <Badge label={typeLabels[campaign.type] ?? campaign.type} color="bg-surface-100 text-text-700" />
             <StatusBadge status={campaign.status} />

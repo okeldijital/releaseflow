@@ -2,6 +2,7 @@ import {
   doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, limit, Timestamp,
 } from 'firebase/firestore';
+import type { QueryConstraint } from 'firebase/firestore';
 import { getDb } from './firebase';
 
 export interface ArtistRecord {
@@ -14,6 +15,7 @@ export interface ArtistRecord {
   genres?: string[] | null;
   imageUrl?: string | null;
   socialLinks?: Record<string, string> | null;
+  organizationId?: string | null;
   status: string;
   createdAt: unknown;
   updatedAt?: unknown;
@@ -37,6 +39,7 @@ export interface TrackCreditRecord {
 export interface CreateArtistFields {
   name: string;
   artistType: string;
+  organizationId: string;
   bio?: string;
   country?: string;
   genres?: string[];
@@ -67,6 +70,7 @@ export async function createArtist(fields: CreateArtistFields): Promise<string> 
     name: fields.name,
     slug: slugify(fields.name),
     artistType: fields.artistType,
+    organizationId: fields.organizationId,
     bio: fields.bio ?? null,
     country: fields.country ?? null,
     genres: fields.genres ?? null,
@@ -108,12 +112,14 @@ export async function getArtist(artistId: string): Promise<ArtistRecord | null> 
   return { id: snap.id, ...snap.data() } as ArtistRecord;
 }
 
-export async function getArtists(maxResults = 50): Promise<ArtistRecord[]> {
+export async function getArtists(orgId?: string, maxResults = 50): Promise<ArtistRecord[]> {
   const db = getDb();
   if (!db) return [];
-  const snap = await getDocs(
-    query(collection(db, 'artists'), orderBy('name', 'asc'), limit(maxResults)),
-  );
+  const constraints: QueryConstraint[] = [orderBy('name', 'asc'), limit(maxResults)];
+  if (orgId) {
+    constraints.unshift(where('organizationId', '==', orgId));
+  }
+  const snap = await getDocs(query(collection(db, 'artists'), ...constraints));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ArtistRecord);
 }
 

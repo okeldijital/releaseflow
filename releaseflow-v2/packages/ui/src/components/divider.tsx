@@ -26,14 +26,14 @@ export function Divider({
   if (label) {
     return (
       <div className={`flex items-center gap-3 ${className}`}>
-        <hr className="flex-1 border-0 border-t border-surface-200" />
+        <hr className="flex-1 border-0 border-t border-surface-200/70" />
         <span className="text-xs text-text-400 shrink-0">{label}</span>
-        <hr className="flex-1 border-0 border-t border-surface-200" />
+        <hr className="flex-1 border-0 border-t border-surface-200/70" />
       </div>
     );
   }
 
   return (
-    <hr className={`border-0 border-t border-surface-200 ${className}`} role="separator" />
+    <hr className={`border-0 border-t border-surface-200/70 ${className}`} role="separator" />
   );
 }

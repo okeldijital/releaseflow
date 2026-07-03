@@ -1,9 +1,9 @@
 import {
   doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  collection, query, where, orderBy, writeBatch, Timestamp, limit,
+  collection, query, where, orderBy, writeBatch, Timestamp,
 } from 'firebase/firestore';
 import { getDb } from './firebase';
-import type { Release, ReleaseStatus, ReleaseType } from '@/app/(app)/types';
+import type { ReleaseStatus, ReleaseType } from '@/app/(app)/types';
 
 export interface ReleaseRecord {
   id: string;
@@ -147,7 +147,6 @@ export async function createReleaseWithWorkflow(
   const db = getDb();
   if (!db) throw new Error('Firestore unavailable');
   const now = Timestamp.now();
-
   const batch = writeBatch(db);
 
   const releaseRef = doc(collection(db, 'releases'));
@@ -166,7 +165,6 @@ export async function createReleaseWithWorkflow(
   if (stageTemplates.length > 0) {
     const workflowRef = doc(collection(db, 'workflows'));
     workflowId = workflowRef.id;
-
     batch.set(workflowRef, {
       releaseId: releaseRef.id,
       templateId: fields.releaseType,
@@ -176,7 +174,6 @@ export async function createReleaseWithWorkflow(
       startedAt: now,
       updatedAt: now,
     });
-
     for (const tpl of stageTemplates) {
       const stageRef = doc(collection(db, 'stages'));
       if (tpl.order === 1) firstStageId = stageRef.id;
@@ -191,7 +188,6 @@ export async function createReleaseWithWorkflow(
         completedAt: null,
       });
     }
-
     if (firstStageId) {
       batch.update(workflowRef, { currentStageId: firstStageId });
     }
@@ -243,11 +239,7 @@ export async function updateRelease(
 ): Promise<void> {
   const db = getDb();
   if (!db) throw new Error('Firestore unavailable');
-
-  const updateData: Record<string, unknown> = {
-    updatedAt: Timestamp.now(),
-  };
-
+  const updateData: Record<string, unknown> = { updatedAt: Timestamp.now() };
   if (fields.title !== undefined) updateData.title = fields.title;
   if (fields.releaseType !== undefined) updateData.releaseType = fields.releaseType;
   if (fields.status !== undefined) updateData.status = fields.status;
@@ -266,9 +258,7 @@ export async function updateRelease(
   if (fields.subgenre !== undefined) updateData.subgenre = fields.subgenre;
   if (fields.language !== undefined) updateData.language = fields.language;
   if (fields.explicit !== undefined) updateData.explicit = fields.explicit;
-
   await updateDoc(doc(db, 'releases', releaseId), updateData);
-
   await addDoc(collection(db, 'activities'), {
     type: 'release.updated',
     releaseId,
@@ -288,12 +278,7 @@ export async function updateReleaseStatus(
 ): Promise<void> {
   const db = getDb();
   if (!db) throw new Error('Firestore unavailable');
-
-  await updateDoc(doc(db, 'releases', releaseId), {
-    status,
-    updatedAt: Timestamp.now(),
-  });
-
+  await updateDoc(doc(db, 'releases', releaseId), { status, updatedAt: Timestamp.now() });
   await addDoc(collection(db, 'activities'), {
     type: 'release.status.changed',
     releaseId,

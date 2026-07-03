@@ -51,7 +51,7 @@ export default function CampaignsPage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold text-text-900 dark:text-surface-50">Campaigns</h1>
+        <p className="text-2xl font-bold text-text-900 dark:text-surface-50">Campaigns</p>
         <Link href="/campaigns/new"><Button variant="primary">New Campaign</Button></Link>
       </div>
 
