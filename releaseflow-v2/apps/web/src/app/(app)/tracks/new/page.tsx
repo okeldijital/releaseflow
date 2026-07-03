@@ -1,36 +1,224 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useOrgStore } from '@/stores/org-store';
 import { useAuth } from '@/contexts/auth-context';
+import { useOrgStore } from '@/stores/org-store';
+import { getPeopleByOrg } from '@/lib/people-repository';
 import { createNewTrack } from '@/lib/track-service';
 import { fetchRelease } from '@/lib/release-service';
 import { addTrackToRelease, getTracksByRelease } from '@/lib/release-track-repository';
-import { Button, EmptyState, LoadingState, Input, Select } from '@releaseflow/ui';
+import { addArtistToTrack } from '@/lib/track-artist-repository';
+import { createAssignment } from '@/lib/assignment-repository';
+import { addCreditToTrack } from '@/lib/credits-service';
+import {
+  createRequestedAsset,
+  assignAsset,
+  startAssetWork,
+  deliverAsset,
+  type AssetType,
+} from '@/lib/asset-lifecycle-service';
+import { createInvitation } from '@/lib/invitation-repository';
+import { PersonAssigner } from '@/components/person-assigner';
+import { ArtistFieldPicker, type ArtistOption } from '@/components/artist-field-picker';
+import { fetchArtists } from '@/lib/artist-service';
+import {
+  suggestRemixDisplayTitle,
+  recordingTypeLabel,
+  type RecordingType,
+} from '@/lib/recording-type';
+import { EmptyState, LoadingState } from '@releaseflow/ui';
 
-const explicitOptions = [
-  { value: 'true', label: 'Yes' },
-  { value: 'false', label: 'No' },
+const STEPS = ['basics', 'recording', 'production', 'credits', 'deliverables', 'metadata', 'review'] as const;
+type StepKey = typeof STEPS[number];
+type SectionStatus = 'complete' | 'incomplete' | 'skipped';
+type SectionStatusMap = Record<string, SectionStatus>;
+type PersonOption = { id: string; displayName: string };
+type ProductionStage = 'demo' | 'recording' | 'editing' | 'mixed' | 'mastered';
+
+type EngineerAssignment = {
+  personId: string;
+  comment: string;
+  expectedDelivery: string;
+  inviteName?: string;
+  inviteEmail?: string;
+};
+
+type ContributorEntry = {
+  id: string;
+  personId: string;
+  comment: string;
+};
+
+type CreditRoleKey = 'producer' | 'composer' | 'lyricist' | 'songwriter' | 'publisher' | 'performer';
+
+type DeliverableKey =
+  | 'master_wav'
+  | 'session_files'
+  | 'lyrics'
+  | 'instrumental'
+  | 'clean_version';
+
+type DeliverableItem = {
+  status: 'none' | 'uploaded' | 'assigned' | 'invited' | 'deferred';
+  personId?: string;
+  inviteName?: string;
+  inviteEmail?: string;
+  comment?: string;
+  file?: File | null;
+  fileUrl?: string;
+  filename?: string;
+  contentType?: string;
+  sizeBytes?: number;
+  lyricsText?: string;
+};
+
+const PRODUCTION_STAGES: { value: ProductionStage; label: string }[] = [
+  { value: 'demo', label: 'Demo' },
+  { value: 'recording', label: 'Recording' },
+  { value: 'editing', label: 'Editing' },
+  { value: 'mixed', label: 'Mixed' },
+  { value: 'mastered', label: 'Mastered' },
 ];
+
+const CREDIT_ROLES: { key: CreditRoleKey; label: string }[] = [
+  { key: 'producer', label: 'Producer' },
+  { key: 'composer', label: 'Composer' },
+  { key: 'lyricist', label: 'Lyricist' },
+  { key: 'songwriter', label: 'Songwriters' },
+  { key: 'publisher', label: 'Publishers' },
+  { key: 'performer', label: 'Performers' },
+];
+
+const DELIVERABLE_DEFS: {
+  key: DeliverableKey;
+  label: string;
+  type: AssetType;
+  canAssign: boolean;
+  canPaste?: boolean;
+}[] = [
+  { key: 'master_wav', label: 'Master WAV', type: 'audio', canAssign: true },
+  { key: 'session_files', label: 'Session Files', type: 'document', canAssign: false },
+  { key: 'lyrics', label: 'Lyrics', type: 'document', canAssign: false, canPaste: true },
+  { key: 'instrumental', label: 'Instrumental', type: 'audio', canAssign: false },
+  { key: 'clean_version', label: 'Clean Version', type: 'audio', canAssign: false },
+];
+
+function emptyDeliverables(): Record<DeliverableKey, DeliverableItem> {
+  return {
+    master_wav: { status: 'none' },
+    session_files: { status: 'none' },
+    lyrics: { status: 'none' },
+    instrumental: { status: 'none' },
+    clean_version: { status: 'none' },
+  };
+}
+
+function emptyCredits(): Record<CreditRoleKey, ContributorEntry[]> {
+  return {
+    producer: [],
+    composer: [],
+    lyricist: [],
+    songwriter: [],
+    publisher: [],
+    performer: [],
+  };
+}
+
+function emptyEngineer(): EngineerAssignment {
+  return { personId: '', comment: '', expectedDelivery: '' };
+}
+
+function uid() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function needsMixing(stage: ProductionStage) {
+  return stage !== 'mixed' && stage !== 'mastered';
+}
+
+function needsMastering(stage: ProductionStage) {
+  return stage !== 'mastered';
+}
+
+async function extractAudioDuration(file: File): Promise<number | undefined> {
+  if (!file.type.startsWith('audio/')) return undefined;
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const audio = new Audio();
+    audio.src = url;
+    audio.addEventListener('loadedmetadata', () => {
+      const d = Number.isFinite(audio.duration) ? Math.round(audio.duration) : undefined;
+      URL.revokeObjectURL(url);
+      resolve(d);
+    });
+    audio.addEventListener('error', () => {
+      URL.revokeObjectURL(url);
+      resolve(undefined);
+    });
+  });
+}
 
 export default function NewTrackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const releaseId = searchParams.get('releaseId') ?? '';
-  const { activeOrgId } = useOrgStore();
   const { user } = useAuth();
+  const { activeOrgId } = useOrgStore();
 
+  const [step, setStep] = useState(0);
+  const [launching, setLaunching] = useState(false);
+  const [error, setError] = useState('');
   const [releaseTitle, setReleaseTitle] = useState<string | null>(null);
   const [loadingRelease, setLoadingRelease] = useState(!!releaseId);
+  const [people, setPeople] = useState<PersonOption[]>([]);
+  const [artists, setArtists] = useState<ArtistOption[]>([]);
+  const [sectionStatus, setSectionStatus] = useState<SectionStatusMap>({});
+
   const [title, setTitle] = useState('');
   const [version, setVersion] = useState('');
+  const [recordingType, setRecordingType] = useState<RecordingType>('original');
+  const [primaryArtistId, setPrimaryArtistId] = useState('');
+  const [featuredArtistIds, setFeaturedArtistIds] = useState<string[]>([]);
+  const [originalArtistId, setOriginalArtistId] = useState('');
+  const [remixerArtistId, setRemixerArtistId] = useState('');
+  const [displayTitle, setDisplayTitle] = useState('');
+  const [displayTitleEdited, setDisplayTitleEdited] = useState(false);
+  const [remixErrors, setRemixErrors] = useState<{ originalArtist?: string; remixer?: string }>({});
+
+  const [productionStage, setProductionStage] = useState<ProductionStage>('demo');
+  const [mixingEngineer, setMixingEngineer] = useState<EngineerAssignment>(emptyEngineer());
+  const [masteringEngineer, setMasteringEngineer] = useState<EngineerAssignment>(emptyEngineer());
+
+  const [credits, setCredits] = useState(emptyCredits());
+  const [deliverables, setDeliverables] = useState(emptyDeliverables());
+
   const [isrc, setIsrc] = useState('');
-  const [duration, setDuration] = useState('');
+  const [language, setLanguage] = useState('');
   const [genre, setGenre] = useState('');
+  const [subgenre, setSubgenre] = useState('');
   const [explicit, setExplicit] = useState('false');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [label, setLabel] = useState('');
+  const [copyrightYear, setCopyrightYear] = useState(String(new Date().getFullYear()));
+  const [publishingYear, setPublishingYear] = useState(String(new Date().getFullYear()));
+  const [derivedDuration, setDerivedDuration] = useState<number | undefined>();
+
+  const [assignerOpen, setAssignerOpen] = useState(false);
+  const [assignerLabel, setAssignerLabel] = useState('');
+  const [assignerRole, setAssignerRole] = useState('');
+  const assignerCallback = useRef<((r: { personId?: string; personName?: string; invitationEmail?: string }) => void) | null>(null);
+
+  const currentStepKey = STEPS[step]!;
+
+  useEffect(() => {
+    if (!user) router.push('/sign-in');
+  }, [user, router]);
+
+  useEffect(() => {
+    if (!activeOrgId) return;
+    getPeopleByOrg(activeOrgId).then((p) => setPeople(p.map((x) => ({ id: x.id, displayName: x.displayName }))));
+    fetchArtists(activeOrgId).then((a) => setArtists(a.map((x) => ({ id: x.id, name: x.name }))));
+  }, [activeOrgId]);
 
   useEffect(() => {
     if (!releaseId) {
@@ -43,15 +231,9 @@ export default function NewTrackPage() {
       try {
         const release = await fetchRelease(releaseId);
         if (cancelled) return;
-        if (!release) {
-          setError('Release not found.');
-          setReleaseTitle(null);
-        } else if (activeOrgId && release.organizationId !== activeOrgId) {
-          setError('You do not have access to this release.');
-          setReleaseTitle(null);
-        } else {
-          setReleaseTitle(release.title);
-        }
+        if (!release) setError('Release not found.');
+        else if (activeOrgId && release.organizationId !== activeOrgId) setError('You do not have access to this release.');
+        else setReleaseTitle(release.title);
       } catch {
         if (!cancelled) setError('Could not load release.');
       } finally {
@@ -62,21 +244,201 @@ export default function NewTrackPage() {
     return () => { cancelled = true; };
   }, [releaseId, activeOrgId]);
 
-  async function handleSave() {
-    if (!activeOrgId || !title.trim() || !user) return;
-    setSaving(true);
+  function openAssigner(
+    label: string,
+    role: string,
+    cb: (r: { personId?: string; personName?: string; invitationEmail?: string }) => void,
+  ) {
+    setAssignerLabel(label);
+    setAssignerRole(role);
+    assignerCallback.current = cb;
+    setAssignerOpen(true);
+  }
+
+  function next() {
+    if (currentStepKey === 'basics' && !validateBasics()) return;
+    if (step < STEPS.length - 1) setStep(step + 1);
+  }
+
+  function back() {
+    if (step > 0) setStep(step - 1);
+  }
+
+  function later(section: string) {
+    setSectionStatus((p) => ({ ...p, [section]: 'skipped' }));
+    next();
+  }
+
+  function handleArtistCreated(created: ArtistOption) {
+    setArtists((prev) => (prev.some((a) => a.id === created.id) ? prev : [...prev, created]));
+  }
+
+  function updateRemixDisplayTitle(nextTitle: string, remixerId: string) {
+    if (displayTitleEdited) return;
+    const remixerName = artists.find((a) => a.id === remixerId)?.name ?? '';
+    setDisplayTitle(suggestRemixDisplayTitle(nextTitle, remixerName));
+  }
+
+  function validateBasics(): boolean {
+    if (!title.trim()) return false;
+    if (recordingType !== 'remix') return true;
+    const errors: { originalArtist?: string; remixer?: string } = {};
+    if (!originalArtistId) errors.originalArtist = 'Original Artist is required for remix recordings.';
+    if (!remixerArtistId) errors.remixer = 'Remixer is required for remix recordings.';
+    setRemixErrors(errors);
+    return !errors.originalArtist && !errors.remixer;
+  }
+
+  function addCredit(role: CreditRoleKey, personId: string) {
+    if (!personId) return;
+    setCredits((p) => ({
+      ...p,
+      [role]: [...p[role], { id: uid(), personId, comment: '' }],
+    }));
+  }
+
+  function updateCredit(role: CreditRoleKey, id: string, field: 'comment', value: string) {
+    setCredits((p) => ({
+      ...p,
+      [role]: p[role].map((c) => (c.id === id ? { ...c, [field]: value } : c)),
+    }));
+  }
+
+  function removeCredit(role: CreditRoleKey, id: string) {
+    setCredits((p) => ({
+      ...p,
+      [role]: p[role].filter((c) => c.id !== id),
+    }));
+  }
+
+  async function handleDeliverableFile(key: DeliverableKey, file: File | null) {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const item: DeliverableItem = {
+      status: 'uploaded',
+      file,
+      fileUrl: url,
+      filename: file.name,
+      contentType: file.type,
+      sizeBytes: file.size,
+    };
+    setDeliverables((p) => ({ ...p, [key]: item }));
+    if (key === 'master_wav') {
+      const duration = await extractAudioDuration(file);
+      if (duration) setDerivedDuration(duration);
+    }
+  }
+
+  function setDeliverableDeferred(key: DeliverableKey) {
+    setDeliverables((p) => ({ ...p, [key]: { status: 'deferred' } }));
+  }
+
+  async function persistDeliverable(trackId: string, key: DeliverableKey, def: typeof DELIVERABLE_DEFS[number], item: DeliverableItem) {
+    if (!activeOrgId || item.status === 'none') return;
+    const assetId = await createRequestedAsset(
+      trackId,
+      activeOrgId,
+      def.label,
+      def.type,
+      item.comment || item.lyricsText || undefined,
+    );
+    if (item.status === 'assigned' && item.personId) {
+      await assignAsset(assetId, item.personId);
+    }
+    if (item.status === 'uploaded' && item.fileUrl) {
+      const assignPerson = item.personId || mixingEngineer.personId || masteringEngineer.personId;
+      if (assignPerson) {
+        await assignAsset(assetId, assignPerson);
+        await startAssetWork(assetId);
+        await deliverAsset(
+          assetId,
+          item.fileUrl,
+          item.filename,
+          item.contentType,
+          item.sizeBytes,
+        );
+      }
+    }
+    if (item.status === 'invited' && item.inviteEmail && user) {
+      await createInvitation({
+        organizationId: activeOrgId,
+        inviterId: user.uid,
+        email: item.inviteEmail,
+        roleId: 'contributor',
+      });
+    }
+  }
+
+  async function handleFinish() {
+    if (!activeOrgId || !user || !title.trim()) return;
+    if (!validateBasics()) {
+      setStep(0);
+      return;
+    }
+    setLaunching(true);
     setError('');
     try {
+      const resolvedTitle = recordingType === 'remix' && displayTitle.trim()
+        ? displayTitle.trim()
+        : title.trim();
+
       const trackId = await createNewTrack({
         organizationId: activeOrgId,
-        title: title.trim(),
+        title: resolvedTitle,
         createdBy: user.uid,
         version: version.trim() || undefined,
+        recordingType,
+        originalArtistId: recordingType === 'remix' ? originalArtistId : null,
+        remixerArtistId: recordingType === 'remix' ? remixerArtistId : null,
+        primaryArtistId: recordingType === 'original' ? primaryArtistId || null : null,
+        featuredArtistIds: recordingType === 'original' ? featuredArtistIds : null,
+        displayTitle: displayTitle.trim() || null,
+        displayTitleEdited,
         isrc: isrc.trim() || undefined,
-        duration: duration ? Number(duration) : undefined,
+        language: language.trim() || undefined,
         genre: genre.trim() || undefined,
         explicit: explicit === 'true',
+        duration: derivedDuration,
       });
+
+      if (recordingType === 'remix') {
+        if (originalArtistId) await addArtistToTrack({ trackId, artistId: originalArtistId, artistType: 'original_artist' });
+        if (remixerArtistId) await addArtistToTrack({ trackId, artistId: remixerArtistId, artistType: 'remixer' });
+      } else {
+        if (primaryArtistId) await addArtistToTrack({ trackId, artistId: primaryArtistId, artistType: 'original_artist' });
+        for (const featuredId of featuredArtistIds) {
+          await addArtistToTrack({ trackId, artistId: featuredId, artistType: 'featured_artist' });
+        }
+      }
+
+      if (needsMixing(productionStage) && mixingEngineer.personId) {
+        await createAssignment(
+          mixingEngineer.personId,
+          'track',
+          trackId,
+          'Mixing Engineer',
+          [mixingEngineer.comment, mixingEngineer.expectedDelivery ? `Expected: ${mixingEngineer.expectedDelivery}` : ''].filter(Boolean).join(' · ') || undefined,
+        );
+      }
+      if (needsMastering(productionStage) && masteringEngineer.personId) {
+        await createAssignment(
+          masteringEngineer.personId,
+          'track',
+          trackId,
+          'Mastering Engineer',
+          [masteringEngineer.comment, masteringEngineer.expectedDelivery ? `Expected: ${masteringEngineer.expectedDelivery}` : ''].filter(Boolean).join(' · ') || undefined,
+        );
+      }
+
+      for (const role of CREDIT_ROLES) {
+        for (const entry of credits[role.key]) {
+          await addCreditToTrack(trackId, activeOrgId, entry.personId, role.label, undefined, entry.comment || undefined);
+        }
+      }
+
+      for (const def of DELIVERABLE_DEFS) {
+        await persistDeliverable(trackId, def.key, def, deliverables[def.key]);
+      }
 
       if (releaseId) {
         const existing = await getTracksByRelease(releaseId);
@@ -87,18 +449,15 @@ export default function NewTrackPage() {
       }
     } catch {
       setError('Could not create track. Please try again.');
-      setSaving(false);
+      setLaunching(false);
     }
   }
 
-  function handleCancel() {
-    if (releaseId) router.push(`/releases/${releaseId}`);
-    else router.push('/tracks');
-  }
+  if (!user) return null;
 
   if (!activeOrgId) {
     return (
-      <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
+      <div className="mx-auto max-w-lg px-5 sm:px-7 py-12 page-transition">
         <EmptyState title="No organization selected" description="Select an organization to create a track." />
       </div>
     );
@@ -109,39 +468,860 @@ export default function NewTrackPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
-      <div className="mb-8">
-        <p className="text-[1.75rem] font-semibold text-surface-50 tracking-tight">New Track</p>
-        {releaseId && releaseTitle ? (
-          <p className="mt-1 text-sm text-text-400">
-            Adding to <span className="font-medium text-surface-200">{releaseTitle}</span>
-          </p>
-        ) : (
-          <p className="mt-1 text-sm text-text-400">Create a new recording for your catalogue.</p>
-        )}
+    <div className="mx-auto max-w-lg px-5 sm:px-7 py-12 page-transition">
+      <div className="flex items-center justify-center gap-2 mb-10">
+        {STEPS.map((_, i) => (
+          <span
+            key={i}
+            className={`block rounded-full transition-all duration-300 ${
+              i < step
+                ? 'h-2 w-2 bg-primary-500/40'
+                : i === step
+                  ? 'h-2.5 w-2.5 bg-primary-500 shadow-[0_0_6px_rgba(204,85,0,0.4)]'
+                  : 'h-1.5 w-1.5 bg-surface-700'
+            }`}
+          />
+        ))}
       </div>
 
-      <div className="rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 p-5 space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Track title" />
-          <Input label="Version" value={version} onChange={(e) => setVersion(e.target.value)} placeholder="e.g. Radio Edit" />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="ISRC" value={isrc} onChange={(e) => setIsrc(e.target.value)} placeholder="e.g. US-ABC-12-34567" />
-          <Input label="Duration (seconds)" type="number" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="e.g. 210" />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Genre" value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="e.g. Pop, Electronic" />
-          <Select label="Explicit" options={explicitOptions} value={explicit} onChange={setExplicit} />
-        </div>
-        {error ? <p className="text-sm text-danger-400">{error}</p> : null}
-        <div className="flex items-center gap-2">
-          <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || !title.trim() || !user}>
-            {saving ? 'Creating...' : 'Save'}
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>Cancel</Button>
-        </div>
-      </div>
+      {releaseTitle ? (
+        <p className="text-xs font-medium text-text-500 uppercase tracking-widest text-center mb-2">
+          {releaseTitle}
+        </p>
+      ) : null}
+
+      <StepTitle step={currentStepKey} />
+
+      {currentStepKey === 'basics' && (
+        <BasicsStep
+          title={title}
+          setTitle={setTitle}
+          version={version}
+          setVersion={setVersion}
+          recordingType={recordingType}
+          setRecordingType={setRecordingType}
+          primaryArtistId={primaryArtistId}
+          setPrimaryArtistId={setPrimaryArtistId}
+          featuredArtistIds={featuredArtistIds}
+          setFeaturedArtistIds={setFeaturedArtistIds}
+          originalArtistId={originalArtistId}
+          setOriginalArtistId={setOriginalArtistId}
+          remixerArtistId={remixerArtistId}
+          setRemixerArtistId={setRemixerArtistId}
+          displayTitle={displayTitle}
+          setDisplayTitle={setDisplayTitle}
+          setDisplayTitleEdited={setDisplayTitleEdited}
+          remixErrors={remixErrors}
+          setRemixErrors={setRemixErrors}
+          artists={artists}
+          activeOrgId={activeOrgId}
+          onArtistCreated={handleArtistCreated}
+          updateRemixDisplayTitle={updateRemixDisplayTitle}
+          back={back}
+          next={next}
+        />
+      )}
+
+      {currentStepKey === 'recording' && (
+        <RecordingStep
+          productionStage={productionStage}
+          setProductionStage={setProductionStage}
+          back={back}
+          next={next}
+          onLater={() => later('recording')}
+        />
+      )}
+
+      {currentStepKey === 'production' && (
+        <ProductionStep
+          productionStage={productionStage}
+          mixingEngineer={mixingEngineer}
+          setMixingEngineer={setMixingEngineer}
+          masteringEngineer={masteringEngineer}
+          setMasteringEngineer={setMasteringEngineer}
+          people={people}
+          openAssigner={openAssigner}
+          back={back}
+          next={next}
+          onLater={() => later('production')}
+        />
+      )}
+
+      {currentStepKey === 'credits' && (
+        <CreditsStep
+          credits={credits}
+          people={people}
+          addCredit={addCredit}
+          updateCredit={updateCredit}
+          removeCredit={removeCredit}
+          openAssigner={openAssigner}
+          back={back}
+          next={next}
+          onLater={() => later('credits')}
+        />
+      )}
+
+      {currentStepKey === 'deliverables' && (
+        <DeliverablesStep
+          deliverables={deliverables}
+          setDeliverables={setDeliverables}
+          onFile={handleDeliverableFile}
+          onDeferred={setDeliverableDeferred}
+          people={people}
+          openAssigner={openAssigner}
+          back={back}
+          next={next}
+          onLater={() => later('deliverables')}
+        />
+      )}
+
+      {currentStepKey === 'metadata' && (
+        <MetadataStep
+          isrc={isrc}
+          setIsrc={setIsrc}
+          language={language}
+          setLanguage={setLanguage}
+          genre={genre}
+          setGenre={setGenre}
+          subgenre={subgenre}
+          setSubgenre={setSubgenre}
+          explicit={explicit}
+          setExplicit={setExplicit}
+          label={label}
+          setLabel={setLabel}
+          copyrightYear={copyrightYear}
+          setCopyrightYear={setCopyrightYear}
+          publishingYear={publishingYear}
+          setPublishingYear={setPublishingYear}
+          derivedDuration={derivedDuration}
+          back={back}
+          next={next}
+          onLater={() => later('metadata')}
+        />
+      )}
+
+      {currentStepKey === 'review' && (
+        <ReviewStep
+          title={title}
+          version={version}
+          recordingType={recordingType}
+          artists={artists}
+          primaryArtistId={primaryArtistId}
+          featuredArtistIds={featuredArtistIds}
+          originalArtistId={originalArtistId}
+          remixerArtistId={remixerArtistId}
+          productionStage={productionStage}
+          mixingEngineer={mixingEngineer}
+          masteringEngineer={masteringEngineer}
+          people={people}
+          credits={credits}
+          deliverables={deliverables}
+          isrc={isrc}
+          language={language}
+          genre={genre}
+          subgenre={subgenre}
+          explicit={explicit}
+          label={label}
+          copyrightYear={copyrightYear}
+          publishingYear={publishingYear}
+          derivedDuration={derivedDuration}
+          sectionStatus={sectionStatus}
+          error={error}
+          launching={launching}
+          back={back}
+          onFinish={handleFinish}
+        />
+      )}
+
+      <PersonAssigner
+        open={assignerOpen}
+        onClose={() => setAssignerOpen(false)}
+        onAssign={(r) => {
+          assignerCallback.current?.(r);
+          assignerCallback.current = null;
+          setAssignerOpen(false);
+        }}
+        contextLabel={assignerLabel}
+        contextRole={assignerRole}
+        organizationId={activeOrgId}
+        currentUserId={user.uid}
+      />
     </div>
+  );
+}
+
+function StepTitle({ step }: { step: StepKey }) {
+  const titles: Record<StepKey, string> = {
+    basics: 'What is this track called?',
+    recording: 'Where are you in production?',
+    production: 'Who is handling the audio?',
+    credits: 'Who contributed to this recording?',
+    deliverables: 'What deliverables do you already have?',
+    metadata: 'Publishing metadata',
+    review: 'Ready to create this track?',
+  };
+  return <h1 className="text-[1.75rem] font-semibold tracking-tight text-surface-50 text-center">{titles[step]}</h1>;
+}
+
+function Btn({ label = 'Continue', onClick, disabled, secondary }: { label?: string; onClick: () => void; disabled?: boolean; secondary?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled ?? false}
+      className={`flex-1 h-12 rounded-xl font-semibold text-[15px] active:scale-[0.98] disabled:opacity-40 transition-all duration-150 ${
+        secondary
+          ? 'border border-surface-700 bg-transparent text-text-400 hover:text-text-200'
+          : 'bg-primary-500 text-white hover:bg-primary-400 shadow-[0_4px_24px_rgba(204,85,0,0.25)]'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function Nav({ back, next, canNext = true, optional, onLater }: { back: () => void; next: () => void; canNext?: boolean; optional?: boolean; onLater?: () => void }) {
+  return (
+    <div className="flex items-center gap-3 mt-8">
+      <Btn label="Back" onClick={back} secondary />
+      {optional && onLater ? <Btn label="Complete Later" onClick={onLater} secondary /> : null}
+      <Btn onClick={next} disabled={optional ? false : !canNext} />
+    </div>
+  );
+}
+
+function PersonSelect({ value, onChange, people, onInvite }: { value: string; onChange: (v: string) => void; people: PersonOption[]; onInvite: () => void }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => {
+        if (e.target.value === '__invite__') onInvite();
+        else onChange(e.target.value);
+      }}
+      className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none"
+    >
+      <option value="">Select...</option>
+      {people.map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
+      <option value="__invite__">+ Invite Someone New</option>
+    </select>
+  );
+}
+
+function SectionStatusBadge({ status }: { status?: SectionStatus }) {
+  if (!status) return <span className="text-xs text-text-500">Incomplete</span>;
+  const labels: Record<SectionStatus, string> = {
+    complete: 'Complete',
+    incomplete: 'Incomplete',
+    skipped: 'Skipped',
+  };
+  const colors: Record<SectionStatus, string> = {
+    complete: 'text-success-400',
+    incomplete: 'text-warning-400',
+    skipped: 'text-text-500',
+  };
+  return <span className={`text-xs font-medium ${colors[status]}`}>{labels[status]}</span>;
+}
+
+function BasicsStep({
+  title, setTitle, version, setVersion, recordingType, setRecordingType,
+  primaryArtistId, setPrimaryArtistId, featuredArtistIds, setFeaturedArtistIds,
+  originalArtistId, setOriginalArtistId, remixerArtistId, setRemixerArtistId,
+  displayTitle, setDisplayTitle, setDisplayTitleEdited, remixErrors, setRemixErrors,
+  artists, activeOrgId, onArtistCreated, updateRemixDisplayTitle, back, next,
+}: {
+  title: string;
+  setTitle: (v: string) => void;
+  version: string;
+  setVersion: (v: string) => void;
+  recordingType: RecordingType;
+  setRecordingType: (v: RecordingType) => void;
+  primaryArtistId: string;
+  setPrimaryArtistId: (v: string) => void;
+  featuredArtistIds: string[];
+  setFeaturedArtistIds: Dispatch<SetStateAction<string[]>>;
+  originalArtistId: string;
+  setOriginalArtistId: (v: string) => void;
+  remixerArtistId: string;
+  setRemixerArtistId: (v: string) => void;
+  displayTitle: string;
+  setDisplayTitle: (v: string) => void;
+  setDisplayTitleEdited: (v: boolean) => void;
+  remixErrors: { originalArtist?: string; remixer?: string };
+  setRemixErrors: Dispatch<SetStateAction<{ originalArtist?: string; remixer?: string }>>;
+  artists: ArtistOption[];
+  activeOrgId: string | null;
+  onArtistCreated: (a: ArtistOption) => void;
+  updateRemixDisplayTitle: (title: string, remixerId: string) => void;
+  back: () => void;
+  next: () => void;
+}) {
+  return (
+    <>
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => {
+          setTitle(e.target.value);
+          if (recordingType === 'remix') updateRemixDisplayTitle(e.target.value, remixerArtistId);
+        }}
+        placeholder="Track title"
+        autoFocus
+        className="mt-8 block w-full h-14 rounded-xl border border-surface-700 bg-surface-900 px-5 text-[18px] text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none"
+      />
+      <input
+        type="text"
+        value={version}
+        onChange={(e) => setVersion(e.target.value)}
+        placeholder="Version (optional)"
+        className="mt-3 block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-5 text-sm text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none"
+      />
+
+      <div className="mt-6 rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-3">
+        <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Recording Type</p>
+        <label className="flex items-center gap-2 text-sm text-text-300">
+          <input
+            type="radio"
+            name="recording-type"
+            checked={recordingType === 'original'}
+            onChange={() => {
+              setRecordingType('original');
+              setRemixErrors({});
+              setDisplayTitle('');
+              setDisplayTitleEdited(false);
+            }}
+          />
+          Original Recording
+        </label>
+        <label className="flex items-center gap-2 text-sm text-text-300">
+          <input type="radio" name="recording-type" checked={recordingType === 'remix'} onChange={() => setRecordingType('remix')} />
+          Remix
+        </label>
+      </div>
+
+      {recordingType === 'original' ? (
+        <div className="mt-4 space-y-3">
+          <ArtistFieldPicker
+            label="Primary Artist"
+            value={primaryArtistId}
+            onChange={setPrimaryArtistId}
+            artists={artists}
+            organizationId={activeOrgId}
+            onArtistCreated={onArtistCreated}
+          />
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Featuring Artists</p>
+            {featuredArtistIds.map((aid) => {
+              const name = artists.find((a) => a.id === aid)?.name ?? aid;
+              return (
+                <div key={aid} className="flex items-center justify-between rounded-xl border border-surface-700 bg-surface-950 px-3 py-2">
+                  <span className="text-sm text-surface-100">{name}</span>
+                  <button type="button" onClick={() => setFeaturedArtistIds((p) => p.filter((id) => id !== aid))} className="text-xs text-danger-400">Remove</button>
+                </div>
+              );
+            })}
+            <select
+              value=""
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v && !featuredArtistIds.includes(v)) setFeaturedArtistIds((p) => [...p, v]);
+              }}
+              className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none"
+            >
+              <option value="">+ Add Artist</option>
+              {artists.filter((a) => a.id !== primaryArtistId && !featuredArtistIds.includes(a.id)).map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          <ArtistFieldPicker
+            label="Original Artist"
+            value={originalArtistId}
+            onChange={(v) => { setOriginalArtistId(v); setRemixErrors((p) => ({ ...p, originalArtist: undefined })); }}
+            artists={artists}
+            organizationId={activeOrgId}
+            onArtistCreated={onArtistCreated}
+            error={remixErrors.originalArtist}
+          />
+          <ArtistFieldPicker
+            label="Remixer"
+            value={remixerArtistId}
+            onChange={(v) => {
+              setRemixerArtistId(v);
+              setRemixErrors((p) => ({ ...p, remixer: undefined }));
+              updateRemixDisplayTitle(title, v);
+            }}
+            artists={artists}
+            organizationId={activeOrgId}
+            onArtistCreated={onArtistCreated}
+            error={remixErrors.remixer}
+          />
+          <div className="rounded-xl border border-surface-700 bg-surface-950 p-3 space-y-2">
+            <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Suggested Display Title</p>
+            <input
+              type="text"
+              value={displayTitle}
+              onChange={(e) => { setDisplayTitle(e.target.value); setDisplayTitleEdited(true); }}
+              placeholder={suggestRemixDisplayTitle(title, artists.find((a) => a.id === remixerArtistId)?.name ?? '')}
+              className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-900 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
+            />
+          </div>
+        </div>
+      )}
+
+      <Nav back={back} next={next} canNext={!!title.trim()} />
+    </>
+  );
+}
+
+function RecordingStep({
+  productionStage, setProductionStage, back, next, onLater,
+}: {
+  productionStage: ProductionStage;
+  setProductionStage: (v: ProductionStage) => void;
+  back: () => void;
+  next: () => void;
+  onLater: () => void;
+}) {
+  return (
+    <>
+      <p className="mt-3 text-sm text-text-400 text-center">Current Stage</p>
+      <div className="mt-6 space-y-2">
+        {PRODUCTION_STAGES.map((s) => (
+          <button
+            key={s.value}
+            type="button"
+            onClick={() => setProductionStage(s.value)}
+            className={`w-full text-left rounded-xl border px-5 py-4 transition-all duration-150 ${
+              productionStage === s.value
+                ? 'border-primary-500/60 bg-primary-500/10'
+                : 'border-surface-700 bg-surface-900 hover:border-surface-600'
+            }`}
+          >
+            <p className="text-[15px] font-medium text-surface-100">{s.label}</p>
+          </button>
+        ))}
+      </div>
+      <Nav back={back} next={next} optional onLater={onLater} />
+    </>
+  );
+}
+
+function EngineerBlock({
+  label,
+  role,
+  value,
+  onChange,
+  people,
+  openAssigner,
+}: {
+  label: string;
+  role: string;
+  value: EngineerAssignment;
+  onChange: (v: EngineerAssignment) => void;
+  people: PersonOption[];
+  openAssigner: (label: string, role: string, cb: (r: { personId?: string }) => void) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-3">
+      <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">{label}</p>
+      <PersonSelect
+        value={value.personId}
+        onChange={(v) => onChange({ ...value, personId: v })}
+        people={people}
+        onInvite={() => openAssigner(label, role, (r) => onChange({ ...value, personId: r.personId ?? '' }))}
+      />
+      <input
+        type="text"
+        value={value.comment}
+        onChange={(e) => onChange({ ...value, comment: e.target.value })}
+        placeholder="Comment (optional)"
+        className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
+      />
+      <input
+        type="date"
+        value={value.expectedDelivery}
+        onChange={(e) => onChange({ ...value, expectedDelivery: e.target.value })}
+        className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-3 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none"
+      />
+      <p className="text-xs text-text-500">Expected Delivery</p>
+    </div>
+  );
+}
+
+function ProductionStep({
+  productionStage, mixingEngineer, setMixingEngineer, masteringEngineer, setMasteringEngineer,
+  people, openAssigner, back, next, onLater,
+}: {
+  productionStage: ProductionStage;
+  mixingEngineer: EngineerAssignment;
+  setMixingEngineer: (v: EngineerAssignment) => void;
+  masteringEngineer: EngineerAssignment;
+  setMasteringEngineer: (v: EngineerAssignment) => void;
+  people: PersonOption[];
+  openAssigner: (label: string, role: string, cb: (r: { personId?: string }) => void) => void;
+  back: () => void;
+  next: () => void;
+  onLater: () => void;
+}) {
+  return (
+    <>
+      <div className="mt-8 space-y-4">
+        {needsMixing(productionStage) ? (
+          <EngineerBlock
+            label="Assign Mixing Engineer"
+            role="Mixing Engineer"
+            value={mixingEngineer}
+            onChange={setMixingEngineer}
+            people={people}
+            openAssigner={openAssigner}
+          />
+        ) : null}
+        {needsMastering(productionStage) ? (
+          <EngineerBlock
+            label="Assign Mastering Engineer"
+            role="Mastering Engineer"
+            value={masteringEngineer}
+            onChange={setMasteringEngineer}
+            people={people}
+            openAssigner={openAssigner}
+          />
+        ) : null}
+        {!needsMixing(productionStage) && !needsMastering(productionStage) ? (
+          <p className="text-sm text-text-400 text-center py-6">This track is already mixed and mastered. Continue to credits.</p>
+        ) : null}
+      </div>
+      <Nav back={back} next={next} optional onLater={onLater} />
+    </>
+  );
+}
+
+function CreditsStep({
+  credits, people, addCredit, updateCredit, removeCredit, openAssigner, back, next, onLater,
+}: {
+  credits: Record<CreditRoleKey, ContributorEntry[]>;
+  people: PersonOption[];
+  addCredit: (role: CreditRoleKey, personId: string) => void;
+  updateCredit: (role: CreditRoleKey, id: string, field: 'comment', value: string) => void;
+  removeCredit: (role: CreditRoleKey, id: string) => void;
+  openAssigner: (label: string, role: string, cb: (r: { personId?: string }) => void) => void;
+  back: () => void;
+  next: () => void;
+  onLater: () => void;
+}) {
+  const [picker, setPicker] = useState<Record<CreditRoleKey, string>>({
+    producer: '', composer: '', lyricist: '', songwriter: '', publisher: '', performer: '',
+  });
+
+  return (
+    <>
+      <div className="mt-8 space-y-4">
+        {CREDIT_ROLES.map((role) => (
+          <div key={role.key} className="rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-3">
+            <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">{role.label}</p>
+            {credits[role.key].map((entry) => (
+              <div key={entry.id} className="space-y-2 rounded-xl border border-surface-700 bg-surface-950 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-surface-100">{people.find((p) => p.id === entry.personId)?.displayName ?? entry.personId}</span>
+                  <button type="button" onClick={() => removeCredit(role.key, entry.id)} className="text-xs text-danger-400">Remove</button>
+                </div>
+                <input
+                  type="text"
+                  value={entry.comment}
+                  onChange={(e) => updateCredit(role.key, entry.id, 'comment', e.target.value)}
+                  placeholder="Comment (optional)"
+                  className="block w-full h-9 rounded-xl border border-surface-700 bg-surface-900 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
+                />
+              </div>
+            ))}
+            <PersonSelect
+              value={picker[role.key]}
+              onChange={(v) => {
+                addCredit(role.key, v);
+                setPicker((p) => ({ ...p, [role.key]: '' }));
+              }}
+              people={people}
+              onInvite={() => openAssigner(role.label, role.label, (r) => {
+                if (r.personId) addCredit(role.key, r.personId);
+              })}
+            />
+          </div>
+        ))}
+      </div>
+      <Nav back={back} next={next} optional onLater={onLater} />
+    </>
+  );
+}
+
+function DeliverablesStep({
+  deliverables, setDeliverables, onFile, onDeferred, people, openAssigner, back, next, onLater,
+}: {
+  deliverables: Record<DeliverableKey, DeliverableItem>;
+  setDeliverables: Dispatch<SetStateAction<Record<DeliverableKey, DeliverableItem>>>;
+  onFile: (key: DeliverableKey, file: File | null) => void;
+  onDeferred: (key: DeliverableKey) => void;
+  people: PersonOption[];
+  openAssigner: (label: string, role: string, cb: (r: { personId?: string }) => void) => void;
+  back: () => void;
+  next: () => void;
+  onLater: () => void;
+}) {
+  return (
+    <>
+      <div className="mt-8 space-y-4">
+        {DELIVERABLE_DEFS.map((def) => {
+          const item = deliverables[def.key];
+          return (
+            <div key={def.key} className="rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-surface-100">{def.label}</p>
+                {item.status !== 'none' ? (
+                  <span className="text-xs text-primary-400 capitalize">{item.status}</span>
+                ) : null}
+              </div>
+
+              <label className="block">
+                <span className="sr-only">Upload {def.label}</span>
+                <input
+                  type="file"
+                  onChange={(e) => onFile(def.key, e.target.files?.[0] ?? null)}
+                  className="block w-full text-sm text-text-400 file:mr-3 file:rounded-lg file:border-0 file:bg-primary-500/15 file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-400"
+                />
+              </label>
+
+              {def.canAssign ? (
+                <PersonSelect
+                  value={item.personId ?? ''}
+                  onChange={(v) => setDeliverables((p) => ({
+                    ...p,
+                    [def.key]: { ...p[def.key], status: 'assigned', personId: v },
+                  }))}
+                  people={people}
+                  onInvite={() => openAssigner(def.label, 'Contributor', (r) => setDeliverables((p) => ({
+                    ...p,
+                    [def.key]: { ...p[def.key], status: 'invited', personId: r.personId },
+                  })))}
+                />
+              ) : null}
+
+              {def.canPaste ? (
+                <textarea
+                  value={item.lyricsText ?? ''}
+                  onChange={(e) => setDeliverables((p) => ({
+                    ...p,
+                    [def.key]: { ...p[def.key], status: e.target.value ? 'uploaded' : p[def.key].status, lyricsText: e.target.value },
+                  }))}
+                  rows={3}
+                  placeholder="Paste lyrics..."
+                  className="block w-full rounded-xl border border-surface-700 bg-surface-950 px-3 py-2 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none resize-none"
+                />
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => onDeferred(def.key)}
+                className="text-xs text-text-400 hover:text-text-200"
+              >
+                Complete Later
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <Nav back={back} next={next} optional onLater={onLater} />
+    </>
+  );
+}
+
+function MetadataStep({
+  isrc, setIsrc, language, setLanguage, genre, setGenre, subgenre, setSubgenre,
+  explicit, setExplicit, label, setLabel, copyrightYear, setCopyrightYear,
+  publishingYear, setPublishingYear, derivedDuration, back, next, onLater,
+}: {
+  isrc: string;
+  setIsrc: (v: string) => void;
+  language: string;
+  setLanguage: (v: string) => void;
+  genre: string;
+  setGenre: (v: string) => void;
+  subgenre: string;
+  setSubgenre: (v: string) => void;
+  explicit: string;
+  setExplicit: (v: string) => void;
+  label: string;
+  setLabel: (v: string) => void;
+  copyrightYear: string;
+  setCopyrightYear: (v: string) => void;
+  publishingYear: string;
+  setPublishingYear: (v: string) => void;
+  derivedDuration?: number;
+  back: () => void;
+  next: () => void;
+  onLater: () => void;
+}) {
+  return (
+    <>
+      <div className="mt-8 space-y-3">
+        <input type="text" value={isrc} onChange={(e) => setIsrc(e.target.value)} placeholder="ISRC"
+          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+        <input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="Language"
+          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+        <input type="text" value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Genre"
+          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+        <input type="text" value={subgenre} onChange={(e) => setSubgenre(e.target.value)} placeholder="Subgenre"
+          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+        <select value={explicit} onChange={(e) => setExplicit(e.target.value)}
+          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none">
+          <option value="false">Not Explicit</option>
+          <option value="true">Explicit</option>
+        </select>
+        <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label"
+          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+        <input type="text" value={copyrightYear} onChange={(e) => setCopyrightYear(e.target.value)} placeholder="Copyright Year"
+          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+        <input type="text" value={publishingYear} onChange={(e) => setPublishingYear(e.target.value)} placeholder="Publishing Year"
+          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+        {derivedDuration ? (
+          <p className="text-xs text-text-500 text-center">Duration will be set to {Math.floor(derivedDuration / 60)}:{String(derivedDuration % 60).padStart(2, '0')} from uploaded audio.</p>
+        ) : (
+          <p className="text-xs text-text-500 text-center">Duration will be derived automatically once audio is uploaded.</p>
+        )}
+      </div>
+      <Nav back={back} next={next} optional onLater={onLater} />
+    </>
+  );
+}
+
+function ReviewStep({
+  title, version, recordingType, artists, primaryArtistId, featuredArtistIds, originalArtistId, remixerArtistId,
+  productionStage, mixingEngineer, masteringEngineer, people, credits, deliverables,
+  isrc, language, genre, subgenre, explicit, label, copyrightYear, publishingYear, derivedDuration,
+  sectionStatus, error, launching, back, onFinish,
+}: {
+  title: string;
+  version: string;
+  recordingType: RecordingType;
+  artists: ArtistOption[];
+  primaryArtistId: string;
+  featuredArtistIds: string[];
+  originalArtistId: string;
+  remixerArtistId: string;
+  productionStage: ProductionStage;
+  mixingEngineer: EngineerAssignment;
+  masteringEngineer: EngineerAssignment;
+  people: PersonOption[];
+  credits: Record<CreditRoleKey, ContributorEntry[]>;
+  deliverables: Record<DeliverableKey, DeliverableItem>;
+  isrc: string;
+  language: string;
+  genre: string;
+  subgenre: string;
+  explicit: string;
+  label: string;
+  copyrightYear: string;
+  publishingYear: string;
+  derivedDuration?: number;
+  sectionStatus: SectionStatusMap;
+  error: string;
+  launching: boolean;
+  back: () => void;
+  onFinish: () => void;
+}) {
+  const creditCount = Object.values(credits).reduce((n, arr) => n + arr.length, 0);
+  const deliverableCount = Object.values(deliverables).filter((d) => d.status !== 'none').length;
+  const metadataFilled = Boolean(isrc || language || genre || subgenre || label);
+
+  const sections: { key: string; label: string; value: string; status: SectionStatus }[] = [
+    {
+      key: 'basics',
+      label: 'Track',
+      value: `${title}${version ? ` (${version})` : ''}`,
+      status: title.trim() ? 'complete' : 'incomplete',
+    },
+    {
+      key: 'recording',
+      label: 'Recording Type',
+      value: recordingTypeLabel(recordingType),
+      status: sectionStatus.recording ?? 'complete',
+    },
+    {
+      key: 'artists',
+      label: 'Artists',
+      value: recordingType === 'remix'
+        ? [artists.find((a) => a.id === originalArtistId)?.name, artists.find((a) => a.id === remixerArtistId)?.name].filter(Boolean).join(' · ') || '—'
+        : [artists.find((a) => a.id === primaryArtistId)?.name, ...featuredArtistIds.map((id) => artists.find((a) => a.id === id)?.name)].filter(Boolean).join(' · ') || '—',
+      status: 'complete',
+    },
+    {
+      key: 'production',
+      label: 'Production Status',
+      value: PRODUCTION_STAGES.find((s) => s.value === productionStage)?.label ?? productionStage,
+      status: sectionStatus.production ?? (needsMixing(productionStage) && !mixingEngineer.personId ? 'incomplete' : 'complete'),
+    },
+    {
+      key: 'engineers',
+      label: 'Assigned Engineers',
+      value: [
+        mixingEngineer.personId ? people.find((p) => p.id === mixingEngineer.personId)?.displayName : null,
+        masteringEngineer.personId ? people.find((p) => p.id === masteringEngineer.personId)?.displayName : null,
+      ].filter(Boolean).join(' · ') || '—',
+      status: sectionStatus.production ?? 'incomplete',
+    },
+    {
+      key: 'deliverables',
+      label: 'Deliverables',
+      value: `${deliverableCount} configured`,
+      status: sectionStatus.deliverables ?? (deliverableCount > 0 ? 'complete' : 'incomplete'),
+    },
+    {
+      key: 'metadata',
+      label: 'Metadata',
+      value: [isrc, genre, language, explicit === 'true' ? 'Explicit' : null].filter(Boolean).join(' · ') || '—',
+      status: sectionStatus.metadata ?? (metadataFilled ? 'complete' : 'incomplete'),
+    },
+    {
+      key: 'credits',
+      label: 'Credits',
+      value: `${creditCount} contributor${creditCount === 1 ? '' : 's'}`,
+      status: sectionStatus.credits ?? (creditCount > 0 ? 'complete' : 'incomplete'),
+    },
+  ];
+
+  return (
+    <>
+      <p className="mt-2 text-sm text-text-400 text-center">Everything look right?</p>
+      <div className="mt-8 rounded-xl border border-surface-700 bg-surface-900 divide-y divide-surface-800">
+        {sections.map((s) => (
+          <div key={s.key} className="flex justify-between items-start gap-4 px-5 py-3.5">
+            <div className="min-w-0">
+              <span className="text-sm text-text-400 block">{s.label}</span>
+              <span className="text-sm font-medium text-surface-100 block truncate">{s.value}</span>
+            </div>
+            <SectionStatusBadge status={s.status} />
+          </div>
+        ))}
+        {derivedDuration ? (
+          <div className="flex justify-between px-5 py-3.5">
+            <span className="text-sm text-text-400">Duration</span>
+            <span className="text-sm font-medium text-surface-100">{Math.floor(derivedDuration / 60)}:{String(derivedDuration % 60).padStart(2, '0')} (from audio)</span>
+          </div>
+        ) : null}
+        {subgenre || label || copyrightYear || publishingYear ? (
+          <div className="flex justify-between px-5 py-3.5">
+            <span className="text-sm text-text-400">Additional Metadata</span>
+            <span className="text-sm font-medium text-surface-100 text-right">
+              {[subgenre, label, copyrightYear, publishingYear].filter(Boolean).join(' · ')}
+            </span>
+          </div>
+        ) : null}
+      </div>
+      {error ? <p className="mt-4 text-sm text-danger-400 text-center">{error}</p> : null}
+      <div className="flex items-center gap-3 mt-8">
+        <Btn label="Back" onClick={back} secondary />
+        <Btn label={launching ? 'Creating...' : 'Create Track'} onClick={onFinish} disabled={launching || !title.trim()} />
+      </div>
+    </>
   );
 }
