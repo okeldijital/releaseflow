@@ -614,10 +614,10 @@ export default function ReleaseWorkspacePage() {
           <section aria-label="Tracks">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider">Tracks</h2>
-              <Button size="sm" variant="outline" onClick={() => router.push(`/releases/${releaseId}/tracks/new`)}>+ Add Track</Button>
+              <Button size="sm" variant="outline" onClick={() => router.push(`/tracks/new?releaseId=${releaseId}`)}>+ Add Track</Button>
             </div>
             {tracks.length === 0 ? (
-              <EmptyState title="No tracks have been added." action={{ label: 'Add First Track', onClick: () => router.push(`/releases/${releaseId}/tracks/new`) }} />
+              <EmptyState title="No tracks have been added." action={{ label: 'Add First Track', onClick: () => router.push(`/tracks/new?releaseId=${releaseId}`) }} />
             ) : (
               <div className="rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden">
                 <div className="hidden sm:grid grid-cols-[2rem_1fr_4rem_6rem_6rem_6rem] gap-x-4 px-4 py-2.5 border-b border-surface-100 bg-surface-50">
