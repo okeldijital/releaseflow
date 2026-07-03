@@ -799,8 +799,10 @@ function BasicsStep({
       </div>
 
       {recordingType === 'original' ? (
-        <div className="mt-4 space-y-3">
+        <div key="track-original-artists" className="mt-4 space-y-3">
           <ArtistFieldPicker
+            key="track-primary-artist"
+            instanceId="track-primary-artist"
             label="Primary Artist"
             value={primaryArtistId}
             onChange={setPrimaryArtistId}
@@ -820,6 +822,8 @@ function BasicsStep({
               );
             })}
             <FeaturedArtistsPicker
+              key="track-featuring-artists"
+              instanceId="track-featuring-artists"
               artists={artists}
               organizationId={activeOrgId}
               primaryArtistId={primaryArtistId}
@@ -830,8 +834,10 @@ function BasicsStep({
           </div>
         </div>
       ) : (
-        <div className="mt-4 space-y-3">
+        <div key="track-remix-artists" className="mt-4 space-y-3">
           <ArtistFieldPicker
+            key="track-original-artist"
+            instanceId="track-original-artist"
             label="Original Artist"
             value={originalArtistId}
             onChange={(v) => { setOriginalArtistId(v); setRemixErrors((p) => ({ ...p, originalArtist: undefined })); }}
@@ -841,6 +847,8 @@ function BasicsStep({
             error={remixErrors.originalArtist}
           />
           <ArtistFieldPicker
+            key="track-remixer"
+            instanceId="track-remixer"
             label="Remixer"
             value={remixerArtistId}
             onChange={(v) => {

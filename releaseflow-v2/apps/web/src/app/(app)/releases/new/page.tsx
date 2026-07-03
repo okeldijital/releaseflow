@@ -546,8 +546,10 @@ function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, remov
             </div>
 
             {t.recordingType === 'original' ? (
-              <div className="space-y-3">
+              <div key={`${t.id}-original-artists`} className="space-y-3">
                 <ArtistFieldPicker
+                  key={`${t.id}-primary-artist`}
+                  instanceId={`${t.id}-primary-artist`}
                   label="Primary Artist"
                   value={t.primaryArtistId}
                   onChange={(v) => updateTrack(t.id, 'primaryArtistId', v)}
@@ -567,6 +569,8 @@ function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, remov
                     );
                   })}
                   <FeaturedArtistsPicker
+                    key={`${t.id}-featuring-artists`}
+                    instanceId={`${t.id}-featuring-artists`}
                     artists={artists}
                     organizationId={activeOrgId}
                     primaryArtistId={t.primaryArtistId}
@@ -577,8 +581,10 @@ function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, remov
                 </div>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div key={`${t.id}-remix-artists`} className="space-y-3">
                 <ArtistFieldPicker
+                  key={`${t.id}-original-artist`}
+                  instanceId={`${t.id}-original-artist`}
                   label="Original Artist"
                   value={t.originalArtistId}
                   onChange={(v) => updateTrack(t.id, 'originalArtistId', v)}
@@ -588,6 +594,8 @@ function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, remov
                   error={t.remixErrors.originalArtist}
                 />
                 <ArtistFieldPicker
+                  key={`${t.id}-remixer`}
+                  instanceId={`${t.id}-remixer`}
                   label="Remixer"
                   value={t.remixerArtistId}
                   onChange={(v) => updateTrack(t.id, 'remixerArtistId', v)}

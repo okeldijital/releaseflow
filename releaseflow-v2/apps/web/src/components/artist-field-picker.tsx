@@ -22,7 +22,13 @@ function findArtistByName(artists: ArtistOption[], name: string): ArtistOption |
   return artists.find((a) => normalizeArtistName(a.name) === norm);
 }
 
+const INITIAL_PANEL_STATE = {
+  showAddPanel: false,
+  panelInstance: 0,
+};
+
 interface ArtistAddPanelProps {
+  instanceId: string;
   artists: ArtistOption[];
   organizationId: string | null;
   onSelect: (artistId: string) => void;
@@ -32,6 +38,7 @@ interface ArtistAddPanelProps {
 }
 
 export function ArtistAddPanel({
+  instanceId,
   artists,
   organizationId,
   onSelect,
@@ -44,12 +51,8 @@ export function ArtistAddPanel({
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sessionArtists, setSessionArtists] = useState<ArtistOption[]>([]);
 
-  const catalogue = useMemo(
-    () => mergeArtistOptions(artists, sessionArtists),
-    [artists, sessionArtists],
-  );
+  const catalogue = artists;
 
   const resetPanelState = useCallback(() => {
     setSearch('');
@@ -58,6 +61,10 @@ export function ArtistAddPanel({
     setCreating(false);
     setError(null);
   }, []);
+
+  useEffect(() => {
+    resetPanelState();
+  }, [instanceId, resetPanelState]);
 
   const available = catalogue.filter((a) => !excludeIds.includes(a.id));
 
@@ -110,9 +117,6 @@ export function ArtistAddPanel({
         organizationId,
       });
       const created = { id, name: createNameTrimmed };
-      setSessionArtists((current) =>
-        current.some((a) => a.id === created.id) ? current : [...current, created],
-      );
       onArtistCreated?.(created);
       finishSelection(id);
     } catch (err) {
@@ -273,6 +277,7 @@ export function ArtistAddPanel({
 }
 
 interface ArtistFieldPickerProps {
+  instanceId: string;
   label: string;
   value: string;
   onChange: (artistId: string) => void;
@@ -284,6 +289,7 @@ interface ArtistFieldPickerProps {
 }
 
 export function ArtistFieldPicker({
+  instanceId,
   label,
   value,
   onChange,
@@ -293,14 +299,24 @@ export function ArtistFieldPicker({
   error,
   excludeIds = [],
 }: ArtistFieldPickerProps) {
-  const [showAddPanel, setShowAddPanel] = useState(false);
-  const [panelInstance, setPanelInstance] = useState(0);
+  const [showAddPanel, setShowAddPanel] = useState(INITIAL_PANEL_STATE.showAddPanel);
+  const [panelInstance, setPanelInstance] = useState(INITIAL_PANEL_STATE.panelInstance);
   const [extraArtists, setExtraArtists] = useState<ArtistOption[]>([]);
 
   const catalogue = useMemo(
     () => mergeArtistOptions(artists, extraArtists),
     [artists, extraArtists],
   );
+
+  const resetPickerShell = useCallback(() => {
+    setShowAddPanel(INITIAL_PANEL_STATE.showAddPanel);
+    setPanelInstance(INITIAL_PANEL_STATE.panelInstance);
+    setExtraArtists([]);
+  }, []);
+
+  useEffect(() => {
+    resetPickerShell();
+  }, [instanceId, resetPickerShell]);
 
   useEffect(() => {
     setExtraArtists((prev) => prev.filter((e) => !artists.some((a) => a.id === e.id)));
@@ -316,8 +332,10 @@ export function ArtistFieldPicker({
     setShowAddPanel(true);
   }
 
+  const panelKey = `${instanceId}-${panelInstance}`;
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-artist-picker={instanceId}>
       <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">{label}</p>
       <select
         value={showAddPanel ? '__add__' : value}
@@ -340,7 +358,8 @@ export function ArtistFieldPicker({
       {error ? <p className="text-xs text-danger-400">{error}</p> : null}
       {showAddPanel ? (
         <ArtistAddPanel
-          key={panelInstance}
+          key={panelKey}
+          instanceId={panelKey}
           artists={catalogue}
           organizationId={organizationId}
           excludeIds={excludeIds}
@@ -357,6 +376,7 @@ export function ArtistFieldPicker({
 }
 
 interface FeaturedArtistsPickerProps {
+  instanceId: string;
   artists: ArtistOption[];
   organizationId: string | null;
   primaryArtistId: string;
@@ -366,6 +386,7 @@ interface FeaturedArtistsPickerProps {
 }
 
 export function FeaturedArtistsPicker({
+  instanceId,
   artists,
   organizationId,
   primaryArtistId,
@@ -373,14 +394,24 @@ export function FeaturedArtistsPicker({
   onAdd,
   onArtistCreated,
 }: FeaturedArtistsPickerProps) {
-  const [showAddPanel, setShowAddPanel] = useState(false);
-  const [panelInstance, setPanelInstance] = useState(0);
+  const [showAddPanel, setShowAddPanel] = useState(INITIAL_PANEL_STATE.showAddPanel);
+  const [panelInstance, setPanelInstance] = useState(INITIAL_PANEL_STATE.panelInstance);
   const [extraArtists, setExtraArtists] = useState<ArtistOption[]>([]);
 
   const catalogue = useMemo(
     () => mergeArtistOptions(artists, extraArtists),
     [artists, extraArtists],
   );
+
+  const resetPickerShell = useCallback(() => {
+    setShowAddPanel(INITIAL_PANEL_STATE.showAddPanel);
+    setPanelInstance(INITIAL_PANEL_STATE.panelInstance);
+    setExtraArtists([]);
+  }, []);
+
+  useEffect(() => {
+    resetPickerShell();
+  }, [instanceId, resetPickerShell]);
 
   useEffect(() => {
     setExtraArtists((prev) => prev.filter((e) => !artists.some((a) => a.id === e.id)));
@@ -398,8 +429,10 @@ export function FeaturedArtistsPicker({
     setShowAddPanel(true);
   }
 
+  const panelKey = `${instanceId}-${panelInstance}`;
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-artist-picker={instanceId}>
       {!showAddPanel ? (
         <button
           type="button"
@@ -410,7 +443,8 @@ export function FeaturedArtistsPicker({
         </button>
       ) : (
         <ArtistAddPanel
-          key={panelInstance}
+          key={panelKey}
+          instanceId={panelKey}
           artists={catalogue}
           organizationId={organizationId}
           excludeIds={excludeIds}
