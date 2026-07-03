@@ -4,6 +4,7 @@ import {
 } from 'firebase/firestore';
 import { getDb } from './firebase';
 import type { TrackRecord } from './track-repository';
+import { resolveRecordingType } from '@/lib/recording-type';
 
 export interface ReleaseTrackRecord {
   id: string;
@@ -41,7 +42,15 @@ export async function getTracksByRelease(releaseId: string): Promise<(ReleaseTra
   const results: (ReleaseTrackRecord & { track: TrackRecord | null })[] = [];
   for (const rec of records) {
     const tSnap = await getDoc(doc(db, 'tracks', rec.trackId));
-    results.push({ ...rec, track: tSnap.exists() ? ({ id: tSnap.id, ...tSnap.data() } as TrackRecord) : null });
+    if (tSnap.exists()) {
+      const data = tSnap.data();
+      results.push({
+        ...rec,
+        track: { id: tSnap.id, ...data, recordingType: resolveRecordingType(data.recordingType) } as TrackRecord,
+      });
+    } else {
+      results.push({ ...rec, track: null });
+    }
   }
   return results;
 }

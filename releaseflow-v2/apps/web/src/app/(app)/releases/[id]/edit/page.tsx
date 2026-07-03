@@ -13,8 +13,6 @@ const releaseTypes = [
   { value: 'single', label: 'Single' },
   { value: 'ep', label: 'EP' },
   { value: 'album', label: 'Album' },
-  { value: 'remix', label: 'Remix' },
-  { value: 'compilation', label: 'Compilation' },
 ] as const;
 
 const releaseStatuses = [

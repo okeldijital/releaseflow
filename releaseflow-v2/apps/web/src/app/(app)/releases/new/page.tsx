@@ -10,15 +10,19 @@ import { createNewTrack } from '@/lib/track-service';
 import { getStageTemplatesForReleaseType } from '@/lib/workflow-templates';
 import { getRequirementNamesForReleaseType } from '@/lib/requirement-templates';
 import { PersonAssigner } from '@/components/person-assigner';
+import { ArtistFieldPicker, type ArtistOption } from '@/components/artist-field-picker';
+import { fetchArtists } from '@/lib/artist-service';
+import {
+  countRecordingTypes,
+  releaseTypeLabel,
+  suggestRemixDisplayTitle,
+  type RecordingType,
+} from '@/lib/recording-type';
 
 const RELEASE_TYPES = [
   { value: 'single', label: 'Single', description: 'One track release' },
   { value: 'ep', label: 'EP', description: '3–6 tracks' },
   { value: 'album', label: 'Album', description: '7+ tracks' },
-  { value: 'compilation', label: 'Compilation', description: 'Collection from various artists' },
-  { value: 'remix_single', label: 'Remix Single', description: 'Single track — remixed' },
-  { value: 'remix_ep', label: 'Remix EP', description: '3–6 remixed tracks' },
-  { value: 'remix_album', label: 'Remix Album', description: 'Remix collection' },
 ] as const;
 
 const PROMO_ASSETS = [
@@ -38,6 +42,13 @@ type WizardTrack = {
   id: string;
   title: string;
   version: string;
+  recordingType: RecordingType;
+  primaryArtistId: string;
+  featuredArtistIds: string[];
+  originalArtistId: string;
+  remixerArtistId: string;
+  displayTitle: string;
+  displayTitleEdited: boolean;
   mixed: boolean;
   mastered: boolean;
   mixingEngineer: string;
@@ -47,9 +58,34 @@ type WizardTrack = {
   lyricist: string;
   iswc: string;
   pubOpen: boolean;
+  remixErrors: { originalArtist?: string; remixer?: string };
 };
 
-type ArtistEntry = { id: string; name: string };
+function createEmptyTrack(id = String(Date.now())): WizardTrack {
+  return {
+    id,
+    title: '',
+    version: '',
+    recordingType: 'original',
+    primaryArtistId: '',
+    featuredArtistIds: [],
+    originalArtistId: '',
+    remixerArtistId: '',
+    displayTitle: '',
+    displayTitleEdited: false,
+    mixed: true,
+    mastered: true,
+    mixingEngineer: '',
+    masteringEngineer: '',
+    isrc: '',
+    composer: '',
+    lyricist: '',
+    iswc: '',
+    pubOpen: false,
+    remixErrors: {},
+  };
+}
+
 type PersonOption = { id: string; displayName: string };
 type SocialRow = { id: string; platform: string; url: string; personId: string };
 type SectionStatusMap = Record<string, 'complete' | 'incomplete' | 'skipped'>;
@@ -64,22 +100,18 @@ export default function NewReleasePage() {
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState('');
   const [people, setPeople] = useState<PersonOption[]>([]);
+  const [artists, setArtists] = useState<ArtistOption[]>([]);
 
   const [releaseType, setReleaseType] = useState<ReleaseTypeVal>('single');
   const [releaseTitle, setReleaseTitle] = useState('');
   const [version, setVersion] = useState('');
   const [releaseNotes, setReleaseNotes] = useState('');
 
-  const [originalArtists, setOriginalArtists] = useState<ArtistEntry[]>([]);
-  const [remixingArtists, setRemixingArtists] = useState<ArtistEntry[]>([]);
-  const [artistInput, setArtistInput] = useState('');
-  const [artistTarget, setArtistTarget] = useState<'original' | 'remixing'>('original');
-
   const [hasArtwork, setHasArtwork] = useState<boolean | null>(null);
   const [commissionArtwork, setCommissionArtwork] = useState<boolean | null>(null);
   const [artworkDesigner, setArtworkDesigner] = useState('');
 
-  const [tracks, setTracks] = useState<WizardTrack[]>([{ id: '1', title: '', version: '', mixed: true, mastered: true, mixingEngineer: '', masteringEngineer: '', isrc: '', composer: '', lyricist: '', iswc: '', pubOpen: false }]);
+  const [tracks, setTracks] = useState<WizardTrack[]>([createEmptyTrack('1')]);
 
   const [promoAssets, setPromoAssets] = useState<string[]>([]);
   const [assetDesigners, setAssetDesigners] = useState<Record<string, string>>({});
@@ -132,15 +164,15 @@ export default function NewReleasePage() {
 
   useEffect(() => {
     if (!user) { router.push('/sign-in'); return; }
-    if (activeOrgId) getPeopleByOrg(activeOrgId).then((p) => setPeople(p.map((x) => ({ id: x.id, displayName: x.displayName }))));
+    if (activeOrgId) {
+      getPeopleByOrg(activeOrgId).then((p) => setPeople(p.map((x) => ({ id: x.id, displayName: x.displayName }))));
+      fetchArtists(activeOrgId).then((a) => setArtists(a.map((x) => ({ id: x.id, name: x.name }))));
+    }
   }, [user, router, activeOrgId]);
 
   if (!user) return null;
 
-  const isRemix = releaseType.startsWith('remix_');
-  const STEPS = isRemix
-    ? ['type', 'details', 'remix', 'artwork', 'tracks', 'release_info', 'promotion', 'email', 'review']
-    : ['type', 'details', 'artwork', 'tracks', 'release_info', 'promotion', 'email', 'review'];
+  const STEPS = ['type', 'details', 'artwork', 'tracks', 'release_info', 'promotion', 'email', 'review'];
   const totalSteps = STEPS.length;
   const currentStepKey = STEPS[step];
 
@@ -148,16 +180,71 @@ export default function NewReleasePage() {
   function back() { if (step > 0) setStep(step - 1); }
   function later(section: string) { setSectionStatus((p) => ({ ...p, [section]: 'skipped' })); }
 
-  function addTrack() { setTracks((p) => [...p, { id: String(Date.now()), title: '', version: '', mixed: true, mastered: true, mixingEngineer: '', masteringEngineer: '', isrc: '', composer: '', lyricist: '', iswc: '', pubOpen: false }]); }
-  function updateTrack(id: string, f: string, v: string | boolean) { setTracks((p) => p.map((t) => t.id === id ? { ...t, [f]: v } : t)); }
+  function addTrack() { setTracks((p) => [...p, createEmptyTrack()]); }
+
+  function updateTrack(id: string, f: string, v: string | boolean | string[]) {
+    setTracks((p) => p.map((t) => {
+      if (t.id !== id) return t;
+      const next = { ...t, [f]: v, remixErrors: { ...t.remixErrors } };
+      if (f === 'recordingType' && v === 'original') {
+        next.remixErrors = {};
+        next.displayTitle = '';
+        next.displayTitleEdited = false;
+      }
+      if ((f === 'title' || f === 'remixerArtistId') && next.recordingType === 'remix' && !next.displayTitleEdited) {
+        const remixerName = artists.find((a) => a.id === next.remixerArtistId)?.name ?? '';
+        next.displayTitle = suggestRemixDisplayTitle(
+          f === 'title' ? String(v) : next.title,
+          f === 'remixerArtistId' ? (artists.find((a) => a.id === v)?.name ?? '') : remixerName,
+        );
+      }
+      if (f === 'displayTitle') {
+        next.displayTitle = String(v);
+        next.displayTitleEdited = true;
+        return next;
+      }
+      if (f === 'originalArtistId' || f === 'remixerArtistId') {
+        delete next.remixErrors[f === 'originalArtistId' ? 'originalArtist' : 'remixer'];
+      }
+      return next;
+    }));
+  }
+
   function removeTrack(id: string) { if (tracks.length > 1) setTracks((p) => p.filter((t) => t.id !== id)); }
 
-  function addArtist(section: 'original' | 'remixing') {
-    if (!artistInput.trim()) return;
-    const ref = { id: String(Date.now()), name: artistInput.trim() };
-    if (section === 'original') setOriginalArtists((p) => [...p, ref]);
-    else setRemixingArtists((p) => [...p, ref]);
-    setArtistInput('');
+  function addFeaturedArtist(trackId: string, artistId: string) {
+    if (!artistId) return;
+    setTracks((p) => p.map((t) => (
+      t.id === trackId && !t.featuredArtistIds.includes(artistId)
+        ? { ...t, featuredArtistIds: [...t.featuredArtistIds, artistId] }
+        : t
+    )));
+  }
+
+  function removeFeaturedArtist(trackId: string, artistId: string) {
+    setTracks((p) => p.map((t) => (
+      t.id === trackId
+        ? { ...t, featuredArtistIds: t.featuredArtistIds.filter((id) => id !== artistId) }
+        : t
+    )));
+  }
+
+  function validateRemixTracks(): boolean {
+    let valid = true;
+    setTracks((p) => p.map((t) => {
+      if (!t.title.trim() || t.recordingType !== 'remix') return t;
+      const remixErrors: WizardTrack['remixErrors'] = {};
+      if (!t.originalArtistId) {
+        remixErrors.originalArtist = 'Original Artist is required for remix recordings.';
+        valid = false;
+      }
+      if (!t.remixerArtistId) {
+        remixErrors.remixer = 'Remixer is required for remix recordings.';
+        valid = false;
+      }
+      return { ...t, remixErrors };
+    }));
+    return valid;
   }
 
   function addSocialRow() { setSocialRows((p) => [...p, { id: String(Date.now()), platform: '', url: '', personId: '' }]); }
@@ -173,19 +260,45 @@ export default function NewReleasePage() {
 
   async function handleLaunch() {
     if (!user || !activeOrgId || !releaseTitle.trim()) return;
+    if (!validateRemixTracks()) return;
     setLaunching(true); setError('');
     try {
-      const rt = (releaseType.startsWith('remix_') ? releaseType.replace('remix_', '') : releaseType) as 'single' | 'ep' | 'album' | 'compilation' | 'remix';
+      const rt = releaseType as 'single' | 'ep' | 'album';
       const { releaseId } = await createReleaseWithFullWorkflow(
         { title: releaseTitle, releaseType: rt, status: 'planning', organizationId: activeOrgId, createdBy: user.uid, targetReleaseDate: null },
         getStageTemplatesForReleaseType(rt), getRequirementNamesForReleaseType(rt), user.uid,
       );
       const validTracks = tracks.filter((t) => t.title.trim());
       if (validTracks.length > 0) {
+        const { addTrackToRelease } = await import('@/lib/release-track-repository');
+        const { addArtistToTrack } = await import('@/lib/track-artist-repository');
         for (let i = 0; i < validTracks.length; i++) {
           const t = validTracks[i]!;
-          const trackId = await createNewTrack({ title: t.title.trim(), organizationId: activeOrgId, createdBy: user.uid, version: t.version.trim() || undefined });
-          const { addTrackToRelease } = await import('@/lib/release-track-repository');
+          const trackTitle = t.recordingType === 'remix' && t.displayTitle.trim()
+            ? t.displayTitle.trim()
+            : t.title.trim();
+          const trackId = await createNewTrack({
+            title: trackTitle,
+            organizationId: activeOrgId,
+            createdBy: user.uid,
+            version: t.version.trim() || undefined,
+            recordingType: t.recordingType,
+            originalArtistId: t.recordingType === 'remix' ? t.originalArtistId : null,
+            remixerArtistId: t.recordingType === 'remix' ? t.remixerArtistId : null,
+            primaryArtistId: t.recordingType === 'original' ? t.primaryArtistId || null : null,
+            featuredArtistIds: t.recordingType === 'original' ? t.featuredArtistIds : null,
+            displayTitle: t.displayTitle.trim() || null,
+            displayTitleEdited: t.displayTitleEdited,
+          });
+          if (t.recordingType === 'remix') {
+            if (t.originalArtistId) await addArtistToTrack({ trackId, artistId: t.originalArtistId, artistType: 'original_artist' });
+            if (t.remixerArtistId) await addArtistToTrack({ trackId, artistId: t.remixerArtistId, artistType: 'remixer' });
+          } else {
+            if (t.primaryArtistId) await addArtistToTrack({ trackId, artistId: t.primaryArtistId, artistType: 'original_artist' });
+            for (const featuredId of t.featuredArtistIds) {
+              await addArtistToTrack({ trackId, artistId: featuredId, artistType: 'featured_artist' });
+            }
+          }
           await addTrackToRelease(releaseId, trackId, i + 1);
         }
       }
@@ -205,10 +318,28 @@ export default function NewReleasePage() {
 
       {currentStepKey === 'type' && <ReleaseTypeStep releaseType={releaseType} setReleaseType={setReleaseType} next={next} />}
       {currentStepKey === 'details' && <DetailsStep releaseTitle={releaseTitle} setReleaseTitle={setReleaseTitle} version={version} setVersion={setVersion} releaseNotes={releaseNotes} setReleaseNotes={setReleaseNotes} back={back} next={next} />}
-      {currentStepKey === 'remix' && <RemixStep originalArtists={originalArtists} setOriginalArtists={setOriginalArtists} remixingArtists={remixingArtists} setRemixingArtists={setRemixingArtists} artistInput={artistInput} setArtistInput={setArtistInput} artistTarget={artistTarget} setArtistTarget={setArtistTarget} addArtist={addArtist} back={back} next={next} />}
       {currentStepKey === 'artwork' && <ArtworkStep hasArtwork={hasArtwork} setHasArtwork={setHasArtwork} commissionArtwork={commissionArtwork} setCommissionArtwork={setCommissionArtwork} artworkDesigner={artworkDesigner} setArtworkDesigner={setArtworkDesigner} people={people} inviteName={inviteName} setInviteName={setInviteName} inviteEmail={inviteEmail} setInviteEmail={setInviteEmail} inviteRole={inviteRole} setInviteRole={setInviteRole} showInviteForm={showInviteForm} setShowInviteForm={setShowInviteForm} handleInvite={handleInvite} back={back} next={next} />}
-      {currentStepKey === 'tracks' && <TracksStep tracks={tracks} addTrack={addTrack} updateTrack={updateTrack} removeTrack={removeTrack} openAssigner={openAssigner} back={back} next={next} />}
-      {currentStepKey === 'release_info' && <ReleaseInfoStep isRemix={isRemix} primaryArtist={primaryArtist} setPrimaryArtist={setPrimaryArtist} featuredArtists={featuredArtists} setFeaturedArtists={setFeaturedArtists} originalArtists={originalArtists} remixingArtists={remixingArtists} recordLabel={recordLabel} setRecordLabel={setRecordLabel} catalogueNumber={catalogueNumber} setCatalogueNumber={setCatalogueNumber} upc={upc} setUpc={setUpc} primaryGenre={primaryGenre} setPrimaryGenre={setPrimaryGenre} secondaryGenre={secondaryGenre} setSecondaryGenre={setSecondaryGenre} language={language} setLanguage={setLanguage} copyrightOwner={copyrightOwner} setCopyrightOwner={setCopyrightOwner} copyrightYear={copyrightYear} setCopyrightYear={setCopyrightYear} releaseOwner={releaseOwner} setReleaseOwner={setReleaseOwner} back={back} next={next} />}
+      {currentStepKey === 'tracks' && (
+        <TracksStep
+          tracks={tracks}
+          artists={artists}
+          activeOrgId={activeOrgId}
+          addTrack={addTrack}
+          updateTrack={updateTrack}
+          removeTrack={removeTrack}
+          addFeaturedArtist={addFeaturedArtist}
+          removeFeaturedArtist={removeFeaturedArtist}
+          onArtistCreated={(a) => setArtists((p) => (p.some((x) => x.id === a.id) ? p : [...p, a]))}
+          openAssigner={openAssigner}
+          validateRemixTracks={validateRemixTracks}
+          setSectionStatus={setSectionStatus}
+          currentStepKey={currentStepKey}
+          people={people}
+          back={back}
+          next={next}
+        />
+      )}
+      {currentStepKey === 'release_info' && <ReleaseInfoStep primaryArtist={primaryArtist} setPrimaryArtist={setPrimaryArtist} featuredArtists={featuredArtists} setFeaturedArtists={setFeaturedArtists} recordLabel={recordLabel} setRecordLabel={setRecordLabel} catalogueNumber={catalogueNumber} setCatalogueNumber={setCatalogueNumber} upc={upc} setUpc={setUpc} primaryGenre={primaryGenre} setPrimaryGenre={setPrimaryGenre} secondaryGenre={secondaryGenre} setSecondaryGenre={setSecondaryGenre} language={language} setLanguage={setLanguage} copyrightOwner={copyrightOwner} setCopyrightOwner={setCopyrightOwner} copyrightYear={copyrightYear} setCopyrightYear={setCopyrightYear} releaseOwner={releaseOwner} setReleaseOwner={setReleaseOwner} back={back} next={next} />}
       {currentStepKey === 'promotion' && <PromoStep promoAssets={promoAssets} setPromoAssets={setPromoAssets} assetDesigners={assetDesigners} setAssetDesigners={setAssetDesigners} people={people} socialRows={socialRows} setSocialRows={setSocialRows} addSocialRow={addSocialRow} removeSocialRow={removeSocialRow} inviteName={inviteName} setInviteName={setInviteName} inviteEmail={inviteEmail} setInviteEmail={setInviteEmail} inviteRole={inviteRole} setInviteRole={setInviteRole} showInviteForm={showInviteForm} setShowInviteForm={setShowInviteForm} handleInvite={handleInvite} setInviteTarget={setInviteTarget} back={back} next={next} />}
       {currentStepKey === 'email' && <EmailStep hasEmail={hasEmail} setHasEmail={setHasEmail} emailSubject={emailSubject} setEmailSubject={setEmailSubject} emailPreviewText={emailPreviewText} setEmailPreviewText={setEmailPreviewText} emailBody={emailBody} setEmailBody={setEmailBody} emailCampaignManager={emailCampaignManager} setEmailCampaignManager={setEmailCampaignManager} emailSendDate={emailSendDate} setEmailSendDate={setEmailSendDate} emailSendTime={emailSendTime} setEmailSendTime={setEmailSendTime} emailTimezone={emailTimezone} setEmailTimezone={setEmailTimezone} openAssigner={openAssigner} back={back} next={next} onLater={() => later('email')} />}
       {currentStepKey === 'review' && <ReviewStep releaseTitle={releaseTitle} releaseType={releaseType} tracks={tracks} hasArtwork={hasArtwork} commissionArtwork={commissionArtwork} promoAssets={promoAssets} hasEmail={hasEmail} primaryArtist={primaryArtist} primaryGenre={primaryGenre} language={language} sectionStatus={sectionStatus} error={error} launching={launching} back={back} launch={handleLaunch} />}
@@ -319,48 +450,6 @@ function DetailsStep({ releaseTitle, setReleaseTitle, version, setVersion, relea
   );
 }
 
-function RemixStep({ originalArtists, setOriginalArtists, remixingArtists, setRemixingArtists, artistInput, setArtistInput, artistTarget, setArtistTarget, addArtist, back, next }: {
-  originalArtists: ArtistEntry[];
-  setOriginalArtists: Dispatch<SetStateAction<ArtistEntry[]>>;
-  remixingArtists: ArtistEntry[];
-  setRemixingArtists: Dispatch<SetStateAction<ArtistEntry[]>>;
-  artistInput: string;
-  setArtistInput: (v: string) => void;
-  artistTarget: 'original' | 'remixing';
-  setArtistTarget: (v: 'original' | 'remixing') => void;
-  addArtist: (section: 'original' | 'remixing') => void;
-  back: () => void;
-  next: () => void;
-}) {
-  return (
-    <div className="mt-8 space-y-6">
-      {(['original', 'remixing'] as const).map((section) => {
-        const artists = section === 'original' ? originalArtists : remixingArtists;
-        const setter = section === 'original' ? setOriginalArtists : setRemixingArtists;
-        return (
-          <div key={section}>
-            <p className="text-sm font-semibold text-surface-100 mb-2">{section === 'original' ? 'Original Artist(s)' : 'Remixing Artist(s)'}</p>
-            <div className="space-y-2">
-              {artists.map((a) => (
-                <div key={a.id} className="flex items-center justify-between rounded-xl border border-surface-700 bg-surface-900 px-4 py-3">
-                  <span className="text-sm text-surface-100">{a.name}</span>
-                  <button onClick={() => setter((p) => p.filter((x) => x.id !== a.id))} className="text-xs text-danger-400">Remove</button>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <input type="text" value={section === artistTarget ? artistInput : ''} onChange={(e) => { setArtistTarget(section); setArtistInput(e.target.value); }} onFocus={() => setArtistTarget(section)}
-                placeholder="Artist name" className="flex-1 h-10 rounded-xl border border-surface-700 bg-surface-900 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
-              <button onClick={() => addArtist(section)} disabled={!artistInput.trim()} className="h-10 px-4 rounded-xl bg-surface-800 text-sm font-medium text-surface-200 hover:bg-surface-700 disabled:opacity-40 transition-all">Add</button>
-            </div>
-          </div>
-        );
-      })}
-      <Nav back={back} next={next}/>
-    </div>
-  );
-}
-
 function ArtworkStep({ hasArtwork, setHasArtwork, commissionArtwork, setCommissionArtwork, artworkDesigner, setArtworkDesigner, people, inviteName, setInviteName, inviteEmail, setInviteEmail, inviteRole, setInviteRole, showInviteForm, setShowInviteForm, handleInvite, back, next }: {
   hasArtwork: boolean | null;
   setHasArtwork: (v: boolean) => void;
@@ -408,18 +497,31 @@ function ArtworkStep({ hasArtwork, setHasArtwork, commissionArtwork, setCommissi
   );
 }
 
-function TracksStep({ tracks, addTrack, updateTrack, removeTrack, openAssigner, people, setSectionStatus, currentStepKey, back, next }: {
+function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, removeTrack, addFeaturedArtist, removeFeaturedArtist, onArtistCreated, openAssigner, validateRemixTracks, people, setSectionStatus, currentStepKey, back, next }: {
   tracks: WizardTrack[];
+  artists: ArtistOption[];
+  activeOrgId: string | null;
   addTrack: () => void;
-  updateTrack: (id: string, f: string, v: string | boolean) => void;
+  updateTrack: (id: string, f: string, v: string | boolean | string[]) => void;
   removeTrack: (id: string) => void;
+  addFeaturedArtist: (trackId: string, artistId: string) => void;
+  removeFeaturedArtist: (trackId: string, artistId: string) => void;
+  onArtistCreated: (artist: ArtistOption) => void;
   openAssigner: (label: string, role: string, trackId: string, field: AssignerField, cb?: (r: { personId?: string }) => void) => void;
+  validateRemixTracks: () => boolean;
   people?: PersonOption[];
   setSectionStatus?: Dispatch<SetStateAction<SectionStatusMap>>;
   currentStepKey?: string;
   back: () => void;
   next: () => void;
 }) {
+  const [featuredPicker, setFeaturedPicker] = useState<Record<string, string>>({});
+
+  function handleNext() {
+    if (!validateRemixTracks()) return;
+    next();
+  }
+
   return (
     <>
       <div className="mt-8 space-y-4">
@@ -430,7 +532,95 @@ function TracksStep({ tracks, addTrack, updateTrack, removeTrack, openAssigner, 
               {tracks.length > 1 && <button onClick={() => removeTrack(t.id)} className="text-xs text-danger-400">Remove</button>}
             </div>
             <input type="text" value={t.title} onChange={(e) => updateTrack(t.id, 'title', e.target.value)} placeholder="Song title" className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-[15px] text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
-            <input type="text" value={t.version} onChange={(e) => updateTrack(t.id, 'version', e.target.value)} placeholder="Version (optional)" className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+
+            <div>
+              <p className="text-xs font-semibold text-text-500 uppercase tracking-wider mb-2">Recording Type</p>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 text-sm text-text-300">
+                  <input type="radio" name={`recording-${t.id}`} checked={t.recordingType === 'original'} onChange={() => updateTrack(t.id, 'recordingType', 'original')} />
+                  Original Recording
+                </label>
+                <label className="flex items-center gap-2 text-sm text-text-300">
+                  <input type="radio" name={`recording-${t.id}`} checked={t.recordingType === 'remix'} onChange={() => updateTrack(t.id, 'recordingType', 'remix')} />
+                  Remix
+                </label>
+              </div>
+            </div>
+
+            {t.recordingType === 'original' ? (
+              <div className="space-y-3">
+                <ArtistFieldPicker
+                  label="Primary Artist"
+                  value={t.primaryArtistId}
+                  onChange={(v) => updateTrack(t.id, 'primaryArtistId', v)}
+                  artists={artists}
+                  organizationId={activeOrgId}
+                  onArtistCreated={onArtistCreated}
+                />
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Featuring Artists</p>
+                  {t.featuredArtistIds.map((aid) => {
+                    const name = artists.find((a) => a.id === aid)?.name ?? aid;
+                    return (
+                      <div key={aid} className="flex items-center justify-between rounded-xl border border-surface-700 bg-surface-950 px-3 py-2">
+                        <span className="text-sm text-surface-100">{name}</span>
+                        <button type="button" onClick={() => removeFeaturedArtist(t.id, aid)} className="text-xs text-danger-400">Remove</button>
+                      </div>
+                    );
+                  })}
+                  <select
+                    value={featuredPicker[t.id] ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v && v !== '__invite__') {
+                        addFeaturedArtist(t.id, v);
+                        setFeaturedPicker((p) => ({ ...p, [t.id]: '' }));
+                      } else if (v === '__invite__') {
+                        setFeaturedPicker((p) => ({ ...p, [t.id]: '__invite__' }));
+                      }
+                    }}
+                    className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none"
+                  >
+                    <option value="">Add featuring artist...</option>
+                    {artists.filter((a) => a.id !== t.primaryArtistId && !t.featuredArtistIds.includes(a.id)).map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <ArtistFieldPicker
+                  label="Original Artist"
+                  value={t.originalArtistId}
+                  onChange={(v) => updateTrack(t.id, 'originalArtistId', v)}
+                  artists={artists}
+                  organizationId={activeOrgId}
+                  onArtistCreated={onArtistCreated}
+                  error={t.remixErrors.originalArtist}
+                />
+                <ArtistFieldPicker
+                  label="Remixer"
+                  value={t.remixerArtistId}
+                  onChange={(v) => updateTrack(t.id, 'remixerArtistId', v)}
+                  artists={artists}
+                  organizationId={activeOrgId}
+                  onArtistCreated={onArtistCreated}
+                  error={t.remixErrors.remixer}
+                />
+                <div className="rounded-xl border border-surface-700 bg-surface-950 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Suggested Display Title</p>
+                  <input
+                    type="text"
+                    value={t.displayTitle}
+                    onChange={(e) => updateTrack(t.id, 'displayTitle', e.target.value)}
+                    placeholder={suggestRemixDisplayTitle(t.title, artists.find((a) => a.id === t.remixerArtistId)?.name ?? '')}
+                    className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-900 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3">
               <div>
                 <label className="text-sm text-text-400 flex items-center gap-2"><input type="checkbox" checked={t.mixed} onChange={(e) => updateTrack(t.id, 'mixed', e.target.checked)} /> Have you mixed it?</label>
@@ -472,7 +662,7 @@ function TracksStep({ tracks, addTrack, updateTrack, removeTrack, openAssigner, 
         ))}
         <button onClick={addTrack} className="w-full h-12 rounded-xl border border-dashed border-surface-600 bg-transparent text-sm font-medium text-text-500 hover:text-text-300 active:scale-[0.98] transition-all">+ Add another track</button>
       </div>
-      <Nav back={back} next={next} canNext={tracks.some((t) => t.title.trim())} optional onLater={() => setSectionStatus?.((p) => ({ ...p, [currentStepKey ?? '']: 'skipped' }))} />
+      <Nav back={back} next={handleNext} canNext={tracks.some((t) => t.title.trim())} optional onLater={() => setSectionStatus?.((p) => ({ ...p, [currentStepKey ?? '']: 'skipped' }))} />
     </>
   );
 }
@@ -643,14 +833,11 @@ function EmailStep({ hasEmail, setHasEmail, emailSubject, setEmailSubject, email
   );
 }
 
-function ReleaseInfoStep({ isRemix, primaryArtist, setPrimaryArtist, featuredArtists, setFeaturedArtists, originalArtists, remixingArtists, recordLabel, setRecordLabel, catalogueNumber, setCatalogueNumber, upc, setUpc, primaryGenre, setPrimaryGenre, secondaryGenre, setSecondaryGenre, language, setLanguage, copyrightOwner, setCopyrightOwner, copyrightYear, setCopyrightYear, releaseOwner, setReleaseOwner, back, next }: {
-  isRemix: boolean;
+function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtists, setFeaturedArtists, recordLabel, setRecordLabel, catalogueNumber, setCatalogueNumber, upc, setUpc, primaryGenre, setPrimaryGenre, secondaryGenre, setSecondaryGenre, language, setLanguage, copyrightOwner, setCopyrightOwner, copyrightYear, setCopyrightYear, releaseOwner, setReleaseOwner, back, next }: {
   primaryArtist: string;
   setPrimaryArtist: (v: string) => void;
   featuredArtists: string[];
   setFeaturedArtists: (v: string[]) => void;
-  originalArtists: ArtistEntry[];
-  remixingArtists: ArtistEntry[];
   recordLabel: string;
   setRecordLabel: (v: string) => void;
   catalogueNumber: string;
@@ -680,25 +867,10 @@ function ReleaseInfoStep({ isRemix, primaryArtist, setPrimaryArtist, featuredArt
         {/* Release section */}
         <div className="rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-3">
           <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Release</p>
-          {isRemix ? (
-            <>
-              <div>
-                <p className="text-xs text-text-400 mb-1">Original Artist(s)</p>
-                {originalArtists.map((a) => <p key={a.id} className="text-sm text-surface-100 ml-2">— {a.name}</p>)}
-              </div>
-              <div>
-                <p className="text-xs text-text-400 mb-1">Remixing Artist(s)</p>
-                {remixingArtists.map((a) => <p key={a.id} className="text-sm text-surface-100 ml-2">— {a.name}</p>)}
-              </div>
-            </>
-          ) : (
-            <>
-              <input type="text" value={primaryArtist} onChange={(e) => setPrimaryArtist(e.target.value)} placeholder="Primary Artist"
-                className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
-              <input type="text" value={featuredArtists.join(', ')} onChange={(e) => setFeaturedArtists(e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
-                placeholder="Featured Artist(s) — comma separated" className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
-            </>
-          )}
+          <input type="text" value={primaryArtist} onChange={(e) => setPrimaryArtist(e.target.value)} placeholder="Primary Artist"
+            className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+          <input type="text" value={featuredArtists.join(', ')} onChange={(e) => setFeaturedArtists(e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
+            placeholder="Featured Artist(s) — comma separated" className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
           <input type="text" value={recordLabel} onChange={(e) => setRecordLabel(e.target.value)} placeholder="Record Label"
             className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
           <div className="grid grid-cols-2 gap-3">
@@ -755,7 +927,20 @@ function ReviewStep({ releaseTitle, releaseType, tracks, hasArtwork, commissionA
       <p className="mt-2 text-sm text-text-400 text-center">Everything looks good?</p>
       <div className="mt-8 rounded-xl border border-surface-700 bg-surface-900 divide-y divide-surface-800">
         <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Release</span><span className="text-sm font-medium text-surface-100">{releaseTitle || '—'}</span></div>
-        <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Type</span><span className="text-sm font-medium text-surface-100">{RELEASE_TYPES.find((t) => t.value === releaseType)?.label}</span></div>
+        <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Type</span><span className="text-sm font-medium text-surface-100">{releaseTypeLabel(releaseType)}</span></div>
+        {(() => {
+          const counts = countRecordingTypes(tracks);
+          return (
+            <>
+              {counts.originals > 0 && (
+                <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Contains</span><span className="text-sm font-medium text-surface-100">{counts.originals} Original Recording{counts.originals === 1 ? '' : 's'}</span></div>
+              )}
+              {counts.remixes > 0 && (
+                <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Contains</span><span className="text-sm font-medium text-surface-100">{counts.remixes} Remix{counts.remixes === 1 ? '' : 'es'}</span></div>
+              )}
+            </>
+          );
+        })()}
          <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Tracks</span><span className="text-sm font-medium text-surface-100">{tracks.filter((t) => t.title.trim()).length}</span></div>
         <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Mixed</span><span className="text-sm font-medium text-surface-100">{tracks.filter((t) => t.mixed && t.title.trim()).length}</span></div>
         <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Needs Mixing</span><span className="text-sm font-medium text-surface-100">{tracks.filter((t) => !t.mixed && t.title.trim()).length}</span></div>

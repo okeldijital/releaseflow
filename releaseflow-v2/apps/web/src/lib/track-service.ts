@@ -49,6 +49,13 @@ export async function duplicateTrack(trackId: string, createdBy: string): Promis
     genre: original.genre,
     bpm: original.bpm,
     musicalKey: original.musicalKey,
+    recordingType: original.recordingType,
+    originalArtistId: original.originalArtistId,
+    remixerArtistId: original.remixerArtistId,
+    primaryArtistId: original.primaryArtistId,
+    featuredArtistIds: original.featuredArtistIds,
+    displayTitle: original.displayTitle,
+    displayTitleEdited: original.displayTitleEdited,
   });
   return track.id;
 }

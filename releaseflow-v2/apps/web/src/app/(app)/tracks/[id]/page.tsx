@@ -49,6 +49,10 @@ import {
   type TrackRightRecord,
 } from '@/lib/rights-repository';
 import { getPerson } from '@/lib/people-repository';
+import type { TrackRecord } from '@/lib/track-repository';
+import type { RecordingType } from '@/app/(app)/types';
+import { resolveRecordingType, recordingTypeLabel, suggestRemixDisplayTitle } from '@/lib/recording-type';
+import { ArtistFieldPicker, type ArtistOption } from '@/components/artist-field-picker';
 
 const TAB_IDS = ['overview', 'artists', 'people', 'assets', 'tasks', 'specifications', 'production', 'rights', 'credits', 'activity'] as const;
 type TabId = typeof TAB_IDS[number];
@@ -79,7 +83,7 @@ export default function TrackDetailPage() {
   const router = useRouter();
   const { activeOrgId } = useOrgStore();
   const id = typeof params.id === 'string' ? params.id : '';
-  const { track, loading } = useTrack(id);
+  const { track, loading, refresh } = useTrack(id);
 
   const [tab, setTab] = useState<TabId>('overview');
   const [editing, setEditing] = useState(false);
@@ -92,6 +96,15 @@ export default function TrackDetailPage() {
   const [editBPM, setEditBPM] = useState('');
   const [editKey, setEditKey] = useState('');
   const [editLanguage, setEditLanguage] = useState('');
+  const [editRecordingType, setEditRecordingType] = useState<RecordingType>('original');
+  const [editPrimaryArtistId, setEditPrimaryArtistId] = useState('');
+  const [editFeaturedArtistIds, setEditFeaturedArtistIds] = useState<string[]>([]);
+  const [editOriginalArtistId, setEditOriginalArtistId] = useState('');
+  const [editRemixerArtistId, setEditRemixerArtistId] = useState('');
+  const [editDisplayTitle, setEditDisplayTitle] = useState('');
+  const [editDisplayTitleEdited, setEditDisplayTitleEdited] = useState(false);
+  const [remixErrors, setRemixErrors] = useState<{ originalArtist?: string; remixer?: string }>({});
+  const [orgArtists, setOrgArtists] = useState<ArtistOption[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -105,14 +118,90 @@ export default function TrackDetailPage() {
       setEditBPM(track.bpm ? String(track.bpm) : '');
       setEditKey(track.musicalKey ?? '');
       setEditLanguage(track.language ?? '');
+      setEditRecordingType(resolveRecordingType(track.recordingType));
+      setEditPrimaryArtistId(track.primaryArtistId ?? '');
+      setEditFeaturedArtistIds(track.featuredArtistIds ?? []);
+      setEditOriginalArtistId(track.originalArtistId ?? '');
+      setEditRemixerArtistId(track.remixerArtistId ?? '');
+      setEditDisplayTitle(track.displayTitle ?? '');
+      setEditDisplayTitleEdited(track.displayTitleEdited ?? false);
+      setRemixErrors({});
     }
   }, [track]);
 
+  useEffect(() => {
+    if (!editing || !activeOrgId) return;
+    fetchArtists(activeOrgId).then(setOrgArtists);
+  }, [editing, activeOrgId]);
+
+  function handleArtistCreated(created: ArtistOption) {
+    setOrgArtists((prev) => (prev.some((a) => a.id === created.id) ? prev : [...prev, created]));
+  }
+
+  function updateRemixDisplayTitle(title: string, remixerId: string, edited: boolean) {
+    if (edited) return;
+    const remixerName = orgArtists.find((a) => a.id === remixerId)?.name ?? '';
+    setEditDisplayTitle(suggestRemixDisplayTitle(title, remixerName));
+  }
+
+  async function syncTrackArtistLinks(
+    recordingType: RecordingType,
+    primaryId: string,
+    featuredIds: string[],
+    originalId: string,
+    remixerId: string,
+  ) {
+    const existing = await getArtistsByTrack(id);
+    async function syncSingle(artistId: string | null, artistType: string) {
+      const links = existing.filter((e) => e.artistType === artistType);
+      for (const link of links) {
+        if (link.artistId !== artistId) await removeArtistFromTrack(link.id);
+      }
+      if (artistId && !links.some((l) => l.artistId === artistId)) {
+        await addArtistToTrack({ trackId: id, artistId, artistType: artistType as never });
+      }
+    }
+    if (recordingType === 'remix') {
+      await syncSingle(originalId || null, 'original_artist');
+      await syncSingle(remixerId || null, 'remixer');
+      for (const link of existing.filter((e) => e.artistType === 'featured_artist')) {
+        await removeArtistFromTrack(link.id);
+      }
+    } else {
+      await syncSingle(primaryId || null, 'original_artist');
+      const featuredLinks = existing.filter((e) => e.artistType === 'featured_artist');
+      for (const link of featuredLinks) {
+        if (!featuredIds.includes(link.artistId)) await removeArtistFromTrack(link.id);
+      }
+      for (const featuredId of featuredIds) {
+        if (!featuredLinks.some((l) => l.artistId === featuredId)) {
+          await addArtistToTrack({ trackId: id, artistId: featuredId, artistType: 'featured_artist' });
+        }
+      }
+      for (const link of existing.filter((e) => e.artistType === 'remixer')) {
+        await removeArtistFromTrack(link.id);
+      }
+    }
+  }
+
   async function handleSave() {
     if (!editTitle.trim()) return;
+    if (editRecordingType === 'remix') {
+      const errors: { originalArtist?: string; remixer?: string } = {};
+      if (!editOriginalArtistId) errors.originalArtist = 'Original Artist is required for remix recordings.';
+      if (!editRemixerArtistId) errors.remixer = 'Remixer is required for remix recordings.';
+      if (errors.originalArtist || errors.remixer) {
+        setRemixErrors(errors);
+        return;
+      }
+    }
+    setRemixErrors({});
     setSaving(true);
+    const resolvedTitle = editRecordingType === 'remix' && editDisplayTitle.trim()
+      ? editDisplayTitle.trim()
+      : editTitle.trim();
     await editTrack(id, {
-      title: editTitle.trim(),
+      title: resolvedTitle,
       version: editVersion.trim() || undefined,
       isrc: editISRC.trim() || undefined,
       duration: editDuration ? Number(editDuration) : undefined,
@@ -121,9 +210,24 @@ export default function TrackDetailPage() {
       bpm: editBPM ? Number(editBPM) : undefined,
       musicalKey: editKey.trim() || undefined,
       language: editLanguage.trim() || undefined,
+      recordingType: editRecordingType,
+      originalArtistId: editRecordingType === 'remix' ? editOriginalArtistId : null,
+      remixerArtistId: editRecordingType === 'remix' ? editRemixerArtistId : null,
+      primaryArtistId: editRecordingType === 'original' ? editPrimaryArtistId || null : null,
+      featuredArtistIds: editRecordingType === 'original' ? editFeaturedArtistIds : null,
+      displayTitle: editDisplayTitle.trim() || null,
+      displayTitleEdited: editDisplayTitleEdited,
     });
+    await syncTrackArtistLinks(
+      editRecordingType,
+      editPrimaryArtistId,
+      editFeaturedArtistIds,
+      editOriginalArtistId,
+      editRemixerArtistId,
+    );
     setEditing(false);
     setSaving(false);
+    refresh();
   }
 
   async function handleArchive() {
@@ -139,8 +243,12 @@ export default function TrackDetailPage() {
       <div className="flex items-start justify-between mb-8">
         <div>
           <p className="text-[1.75rem] font-semibold text-surface-50 tracking-tight">{track.title}</p>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <StatusBadge status={track.status} />
+            <Badge
+              label={recordingTypeLabel(resolveRecordingType(track.recordingType), true)}
+              color={resolveRecordingType(track.recordingType) === 'remix' ? 'bg-purple-500/15 text-purple-400' : 'bg-surface-100 text-text-500'}
+            />
             {track.version ? <span className="text-sm text-text-400">{track.version}</span> : null}
           </div>
         </div>
@@ -154,7 +262,16 @@ export default function TrackDetailPage() {
         <div className="mb-6 rounded-xl border border-surface-700/60 bg-surface-900 p-5 space-y-4 animate-slide-up">
           <p className="text-sm font-semibold text-surface-50">Edit Track</p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            <Input
+              label="Title"
+              value={editTitle}
+              onChange={(e) => {
+                setEditTitle(e.target.value);
+                if (editRecordingType === 'remix') {
+                  updateRemixDisplayTitle(e.target.value, editRemixerArtistId, editDisplayTitleEdited);
+                }
+              }}
+            />
             <Input label="Version" value={editVersion} onChange={(e) => setEditVersion(e.target.value)} placeholder="e.g. Radio Edit" />
             <Input label="ISRC" value={editISRC} onChange={(e) => setEditISRC(e.target.value)} placeholder="US-ABC-12-34567" />
             <Input label="Duration (seconds)" value={editDuration} onChange={(e) => setEditDuration(e.target.value)} placeholder="210" />
@@ -171,6 +288,124 @@ export default function TrackDetailPage() {
                 <option value="true">Yes</option>
               </select>
             </label>
+          </div>
+          <div className="pt-2 border-t border-surface-700/60 space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-text-500 uppercase tracking-wider mb-2">Recording Type</p>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 text-sm text-surface-200">
+                  <input
+                    type="radio"
+                    name="edit-recording-type"
+                    checked={editRecordingType === 'original'}
+                    onChange={() => {
+                      setEditRecordingType('original');
+                      setRemixErrors({});
+                      setEditDisplayTitle('');
+                      setEditDisplayTitleEdited(false);
+                    }}
+                  />
+                  Original Recording
+                </label>
+                <label className="flex items-center gap-2 text-sm text-surface-200">
+                  <input
+                    type="radio"
+                    name="edit-recording-type"
+                    checked={editRecordingType === 'remix'}
+                    onChange={() => setEditRecordingType('remix')}
+                  />
+                  Remix
+                </label>
+              </div>
+            </div>
+            {editRecordingType === 'original' ? (
+              <div className="space-y-3">
+                <ArtistFieldPicker
+                  label="Primary Artist"
+                  value={editPrimaryArtistId}
+                  onChange={setEditPrimaryArtistId}
+                  artists={orgArtists}
+                  organizationId={activeOrgId}
+                  onArtistCreated={handleArtistCreated}
+                />
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Featuring Artists</p>
+                  {editFeaturedArtistIds.map((artistId) => {
+                    const name = orgArtists.find((a) => a.id === artistId)?.name ?? artistId;
+                    return (
+                      <div key={artistId} className="flex items-center justify-between rounded-lg border border-surface-700 bg-surface-950 px-3 py-2">
+                        <span className="text-sm text-surface-50">{name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setEditFeaturedArtistIds((p) => p.filter((id) => id !== artistId))}
+                          className="text-xs text-text-400 hover:text-danger-400"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    );
+                  })}
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v && !editFeaturedArtistIds.includes(v)) {
+                        setEditFeaturedArtistIds((p) => [...p, v]);
+                      }
+                    }}
+                    className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none"
+                  >
+                    <option value="">Add featuring artist...</option>
+                    {orgArtists
+                      .filter((a) => a.id !== editPrimaryArtistId && !editFeaturedArtistIds.includes(a.id))
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <ArtistFieldPicker
+                  label="Original Artist"
+                  value={editOriginalArtistId}
+                  onChange={(v) => {
+                    setEditOriginalArtistId(v);
+                    setRemixErrors((p) => ({ ...p, originalArtist: undefined }));
+                  }}
+                  artists={orgArtists}
+                  organizationId={activeOrgId}
+                  onArtistCreated={handleArtistCreated}
+                  error={remixErrors.originalArtist}
+                />
+                <ArtistFieldPicker
+                  label="Remixer"
+                  value={editRemixerArtistId}
+                  onChange={(v) => {
+                    setEditRemixerArtistId(v);
+                    setRemixErrors((p) => ({ ...p, remixer: undefined }));
+                    updateRemixDisplayTitle(editTitle, v, editDisplayTitleEdited);
+                  }}
+                  artists={orgArtists}
+                  organizationId={activeOrgId}
+                  onArtistCreated={handleArtistCreated}
+                  error={remixErrors.remixer}
+                />
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Suggested Display Title</p>
+                  <input
+                    type="text"
+                    value={editDisplayTitle}
+                    onChange={(e) => {
+                      setEditDisplayTitle(e.target.value);
+                      setEditDisplayTitleEdited(true);
+                    }}
+                    placeholder={suggestRemixDisplayTitle(editTitle, orgArtists.find((a) => a.id === editRemixerArtistId)?.name ?? '')}
+                    className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-900 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || !editTitle.trim()}>Save</Button>
@@ -201,10 +436,17 @@ export default function TrackDetailPage() {
   );
 }
 
-function OverviewTab({ track, trackId, activeOrgId }: { track: { title: string; version?: string | null; isrc?: string | null; duration?: number | null; genre?: string | null; explicit: boolean; bpm?: number | null; musicalKey?: string | null; language?: string | null; status: string }; trackId: string; activeOrgId: string | null }) {
+function OverviewTab({ track, trackId, activeOrgId }: { track: TrackRecord; trackId: string; activeOrgId: string | null }) {
+  const recordingType = resolveRecordingType(track.recordingType);
   const [readiness, setReadiness] = useState<TrackReadiness | null>(null);
   const [collabReadiness, setCollabReadiness] = useState<CollabReadiness | null>(null);
   const [artistCount, setArtistCount] = useState(0);
+  const [artistLabels, setArtistLabels] = useState<{
+    primary?: string;
+    featured: string[];
+    original?: string;
+    remixer?: string;
+  }>({ featured: [] });
   const [peopleCount, setPeopleCount] = useState(0);
   const [assetRequested, setAssetRequested] = useState(0);
   const [assetAvailable, setAssetAvailable] = useState(0);
@@ -239,6 +481,29 @@ function OverviewTab({ track, trackId, activeOrgId }: { track: { title: string; 
     }
     load();
   }, [trackId, activeOrgId]);
+
+  useEffect(() => {
+    async function loadArtistLabels() {
+      const { getArtist } = await import('@/lib/artist-repository');
+      if (recordingType === 'remix') {
+        const [original, remixer] = await Promise.all([
+          track.originalArtistId ? getArtist(track.originalArtistId) : null,
+          track.remixerArtistId ? getArtist(track.remixerArtistId) : null,
+        ]);
+        setArtistLabels({ original: original?.name, remixer: remixer?.name, featured: [] });
+      } else {
+        const primary = track.primaryArtistId ? await getArtist(track.primaryArtistId) : null;
+        const featured = await Promise.all(
+          (track.featuredArtistIds ?? []).map(async (artistId) => {
+            const a = await getArtist(artistId);
+            return a?.name ?? artistId;
+          }),
+        );
+        setArtistLabels({ primary: primary?.name, featured });
+      }
+    }
+    loadArtistLabels();
+  }, [track, recordingType]);
 
   const scoreColor = readiness
     ? readiness.percentage >= 80
@@ -307,6 +572,27 @@ function OverviewTab({ track, trackId, activeOrgId }: { track: { title: string; 
           <StatCard label="Specifications" status={readiness?.specsComplete ? 'complete' : 'incomplete'}>
             <span>{specCount} spec{specCount !== 1 ? 's' : ''}</span>
           </StatCard>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-sm font-semibold text-surface-50 mb-3">Recording</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <DetailRow label="Recording Type" value={recordingTypeLabel(recordingType)} />
+          {recordingType === 'remix' ? (
+            <>
+              <DetailRow label="Original Artist" value={artistLabels.original ?? '—'} />
+              <DetailRow label="Remixer" value={artistLabels.remixer ?? '—'} />
+            </>
+          ) : (
+            <>
+              <DetailRow label="Primary Artist" value={artistLabels.primary ?? '—'} />
+              <DetailRow
+                label="Featuring Artists"
+                value={artistLabels.featured.length > 0 ? artistLabels.featured.join(', ') : '—'}
+              />
+            </>
+          )}
         </div>
       </div>
 

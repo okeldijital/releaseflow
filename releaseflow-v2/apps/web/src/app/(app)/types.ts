@@ -7,6 +7,8 @@ export interface Organization {
 }
 
 export type ReleaseType = 'single' | 'ep' | 'album' | 'remix' | 'compilation';
+
+export type RecordingType = 'original' | 'remix';
 export type ReleaseStatus = 'draft' | 'planning' | 'in_production' | 'on_hold' | 'ready_for_distribution' | 'released' | 'cancelled' | 'archived';
 
 export interface Release {

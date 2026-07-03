@@ -19,6 +19,7 @@ import type { Release, Deliverable, Task } from '../../types';
 import type { ReleaseTrackRecord } from '@/lib/release-track-repository';
 import type { TrackRecord } from '@/lib/track-repository';
 import type { ActivityEventRecord } from '@/lib/activity-service';
+import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
 
@@ -210,6 +211,7 @@ export default function ReleaseWorkspacePage() {
   const [release, setRelease] = useState<Release | null>(null);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [tracks, setTracks] = useState<(ReleaseTrackRecord & { track: TrackRecord | null })[]>([]);
+  const [trackArtistMeta, setTrackArtistMeta] = useState<Record<string, { original?: string; remixer?: string }>>({});
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
@@ -260,6 +262,27 @@ export default function ReleaseWorkspacePage() {
     }
     load();
   }, [releaseId, activeOrgId]);
+
+  useEffect(() => {
+    async function loadTrackArtistMeta() {
+      const { getArtist } = await import('@/lib/artist-repository');
+      const meta: Record<string, { original?: string; remixer?: string }> = {};
+      await Promise.all(
+        tracks.map(async (rt) => {
+          const t = rt.track;
+          if (!t || resolveRecordingType(t.recordingType) !== 'remix') return;
+          const [original, remixer] = await Promise.all([
+            t.originalArtistId ? getArtist(t.originalArtistId) : null,
+            t.remixerArtistId ? getArtist(t.remixerArtistId) : null,
+          ]);
+          meta[t.id] = { original: original?.name, remixer: remixer?.name };
+        }),
+      );
+      setTrackArtistMeta(meta);
+    }
+    if (tracks.length > 0) loadTrackArtistMeta();
+    else setTrackArtistMeta({});
+  }, [tracks]);
 
   /* Lazy-load activity */
   useEffect(() => {
@@ -615,7 +638,26 @@ export default function ReleaseWorkspacePage() {
                       aria-label={t?.title ?? `Track ${rt.position}`}
                     >
                       <span className="text-sm text-text-400 font-mono w-8 shrink-0">{rt.position}</span>
-                      <span className="text-sm font-medium text-text-900 truncate flex-1">{t?.title ?? '—'}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="text-sm font-medium text-text-900 truncate block">{t?.title ?? '—'}</span>
+                        {t ? (
+                          <span className="text-xs text-text-500 mt-0.5 block space-y-0.5">
+                            <span className="block">
+                              Recording Type · {recordingTypeLabel(resolveRecordingType(t.recordingType), true)}
+                            </span>
+                            {resolveRecordingType(t.recordingType) === 'remix' ? (
+                              <>
+                                {trackArtistMeta[t.id]?.original ? (
+                                  <span className="block">Original Artist · {trackArtistMeta[t.id]?.original}</span>
+                                ) : null}
+                                {trackArtistMeta[t.id]?.remixer ? (
+                                  <span className="block">Remixer · {trackArtistMeta[t.id]?.remixer}</span>
+                                ) : null}
+                              </>
+                            ) : null}
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="text-xs text-text-500 text-right hidden sm:block">{fmtDuration(t?.duration)}</span>
                       <span className="hidden sm:block"><StatusBadge status={(t as unknown as { mixStatus?: string })?.mixStatus ?? (t?.status === 'active' ? 'in_progress' : 'draft')} /></span>
                       <span className="hidden sm:block"><StatusBadge status={(t as unknown as { masterStatus?: string })?.masterStatus ?? (t?.isrc ? 'ready' : 'draft')} /></span>

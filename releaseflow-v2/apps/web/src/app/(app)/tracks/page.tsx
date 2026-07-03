@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useTracks } from '@/hooks/useTrack';
 import { createNewTrack, editTrack, removeTrack } from '@/lib/track-service';
 import type { TrackRecord } from '@/lib/track-repository';
+import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import { Button, EmptyState, LoadingState, Input, StatusBadge, Badge, Select } from '@releaseflow/ui';
 
 const explicitOptions = [
@@ -223,6 +224,11 @@ export default function TracksPage() {
                 <div>
                   <p className="text-sm font-medium text-text-900 dark:text-text-100">{t.title}</p>
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <Badge
+                      label={recordingTypeLabel(resolveRecordingType(t.recordingType), true)}
+                      color={resolveRecordingType(t.recordingType) === 'remix' ? 'bg-purple-500/15 text-purple-400' : 'bg-surface-100 text-text-500'}
+                      size="sm"
+                    />
                     {t.version ? <span className="text-xs text-text-400">{t.version}</span> : null}
                     {t.isrc ? <span className="text-xs text-text-400">{t.isrc}</span> : null}
                     {t.duration ? <span className="text-xs text-text-400 ml-1">{formatDuration(t.duration)}</span> : null}
