@@ -1,6 +1,7 @@
 import {
-  doc, getDoc, getDocs, addDoc, updateDoc,
+  doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, Timestamp,
+  type Firestore,
 } from 'firebase/firestore';
 import { getDb } from './firebase';
 import type { RecordingType, TrackStatus } from '@/app/(app)/types';
@@ -201,9 +202,153 @@ export async function getTracksByOrg(orgId: string): Promise<TrackRecord[]> {
 
 export async function archiveTrack(trackId: string): Promise<void> {
   const db = getDb();
-  if (!db) return;
+  if (!db) throw new Error('Firestore not initialized');
   await updateDoc(doc(db, 'tracks', trackId), {
     status: 'archived',
     updatedAt: Timestamp.now(),
   });
+}
+
+type ReviewEntityType = 'deliverable' | 'specification';
+
+function requireDb(): Firestore {
+  const db = getDb();
+  if (!db) throw new Error('Firestore not initialized');
+  return db;
+}
+
+async function deleteDocsByQuery(
+  db: Firestore,
+  collectionName: string,
+  field: string,
+  value: string,
+): Promise<void> {
+  const snap = await getDocs(query(collection(db, collectionName), where(field, '==', value)));
+  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+}
+
+async function deleteReviewsAndRevisionsForEntity(
+  db: Firestore,
+  entityType: ReviewEntityType,
+  entityId: string,
+): Promise<void> {
+  const reviews = await getDocs(
+    query(
+      collection(db, 'deliverable_reviews'),
+      where('entityType', '==', entityType),
+      where('entityId', '==', entityId),
+    ),
+  );
+  await Promise.all(reviews.docs.map((d) => deleteDoc(d.ref)));
+
+  const revisions = await getDocs(
+    query(
+      collection(db, 'deliverable_revisions'),
+      where('entityType', '==', entityType),
+      where('entityId', '==', entityId),
+    ),
+  );
+  await Promise.all(revisions.docs.map((d) => deleteDoc(d.ref)));
+}
+
+async function deleteEntityComments(db: Firestore, trackId: string): Promise<void> {
+  const { getCommentsByEntity, getReplies } = await import('./comments-repository');
+  const comments = await getCommentsByEntity('track', trackId);
+  for (const comment of comments) {
+    const replies = await getReplies(comment.id);
+    await Promise.all(replies.map((reply) => deleteDoc(doc(db, 'entity_comments', reply.id))));
+    await deleteDoc(doc(db, 'entity_comments', comment.id));
+  }
+}
+
+export async function deleteTrack(trackId: string): Promise<void> {
+  const db = requireDb();
+  if (!trackId) throw new Error('Track ID is required');
+
+  const trackSnap = await getDoc(doc(db, 'tracks', trackId));
+  if (!trackSnap.exists()) throw new Error('Track not found');
+
+  const { getDeliverablesByTrack } = await import('./deliverable-management-repository');
+  const { getSpecificationsByTrack } = await import('./specification-repository');
+  const { getAssignmentsByEntity, deleteAssignment } = await import('./assignment-repository');
+  const { getActivityByEntity, deleteActivityEvent } = await import('./activity-service');
+  const { getCreditsByTrack, deleteCredit } = await import('./credit-repository');
+  const { getArtistsByTrack, removeArtistFromTrack } = await import('./track-artist-repository');
+  const { getPeopleByTrack, removePersonFromTrack } = await import('./track-person-repository');
+  const { getRightsByTrack, deleteTrackRight } = await import('./rights-repository');
+  const { getTrackOwnerships } = await import('./rights-repository');
+  const { getOwnershipsByEntity, deleteOwnership } = await import('./ownership-repository');
+  const { getPublishingSplitsByTrack, deletePublishingSplit } = await import('./publishing-repository');
+  const { getPerformerRolesByTrack, deletePerformerRole } = await import('./performer-roles-repository');
+  const { getDeliveriesByTrack, deleteTrackDelivery } = await import('./distribution-delivery-repository');
+  const { getChecklistByTrack } = await import('./checklist-repository');
+  const { getTasksByEntity, deleteTask } = await import('./task-service');
+  const { getAssetsByTrack } = await import('./asset-lifecycle-service');
+
+  const deliverables = await getDeliverablesByTrack(trackId);
+  for (const deliverable of deliverables) {
+    await deleteReviewsAndRevisionsForEntity(db, 'deliverable', deliverable.id);
+    await deleteDoc(doc(db, 'production_deliverables', deliverable.id));
+  }
+
+  const specifications = await getSpecificationsByTrack(trackId);
+  for (const spec of specifications) {
+    await deleteReviewsAndRevisionsForEntity(db, 'specification', spec.id);
+    await deleteDoc(doc(db, 'specifications', spec.id));
+  }
+
+  const assets = await getAssetsByTrack(trackId);
+  await Promise.all(assets.map((asset) => deleteDoc(doc(db, 'track_assets', asset.id))));
+
+  const assignments = await getAssignmentsByEntity('track', trackId);
+  await Promise.all(assignments.map((assignment) => deleteAssignment(assignment.id)));
+
+  const activities = await getActivityByEntity('track', trackId);
+  await Promise.all(activities.map((activity) => deleteActivityEvent(activity.id)));
+
+  await deleteEntityComments(db, trackId);
+
+  await deleteDocsByQuery(db, 'notifications', 'referenceId', trackId);
+
+  const credits = await getCreditsByTrack(trackId);
+  await Promise.all(credits.map((credit) => deleteCredit(credit.id)));
+
+  await deleteDocsByQuery(db, 'track_credits', 'trackId', trackId);
+
+  const trackArtists = await getArtistsByTrack(trackId);
+  await Promise.all(trackArtists.map((record) => removeArtistFromTrack(record.id)));
+
+  const trackPeople = await getPeopleByTrack(trackId);
+  await Promise.all(trackPeople.map((record) => removePersonFromTrack(record.id)));
+
+  const rights = await getRightsByTrack(trackId);
+  await Promise.all(rights.map((right) => deleteTrackRight(right.id)));
+
+  const trackOwnerships = await getTrackOwnerships(trackId);
+  await Promise.all(trackOwnerships.map((ownership) => deleteDoc(doc(db, 'track_ownerships', ownership.id))));
+
+  const ownerships = await getOwnershipsByEntity('track', trackId);
+  await Promise.all(ownerships.map((ownership) => deleteOwnership(ownership.id)));
+
+  const publishingSplits = await getPublishingSplitsByTrack(trackId);
+  await Promise.all(publishingSplits.map((split) => deletePublishingSplit(split.id)));
+
+  const performerRoles = await getPerformerRolesByTrack(trackId);
+  await Promise.all(performerRoles.map((role) => deletePerformerRole(role.id)));
+
+  const deliveries = await getDeliveriesByTrack(trackId);
+  await Promise.all(deliveries.map((delivery) => deleteTrackDelivery(delivery.id)));
+
+  const checklists = await getChecklistByTrack(trackId);
+  await Promise.all(checklists.map((checklist) => deleteDoc(doc(db, 'production_checklists', checklist.id))));
+
+  const tasks = await getTasksByEntity('track', trackId);
+  await Promise.all(tasks.map((task) => deleteTask(task.id)));
+
+  const releaseTrackSnap = await getDocs(
+    query(collection(db, 'release_tracks'), where('trackId', '==', trackId)),
+  );
+  await Promise.all(releaseTrackSnap.docs.map((d) => deleteDoc(d.ref)));
+
+  await deleteDoc(doc(db, 'tracks', trackId));
 }

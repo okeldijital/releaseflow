@@ -12,7 +12,8 @@ import type { ActivityEventRecord } from '@/lib/activity-service';
 import type { AssignmentRecord } from '@/lib/assignment-repository';
 import type { ProductionDeliverableRecord } from '@/lib/deliverable-management-repository';
 import type { TrackRightRecord } from '@/lib/rights-repository';
-import { editTrack, removeTrack, duplicateTrack } from '@/lib/track-service';
+import { editTrack, removeTrack, archiveTrackById, duplicateTrack } from '@/lib/track-service';
+import { toast } from '@/stores/toast-store';
 import { fetchRelease } from '@/lib/release-service';
 import { getReleasesByTrack } from '@/lib/release-track-repository';
 import { getAssignmentsByEntity, deleteAssignment } from '@/lib/assignment-repository';
@@ -181,6 +182,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   const [artistSummary, setArtistSummary] = useState<string>('—');
   const [metadataOpen, setMetadataOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [assignerOpen, setAssignerOpen] = useState(false);
   const [assignerLabel, setAssignerLabel] = useState('');
   const [assignerRole, setAssignerRole] = useState('');
@@ -355,8 +357,28 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   }
 
   async function handleArchive() {
-    await removeTrack(trackId);
-    router.push('/tracks');
+    try {
+      await archiveTrackById(trackId);
+      toast.success('Track archived.');
+      router.push(releaseId ? `/releases/${releaseId}` : '/tracks');
+    } catch (error) {
+      console.error(error);
+      toast.error('Unable to archive track.');
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await removeTrack(trackId);
+      toast.success('Track deleted.');
+      router.push(releaseId ? `/releases/${releaseId}` : '/tracks');
+    } catch (error) {
+      console.error(error);
+      toast.error('Unable to delete track.');
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
   }
 
   async function handleDuplicate() {
@@ -792,10 +814,10 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
       <ConfirmationDialog
         open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        onConfirm={handleArchive}
+        onClose={() => { if (!deleting) setDeleteOpen(false); }}
+        onConfirm={handleDelete}
         title="Delete Track"
-        message="This will archive the track. You can restore it from administration later."
+        message="This will permanently delete the track and all related data. This action cannot be undone."
         confirmLabel="Delete"
         variant="danger"
       />

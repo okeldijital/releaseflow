@@ -1,5 +1,5 @@
 import {
-  createTrack, updateTrack, getTrack, getTracksByOrg, archiveTrack,
+  createTrack, updateTrack, getTrack, getTracksByOrg, archiveTrack, deleteTrack,
 } from './track-repository';
 import type {
   CreateTrackFields, UpdateTrackFields, TrackRecord,
@@ -20,6 +20,12 @@ export async function editTrack(trackId: string, fields: UpdateTrackFields): Pro
 }
 
 export async function removeTrack(trackId: string): Promise<void> {
+  if (!trackId) throw new Error('Track ID is required');
+  return deleteTrack(trackId);
+}
+
+export async function archiveTrackById(trackId: string): Promise<void> {
+  if (!trackId) throw new Error('Track ID is required');
   return archiveTrack(trackId);
 }
 

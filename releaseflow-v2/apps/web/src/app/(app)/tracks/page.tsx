@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useOrgStore } from '@/stores/org-store';
 import { useAuth } from '@/contexts/auth-context';
 import { useTracks } from '@/hooks/useTrack';
-import { createNewTrack, editTrack, removeTrack } from '@/lib/track-service';
+import { createNewTrack, editTrack, archiveTrackById } from '@/lib/track-service';
+import { toast } from '@/stores/toast-store';
 import type { TrackRecord } from '@/lib/track-repository';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import { Button, EmptyState, LoadingState, Input, StatusBadge, Badge, Select } from '@releaseflow/ui';
@@ -79,9 +80,15 @@ function EditTrackDialog({ track, open, onClose, onSaved }: EditTrackDialogProps
 
   async function handleArchive() {
     setSaving(true);
-    await removeTrack(track.id);
-    setSaving(false);
-    onSaved();
+    try {
+      await archiveTrackById(track.id);
+      toast.success('Track archived.');
+      onSaved();
+    } catch (error) {
+      console.error(error);
+      toast.error('Unable to archive track.');
+      setSaving(false);
+    }
   }
 
   if (!open && !closing) return null;
