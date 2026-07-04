@@ -1,5 +1,5 @@
 import {
-  doc, getDoc, getDocs, addDoc, updateDoc, writeBatch,
+  doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, writeBatch,
   collection, query, where, orderBy, Timestamp,
   type Firestore,
 } from 'firebase/firestore';
@@ -216,62 +216,10 @@ function requireDb(): Firestore {
 }
 
 export async function deleteTrack(trackId: string): Promise<void> {
-  const db = requireDb();
-  if (!trackId) throw new Error('Track ID is required');
-
-  const trackRef = doc(db, 'tracks', trackId);
-  const trackSnap = await getDoc(trackRef);
-  if (!trackSnap.exists()) throw new Error('Track not found');
-
-  const batch = writeBatch(db);
-
-  const trackIdCollections = [
-    'release_tracks',
-    'track_artists',
-    'track_people',
-    'credits',
-    'track_credits',
-    'track_ownerships',
-    'track_rights',
-    'publishing_splits',
-    'performer_roles',
-    'track_deliveries',
-    'track_assets',
-    'production_deliverables',
-    'specifications',
-    'production_checklists',
-  ];
-
-  for (const name of trackIdCollections) {
-    const snap = await getDocs(query(collection(db, name), where('trackId', '==', trackId)));
-    snap.docs.forEach((d) => batch.delete(d.ref));
+  const db = getDb();
+  if (!db) {
+    throw new Error('Firestore not initialized');
   }
 
-  const entityCollections = [
-    'assignments',
-    'activity_events',
-    'entity_comments',
-    'ownerships',
-    'tasks',
-  ];
-
-  for (const name of entityCollections) {
-    const snap = await getDocs(
-      query(
-        collection(db, name),
-        where('entityType', '==', 'track'),
-        where('entityId', '==', trackId),
-      ),
-    );
-    snap.docs.forEach((d) => batch.delete(d.ref));
-  }
-
-  const notifSnap = await getDocs(
-    query(collection(db, 'notifications'), where('referenceId', '==', trackId)),
-  );
-  notifSnap.docs.forEach((d) => batch.delete(d.ref));
-
-  batch.delete(trackRef);
-
-  await batch.commit();
+  await deleteDoc(doc(db, 'tracks', trackId));
 }
