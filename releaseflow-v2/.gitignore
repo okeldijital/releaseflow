@@ -11,3 +11,4 @@ build/
 *.log
 .kiro/
 .playwright-mcp/
+releaseflow-prod-firebase-adminsdk-fbsvc-243fe20ca7.json
