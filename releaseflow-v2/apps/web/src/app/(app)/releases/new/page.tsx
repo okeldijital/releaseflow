@@ -11,7 +11,7 @@ import { getStageTemplatesForReleaseType } from '@/lib/workflow-templates';
 import { getRequirementNamesForReleaseType } from '@/lib/requirement-templates';
 import { PersonAssigner } from '@/components/person-assigner';
 import { ArtistFieldPicker, FeaturedArtistsPicker, type ArtistOption } from '@/components/artist-field-picker';
-import { fetchArtists } from '@/lib/artist-service';
+import { useArtists } from '@/hooks/useArtist';
 import {
   countRecordingTypes,
   releaseTypeLabel,
@@ -95,12 +95,12 @@ type InviteTarget = { type: string; key?: string } | null;
 export default function NewReleasePage() {
   const { user } = useAuth();
   const { activeOrgId } = useOrgStore();
+  const { artistOptions: artists, onArtistCreated } = useArtists();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState('');
   const [people, setPeople] = useState<PersonOption[]>([]);
-  const [artists, setArtists] = useState<ArtistOption[]>([]);
 
   const [releaseType, setReleaseType] = useState<ReleaseTypeVal>('single');
   const [releaseTitle, setReleaseTitle] = useState('');
@@ -166,7 +166,6 @@ export default function NewReleasePage() {
     if (!user) { router.push('/sign-in'); return; }
     if (activeOrgId) {
       getPeopleByOrg(activeOrgId).then((p) => setPeople(p.map((x) => ({ id: x.id, displayName: x.displayName }))));
-      fetchArtists(activeOrgId).then((a) => setArtists(a.map((x) => ({ id: x.id, name: x.name }))));
     }
   }, [user, router, activeOrgId]);
 
@@ -329,7 +328,7 @@ export default function NewReleasePage() {
           removeTrack={removeTrack}
           addFeaturedArtist={addFeaturedArtist}
           removeFeaturedArtist={removeFeaturedArtist}
-          onArtistCreated={(a) => setArtists((p) => (p.some((x) => x.id === a.id) ? p : [...p, a]))}
+          onArtistCreated={onArtistCreated}
           openAssigner={openAssigner}
           validateRemixTracks={validateRemixTracks}
           setSectionStatus={setSectionStatus}

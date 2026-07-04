@@ -11,6 +11,15 @@ export function mergeArtistOptions(base: ArtistOption[], extras: ArtistOption[])
   return Array.from(byId.values());
 }
 
+export function appendArtistOption(catalogue: ArtistOption[], created: ArtistOption): ArtistOption[] {
+  if (catalogue.some((a) => a.id === created.id)) return catalogue;
+  return [...catalogue, created];
+}
+
+export function toArtistOptions(records: { id: string; name: string }[]): ArtistOption[] {
+  return records.map((r) => ({ id: r.id, name: r.name }));
+}
+
 export function findArtistByName(artists: ArtistOption[], name: string): ArtistOption | undefined {
   const norm = normalizeArtistName(name);
   if (!norm) return undefined;

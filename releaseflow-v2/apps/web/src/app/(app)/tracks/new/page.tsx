@@ -21,7 +21,7 @@ import {
 import { createInvitation } from '@/lib/invitation-repository';
 import { PersonAssigner } from '@/components/person-assigner';
 import { ArtistFieldPicker, FeaturedArtistsPicker, type ArtistOption } from '@/components/artist-field-picker';
-import { fetchArtists } from '@/lib/artist-service';
+import { useArtists } from '@/hooks/useArtist';
 import {
   suggestRemixDisplayTitle,
   recordingTypeLabel,
@@ -165,6 +165,7 @@ export default function NewTrackPage() {
   const releaseId = searchParams.get('releaseId') ?? '';
   const { user } = useAuth();
   const { activeOrgId } = useOrgStore();
+  const { artistOptions: artists, onArtistCreated: handleArtistCreated } = useArtists();
 
   const [step, setStep] = useState(0);
   const [launching, setLaunching] = useState(false);
@@ -172,7 +173,6 @@ export default function NewTrackPage() {
   const [releaseTitle, setReleaseTitle] = useState<string | null>(null);
   const [loadingRelease, setLoadingRelease] = useState(!!releaseId);
   const [people, setPeople] = useState<PersonOption[]>([]);
-  const [artists, setArtists] = useState<ArtistOption[]>([]);
   const [sectionStatus, setSectionStatus] = useState<SectionStatusMap>({});
 
   const [title, setTitle] = useState('');
@@ -217,7 +217,6 @@ export default function NewTrackPage() {
   useEffect(() => {
     if (!activeOrgId) return;
     getPeopleByOrg(activeOrgId).then((p) => setPeople(p.map((x) => ({ id: x.id, displayName: x.displayName }))));
-    fetchArtists(activeOrgId).then((a) => setArtists(a.map((x) => ({ id: x.id, name: x.name }))));
   }, [activeOrgId]);
 
   useEffect(() => {
@@ -267,10 +266,6 @@ export default function NewTrackPage() {
   function later(section: string) {
     setSectionStatus((p) => ({ ...p, [section]: 'skipped' }));
     next();
-  }
-
-  function handleArtistCreated(created: ArtistOption) {
-    setArtists((prev) => (prev.some((a) => a.id === created.id) ? prev : [...prev, created]));
   }
 
   function updateRemixDisplayTitle(nextTitle: string, remixerId: string) {

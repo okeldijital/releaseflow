@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
+  appendArtistOption,
   filterArtistsForSearch,
   canCreateArtistFromSearch,
+  toArtistOptions,
   type ArtistOption,
 } from '@/lib/artist-field-picker-logic';
 
@@ -51,5 +53,43 @@ describe('artist-field-picker search logic', () => {
 
     expect(filterArtistsForSearch(session, 'Sun-El Musician')).toEqual([]);
     expect(canCreateArtistFromSearch(session, 'Sun-El Musician')).toBe(true);
+  });
+});
+
+describe('organisation artist catalogue helpers', () => {
+  it('maps repository records to picker options', () => {
+    expect(toArtistOptions([
+      { id: 'a1', name: 'Busi Mhlongo' },
+      { id: 'a2', name: 'Black Coffee' },
+    ])).toEqual([
+      { id: 'a1', name: 'Busi Mhlongo' },
+      { id: 'a2', name: 'Black Coffee' },
+    ]);
+  });
+
+  it('appends a created artist without duplicates', () => {
+    const created = { id: '3', name: 'Culoe De Song' };
+    expect(appendArtistOption(catalogue, created)).toEqual([...catalogue, created]);
+    expect(appendArtistOption(catalogue, catalogue[0]!)).toEqual(catalogue);
+  });
+
+  it('supports UAT-001 #009 remix album track progression', () => {
+    let orgCatalogue: ArtistOption[] = [];
+
+    orgCatalogue = appendArtistOption(orgCatalogue, { id: '1', name: 'Busi Mhlongo' });
+    orgCatalogue = appendArtistOption(orgCatalogue, { id: '2', name: 'Black Coffee' });
+
+    expect(filterArtistsForSearch(orgCatalogue, 'Busi Mhlongo')).toHaveLength(1);
+    expect(canCreateArtistFromSearch(orgCatalogue, 'Busi Mhlongo')).toBe(false);
+    expect(canCreateArtistFromSearch(orgCatalogue, 'Black Coffee')).toBe(false);
+
+    orgCatalogue = appendArtistOption(orgCatalogue, { id: '3', name: 'Culoe De Song' });
+
+    expect(orgCatalogue).toHaveLength(3);
+    expect(filterArtistsForSearch(orgCatalogue, 'Black Coffee')).toHaveLength(1);
+    expect(filterArtistsForSearch(orgCatalogue, 'Culoe')).toHaveLength(1);
+    expect(canCreateArtistFromSearch(orgCatalogue, 'Busi Mhlongo')).toBe(false);
+    expect(canCreateArtistFromSearch(orgCatalogue, 'Black Coffee')).toBe(false);
+    expect(canCreateArtistFromSearch(orgCatalogue, 'Culoe De Song')).toBe(false);
   });
 });
