@@ -69,7 +69,15 @@ export function useArtists() {
     if (!opts?.silent) setLoading(true);
     try {
       const data = await fetchArtists(activeOrgId);
-      console.log('Repository returned:', data.length, 'artists');
+      console.group('[useArtists]');
+      console.log('Repository returned:', data.length);
+      console.table(
+        data.map((a) => ({
+          id: a.id,
+          name: a.name,
+        })),
+      );
+      console.groupEnd();
       setArtists(data);
       if (data.length === 0) {
         console.warn('[useArtists] catalogue empty for organization', activeOrgId);

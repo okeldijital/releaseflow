@@ -291,18 +291,32 @@ export async function getArtist(organizationId: string, artistId: string): Promi
 async function listNestedArtists(organizationId: string): Promise<ArtistRecord[]> {
   const db = getDb();
   if (!db) return [];
-  console.log('[ArtistRepository] Query path: organizations/' + organizationId + '/artists');
   const snap = await getDocs(
     query(artistsCollection(db, organizationId), orderBy('name', 'asc')),
   );
-  console.log('[ArtistRepository] Nested snapshot size:', snap.size);
-  return snap.docs.map((d) => toArtistRecord(d.id, d.data() as Record<string, unknown>, organizationId));
+
+  console.group('[ArtistRepository] Firestore — nested');
+  console.log('Organization:', organizationId);
+  console.log('Nested snapshot:', snap.docs.length);
+  console.table(
+    snap.docs.map((docSnap) => ({
+      id: docSnap.id,
+      name: (docSnap.data().name as string) ?? '',
+      organizationId: (docSnap.data().organizationId as string) ?? '',
+      status: (docSnap.data().status as string) ?? '',
+      artistType: (docSnap.data().artistType as string) ?? '',
+    })),
+  );
+  console.groupEnd();
+
+  const mapped = snap.docs.map((d) => toArtistRecord(d.id, d.data() as Record<string, unknown>, organizationId));
+  console.log('[ArtistRepository] Mapped nested artists:', mapped.length);
+  return mapped;
 }
 
 async function listLegacyArtists(organizationId: string): Promise<ArtistRecord[]> {
   const db = getDb();
   if (!db) return [];
-  console.log('[ArtistRepository] Query path: artists (organizationId == ' + organizationId + ')');
   const snap = await getDocs(
     query(
       collection(db, LEGACY_COLLECTION),
@@ -310,8 +324,24 @@ async function listLegacyArtists(organizationId: string): Promise<ArtistRecord[]
       orderBy('name', 'asc'),
     ),
   );
-  console.log('[ArtistRepository] Legacy snapshot size:', snap.size);
-  return snap.docs.map((d) => toArtistRecord(d.id, d.data() as Record<string, unknown>, organizationId));
+
+  console.group('[ArtistRepository] Firestore — legacy');
+  console.log('Organization:', organizationId);
+  console.log('Legacy snapshot:', snap.docs.length);
+  console.table(
+    snap.docs.map((docSnap) => ({
+      id: docSnap.id,
+      name: (docSnap.data().name as string) ?? '',
+      organizationId: (docSnap.data().organizationId as string) ?? '',
+      status: (docSnap.data().status as string) ?? '',
+      artistType: (docSnap.data().artistType as string) ?? '',
+    })),
+  );
+  console.groupEnd();
+
+  const mapped = snap.docs.map((d) => toArtistRecord(d.id, d.data() as Record<string, unknown>, organizationId));
+  console.log('[ArtistRepository] Mapped legacy artists:', mapped.length);
+  return mapped;
 }
 
 export async function listArtists(organizationId: string): Promise<ArtistRecord[]> {
@@ -343,11 +373,22 @@ export async function listArtists(organizationId: string): Promise<ArtistRecord[
     console.warn('[ArtistRepository] Legacy catalogue unavailable', error);
   }
 
+  console.log('[ArtistRepository] Before merge');
+  console.log({
+    nested: nestedArtists.length,
+    legacy: legacyArtists.length,
+  });
+
   const merged = mergeArtistCatalogues(legacyArtists, nestedArtists);
 
-  console.log('Nested artists count:', nestedArtists.length);
-  console.log('Legacy artists count:', legacyArtists.length);
-  console.log('Merged count:', merged.length);
+  console.table(
+    merged.map((a) => ({
+      id: a.id,
+      name: a.name,
+      organizationId: a.organizationId,
+    })),
+  );
+  console.log('[ArtistRepository] Merged count:', merged.length);
 
   if (merged.length === 0 && (nestedFailed || legacyFailed)) {
     console.warn('[ArtistRepository] Catalogue empty — nested failed:', nestedFailed, 'legacy failed:', legacyFailed);

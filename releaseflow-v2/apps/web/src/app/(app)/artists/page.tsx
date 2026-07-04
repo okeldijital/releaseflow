@@ -15,8 +15,6 @@ export default function ArtistsPage() {
   const router = useRouter();
   const { artists, loading } = useArtists();
 
-  console.log('[ArtistsPage] artists received by component:', artists.length);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -24,6 +22,16 @@ export default function ArtistsPage() {
       </div>
     );
   }
+
+  console.group('[Artists Page]');
+  console.log('Artists received:', artists.length);
+  console.table(
+    artists.map((a) => ({
+      id: a.id,
+      name: a.name,
+    })),
+  );
+  console.groupEnd();
 
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
