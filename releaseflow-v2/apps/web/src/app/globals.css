@@ -97,8 +97,8 @@
 
   /* ─── Shadows (PDS-13) — warm-tinted, editorial ───────────────── */
   --shadow-none:    none;
-  --shadow-card:    0 1px 3px rgba(42, 35, 25, 0.06), 0 1px 2px rgba(42, 35, 25, 0.04);
-  --shadow-raised:  0 4px 12px rgba(42, 35, 25, 0.08), 0 2px 4px rgba(42, 35, 25, 0.05);
+  --shadow-card:    0 1px 3px rgba(0, 0, 0, 0.28), 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-raised:  0 4px 16px rgba(0, 0, 0, 0.32), 0 2px 6px rgba(0, 0, 0, 0.2);
   --shadow-modal:   0 24px 72px rgba(42, 35, 25, 0.14), 0 8px 24px rgba(42, 35, 25, 0.08);
   --shadow-overlay: 0 8px 24px rgba(42, 35, 25, 0.10);
   --shadow-focus:   0 0 0 3px rgba(204, 85, 0, 0.18);
@@ -233,10 +233,19 @@
   --color-status-critical:  var(--color-danger-600);
   --color-status-released:  var(--color-workflow-released);
 
+  /* ─── UAT-001 #008 — Dark readability hierarchy ───────────────── */
+  --color-layer-1: #1C1C1E;
+  --color-layer-2: #232326;
+  --color-layer-3: #2C2C2E;
+  --color-content-primary:   #F5F5F7;
+  --color-content-secondary: #C7C7CC;
+  --color-content-label:     #9A9AA1;
+  --color-divider: rgba(255, 255, 255, 0.08);
+
   /* ─── Borders (PDS-13) ────────────────────────────────────────── */
-  --color-border-subtle:  var(--color-surface-200);
-  --color-border-default: var(--color-surface-300);
-  --color-border-strong:  var(--color-surface-400);
+  --color-border-subtle:  var(--color-divider);
+  --color-border-default: var(--color-divider);
+  --color-border-strong:  rgba(255, 255, 255, 0.14);
   --color-border-focus:   var(--color-primary-500);
   --color-border-error:   var(--color-danger-500);
 
@@ -316,7 +325,7 @@
 
   /* Shimmer skeleton utility */
   .animate-shimmer {
-    background: linear-gradient(90deg, var(--color-surface-100) 25%, var(--color-surface-50) 50%, var(--color-surface-100) 75%);
+    background: linear-gradient(90deg, var(--color-layer-3) 25%, var(--color-layer-2) 50%, var(--color-layer-3) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
   }
@@ -446,11 +455,20 @@
     --rf-color-surface-900: #1E1A17;
     --rf-color-surface-950: #130F0C;
 
+    /* UAT-001 #008 — readability hierarchy */
+    --rf-color-layer-1: #1C1C1E;
+    --rf-color-layer-2: #232326;
+    --rf-color-layer-3: #2C2C2E;
+    --rf-color-content-primary:   #F5F5F7;
+    --rf-color-content-secondary: #C7C7CC;
+    --rf-color-content-label:     #9A9AA1;
+    --rf-color-divider: rgba(255, 255, 255, 0.08);
+
     /* Color.Text (semantic aliases) */
-    --rf-color-text-primary:   var(--color-text-900);
-    --rf-color-text-secondary: var(--color-text-600);
-    --rf-color-text-tertiary:  var(--color-text-400);
-    --rf-color-text-disabled:  var(--color-text-300);
+    --rf-color-text-primary:   var(--rf-color-content-primary);
+    --rf-color-text-secondary: var(--rf-color-content-secondary);
+    --rf-color-text-tertiary:  var(--rf-color-content-label);
+    --rf-color-text-disabled:  #6E6E73;
     --rf-color-text-inverse:   #FFFFFF;
 
     /* Color.Feedback */
@@ -618,6 +636,11 @@
     --rf-opacity-loading:  0.6;
   }
 
+  body {
+    background-color: var(--color-layer-1);
+    color: var(--color-content-primary);
+  }
+
   /* Focus ring — warm brand colour, visible but not aggressive */
   *:focus-visible {
     outline: none;
@@ -648,8 +671,8 @@
 
   /* Selection colour */
   ::selection {
-    background: rgba(204, 85, 0, 0.15);
-    color: var(--color-text-900);
+    background: rgba(204, 85, 0, 0.28);
+    color: var(--color-content-primary);
   }
 
   /* Reduced motion — respect OS preference */

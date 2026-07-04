@@ -31,7 +31,7 @@ export function CreditsTable({ items, className = '' }: CreditsTableProps) {
   const totalPercentage = items.reduce((sum, item) => sum + (item.percentage ?? 0), 0);
 
   return (
-    <div className={`rounded-xl border border-surface-200 bg-white overflow-hidden ${className}`}>
+    <div className={`rounded-xl border border-surface-200 bg-layer-2 overflow-hidden ${className}`}>
       <div role="table" aria-label="Credits">
         <div role="rowgroup" className="bg-surface-50 border-b border-surface-200">
           <div role="row" className="flex">

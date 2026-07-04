@@ -98,7 +98,7 @@ export function Modal({
         aria-describedby={description ? descId : undefined}
         className={`
           relative z-10 w-full ${modalSizeClasses[size]}
-          bg-white dark:bg-surface-900
+          bg-layer-2
           rounded-lg shadow-overlay
           border border-surface-200 dark:border-surface-700
           ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}
@@ -213,7 +213,7 @@ export function Drawer({
         aria-label={title}
         className={`
           fixed top-0 bottom-0 ${side} ${width} max-w-full
-          bg-white dark:bg-surface-900
+          bg-layer-2
           border-surface-200 dark:border-surface-700
           shadow-overlay flex flex-col
           transition-transform duration-300 ease-out

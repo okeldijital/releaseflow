@@ -57,7 +57,7 @@ export default function ReleasesPage() {
           action={{ label: 'Create Release', onClick: () => router.push('/releases/new') }}
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-surface-200/80 bg-white divide-y divide-surface-100/80 dark:bg-surface-900 dark:border-surface-700/80 dark:divide-surface-800">
+        <div className="overflow-hidden rounded-xl border border-surface-200/80 bg-layer-2 divide-y divide-surface-100/80 dark:bg-surface-900 dark:border-surface-700/80 dark:divide-surface-800">
           {releases.map((release) => (
             <Link
               key={release.id}

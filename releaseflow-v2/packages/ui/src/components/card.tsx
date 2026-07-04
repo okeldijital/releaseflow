@@ -36,7 +36,7 @@ export function Card({
   return (
     <div
       className={`
-         rounded-lg bg-white dark:bg-surface-900
+         rounded-lg border border-divider bg-layer-2
          ${elevationClasses[elevation]}
          ${hover || clickable ? 'hover:shadow-raised transition-shadow duration-150' : ''}
          ${clickable ? 'cursor-pointer' : ''}
@@ -81,18 +81,17 @@ export function MetricCard({
   return (
     <div
       className={`
-         rounded-lg bg-white shadow-card p-6
-         dark:bg-surface-900
+         rounded-lg border border-divider bg-layer-2 shadow-card p-6
          ${className}
        `.trim()}
     >
       <div className="flex items-start justify-between">
-        <p className="text-xs font-medium text-text-500 uppercase tracking-wider">{label}</p>
+        <p className="text-xs font-medium text-content-label uppercase tracking-wider">{label}</p>
         {icon ? (
-          <span className="text-text-400">{icon}</span>
+          <span className="text-content-label">{icon}</span>
         ) : null}
       </div>
-      <p className="text-3xl font-semibold text-text-900 mt-2 leading-none dark:text-text-50">{value}</p>
+      <p className="text-3xl font-semibold text-content-primary mt-2 leading-none">{value}</p>
       {trend && trendValue ? (
         <p
           className={`text-xs mt-2 font-medium ${
@@ -100,7 +99,7 @@ export function MetricCard({
               ? 'text-success-500'
               : trend === 'down'
               ? 'text-danger-500'
-              : 'text-text-400'
+              : 'text-content-label'
           }`}
         >
           {trendValue}
@@ -132,22 +131,21 @@ export function WorkspaceCard({
   return (
     <div
       className={`
-         rounded-lg bg-white shadow-card p-4
+         rounded-lg border border-divider bg-layer-2 shadow-card p-4
          hover:shadow-raised transition-shadow duration-200
-         dark:bg-surface-900
          ${className}
        `.trim()}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-text-900 truncate leading-snug dark:text-text-50">{title}</p>
+          <p className="font-semibold text-content-primary truncate leading-snug">{title}</p>
           <div className="flex items-center gap-2 mt-1">
             {subtitle ? (
-              <p className="text-sm text-text-500 truncate">{subtitle}</p>
+              <p className="text-sm text-content-secondary truncate">{subtitle}</p>
             ) : null}
             {status ? (
               <span
-                className={`text-xs font-medium capitalize rounded-full px-2 py-1 shrink-0 ${statusColor ?? 'bg-surface-100 text-text-500'}`}
+                className={`text-xs font-medium capitalize rounded-full px-2 py-1 shrink-0 ${statusColor ?? 'bg-layer-3 text-content-label'}`}
               >
                 {status}
               </span>

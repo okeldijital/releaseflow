@@ -256,7 +256,7 @@ export function Sidebar({
             hidden lg:flex absolute -right-3.5 top-5 z-50
             h-7 w-7 items-center justify-center rounded-full
             border border-surface-200 dark:border-surface-700
-            bg-white dark:bg-surface-800
+            bg-layer-2 dark:bg-surface-800
             text-text-500 dark:text-text-400
             shadow-sm
             hover:bg-surface-50 hover:text-text-800 dark:hover:bg-surface-700 dark:hover:text-text-200

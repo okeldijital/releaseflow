@@ -92,7 +92,7 @@ export function ConfirmationDialog({
         aria-describedby={message ? 'confirm-message' : undefined}
         className={`
           relative z-10 w-full max-w-md
-          bg-white dark:bg-surface-900
+          bg-layer-2
           rounded-lg shadow-modal
           border border-surface-200 dark:border-surface-700
           ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}
@@ -144,7 +144,7 @@ export function ConfirmationDialog({
             type="button"
             onClick={handleClose}
             disabled={loading}
-            className="h-10 px-4 text-sm font-medium text-text-700 dark:text-text-300 rounded-md border border-surface-200 dark:border-surface-600 bg-white dark:bg-surface-900 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors duration-100 disabled:opacity-50"
+            className="h-10 px-4 text-sm font-medium text-text-700 dark:text-text-300 rounded-md border border-surface-200 dark:border-surface-600 bg-layer-2 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors duration-100 disabled:opacity-50"
           >
             {cancelLabel}
           </button>

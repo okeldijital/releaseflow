@@ -46,7 +46,7 @@ export default function ArtistsPage() {
       {artists.length === 0 ? (
         <EmptyState title="No artists yet" description="Add your first artist to connect them to releases." action={{ label: 'Add Artist', onClick: () => router.push('/artists/new') }} />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-surface-200/80 bg-white divide-y divide-surface-100/80 dark:bg-surface-900 dark:border-surface-700/80 dark:divide-surface-800">
+        <div className="overflow-hidden rounded-xl border border-surface-200/80 bg-layer-2 divide-y divide-surface-100/80 dark:bg-surface-900 dark:border-surface-700/80 dark:divide-surface-800">
           {artists.map((a) => (
             <Link key={a.id} href={`/artists/${a.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-surface-50/80 dark:hover:bg-surface-800/40 transition-colors duration-100 group">
               <Avatar name={a.name} src={a.imageUrl ?? undefined} size="md" />

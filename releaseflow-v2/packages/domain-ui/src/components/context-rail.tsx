@@ -166,7 +166,7 @@ export function ContextRail({
     <aside
       role="complementary"
       aria-label="Release Context"
-      className={`bg-white lg:w-80 lg:border-l lg:border-surface-200 lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:overflow-y-auto border-b border-surface-200 ${className}`}
+      className={`bg-layer-2 lg:w-80 lg:border-l lg:border-surface-200 lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:overflow-y-auto border-b border-surface-200 ${className}`}
     >
       <button
         type="button"

@@ -108,7 +108,7 @@ export default function AdministrationProfilePage() {
       </div>
 
       <div className="space-y-6">
-        <div className="rounded-xl border border-surface-200/80 bg-white px-6 py-6 space-y-5">
+        <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-6 py-6 space-y-5">
           <Input label="Email" type="email" value={user?.email ?? ''} disabled />
 
           <Input label="Display Name" type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your display name" />
@@ -123,7 +123,7 @@ export default function AdministrationProfilePage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-surface-200/80 bg-white px-6 py-6 space-y-5">
+        <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-6 py-6 space-y-5">
           <div>
             <p className="text-sm font-semibold text-text-900">Notification Preferences</p>
             <p className="text-xs text-text-400 mt-1">Control how you receive notifications</p>

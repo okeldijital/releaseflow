@@ -61,7 +61,7 @@ export function Switch({
       >
         <span
           className={`
-            inline-block rounded-full bg-white shadow-sm
+            inline-block rounded-full bg-layer-2 shadow-sm
             transition-transform duration-200 ease-out
             ${thumbSize[size]}
             ${checked ? thumbOn[size] : thumbOff[size]}

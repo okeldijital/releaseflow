@@ -126,12 +126,12 @@ function NotReadyIcon() {
 
 function getStatusPill(readyCount: number, totalCount: number) {
   if (readyCount === totalCount) {
-    return { text: 'Release Ready', className: 'bg-success-50 text-success-500' };
+    return { text: 'Release Ready', className: 'bg-success-500/15 text-success-500' };
   }
   if (readyCount < 4) {
-    return { text: 'Attention Needed', className: 'bg-danger-50 text-danger-500' };
+    return { text: 'Attention Needed', className: 'bg-danger-500/15 text-danger-500' };
   }
-  return { text: 'Action Required', className: 'bg-warning-50 text-warning-500' };
+  return { text: 'Action Required', className: 'bg-primary-500/15 text-primary-400' };
 }
 
 export function ReadinessStack({ categories, className = '' }: ReadinessStackProps) {
@@ -154,24 +154,27 @@ export function ReadinessStack({ categories, className = '' }: ReadinessStackPro
   const pill = getStatusPill(readyCount, totalCount);
 
   return (
-    <div className={`rounded-xl border border-surface-200 bg-white p-6 ${className}`}>
+    <div className={`rounded-xl border border-divider bg-layer-2 p-6 ${className}`}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-text-900">Readiness</h3>
+        <h3 className="text-sm font-medium text-content-primary">Readiness</h3>
         <span className={`inline-flex items-center text-xs font-medium rounded-full px-3 py-1 ${pill.className}`}>
           {pill.text}
         </span>
       </div>
 
-      <div className="bg-surface-200 rounded-full h-2 mb-2 overflow-hidden">
+      <div className="flex items-end justify-between gap-3 mb-2">
+        <p className="text-3xl font-semibold text-content-primary leading-none">{percentage}%</p>
+        <p className="text-xs text-content-label">
+          {readyCount} of {totalCount} ready
+        </p>
+      </div>
+
+      <div className="bg-layer-3 rounded-full h-2 mb-4 overflow-hidden">
         <div
-          className="h-full rounded-full bg-success-500 transition-all duration-300 ease-out"
+          className="h-full rounded-full bg-primary-500 transition-all duration-300 ease-out"
           style={{ width: `${percentage}%` }}
         />
       </div>
-
-      <p className="text-xs text-text-500 mb-4">
-        {readyCount} of {totalCount} categories ready &middot; {percentage}%
-      </p>
 
       {notReady.length > 0 && (
         <div className="mb-3">

@@ -33,7 +33,7 @@ export function DistributionBoard({ platforms, className = '' }: DistributionBoa
           <div
             key={platform.id}
             role="listitem"
-            className="rounded-xl border border-surface-200 bg-white p-4 hover:shadow-raised transition-shadow duration-200"
+            className="rounded-xl border border-surface-200 bg-layer-2 p-4 hover:shadow-raised transition-shadow duration-200"
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold text-text-900">{platform.name}</span>

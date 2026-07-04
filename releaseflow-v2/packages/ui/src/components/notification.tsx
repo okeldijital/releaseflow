@@ -90,7 +90,7 @@ export function Notification({
     <div
       role="alert"
       aria-live="polite"
-      className={`bg-white rounded-md shadow-raised border border-surface-200 p-4 border-l-4
+      className={`bg-layer-2 rounded-md shadow-raised border border-surface-200 p-4 border-l-4
         ${borderAccentClasses[type]}
         ${className}
       `}

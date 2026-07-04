@@ -97,7 +97,7 @@ export default function AdministrationSecurityPage() {
         {members.length > 0 ? (
           <div className="space-y-1.5">
             {members.map((m) => (
-              <div key={m.id} className="flex items-center justify-between rounded-lg border border-surface-200/80 bg-white px-4 py-2.5">
+              <div key={m.id} className="flex items-center justify-between rounded-lg border border-surface-200/80 bg-layer-2 px-4 py-2.5">
                 <div className="flex items-center gap-3 min-w-0">
                   <p className="text-sm font-medium text-text-900 truncate">{m.userId.slice(0, 8)}&hellip;</p>
                   <StatusBadge status={m.status} />

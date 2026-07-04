@@ -215,7 +215,7 @@ export default function AdministrationOrganizationPage() {
       </div>
 
       <div className="space-y-6">
-        <div className="rounded-xl border border-surface-200/80 bg-white px-6 py-6 space-y-5">
+        <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-6 py-6 space-y-5">
           <Input label="Name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Organization name" />
           <Input label="Slug" type="text" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="org-slug" hint="Used in URLs and identifiers" />
 
@@ -239,7 +239,7 @@ export default function AdministrationOrganizationPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-surface-200/80 bg-white px-6 py-6 space-y-5">
+        <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-6 py-6 space-y-5">
           <div>
             <p className="text-sm font-semibold text-text-900">Workspace Preferences</p>
             <p className="text-xs text-text-400 mt-1">Default settings for new releases and workflows</p>

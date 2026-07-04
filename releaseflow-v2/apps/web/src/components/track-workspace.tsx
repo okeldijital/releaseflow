@@ -411,7 +411,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
       {/* Hero */}
       <section className="grid grid-cols-1 lg:grid-cols-[240px_1fr_260px] gap-6 mb-8" aria-label="Track overview">
-        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-3 flex flex-col gap-3">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-3 flex flex-col gap-3">
           <p className="text-xs font-semibold text-text-500 uppercase tracking-wider px-1">Artwork</p>
           <div className={`w-full aspect-square rounded-xl flex items-center justify-center overflow-hidden shadow-card ${artworkAsset?.url ? 'bg-surface-950' : artworkColor}`}>
             {artworkAsset?.url ? (
@@ -482,7 +482,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
           </dl>
         </div>
 
-        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-4 flex flex-col gap-3">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Track Readiness</p>
             <span className={`text-2xl font-semibold tabular-nums ${readinessPct >= 80 ? 'text-success-600' : readinessPct >= 50 ? 'text-warning-600' : 'text-danger-600'}`}>
@@ -542,7 +542,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {pendingTasks.map((task) => (
-                  <div key={task.id} className="rounded-xl border border-surface-200 bg-white shadow-card p-4 flex flex-col gap-2">
+                  <div key={task.id} className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 flex flex-col gap-2">
                     <p className="text-sm font-medium text-text-900">{task.title}</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <StatusBadge status={task.status} />
@@ -587,7 +587,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
           <section aria-label="Assigned People">
             <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-4">Assigned People</h2>
-            <div className="rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden divide-y divide-surface-100">
+            <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden divide-y divide-surface-100">
               {ROLE_GROUPS.map((group) => {
                 const resolved = resolveRoleAssignment(group.roles);
                 return (
@@ -648,7 +648,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
               <span className="text-xs text-text-500">{metadataOpen ? 'Collapse' : 'Expand'}</span>
             </button>
             {metadataOpen ? (
-              <div className="rounded-xl border border-surface-200 bg-white shadow-card p-4 grid gap-3 sm:grid-cols-2 text-sm">
+              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 grid gap-3 sm:grid-cols-2 text-sm">
                 <MetaField label="ISRC" value={track.isrc ?? '—'} />
                 <MetaField label="Language" value={track.language ?? '—'} />
                 <MetaField label="Genre" value={track.genre ?? '—'} />
@@ -664,7 +664,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
             {meaningfulActivities.length === 0 ? (
               <EmptyState title="No activity yet." />
             ) : (
-              <div className="rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden divide-y divide-surface-100">
+              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden divide-y divide-surface-100">
                 {meaningfulActivities.map(({ ev, label }) => (
                   <div key={ev.id} className="flex items-start gap-3 px-4 py-3">
                     <div className="h-7 w-7 rounded-full bg-primary-50 flex items-center justify-center shrink-0 text-[11px] font-semibold text-primary-700">
@@ -686,7 +686,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
         <div className="space-y-6">
           <section>
             <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-4">Production Status</h2>
-            <div className="rounded-xl border border-surface-200 bg-white shadow-card p-5">
+            <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5">
               <p className="text-sm text-text-700">Current stage: <span className="font-semibold text-text-900">{productionStage}</span></p>
               <p className="text-xs text-text-500 mt-2">{pendingTasks.length} pending task{pendingTasks.length === 1 ? '' : 's'}</p>
             </div>
@@ -698,7 +698,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
             ) : (
               <div className="space-y-2">
                 {tasks.filter((t) => t.status !== 'done').map((task) => (
-                  <div key={task.id} className="rounded-xl border border-surface-200 bg-white shadow-card px-4 py-3 flex items-center justify-between gap-3">
+                  <div key={task.id} className="rounded-xl border border-surface-200 bg-layer-2 shadow-card px-4 py-3 flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium text-text-900">{task.title}</p>
                       <p className="text-xs text-text-500">{relativeDue(task.dueDate)}</p>
@@ -744,7 +744,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
       )}
 
       {tab === 'rights' && (
-        <div className="rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden divide-y divide-surface-100">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden divide-y divide-surface-100">
           {rights.length === 0 ? (
             <div className="p-6"><EmptyState title="No rights registered." description="Rights will appear here once added." /></div>
           ) : rights.map((r) => (
@@ -762,7 +762,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
         meaningfulActivities.length === 0 ? (
           <EmptyState title="No activity yet." />
         ) : (
-          <div className="rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden divide-y divide-surface-100">
+          <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden divide-y divide-surface-100">
             {meaningfulActivities.map(({ ev, label }) => (
               <div key={ev.id} className="px-4 py-3">
                 <p className="text-sm text-text-700 font-medium">{label}</p>
@@ -826,7 +826,7 @@ function DeliverablesList({
   onRequest: (label: string) => void;
 }) {
   return (
-    <div className="rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden">
+    <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
       {rows.map((row, i) => (
         <div key={row.id} className={`flex items-center gap-3 px-4 py-3.5 ${i > 0 ? 'border-t border-surface-100' : ''}`}>
           {row.received
@@ -872,7 +872,7 @@ function CreditsTable({
   onRemove: (id: string) => void;
 }) {
   return (
-    <div className="rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden">
+    <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
       <div className="hidden sm:grid grid-cols-[1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-surface-100 bg-surface-50 text-[11px] font-semibold text-text-400 uppercase tracking-wider">
         <span>Role</span><span>Person</span><span />
       </div>
@@ -950,7 +950,7 @@ function SettingsPanel({
   }
 
   return (
-    <div className="rounded-xl border border-surface-200 bg-white shadow-card p-5 space-y-4 max-w-lg">
+    <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 space-y-4 max-w-lg">
       <p className="text-sm font-semibold text-text-900">Edit Track</p>
       <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm" />
       <input type="text" value={version} onChange={(e) => setVersion(e.target.value)} placeholder="Version" className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm" />

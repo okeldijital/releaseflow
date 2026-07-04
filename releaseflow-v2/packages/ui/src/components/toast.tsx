@@ -101,7 +101,7 @@ export function Toast({
     <div
       role={isCritical ? 'alert' : 'status'}
       aria-live="polite"
-      className={`bg-white dark:bg-surface-800 rounded-md shadow-raised border border-surface-200 dark:border-surface-600 p-4 border-l-4 max-w-sm animate-slide-up
+      className={`bg-layer-2 dark:bg-surface-800 rounded-md shadow-raised border border-surface-200 dark:border-surface-600 p-4 border-l-4 max-w-sm animate-slide-up
         ${borderAccentClasses[type]}
         ${className}
       `}

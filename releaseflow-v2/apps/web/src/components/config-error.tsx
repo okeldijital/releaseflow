@@ -8,7 +8,7 @@ interface ConfigErrorProps {
 export function ConfigErrorScreen({ missing, present }: ConfigErrorProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-50 px-4">
-      <div className="w-full max-w-md rounded-xl border border-danger-200 bg-white shadow-modal p-8">
+      <div className="w-full max-w-md rounded-xl border border-danger-200 bg-layer-2 shadow-modal p-8">
         <div className="flex items-center gap-3 mb-6">
           <div className="h-10 w-10 rounded-lg bg-danger-500 flex items-center justify-center shrink-0">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

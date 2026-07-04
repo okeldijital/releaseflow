@@ -32,7 +32,7 @@ const variantTabClasses: Record<TabVariant, string> = {
 const variantActiveClasses: Record<TabVariant, string> = {
   underline: 'border-primary-500 text-primary-600 dark:text-primary-400',
   pill: 'bg-primary-500 text-white shadow-sm',
-  border: 'bg-white text-text-900 border-surface-200 dark:bg-surface-900 dark:text-text-50 dark:border-surface-600 shadow-card -mb-px',
+  border: 'bg-layer-2 text-text-900 border-surface-200 dark:bg-surface-900 dark:text-text-50 dark:border-surface-600 shadow-card -mb-px',
 };
 
 export function Tabs({
@@ -110,7 +110,7 @@ export function Tabs({
               <span
                 className={`text-xs rounded-full px-2 py-1 font-semibold leading-none ${
                   variant === 'pill'
-                    ? (active ? 'bg-white/20 text-white' : 'bg-surface-200 text-text-500 dark:bg-surface-700 dark:text-text-400')
+                    ? (active ? 'bg-layer-2/20 text-white' : 'bg-surface-200 text-text-500 dark:bg-surface-700 dark:text-text-400')
                     : (active ? 'bg-primary-50 text-primary-600' : 'bg-surface-100 text-text-500 dark:bg-surface-800 dark:text-text-400')
                 }`}
               >

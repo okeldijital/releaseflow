@@ -136,7 +136,7 @@ export function CommandPalette() {
     <>
       <div className="fixed inset-0 z-[90] bg-black/30" onClick={() => setOpen(false)} aria-hidden="true" />
       <div
-        className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[91] w-full max-w-lg bg-white dark:bg-surface-900 rounded-xl border border-surface-200 shadow-modal overflow-hidden"
+        className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[91] w-full max-w-lg bg-layer-2 rounded-xl border border-surface-200 shadow-modal overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"

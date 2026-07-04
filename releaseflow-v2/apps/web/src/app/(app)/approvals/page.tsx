@@ -184,7 +184,7 @@ export default function ApprovalsPage() {
                 : 'Add an optional note with your approval.'}
             </p>
             <textarea
-              className="w-full rounded-lg border border-surface-200 bg-white dark:bg-surface-900 px-3 py-2 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-[80px]"
+              className="w-full rounded-lg border border-surface-200 bg-layer-2 px-3 py-2 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-[80px]"
               placeholder="Add a note..."
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
@@ -268,7 +268,7 @@ function ApprovalSection({
             const entityLabel = r.entityType ?? 'deliverable';
 
             return (
-              <div key={r.id} className="rounded-lg border border-surface-200 bg-white dark:bg-surface-900 p-4">
+              <div key={r.id} className="rounded-lg border border-surface-200 bg-layer-2 p-4">
                 <div
                   className="flex items-start justify-between cursor-pointer"
                   onClick={() => onToggle(r.id)}

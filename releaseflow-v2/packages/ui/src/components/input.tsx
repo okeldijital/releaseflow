@@ -31,7 +31,7 @@ export function Input({
       {label ? (
         <label
           htmlFor={inputId}
-          className="mb-2 block text-sm font-medium text-text-700 dark:text-text-300"
+          className="mb-2 block text-sm font-medium text-content-label"
         >
           {label}
         </label>
@@ -50,19 +50,18 @@ export function Input({
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
           className={`
-            h-10 w-full rounded-md border bg-white px-3 text-sm text-text-900
-            placeholder:text-text-400
+            h-10 w-full rounded-md border border-divider bg-layer-3 px-3 text-sm text-content-primary
+            placeholder:text-content-label
             transition-colors duration-100 ease-out
-            dark:bg-surface-900 dark:text-text-100 dark:placeholder:text-text-600
             ${error
               ? 'border-danger-500 focus:border-danger-500 focus:ring-2 focus:ring-danger-500'
-              : 'border-surface-300 dark:border-surface-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500'
+              : 'focus:border-primary-500 focus:ring-2 focus:ring-primary-500'
             }
             ${leftIcon ? 'pl-9' : ''}
             ${rightIcon ? 'pr-9' : ''}
             ${disabled
-              ? 'cursor-not-allowed bg-surface-50 text-text-400 opacity-50 dark:bg-surface-800'
-              : 'hover:border-surface-400 dark:hover:border-surface-500'
+              ? 'cursor-not-allowed bg-layer-2 text-content-label opacity-50'
+              : 'hover:border-border-strong'
             }
             focus:outline-none
           `.trim()}
@@ -82,7 +81,7 @@ export function Input({
         </p>
       ) : null}
       {hint && !error ? (
-        <p id={hintId} className="mt-2 text-xs text-text-400 dark:text-text-500">
+        <p id={hintId} className="mt-2 text-xs text-content-label">
           {hint}
         </p>
       ) : null}
@@ -122,7 +121,7 @@ export function TextArea({
       {label ? (
         <label
           htmlFor={textareaId}
-          className="mb-2 block text-sm font-medium text-text-700 dark:text-text-300"
+          className="mb-2 block text-sm font-medium text-content-label"
         >
           {label}
         </label>
@@ -135,18 +134,17 @@ export function TextArea({
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className={`
-          w-full rounded-md border bg-white px-3 py-2 text-sm text-text-900
-          placeholder:text-text-400
+          w-full rounded-md border border-divider bg-layer-3 px-3 py-2 text-sm text-content-primary
+          placeholder:text-content-label
           transition-colors duration-100 ease-out
-          dark:bg-surface-900 dark:text-text-100 dark:placeholder:text-text-600
           ${error
             ? 'border-danger-500 focus:border-danger-500 focus:ring-2 focus:ring-danger-500'
-            : 'border-surface-300 dark:border-surface-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500'
+            : 'focus:border-primary-500 focus:ring-2 focus:ring-primary-500'
           }
           ${!resize ? 'resize-none' : ''}
           ${disabled
-            ? 'cursor-not-allowed bg-surface-50 text-text-400 opacity-50 dark:bg-surface-800'
-            : 'hover:border-surface-400 dark:hover:border-surface-500'
+            ? 'cursor-not-allowed bg-layer-2 text-content-label opacity-50'
+            : 'hover:border-border-strong'
           }
           focus:outline-none
         `.trim()}
@@ -159,7 +157,7 @@ export function TextArea({
         </p>
       ) : null}
       {hint && !error ? (
-        <p id={hintId} className="mt-2 text-xs text-text-400 dark:text-text-500">
+        <p id={hintId} className="mt-2 text-xs text-content-label">
           {hint}
         </p>
       ) : null}

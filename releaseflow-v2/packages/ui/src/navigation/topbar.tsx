@@ -97,7 +97,7 @@ export function Topbar({
                 placeholder="Search releases, tasks, assets..."
                 value={searchValue}
                 onChange={(e) => handleSearch(e.target.value)}
-                className="block w-[300px] lg:w-[380px] rounded-xl border border-surface-200/70 bg-surface-50 py-1.5 pl-9 pr-14 text-sm text-text-900 placeholder-text-400 focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700/60 dark:bg-surface-800 dark:text-surface-50 dark:placeholder-text-500 dark:focus:border-primary-500/60 dark:focus:bg-surface-900 transition-all duration-150"
+                className="block w-[300px] lg:w-[380px] rounded-xl border border-surface-200/70 bg-surface-50 py-1.5 pl-9 pr-14 text-sm text-text-900 placeholder-text-400 focus:border-primary-400 focus:bg-layer-2 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-surface-700/60 dark:bg-surface-800 dark:text-surface-50 dark:placeholder-text-500 dark:focus:border-primary-500/60 dark:focus:bg-surface-900 transition-all duration-150"
               />
               {searchValue ? (
                 <button
@@ -114,7 +114,7 @@ export function Topbar({
               {onOpenCommandPalette && (
                 <button
                   onClick={onOpenCommandPalette}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-0.5 rounded border border-surface-200 bg-white px-1.5 py-0.5 text-[9px] font-medium text-text-400 shadow-sm hover:border-surface-300 dark:border-surface-700 dark:bg-surface-800 dark:text-text-500 dark:hover:border-surface-600 transition-colors duration-150"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-0.5 rounded border border-surface-200 bg-layer-2 px-1.5 py-0.5 text-[9px] font-medium text-text-400 shadow-sm hover:border-surface-300 dark:border-surface-700 dark:bg-surface-800 dark:text-text-500 dark:hover:border-surface-600 transition-colors duration-150"
                   aria-label="Open command palette"
                 >
                   <kbd className="font-mono text-[9px]">⌘K</kbd>
@@ -159,7 +159,7 @@ export function Topbar({
 
               {userMenuOpen && (
                 <div
-                  className="absolute right-0 mt-2 w-56 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 p-1.5 shadow-modal z-50 animate-fade-in focus:outline-none"
+                  className="absolute right-0 mt-2 w-56 rounded-xl border border-surface-200 dark:border-surface-700 bg-layer-2 p-1.5 shadow-modal z-50 animate-fade-in focus:outline-none"
                   role="menu"
                   aria-orientation="vertical"
                 >

@@ -450,7 +450,7 @@ export default function ReleaseWorkspacePage() {
       <section className="grid grid-cols-1 lg:grid-cols-[240px_1fr_260px] gap-6 mb-8" aria-label="Release overview">
 
         {/* Artwork */}
-        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-3 flex flex-col gap-3">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-3 flex flex-col gap-3">
           <p className="text-xs font-semibold text-text-500 uppercase tracking-wider px-1">Artwork</p>
           <div className={`w-full aspect-square rounded-xl flex items-center justify-center overflow-hidden shadow-card ring-1 ring-white/10 ${artworkAsset ? 'bg-surface-950' : artworkColor}`}>
             {artworkAsset ? (
@@ -495,7 +495,7 @@ export default function ReleaseWorkspacePage() {
         </div>
 
         {/* Readiness card */}
-        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-4 flex flex-col gap-3">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Release Readiness</p>
             <span className={`text-2xl font-semibold tabular-nums ${readinessPct >= 80 ? 'text-success-600' : readinessPct >= 50 ? 'text-warning-600' : 'text-danger-600'}`}>{readinessPct}%</span>
@@ -536,7 +536,7 @@ export default function ReleaseWorkspacePage() {
                   const overdue = isOverdue(task.dueDate);
                   const priorityColors: Record<string, string> = { critical: 'bg-danger-50 text-danger-600', high: 'bg-warning-50 text-warning-600', medium: 'bg-info-50 text-info-600', low: 'bg-surface-100 text-text-500' };
                   return (
-                    <div key={task.id} className="rounded-xl border border-surface-200 bg-white shadow-card p-4 flex flex-col gap-2 text-left">
+                    <div key={task.id} className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 flex flex-col gap-2 text-left">
                       <p className="text-sm font-medium text-text-900 leading-snug">{task.title}</p>
                       <div className="flex items-center gap-2 flex-wrap">
                         <StatusBadge status={task.status} />
@@ -566,7 +566,7 @@ export default function ReleaseWorkspacePage() {
             {assetChecklist.length === 0 ? (
               <EmptyState title="No assets have been added to this release yet." action={{ label: 'Upload Asset', onClick: () => handleTabChange('workflow') }} />
             ) : (
-              <div className="rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden">
+              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
                 {assetChecklist.map((asset, i) => {
                   const d = asset.deliverable;
                   const received = asset.received;
@@ -619,7 +619,7 @@ export default function ReleaseWorkspacePage() {
             {tracks.length === 0 ? (
               <EmptyState title="No tracks have been added." action={{ label: 'Add First Track', onClick: () => router.push(`/tracks/new?releaseId=${releaseId}`) }} />
             ) : (
-              <div className="rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden">
+              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
                 <div className="hidden sm:grid grid-cols-[2rem_1fr_4rem_6rem_6rem_6rem] gap-x-4 px-4 py-2.5 border-b border-surface-100 bg-surface-50">
                   <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider">#</span>
                   <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider">Title</span>
@@ -677,7 +677,7 @@ export default function ReleaseWorkspacePage() {
             ) : meaningfulActivities.length === 0 ? (
               <EmptyState title="No activity on this release yet." />
             ) : (
-              <div className="space-y-0 rounded-xl border border-surface-200 bg-white shadow-card overflow-hidden">
+              <div className="space-y-0 rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
                 {meaningfulActivities.slice(0, 12).map((ev, i) => {
                   const label = humaniseActivity(ev);
                   return (
@@ -711,32 +711,32 @@ export default function ReleaseWorkspacePage() {
 
       {/* ── Non-overview placeholder tabs ─────────────────────────────── */}
       {tab === 'workflow' && (
-        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-8 text-center">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-8 text-center">
           <p className="text-sm font-medium text-text-700 mb-1">Workflow</p>
           <p className="text-sm text-text-400">Full workflow management coming soon. Use the Pending Tasks section on Overview to action work.</p>
         </div>
       )}
 
       {tab === 'campaign' && (
-        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-8 text-center">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-8 text-center">
           <EmptyState title="No campaigns yet" description="Campaigns will appear here once they are created for this release." />
         </div>
       )}
 
       {tab === 'rights' && (
-        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-8 text-center">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-8 text-center">
           <EmptyState title="No rights records" description="Rights and ownership information will appear here once configured." />
         </div>
       )}
 
       {tab === 'budget' && (
-        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-8 text-center">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-8 text-center">
           <EmptyState title="No budget entries" description="Budget and cost information will appear here once entries are added." />
         </div>
       )}
 
       {tab === 'settings' && (
-        <div className="rounded-xl border border-surface-200 bg-white shadow-card p-6 max-w-lg">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-6 max-w-lg">
           <h2 className="text-base font-semibold text-text-900 mb-4">Release Settings</h2>
           <div className="flex gap-3">
             <Button variant="outline" size="sm" onClick={() => router.push(`/releases/${releaseId}/edit`)}>Edit Release</Button>

@@ -463,7 +463,7 @@ export function WorkflowBoard({
     <div
       role="list"
       aria-label="Workflow Stages"
-      className={`rounded-xl border border-surface-200 bg-white overflow-hidden ${className}`}
+      className={`rounded-xl border border-surface-200 bg-layer-2 overflow-hidden ${className}`}
     >
       <div className="px-4 py-3 border-b border-surface-100 flex flex-wrap items-center gap-2">
         {filterOptions.map((opt) => (
@@ -513,7 +513,7 @@ export function WorkflowBoard({
             return (
               <div
                 key={stage.id}
-                className={`rounded-lg border border-surface-200 bg-white overflow-hidden ${
+                className={`rounded-lg border border-surface-200 bg-layer-2 overflow-hidden ${
                   isActive ? 'ring-2 ring-primary-500' : ''
                 } ${overdue ? 'border-l-2 border-l-danger-500' : ''} ${
                   isExpanded ? 'bg-surface-50' : ''

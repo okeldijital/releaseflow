@@ -92,7 +92,7 @@ export function AppShell({
      * `overflow-hidden` on the root prevents double scrollbars — only the
      * main content column scrolls internally.
      */
-    <div className="flex h-screen overflow-hidden bg-surface-950 text-surface-50">
+    <div className="flex h-screen overflow-hidden bg-layer-1 text-content-primary">
       <div className="app-canvas-glow" aria-hidden="true" />
 
       {/* ── Skip link (accessibility) ────────────────────────────────── */}

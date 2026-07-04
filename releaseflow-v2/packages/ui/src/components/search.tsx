@@ -45,7 +45,7 @@ export function Search({
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         className={`w-full bg-surface-50 border border-surface-200 rounded-md px-3 py-2 pl-9 pr-8 text-sm text-text-900 placeholder:text-text-400 transition-colors duration-100
-          focus:outline-none focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500
+          focus:outline-none focus:bg-layer-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-500
         `}
       />
       {value ? (

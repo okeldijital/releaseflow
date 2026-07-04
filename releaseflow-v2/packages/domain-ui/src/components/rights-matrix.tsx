@@ -34,7 +34,7 @@ export function RightsMatrix({ items, className = '' }: RightsMatrixProps) {
   const isComplete = Math.abs(total - 100) < 0.01;
 
   return (
-    <div className={`rounded-xl border border-surface-200 bg-white overflow-hidden ${className}`}>
+    <div className={`rounded-xl border border-surface-200 bg-layer-2 overflow-hidden ${className}`}>
       <div role="table" aria-label="Rights Matrix">
         <div role="rowgroup" className="bg-surface-50 border-b border-surface-200">
           <div role="row" className="flex">

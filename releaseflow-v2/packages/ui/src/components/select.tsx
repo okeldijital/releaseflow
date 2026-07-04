@@ -110,7 +110,7 @@ export function Select({
           onClick={() => !disabled && setOpen((p) => !p)}
           onKeyDown={handleKeyDown}
           className={`
-            h-10 w-full flex items-center justify-between rounded-md border bg-white
+            h-10 w-full flex items-center justify-between rounded-md border bg-layer-2
             px-3 text-sm transition-colors duration-100 ease-out
             dark:bg-surface-900
             ${error
@@ -143,7 +143,7 @@ export function Select({
           <ul
             ref={listRef}
             role="listbox"
-            className="absolute z-20 mt-2 w-full rounded-md border border-surface-200 bg-white py-1 shadow-raised dark:bg-surface-900 dark:border-surface-700 max-h-60 overflow-auto animate-slide-down"
+            className="absolute z-20 mt-2 w-full rounded-md border border-surface-200 bg-layer-2 py-1 shadow-raised dark:bg-surface-900 dark:border-surface-700 max-h-60 overflow-auto animate-slide-down"
           >
             {options.map((option, index) => (
               <li

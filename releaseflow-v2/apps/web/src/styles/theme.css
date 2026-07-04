@@ -35,11 +35,20 @@
     --rf-color-surface-900: #1E1A17;
     --rf-color-surface-950: #130F0C;
 
+    /* ─── UAT-001 #008 — readability hierarchy ─────────────────────── */
+    --rf-color-layer-1: #1C1C1E;
+    --rf-color-layer-2: #232326;
+    --rf-color-layer-3: #2C2C2E;
+    --rf-color-content-primary:   #F5F5F7;
+    --rf-color-content-secondary: #C7C7CC;
+    --rf-color-content-label:     #9A9AA1;
+    --rf-color-divider: rgba(255, 255, 255, 0.08);
+
     /* ─── Color.Text (PDS-13) ─────────────────────────────────────── */
-    --rf-color-text-primary:   #2A2319;
-    --rf-color-text-secondary: #6D665F;
-    --rf-color-text-tertiary:  #78716C;
-    --rf-color-text-disabled:  #BDB4A8;
+    --rf-color-text-primary:   var(--rf-color-content-primary);
+    --rf-color-text-secondary: var(--rf-color-content-secondary);
+    --rf-color-text-tertiary:  var(--rf-color-content-label);
+    --rf-color-text-disabled:  #6E6E73;
     --rf-color-text-inverse:   #FFFFFF;
 
     /* ─── Color.Feedback (PDS-13) ─────────────────────────────────── */

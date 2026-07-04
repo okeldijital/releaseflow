@@ -89,7 +89,7 @@ function EditTrackDialog({ track, open, onClose, onSaved }: EditTrackDialogProps
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${closing ? 'opacity-0 transition-opacity duration-200' : ''}`}>
       <div className={`fixed inset-0 bg-surface-900/40 backdrop-blur-sm ${closing ? 'opacity-0 transition-opacity duration-200' : 'animate-fade-in'}`} onClick={handleClose} aria-hidden="true" />
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="edit-track-title" className={`relative z-10 w-full max-w-sm bg-white dark:bg-surface-800 rounded-lg shadow-modal border border-surface-200 dark:border-surface-600 ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}`}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="edit-track-title" className={`relative z-10 w-full max-w-sm bg-layer-2 dark:bg-surface-800 rounded-lg shadow-modal border border-surface-200 dark:border-surface-600 ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}`}>
         <div className="px-6 pt-6 pb-4 space-y-4">
           <h2 id="edit-track-title" className="text-base font-semibold text-text-900 dark:text-text-100">Edit Track</h2>
           <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -184,7 +184,7 @@ export default function TracksPage() {
       </div>
 
       {showAddForm && (
-        <div className="mb-6 rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 p-5 space-y-4">
+        <div className="mb-6 rounded-xl border border-surface-200/80 bg-layer-2 p-5 space-y-4">
           <p className="text-sm font-semibold text-text-900 dark:text-text-100">New Track</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Track title" />
@@ -218,7 +218,7 @@ export default function TracksPage() {
               key={t.id}
               type="button"
               onClick={() => router.push(`/tracks/${t.id}`)}
-              className="w-full text-left flex items-center justify-between rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-4 py-3.5 hover:border-primary-200 hover:shadow-sm transition-all duration-150"
+              className="w-full text-left flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3.5 hover:border-primary-200 hover:shadow-sm transition-all duration-150"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div>

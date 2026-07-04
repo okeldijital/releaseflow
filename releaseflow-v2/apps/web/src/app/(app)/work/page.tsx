@@ -142,7 +142,7 @@ export default function WorkPage() {
 
 function TaskCard({ task, priorityStyles, overdue }: { task: TaskWithEntity; priorityStyles: Record<string, string>; overdue?: boolean }) {
   return (
-    <div className="block rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-4 py-3.5 hover:border-surface-300 dark:hover:border-surface-600 transition-all duration-150">
+    <div className="block rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3.5 hover:border-surface-300 dark:hover:border-surface-600 transition-all duration-150">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-text-900 dark:text-text-100 truncate">{task.title}</p>

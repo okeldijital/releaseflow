@@ -143,19 +143,19 @@ export default function ProductionDashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <div className="rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-5 py-4">
+        <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
           <p className="text-xs text-text-500">Active Specs</p>
           <p className="text-2xl font-bold mt-0.5 text-text-900">{activeSpecs.length}</p>
         </div>
-        <div className="rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-5 py-4">
+        <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
           <p className="text-xs text-text-500">Pending Submissions</p>
           <p className="text-2xl font-bold mt-0.5 text-warning-600 dark:text-warning-400">{pendingSubmissions.length}</p>
         </div>
-        <div className="rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-5 py-4">
+        <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
           <p className="text-xs text-text-500">Reviews Awaiting</p>
           <p className="text-2xl font-bold mt-0.5 text-info-600 dark:text-info-400">{reviews.length}</p>
         </div>
-        <div className="rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-5 py-4">
+        <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
           <p className="text-xs text-text-500">Bottlenecks</p>
           <p className={`text-2xl font-bold mt-0.5 ${bottleneckCount > 0 ? 'text-danger-600 dark:text-danger-400' : 'text-success-600 dark:text-success-400'}`}>{bottleneckCount}</p>
         </div>
@@ -169,7 +169,7 @@ export default function ProductionDashboardPage() {
           ) : (
             <div className="space-y-1.5">
               {activeSpecs.slice(0, 15).map((spec) => (
-                <div key={spec.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-4 py-3">
+                <div key={spec.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-text-900 dark:text-text-100 truncate">{spec.title}</p>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -195,7 +195,7 @@ export default function ProductionDashboardPage() {
           ) : (
             <div className="space-y-1.5">
               {pendingSubmissions.map((sub) => (
-                <div key={sub.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-4 py-3">
+                <div key={sub.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-text-900 dark:text-text-100 truncate">
                       {sub.entityType} — rev {sub.revisionNumber}
@@ -221,7 +221,7 @@ export default function ProductionDashboardPage() {
           ) : (
             <div className="space-y-1.5">
               {reviews.map((review) => (
-                <div key={review.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-4 py-3">
+                <div key={review.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-text-900 dark:text-text-100 truncate">
                       {review.entityType} — {review.entityId.slice(0, 8)}
@@ -250,7 +250,7 @@ export default function ProductionDashboardPage() {
           ) : (
             <div className="space-y-1.5">
               {deliverablesNeedingChanges.map((del) => (
-                <div key={del.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-4 py-3">
+                <div key={del.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-text-900 dark:text-text-100 truncate">
                       {del.deliverableType} (v{del.version}) — {del.type}
@@ -274,7 +274,7 @@ export default function ProductionDashboardPage() {
         <div>
           <p className="text-sm font-semibold text-text-900 dark:text-text-100 mb-3">Production Bottlenecks</p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-5 py-4">
+            <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
               <p className="text-xs font-medium text-text-600 dark:text-text-400 uppercase tracking-wide mb-2">Overdue Specs</p>
               {overdueSpecs.length === 0 ? (
                 <p className="text-sm text-text-400">None</p>
@@ -289,7 +289,7 @@ export default function ProductionDashboardPage() {
                 </div>
               )}
             </div>
-            <div className="rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-5 py-4">
+            <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
               <p className="text-xs font-medium text-text-600 dark:text-text-400 uppercase tracking-wide mb-2">Stalled Reviews</p>
               {stalledReviews.length === 0 ? (
                 <p className="text-sm text-text-400">None</p>
@@ -304,7 +304,7 @@ export default function ProductionDashboardPage() {
                 </div>
               )}
             </div>
-            <div className="rounded-xl border border-surface-200/80 bg-white dark:bg-surface-900 px-5 py-4">
+            <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
               <p className="text-xs font-medium text-text-600 dark:text-text-400 uppercase tracking-wide mb-2">Incomplete Checklists</p>
               <p className="text-sm text-text-400">Checklist tracking coming in next release</p>
             </div>

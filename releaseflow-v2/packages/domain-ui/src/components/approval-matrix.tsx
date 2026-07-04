@@ -67,7 +67,7 @@ export function ApprovalMatrix({ items, className = '' }: ApprovalMatrixProps) {
   if (items.length === 0) return null;
 
   return (
-    <div className={`rounded-xl border border-surface-200 bg-white overflow-hidden ${className}`}>
+    <div className={`rounded-xl border border-surface-200 bg-layer-2 overflow-hidden ${className}`}>
       <div role="table" aria-label="Approval Matrix">
         <div role="rowgroup" className="bg-surface-50 border-b border-surface-200">
           <div role="row" className="flex">

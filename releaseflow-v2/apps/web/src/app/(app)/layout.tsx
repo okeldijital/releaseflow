@@ -168,7 +168,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <select
               value={activeOrgId ?? ''}
               onChange={(e) => setActiveOrgId(e.target.value || null)}
-              className="h-8 rounded-lg border border-surface-200 bg-white px-3 pr-7 text-[13px] font-medium text-text-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 transition-all duration-150 cursor-pointer hover:border-surface-300 dark:bg-surface-900 dark:border-surface-700 dark:text-text-300"
+              className="h-8 rounded-lg border border-surface-200 bg-layer-2 px-3 pr-7 text-[13px] font-medium text-text-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 transition-all duration-150 cursor-pointer hover:border-surface-300 dark:bg-surface-900 dark:border-surface-700 dark:text-text-300"
               aria-label="Active organisation"
             >
               {orgs.map((org) => (

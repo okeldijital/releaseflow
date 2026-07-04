@@ -49,7 +49,7 @@ export function EntityOverflowMenu({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-surface-200 bg-white text-text-500 hover:bg-surface-50 hover:text-text-700 dark:border-surface-700 dark:bg-surface-900 dark:hover:bg-surface-800 dark:hover:text-text-200 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-surface-200 bg-layer-2 text-text-500 hover:bg-surface-50 hover:text-text-700 dark:border-surface-700 dark:bg-surface-900 dark:hover:bg-surface-800 dark:hover:text-text-200 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -61,7 +61,7 @@ export function EntityOverflowMenu({
 
       {open && (
         <div
-          className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-2 w-56 rounded-xl border border-surface-200 bg-white p-1.5 shadow-modal z-50 animate-fade-in dark:border-surface-700 dark:bg-surface-900`}
+          className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-2 w-56 rounded-xl border border-surface-200 bg-layer-2 p-1.5 shadow-modal z-50 animate-fade-in dark:border-surface-700 dark:bg-surface-900`}
           role="menu"
           aria-orientation="vertical"
         >

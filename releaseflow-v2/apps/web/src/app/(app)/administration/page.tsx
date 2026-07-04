@@ -29,7 +29,7 @@ export default function AdministrationPage() {
           <Link
             key={link.href}
             href={link.href}
-            className="block rounded-xl border border-surface-200/80 bg-white px-5 py-5 hover:border-primary-200 hover:shadow-sm transition-all duration-150"
+            className="block rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-5 hover:border-primary-200 hover:shadow-sm transition-all duration-150"
           >
             <p className="font-semibold text-text-900">{link.label}</p>
             <p className="text-sm text-text-500 mt-1">{link.description}</p>

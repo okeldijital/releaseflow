@@ -54,7 +54,7 @@ export function SegmentedControl({
               transition-colors duration-100 ease-out
               ${optionSize[size]}
               ${active
-                ? 'bg-white dark:bg-surface-900 text-text-900 dark:text-text-50 shadow-card'
+                ? 'bg-layer-2 text-text-900 dark:text-text-50 shadow-card'
                 : 'text-text-500 dark:text-text-400 hover:text-text-800 dark:hover:text-text-200'}
               ${opt.disabled ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}
               ${fullWidth ? 'flex-1 text-center' : ''}

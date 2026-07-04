@@ -50,7 +50,7 @@ export function Checkbox({
           peer-focus-visible:ring-2 peer-focus-visible:ring-primary-500 peer-focus-visible:ring-offset-1
           ${checked || indeterminate
             ? 'bg-primary-500 border-primary-500'
-            : 'border-surface-300 bg-white dark:bg-surface-900 dark:border-surface-600'}
+            : 'border-surface-300 bg-layer-2 dark:border-surface-600'}
         `}
       >
         {checked && !indeterminate ? (
@@ -125,8 +125,8 @@ export function Radio({
           transition-colors duration-100 ease-out
           peer-focus-visible:ring-2 peer-focus-visible:ring-primary-500 peer-focus-visible:ring-offset-1
           ${checked
-            ? 'border-primary-500 bg-white dark:bg-surface-900'
-            : 'border-surface-300 bg-white dark:bg-surface-900 dark:border-surface-600'}
+            ? 'border-primary-500 bg-layer-2'
+            : 'border-surface-300 bg-layer-2 dark:border-surface-600'}
         `}
       >
         {checked ? (

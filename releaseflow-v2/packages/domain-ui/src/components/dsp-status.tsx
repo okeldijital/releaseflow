@@ -46,7 +46,7 @@ export function DSPStatus({ dspName, status, timeline, details, className = '' }
   const effectiveCurrent = currentIndex === -1 ? timeline.length - 1 : currentIndex;
 
   return (
-    <article aria-label={`${dspName} delivery status`} className={`rounded-xl border border-surface-200 bg-white p-6 ${className}`}>
+    <article aria-label={`${dspName} delivery status`} className={`rounded-xl border border-surface-200 bg-layer-2 p-6 ${className}`}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-text-900">{dspName}</h3>
         <span className={`rounded-full px-3 py-1 text-xs font-medium ${config.className}`}>

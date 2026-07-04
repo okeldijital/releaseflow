@@ -17,9 +17,9 @@ const variantClasses: Record<ButtonVariant, string> = {
   secondary:
     'bg-secondary-100 text-text-800 hover:bg-secondary-200 active:bg-secondary-300 active:scale-[0.98] transition-transform dark:bg-secondary-800 dark:text-secondary-300 dark:hover:bg-secondary-700 dark:active:bg-secondary-600',
   tertiary:
-    'border border-surface-300 bg-white text-text-700 shadow-sm hover:bg-surface-50 hover:border-surface-400 active:scale-[0.98] transition-transform dark:bg-transparent dark:border-surface-600 dark:text-text-200 dark:hover:bg-surface-800',
+    'border border-surface-300 bg-layer-2 text-text-700 shadow-sm hover:bg-surface-50 hover:border-surface-400 active:scale-[0.98] transition-transform dark:bg-transparent dark:border-surface-600 dark:text-text-200 dark:hover:bg-surface-800',
   outline:
-    'border border-surface-300 bg-white text-text-700 shadow-sm hover:bg-surface-50 hover:border-surface-400 active:scale-[0.98] transition-transform dark:bg-transparent dark:border-surface-600 dark:text-text-200 dark:hover:bg-surface-800',
+    'border border-surface-300 bg-layer-2 text-text-700 shadow-sm hover:bg-surface-50 hover:border-surface-400 active:scale-[0.98] transition-transform dark:bg-transparent dark:border-surface-600 dark:text-text-200 dark:hover:bg-surface-800',
   ghost:
     'text-text-600 hover:bg-surface-100 hover:text-text-900 dark:text-text-300 dark:hover:bg-surface-800 dark:hover:text-text-100',
   danger:

@@ -55,7 +55,7 @@ function InfoDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${closing ? 'opacity-0 transition-opacity duration-200' : ''}`}>
       <div className={`fixed inset-0 bg-surface-900/40 backdrop-blur-sm ${closing ? 'opacity-0 transition-opacity duration-200' : 'animate-fade-in'}`} onClick={handleClose} aria-hidden="true" />
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="invite-title" className={`relative z-10 w-full max-w-sm bg-white dark:bg-surface-800 rounded-lg shadow-modal border border-surface-200 dark:border-surface-600 ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}`}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="invite-title" className={`relative z-10 w-full max-w-sm bg-layer-2 dark:bg-surface-800 rounded-lg shadow-modal border border-surface-200 dark:border-surface-600 ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}`}>
         <div className="px-6 pt-6 pb-4">
           <h2 id="invite-title" className="text-base font-semibold text-text-900 dark:text-text-100">Invite Members</h2>
           <p className="mt-3 text-sm text-text-500 dark:text-text-400 leading-relaxed">
@@ -66,7 +66,7 @@ function InfoDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
           </p>
         </div>
         <div className="px-6 py-4 border-t border-surface-100 dark:border-surface-700">
-          <button ref={closeBtnRef} type="button" onClick={handleClose} className="w-full h-10 px-4 text-sm font-medium text-text-700 dark:text-text-300 rounded-md border border-surface-200 dark:border-surface-600 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors duration-100">
+          <button ref={closeBtnRef} type="button" onClick={handleClose} className="w-full h-10 px-4 text-sm font-medium text-text-700 dark:text-text-300 rounded-md border border-surface-200 dark:border-surface-600 bg-layer-2 dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors duration-100">
             Close
           </button>
         </div>
@@ -140,7 +140,7 @@ export default function AdministrationMembersPage() {
       ) : (
         <div className="space-y-1.5">
           {members.map((m) => (
-            <div key={m.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-white px-4 py-3.5">
+            <div key={m.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3.5">
               <div className="flex items-center gap-3 min-w-0">
                 <div>
                   <p className="text-sm font-medium text-text-900 truncate">{m.userId.slice(0, 8)}&hellip;</p>

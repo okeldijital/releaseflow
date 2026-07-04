@@ -92,7 +92,7 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
 
   if (loading) {
     return (
-      <div className={`w-full overflow-x-auto bg-white dark:bg-surface-900 ${className}`}>
+      <div className={`w-full overflow-x-auto bg-layer-2 ${className}`}>
         <table className="w-full" role="table">
           <thead>
             <tr className="border-b border-surface-200/50 dark:border-surface-700/50">
@@ -126,7 +126,7 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
   }
 
   return (
-    <div className={`w-full overflow-x-auto bg-white dark:bg-surface-900 ${className}`}>
+    <div className={`w-full overflow-x-auto bg-layer-2 ${className}`}>
       <table className="w-full" role="table">
         <thead>
           <tr className="border-b border-surface-200/50 dark:border-surface-700/50">
@@ -287,14 +287,14 @@ export function DataGrid<T extends Record<string, unknown> = Record<string, unkn
                  type="text"
                  placeholder={searchPlaceholder}
                  aria-label={searchPlaceholder}
-                 className="h-10 w-full rounded-md bg-white pl-9 pr-3 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:bg-surface-900 dark:text-text-100 dark:placeholder:text-text-500 transition-colors duration-100"
+                 className="h-10 w-full rounded-md bg-layer-2 pl-9 pr-3 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:bg-surface-900 dark:text-text-100 dark:placeholder:text-text-500 transition-colors duration-100"
                />
             </div>
           ) : null}
           {filters?.map((filter) => (
             <div
               key={filter.key}
-              className="inline-flex items-center gap-2 rounded-md bg-white px-3 h-10 dark:bg-surface-900"
+              className="inline-flex items-center gap-2 rounded-md bg-layer-2 px-3 h-10 dark:bg-surface-900"
             >
               <span className="text-xs font-medium text-text-500">{filter.label}</span>
               <select

@@ -32,19 +32,19 @@ interface TypographyProps {
 }
 
 const variantClasses: Record<TypographyVariant, string> = {
-  displayXl:  'text-[3rem] leading-[3.5rem] font-bold text-text-900 dark:text-text-50',
-  displayLg:  'text-[2.25rem] leading-[2.75rem] font-bold text-text-900 dark:text-text-50',
-  displayMd:  'text-[1.875rem] leading-[2.375rem] font-bold text-text-900 dark:text-text-50',
-  heading1:   'text-2xl leading-8 font-semibold text-text-900 dark:text-text-50',
-  heading2:   'text-xl leading-7 font-semibold text-text-900 dark:text-text-50',
-  heading3:   'text-lg leading-[1.625rem] font-semibold text-text-900 dark:text-text-100',
-  heading4:   'text-base leading-6 font-semibold text-text-900 dark:text-text-100',
-  bodyLarge:  'text-base leading-6 text-text-700 dark:text-text-300',
-  body:       'text-sm leading-5 text-text-700 dark:text-text-300',
-  bodySmall:  'text-xs leading-[1.125rem] text-text-500 dark:text-text-400',
-  caption:    'text-[0.6875rem] leading-4 text-text-400 dark:text-text-500',
-  label:      'text-xs leading-4 font-medium uppercase tracking-wider text-text-500 dark:text-text-400',
-  overline:   'text-[0.625rem] leading-[0.875rem] font-semibold uppercase tracking-widest text-text-400 dark:text-text-500',
+  displayXl:  'text-[3rem] leading-[3.5rem] font-bold text-content-primary',
+  displayLg:  'text-[2.25rem] leading-[2.75rem] font-bold text-content-primary',
+  displayMd:  'text-[1.875rem] leading-[2.375rem] font-bold text-content-primary',
+  heading1:   'text-2xl leading-8 font-semibold text-content-primary',
+  heading2:   'text-xl leading-7 font-semibold text-content-primary',
+  heading3:   'text-lg leading-[1.625rem] font-semibold text-content-primary',
+  heading4:   'text-base leading-6 font-semibold text-content-primary',
+  bodyLarge:  'text-base leading-6 text-content-secondary',
+  body:       'text-sm leading-5 text-content-secondary',
+  bodySmall:  'text-xs leading-[1.125rem] text-content-label',
+  caption:    'text-[0.6875rem] leading-4 text-content-label',
+  label:      'text-xs leading-4 font-medium uppercase tracking-wider text-content-label',
+  overline:   'text-[0.625rem] leading-[0.875rem] font-semibold uppercase tracking-widest text-content-label',
 };
 
 const defaultTag: Record<TypographyVariant, keyof HTMLElementTagNameMap> = {

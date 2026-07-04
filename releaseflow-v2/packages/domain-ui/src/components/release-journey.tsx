@@ -48,7 +48,7 @@ function CurrentDot() {
 
 function PendingDot() {
   return (
-    <div className="h-5 w-5 rounded-full bg-white border-2 border-surface-300 dark:bg-surface-800 dark:border-surface-600 shrink-0 transition-all duration-300" />
+    <div className="h-5 w-5 rounded-full bg-layer-2 border-2 border-surface-300 dark:bg-surface-800 dark:border-surface-600 shrink-0 transition-all duration-300" />
   );
 }
 
@@ -255,7 +255,7 @@ export function ReleaseJourney({
 
               {showPopover && (
                 <div className="absolute top-full mt-2 z-10 animate-slide-up">
-                  <div className="bg-white shadow-raised rounded-xl border border-surface-200 p-3 w-48">
+                  <div className="bg-layer-2 shadow-raised rounded-xl border border-surface-200 p-3 w-48">
                     {stage.owner && (
                       <p className="text-xs text-text-700">
                         <span className="text-text-400">Owner:</span> {stage.owner}
