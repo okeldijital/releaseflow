@@ -369,24 +369,9 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
   async function handleDelete() {
     setDeleting(true);
-    try {
-      await removeTrack(trackId);
-      toast.success('Track deleted.');
-      router.push(releaseId ? `/releases/${releaseId}` : '/tracks');
-    } catch (error) {
-      console.error(error);
-
-      const message =
-        error instanceof Error
-          ? error.message
-          : String(error);
-
-      toast.error(message);
-      setDeleting(false);
-      setDeleteOpen(false);
-
-      throw error;
-    }
+    await removeTrack(trackId);
+    toast.success('Track deleted.');
+    router.push(releaseId ? `/releases/${releaseId}` : '/tracks');
   }
 
   async function handleDuplicate() {
