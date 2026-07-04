@@ -29,7 +29,7 @@ import { getCreditsByTrack, createCredit, deleteCredit } from '@/lib/credit-repo
 import { getRightsByTrack } from '@/lib/rights-repository';
 import { getActivityByEntity } from '@/lib/activity-service';
 
-import { getArtist } from '@/lib/artist-repository';
+import { fetchArtist } from '@/lib/artist-service';
 import { getPerson } from '@/lib/people-repository';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
@@ -251,15 +251,15 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
       if (recordingType === 'remix') {
         const [orig, rem] = await Promise.all([
-          track.originalArtistId ? getArtist(track.originalArtistId) : null,
-          track.remixerArtistId ? getArtist(track.remixerArtistId) : null,
+          track.originalArtistId ? fetchArtist(activeOrgId, track.originalArtistId) : null,
+          track.remixerArtistId ? fetchArtist(activeOrgId, track.remixerArtistId) : null,
         ]);
         setArtistSummary([orig?.name, rem?.name].filter(Boolean).join(' · ') || '—');
       } else {
-        const primary = track.primaryArtistId ? await getArtist(track.primaryArtistId) : null;
+        const primary = track.primaryArtistId ? await fetchArtist(activeOrgId, track.primaryArtistId) : null;
         const featured = await Promise.all(
-          (track.featuredArtistIds ?? []).map(async (id) => {
-            const a = await getArtist(id);
+          (track.featuredArtistIds ?? []).map(async (aid) => {
+            const a = await fetchArtist(activeOrgId, aid);
             return a?.name;
           }),
         );

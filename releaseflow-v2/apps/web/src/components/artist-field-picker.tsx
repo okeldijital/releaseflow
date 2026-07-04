@@ -3,8 +3,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef, type KeyboardEvent } from 'react';
 import { createNewArtist } from '@/lib/artist-service';
 import {
-  mergeArtistOptions,
-  findArtistByName,
   filterArtistsForSearch,
   canCreateArtistFromSearch,
   type ArtistOption,
@@ -62,8 +60,6 @@ export function ArtistAddPanel({
     [available, search],
   );
 
-  const exactMatch = searchTrimmed ? findArtistByName(artists, searchTrimmed) : undefined;
-  const exactMatchExcluded = exactMatch ? excludeIds.includes(exactMatch.id) : false;
   const canCreate = canCreateArtistFromSearch(artists, search);
 
   function finishSelection(artistId: string) {
@@ -79,28 +75,22 @@ export function ArtistAddPanel({
     const trimmedName = name.trim();
     if (!organizationId || !trimmedName) return;
 
-    const existing = findArtistByName(artists, trimmedName);
-    if (existing) {
-      if (excludeIds.includes(existing.id)) {
-        setError('This artist is already selected.');
-        return;
-      }
-      onArtistCreated?.(existing);
-      finishSelection(existing.id);
-      return;
-    }
-
     setCreating(true);
     setError(null);
     try {
-      const id = await createNewArtist({
+      const result = await createNewArtist({
         name: trimmedName,
         artistType: 'original_artist',
         organizationId,
       });
-      const created = { id, name: trimmedName };
+      if (excludeIds.includes(result.id)) {
+        setError('This artist is already selected.');
+        setCreating(false);
+        return;
+      }
+      const created = { id: result.id, name: result.name };
       onArtistCreated?.(created);
-      finishSelection(id);
+      finishSelection(result.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create artist.');
       setCreating(false);
@@ -155,21 +145,6 @@ export function ArtistAddPanel({
             </button>
           ))}
         </div>
-      ) : null}
-
-      {exactMatch && exactMatchExcluded ? (
-        <p className="text-sm text-text-400 text-center py-2">This artist is already selected.</p>
-      ) : null}
-
-      {exactMatch && !exactMatchExcluded && !filteredArtists.some((a) => a.id === exactMatch.id) ? (
-        <button
-          type="button"
-          onClick={() => handleSelect(exactMatch.id)}
-          className="w-full text-left rounded-lg border border-surface-700 bg-surface-950 px-3 py-2.5 text-sm text-surface-100 hover:border-primary-500/40 hover:bg-primary-500/5 transition-colors"
-        >
-          <span className="text-success-400 mr-2">✓</span>
-          {exactMatch.name}
-        </button>
       ) : null}
 
       {canCreate ? (
@@ -233,18 +208,11 @@ export function ArtistFieldPicker({
 }: ArtistFieldPickerProps) {
   const [showAddPanel, setShowAddPanel] = useState(INITIAL_PANEL_STATE.showAddPanel);
   const [panelInstance, setPanelInstance] = useState(INITIAL_PANEL_STATE.panelInstance);
-  const [extraArtists, setExtraArtists] = useState<ArtistOption[]>([]);
   const mountedInstanceId = useRef(instanceId);
-
-  const catalogue = useMemo(
-    () => mergeArtistOptions(artists, extraArtists),
-    [artists, extraArtists],
-  );
 
   const resetPickerShell = useCallback(() => {
     setShowAddPanel(INITIAL_PANEL_STATE.showAddPanel);
     setPanelInstance(INITIAL_PANEL_STATE.panelInstance);
-    setExtraArtists([]);
   }, []);
 
   useEffect(() => {
@@ -253,15 +221,6 @@ export function ArtistFieldPicker({
       resetPickerShell();
     }
   }, [instanceId, resetPickerShell]);
-
-  useEffect(() => {
-    setExtraArtists((prev) => prev.filter((e) => !artists.some((a) => a.id === e.id)));
-  }, [artists]);
-
-  function handleArtistCreated(created: ArtistOption) {
-    setExtraArtists((prev) => (prev.some((a) => a.id === created.id) ? prev : [...prev, created]));
-    onArtistCreated?.(created);
-  }
 
   function openAddPanel() {
     setPanelInstance((n) => n + 1);
@@ -281,7 +240,7 @@ export function ArtistFieldPicker({
             className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none"
           >
             <option value="">Select artist...</option>
-            {catalogue.filter((a) => !excludeIds.includes(a.id)).map((a) => (
+            {artists.filter((a) => !excludeIds.includes(a.id)).map((a) => (
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
@@ -297,10 +256,10 @@ export function ArtistFieldPicker({
         <ArtistAddPanel
           key={panelKey}
           instanceId={panelKey}
-          artists={catalogue}
+          artists={artists}
           organizationId={organizationId}
           excludeIds={excludeIds}
-          onArtistCreated={handleArtistCreated}
+          onArtistCreated={onArtistCreated}
           onSelect={(id) => {
             onChange(id);
             setShowAddPanel(false);
@@ -334,18 +293,11 @@ export function FeaturedArtistsPicker({
 }: FeaturedArtistsPickerProps) {
   const [showAddPanel, setShowAddPanel] = useState(INITIAL_PANEL_STATE.showAddPanel);
   const [panelInstance, setPanelInstance] = useState(INITIAL_PANEL_STATE.panelInstance);
-  const [extraArtists, setExtraArtists] = useState<ArtistOption[]>([]);
   const mountedInstanceId = useRef(instanceId);
-
-  const catalogue = useMemo(
-    () => mergeArtistOptions(artists, extraArtists),
-    [artists, extraArtists],
-  );
 
   const resetPickerShell = useCallback(() => {
     setShowAddPanel(INITIAL_PANEL_STATE.showAddPanel);
     setPanelInstance(INITIAL_PANEL_STATE.panelInstance);
-    setExtraArtists([]);
   }, []);
 
   useEffect(() => {
@@ -355,16 +307,7 @@ export function FeaturedArtistsPicker({
     }
   }, [instanceId, resetPickerShell]);
 
-  useEffect(() => {
-    setExtraArtists((prev) => prev.filter((e) => !artists.some((a) => a.id === e.id)));
-  }, [artists]);
-
   const excludeIds = [primaryArtistId, ...featuredArtistIds].filter(Boolean);
-
-  function handleArtistCreated(created: ArtistOption) {
-    setExtraArtists((prev) => (prev.some((a) => a.id === created.id) ? prev : [...prev, created]));
-    onArtistCreated?.(created);
-  }
 
   function openAddPanel() {
     setPanelInstance((n) => n + 1);
@@ -387,10 +330,10 @@ export function FeaturedArtistsPicker({
         <ArtistAddPanel
           key={panelKey}
           instanceId={panelKey}
-          artists={catalogue}
+          artists={artists}
           organizationId={organizationId}
           excludeIds={excludeIds}
-          onArtistCreated={handleArtistCreated}
+          onArtistCreated={onArtistCreated}
           onSelect={(id) => {
             onAdd(id);
             setShowAddPanel(false);

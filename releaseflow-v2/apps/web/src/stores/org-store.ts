@@ -20,9 +20,11 @@ interface OrgStore {
   orgsLoaded: boolean;
   switchingOrg: boolean;
   orgVersion: number;
+  artistCatalogueVersion: number;
   setActiveOrgId: (id: string | null) => void;
   setOrgsLoaded: (loaded: boolean) => void;
   setSwitchingOrg: (switching: boolean) => void;
+  bumpArtistCatalogue: () => void;
 }
 
 export const useOrgStore = create<OrgStore>((set) => ({
@@ -30,6 +32,8 @@ export const useOrgStore = create<OrgStore>((set) => ({
   orgsLoaded: false,
   switchingOrg: false,
   orgVersion: 0,
+  artistCatalogueVersion: 0,
+  bumpArtistCatalogue: () => set((s) => ({ artistCatalogueVersion: s.artistCatalogueVersion + 1 })),
   setActiveOrgId: (id) => {
     persistOrgId(id);
     set((s) => ({ activeOrgId: id, switchingOrg: true, orgVersion: s.orgVersion + 1 }));

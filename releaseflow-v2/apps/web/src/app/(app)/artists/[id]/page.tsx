@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useState, useEffect, FormEvent } from 'react';
 import { useParams } from 'next/navigation';
-import { useArtist } from '@/hooks/useArtist';
+import { useArtist, useArtists } from '@/hooks/useArtist';
+import { useOrgStore } from '@/stores/org-store';
 import { useActivity } from '@/hooks/useWorkflow';
 import { editArtist } from '@/lib/artist-service';
 import {
@@ -26,7 +27,9 @@ type TabId = typeof TAB_IDS[number];
 export default function ArtistDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const { activeOrgId } = useOrgStore();
   const { artist, releases, credits, readiness, loading, refresh } = useArtist(id);
+  const { bumpArtistCatalogue } = useArtists();
   const { activities, loading: activityLoading } = useActivity(id);
   const [editing, setEditing] = useState(false);
   const [bio, setBio] = useState('');
@@ -46,12 +49,14 @@ export default function ArtistDetailPage() {
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
-    await editArtist(id, {
+    if (!activeOrgId) return;
+    await editArtist(activeOrgId, id, {
       bio: bio.trim() || null,
       country: country.trim() || null,
       genres: genres ? genres.split(',').map((g) => g.trim()).filter(Boolean) : null,
       imageUrl: imageUrl.trim() || null,
     });
+    bumpArtistCatalogue();
     setEditing(false);
     await refresh();
   }

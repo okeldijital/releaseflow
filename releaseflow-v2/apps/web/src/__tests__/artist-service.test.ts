@@ -79,9 +79,14 @@ describe('Artist service — module structure', () => {
     expect(mod.createNewArtist.length).toBe(1);
   });
 
-  it('editArtist takes 2 parameters', async () => {
+  it('editArtist takes 3 parameters (organizationId, artistId, fields)', async () => {
     const mod = await import('@/lib/artist-service');
-    expect(mod.editArtist.length).toBe(2);
+    expect(mod.editArtist.length).toBe(3);
+  });
+
+  it('fetchArtist takes 2 parameters (organizationId, artistId)', async () => {
+    const mod = await import('@/lib/artist-service');
+    expect(mod.fetchArtist.length).toBe(2);
   });
 });
 

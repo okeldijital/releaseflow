@@ -13,6 +13,7 @@ import { toArtistOptions, type ArtistOption } from '@/lib/artist-field-picker-lo
 export type { ArtistOption };
 
 export function useArtist(artistId: string | undefined) {
+  const { activeOrgId } = useOrgStore();
   const [artist, setArtist] = useState<ArtistRecord | null>(null);
   const [releases, setReleases] = useState<{ id: string; title: string; role: string; status: string; releaseType: string }[]>([]);
   const [credits, setCredits] = useState<(TrackCreditRecord & { trackTitle?: string })[]>([]);
@@ -20,14 +21,14 @@ export function useArtist(artistId: string | undefined) {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!artistId) { setLoading(false); return; }
+    if (!artistId || !activeOrgId) { setLoading(false); return; }
     setLoading(true);
     try {
       const [a, relData, credData, r] = await Promise.all([
-        fetchArtist(artistId),
+        fetchArtist(activeOrgId, artistId),
         fetchArtistReleases(artistId),
         fetchCreditsByArtist(artistId),
-        checkArtistReadiness(artistId),
+        checkArtistReadiness(activeOrgId, artistId),
       ]);
       setArtist(a);
       setReadiness(r);
@@ -43,9 +44,9 @@ export function useArtist(artistId: string | undefined) {
     } finally {
       setLoading(false);
     }
-  }, [artistId]);
+  }, [artistId, activeOrgId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   return { artist, releases, credits, readiness, loading, refresh: load };
 }
@@ -53,7 +54,7 @@ export function useArtist(artistId: string | undefined) {
 export function useArtists() {
   const [artists, setArtists] = useState<ArtistRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const { activeOrgId, orgVersion } = useOrgStore();
+  const { activeOrgId, orgVersion, artistCatalogueVersion, bumpArtistCatalogue } = useOrgStore();
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!activeOrgId) {
@@ -72,28 +73,14 @@ export function useArtists() {
     }
   }, [activeOrgId]);
 
-  useEffect(() => { void load(); }, [load, orgVersion]);
+  useEffect(() => { void load(); }, [load, orgVersion, artistCatalogueVersion]);
 
   const artistOptions = useMemo(() => toArtistOptions(artists), [artists]);
 
-  const onArtistCreated = useCallback((created: ArtistOption) => {
-    setArtists((prev) => {
-      if (prev.some((a) => a.id === created.id)) return prev;
-      return [
-        ...prev,
-        {
-          id: created.id,
-          name: created.name,
-          slug: created.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-          artistType: 'original_artist',
-          organizationId: activeOrgId,
-          status: 'active',
-          createdAt: null,
-        },
-      ];
-    });
+  const onArtistCreated = useCallback((_created: ArtistOption) => {
+    bumpArtistCatalogue();
     void load({ silent: true });
-  }, [load, activeOrgId]);
+  }, [bumpArtistCatalogue, load]);
 
-  return { artists, artistOptions, loading, refresh: load, onArtistCreated };
+  return { artists, artistOptions, loading, refresh: load, onArtistCreated, bumpArtistCatalogue };
 }

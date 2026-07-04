@@ -265,15 +265,16 @@ export default function ReleaseWorkspacePage() {
 
   useEffect(() => {
     async function loadTrackArtistMeta() {
-      const { getArtist } = await import('@/lib/artist-repository');
+      if (!activeOrgId) return;
+      const { fetchArtist } = await import('@/lib/artist-service');
       const meta: Record<string, { original?: string; remixer?: string }> = {};
       await Promise.all(
         tracks.map(async (rt) => {
           const t = rt.track;
           if (!t || resolveRecordingType(t.recordingType) !== 'remix') return;
           const [original, remixer] = await Promise.all([
-            t.originalArtistId ? getArtist(t.originalArtistId) : null,
-            t.remixerArtistId ? getArtist(t.remixerArtistId) : null,
+            t.originalArtistId ? fetchArtist(activeOrgId, t.originalArtistId) : null,
+            t.remixerArtistId ? fetchArtist(activeOrgId, t.remixerArtistId) : null,
           ]);
           meta[t.id] = { original: original?.name, remixer: remixer?.name };
         }),
@@ -282,7 +283,7 @@ export default function ReleaseWorkspacePage() {
     }
     if (tracks.length > 0) loadTrackArtistMeta();
     else setTrackArtistMeta({});
-  }, [tracks]);
+  }, [tracks, activeOrgId]);
 
   /* Lazy-load activity */
   useEffect(() => {

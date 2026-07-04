@@ -5,6 +5,7 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOrgStore } from '@/stores/org-store';
 import { createNewArtist } from '@/lib/artist-service';
+import { useArtists } from '@/hooks/useArtist';
 import { Button, Card, Input, Select, TextArea } from '@releaseflow/ui';
 
 const artistTypes = [
@@ -20,6 +21,7 @@ const artistTypes = [
 export default function NewArtistPage() {
   const router = useRouter();
   const { activeOrgId } = useOrgStore();
+  const { bumpArtistCatalogue } = useArtists();
   const [name, setName] = useState('');
   const [artistType, setArtistType] = useState('original_artist');
   const [bio, setBio] = useState('');
@@ -40,7 +42,7 @@ export default function NewArtistPage() {
       if (instagram) socialLinks.instagram = instagram;
       if (spotify) socialLinks.spotify = spotify;
       if (website) socialLinks.website = website;
-      const id = await createNewArtist({
+      const result = await createNewArtist({
         name: name.trim(),
         artistType: artistType as never,
         organizationId: activeOrgId ?? '',
@@ -50,7 +52,8 @@ export default function NewArtistPage() {
         imageUrl: imageUrl.trim() || undefined,
         socialLinks: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
       });
-      router.push(`/artists/${id}`);
+      bumpArtistCatalogue();
+      router.push(`/artists/${result.id}`);
     } catch (err) {
       console.error(err);
       setSubmitting(false);
