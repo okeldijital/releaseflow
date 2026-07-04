@@ -35,7 +35,7 @@ import { getPerson } from '@/lib/people-repository';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { PersonAssigner } from '@/components/person-assigner';
-import { Button, Badge, StatusBadge, EmptyState, LoadingState, Tabs, ConfirmationDialog } from '@releaseflow/ui';
+import { Button, Badge, StatusBadge, EmptyState, LoadingState, Tabs } from '@releaseflow/ui';
 
 const TAB_IDS = ['overview', 'production', 'deliverables', 'credits', 'rights', 'activity', 'settings'] as const;
 type TabId = typeof TAB_IDS[number];
@@ -181,8 +181,6 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   const [releaseId, setReleaseId] = useState<string | null>(null);
   const [artistSummary, setArtistSummary] = useState<string>('—');
   const [metadataOpen, setMetadataOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [assignerOpen, setAssignerOpen] = useState(false);
   const [assignerLabel, setAssignerLabel] = useState('');
   const [assignerRole, setAssignerRole] = useState('');
@@ -368,9 +366,10 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   }
 
   async function handleDelete() {
-    setDeleting(true);
+    if (!window.confirm("Delete this track permanently?")) return;
+    console.log("DELETE CLICKED");
     await removeTrack(trackId);
-    toast.success('Track deleted.');
+    toast.success("Track deleted.");
     router.push(releaseId ? `/releases/${releaseId}` : '/tracks');
   }
 
@@ -418,7 +417,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
             items={[
               { id: 'duplicate', label: 'Duplicate', onClick: handleDuplicate },
               { id: 'archive', label: 'Archive', onClick: handleArchive },
-              { id: 'delete', label: 'Delete', variant: 'danger', separatorBefore: true, onClick: () => setDeleteOpen(true) },
+              { id: 'delete', label: 'Delete', variant: 'danger', separatorBefore: true, onClick: handleDelete },
             ]}
           />
         </div>
@@ -803,16 +802,6 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
         contextRole={assignerRole}
         organizationId={activeOrgId}
         currentUserId={user?.uid ?? ''}
-      />
-
-      <ConfirmationDialog
-        open={deleteOpen}
-        onClose={() => { if (!deleting) setDeleteOpen(false); }}
-        onConfirm={handleDelete}
-        title="Delete Track"
-        message="This will permanently delete the track and all related data. This action cannot be undone."
-        confirmLabel="Delete"
-        variant="danger"
       />
     </div>
   );
