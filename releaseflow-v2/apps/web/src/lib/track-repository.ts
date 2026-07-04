@@ -1,7 +1,6 @@
 import {
-  doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, writeBatch,
+  doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, Timestamp,
-  type Firestore,
 } from 'firebase/firestore';
 import { getDb } from './firebase';
 import type { RecordingType, TrackStatus } from '@/app/(app)/types';
@@ -207,12 +206,6 @@ export async function archiveTrack(trackId: string): Promise<void> {
     status: 'archived',
     updatedAt: Timestamp.now(),
   });
-}
-
-function requireDb(): Firestore {
-  const db = getDb();
-  if (!db) throw new Error('Firestore not initialized');
-  return db;
 }
 
 export async function deleteTrack(trackId: string): Promise<void> {
