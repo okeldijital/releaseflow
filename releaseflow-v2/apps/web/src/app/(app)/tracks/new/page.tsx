@@ -7,7 +7,6 @@ import { useOrgStore } from '@/stores/org-store';
 import { getPeopleByOrg } from '@/lib/people-repository';
 import { createNewTrack } from '@/lib/track-service';
 import { fetchRelease } from '@/lib/release-service';
-import { addTrackToRelease, getTracksByRelease } from '@/lib/release-track-repository';
 import { addArtistToTrack } from '@/lib/track-artist-repository';
 import { createAssignment } from '@/lib/assignment-repository';
 import { addCreditToTrack } from '@/lib/credits-service';
@@ -222,6 +221,10 @@ export default function NewTrackPage() {
 
   useEffect(() => {
     if (!releaseId) {
+      router.push('/tracks');
+      return;
+    }
+    if (!activeOrgId) {
       setLoadingRelease(false);
       return;
     }
@@ -379,6 +382,7 @@ export default function NewTrackPage() {
         : title.trim();
 
       const trackId = await createNewTrack({
+        releaseId,
         organizationId: activeOrgId,
         title: resolvedTitle,
         createdBy: user.uid,
@@ -436,13 +440,7 @@ export default function NewTrackPage() {
         await persistDeliverable(trackId, def.key, def, deliverables[def.key]);
       }
 
-      if (releaseId) {
-        const existing = await getTracksByRelease(releaseId);
-        await addTrackToRelease(releaseId, trackId, existing.length + 1);
-        router.push(`/releases/${releaseId}`);
-      } else {
-        router.push(`/tracks/${trackId}`);
-      }
+      router.push(`/releases/${releaseId}`);
     } catch {
       setError('Could not create track. Please try again.');
       setLaunching(false);

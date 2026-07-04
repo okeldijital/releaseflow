@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOrgStore } from '@/stores/org-store';
-import { useAuth } from '@/contexts/auth-context';
 import { useTracks } from '@/hooks/useTrack';
-import { createNewTrack, editTrack, archiveTrackById } from '@/lib/track-service';
+import { fetchReleasesByOrg } from '@/lib/release-service';
+import { editTrack, archiveTrackById } from '@/lib/track-service';
 import { toast } from '@/stores/toast-store';
 import type { TrackRecord } from '@/lib/track-repository';
+import type { Release } from '@/app/(app)/types';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import { Button, EmptyState, LoadingState, Input, StatusBadge, Badge, Select } from '@releaseflow/ui';
 
@@ -123,41 +124,24 @@ function EditTrackDialog({ track, open, onClose, onSaved }: EditTrackDialogProps
 export default function TracksPage() {
   const router = useRouter();
   const { activeOrgId } = useOrgStore();
-  const { user } = useAuth();
   const { tracks, loading } = useTracks();
-  const [showAddForm, setShowAddForm] = useState(false);
   const [editTrackState, setEditTrackState] = useState<TrackRecord | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [releases, setReleases] = useState<Release[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
 
-  const [newTitle, setNewTitle] = useState('');
-  const [newVersion, setNewVersion] = useState('');
-  const [newIsrc, setNewIsrc] = useState('');
-  const [newDuration, setNewDuration] = useState('');
-  const [newGenre, setNewGenre] = useState('');
-  const [newExplicit, setNewExplicit] = useState('false');
-  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (!pickerOpen || !activeOrgId) return;
+    setPickerLoading(true);
+    fetchReleasesByOrg(activeOrgId)
+      .then((data) => setReleases(data))
+      .finally(() => setPickerLoading(false));
+  }, [pickerOpen, activeOrgId]);
 
-  async function handleAdd() {
-    if (!activeOrgId || !newTitle.trim() || !user) return;
-    setSaving(true);
-    await createNewTrack({
-      organizationId: activeOrgId,
-      title: newTitle.trim(),
-      createdBy: user.uid,
-      version: newVersion.trim() || undefined,
-      isrc: newIsrc.trim() || undefined,
-      duration: newDuration ? Number(newDuration) : undefined,
-      genre: newGenre.trim() || undefined,
-      explicit: newExplicit === 'true',
-    });
-    setNewTitle('');
-    setNewVersion('');
-    setNewIsrc('');
-    setNewDuration('');
-    setNewGenre('');
-    setNewExplicit('false');
-    setShowAddForm(false);
-    setSaving(false);
-  }
+  const filteredReleases = releases.filter((r) =>
+    !pickerSearch || r.title.toLowerCase().includes(pickerSearch.toLowerCase()),
+  );
 
   if (!activeOrgId) {
     return (
@@ -186,37 +170,15 @@ export default function TracksPage() {
           ) : null}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="primary" size="sm" className="rounded-xl" onClick={() => setShowAddForm((v) => !v)}>Add Track</Button>
+          <Button variant="primary" size="sm" className="rounded-xl" onClick={() => setPickerOpen(true)}>Add Track</Button>
         </div>
       </div>
-
-      {showAddForm && (
-        <div className="mb-6 rounded-xl border border-surface-200/80 bg-layer-2 p-5 space-y-4">
-          <p className="text-sm font-semibold text-text-900 dark:text-text-100">New Track</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Track title" />
-            <Input label="Version" value={newVersion} onChange={(e) => setNewVersion(e.target.value)} placeholder="e.g. Radio Edit" />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="ISRC" value={newIsrc} onChange={(e) => setNewIsrc(e.target.value)} placeholder="e.g. US-ABC-12-34567" />
-            <Input label="Duration (seconds)" type="number" value={newDuration} onChange={(e) => setNewDuration(e.target.value)} placeholder="e.g. 210" />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Genre" value={newGenre} onChange={(e) => setNewGenre(e.target.value)} placeholder="e.g. Pop, Electronic" />
-            <Select label="Explicit" options={explicitOptions} value={newExplicit} onChange={setNewExplicit} />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="primary" size="sm" onClick={handleAdd} disabled={saving || !newTitle.trim() || !user}>Save</Button>
-            <Button variant="outline" size="sm" onClick={() => setShowAddForm(false)}>Cancel</Button>
-          </div>
-        </div>
-      )}
 
       {tracks.length === 0 ? (
         <EmptyState
           title="No tracks yet"
           description="Add your first track to begin building your catalogue."
-          action={{ label: 'Add Track', onClick: () => setShowAddForm(true) }}
+          action={{ label: 'Add Track', onClick: () => setPickerOpen(true) }}
         />
       ) : (
         <div className="space-y-1.5">
@@ -248,6 +210,55 @@ export default function TracksPage() {
               </div>
             </button>
           ))}
+        </div>
+      )}
+
+      {pickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-surface-900/40 backdrop-blur-sm" onClick={() => setPickerOpen(false)} aria-hidden="true" />
+          <div className="relative z-10 w-full max-w-md bg-layer-2 rounded-lg shadow-modal border border-surface-200 flex flex-col max-h-[80vh]">
+            <div className="px-5 pt-5 pb-3 border-b border-surface-100">
+              <h2 className="text-base font-semibold text-text-900">Choose Release</h2>
+              <input
+                type="text"
+                value={pickerSearch}
+                onChange={(e) => setPickerSearch(e.target.value)}
+                placeholder="Search releases..."
+                autoFocus
+                className="mt-3 block w-full h-10 rounded-xl border border-surface-200 px-4 text-sm text-text-700 placeholder-text-400 focus:border-primary-500/60 focus:outline-none"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto divide-y divide-surface-100">
+              {pickerLoading ? (
+                <div className="p-8 text-center text-sm text-text-400">Loading...</div>
+              ) : filteredReleases.length === 0 ? (
+                <div className="p-8 text-center text-sm text-text-400">{pickerSearch ? 'No releases match your search.' : 'No releases found.'}</div>
+              ) : (
+                filteredReleases.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => {
+                      setPickerOpen(false);
+                      router.push(`/tracks/new?releaseId=${r.id}`);
+                    }}
+                    className="w-full text-left flex items-center gap-3 px-5 py-3.5 hover:bg-surface-50 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-text-900 truncate">{r.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge label={r.releaseType.replace(/_/g, ' ')} color="bg-primary-50 text-primary-600" size="sm" />
+                        <StatusBadge status={r.status} />
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-surface-100 flex justify-end">
+              <Button variant="outline" size="sm" onClick={() => setPickerOpen(false)}>Cancel</Button>
+            </div>
+          </div>
         </div>
       )}
 

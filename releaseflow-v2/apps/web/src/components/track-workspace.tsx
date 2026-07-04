@@ -366,11 +366,23 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   }
 
   async function handleDelete() {
+    console.log("1");
+
     if (!window.confirm("Delete this track permanently?")) return;
-    console.log("DELETE CLICKED");
+
+    console.log("2");
+
     await removeTrack(trackId);
+
+    console.log("3");
+
     toast.success("Track deleted.");
+
+    console.log("4");
+
     router.push(releaseId ? `/releases/${releaseId}` : '/tracks');
+
+    console.log("5");
   }
 
   async function handleDuplicate() {

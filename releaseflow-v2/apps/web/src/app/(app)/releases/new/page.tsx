@@ -270,7 +270,6 @@ export default function NewReleasePage() {
       );
       const validTracks = tracks.filter((t) => t.title.trim());
       if (validTracks.length > 0) {
-        const { addTrackToRelease } = await import('@/lib/release-track-repository');
         const { addArtistToTrack } = await import('@/lib/track-artist-repository');
         for (let i = 0; i < validTracks.length; i++) {
           const t = validTracks[i]!;
@@ -278,6 +277,8 @@ export default function NewReleasePage() {
             ? t.displayTitle.trim()
             : t.title.trim();
           const trackId = await createNewTrack({
+            releaseId,
+            position: i + 1,
             title: trackTitle,
             organizationId: activeOrgId,
             createdBy: user.uid,
@@ -299,7 +300,6 @@ export default function NewReleasePage() {
               await addArtistToTrack({ trackId, artistId: featuredId, artistType: 'featured_artist' });
             }
           }
-          await addTrackToRelease(releaseId, trackId, i + 1);
         }
       }
       router.push(`/releases/${releaseId}`);

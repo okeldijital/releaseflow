@@ -1,3 +1,4 @@
+import { getReleasesByTrack } from './release-track-repository';
 import {
   createTrack, updateTrack, getTrack, getTracksByOrg, archiveTrack, deleteTrack,
 } from './track-repository';
@@ -11,6 +12,7 @@ export async function createNewTrack(fields: CreateTrackFields): Promise<string>
   if (!fields.title.trim()) throw new Error('Track title is required');
   if (!fields.organizationId) throw new Error('Organization ID is required');
   if (!fields.createdBy) throw new Error('Creator is required');
+  if (!fields.releaseId) throw new Error('Track must belong to a release');
   const track = await createTrack(fields);
   return track.id;
 }
@@ -20,8 +22,11 @@ export async function editTrack(trackId: string, fields: UpdateTrackFields): Pro
 }
 
 export async function removeTrack(trackId: string): Promise<void> {
+  console.log("removeTrack entered");
   if (!trackId) throw new Error('Track ID is required');
-  return deleteTrack(trackId);
+  console.log("before deleteTrack");
+  await deleteTrack(trackId);
+  console.log("after deleteTrack");
 }
 
 export async function archiveTrackById(trackId: string): Promise<void> {
@@ -40,7 +45,9 @@ export async function fetchTrack(trackId: string): Promise<TrackRecord | null> {
 export async function duplicateTrack(trackId: string, createdBy: string): Promise<string> {
   const original = await getTrack(trackId);
   if (!original) throw new Error('Track not found');
+  const releaseIds = await getReleasesByTrack(trackId);
   const track = await createTrack({
+    releaseId: releaseIds[0] ?? (() => { throw new Error('Track has no associated release'); })(),
     organizationId: original.organizationId,
     title: `${original.title} (Copy)`,
     createdBy,

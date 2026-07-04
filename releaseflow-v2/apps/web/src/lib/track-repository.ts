@@ -1,10 +1,17 @@
 import {
-  doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+  doc, getDoc, getDocs, updateDoc, deleteDoc, writeBatch,
   collection, query, where, orderBy, Timestamp,
 } from 'firebase/firestore';
 import { getDb } from './firebase';
 import type { RecordingType, TrackStatus } from '@/app/(app)/types';
 import { resolveRecordingType } from '@/lib/recording-type';
+
+export class TrackCreationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TrackCreationError';
+  }
+}
 
 export interface TrackRecord {
   id: string;
@@ -35,6 +42,7 @@ export interface TrackRecord {
 }
 
 export interface CreateTrackFields {
+  releaseId: string;
   organizationId: string;
   title: string;
   createdBy: string;
@@ -56,6 +64,7 @@ export interface CreateTrackFields {
   featuredArtistIds?: string[] | null;
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
+  position?: number;
 }
 
 export interface UpdateTrackFields {
@@ -82,10 +91,23 @@ export interface UpdateTrackFields {
 }
 
 export async function createTrack(fields: CreateTrackFields): Promise<TrackRecord> {
+  if (!fields.releaseId) {
+    throw new TrackCreationError('A track cannot exist without a release.');
+  }
+
   const db = getDb();
   if (!db) throw new Error('Firestore not initialized');
   const now = Timestamp.now();
-  const docRef = await addDoc(collection(db, 'tracks'), {
+
+  const positionSnap = await getDocs(
+    query(collection(db, 'release_tracks'), where('releaseId', '==', fields.releaseId)),
+  );
+  const position = fields.position ?? (positionSnap.size + 1);
+
+  const batch = writeBatch(db);
+
+  const trackRef = doc(collection(db, 'tracks'));
+  batch.set(trackRef, {
     organizationId: fields.organizationId,
     title: fields.title,
     version: fields.version ?? null,
@@ -111,8 +133,19 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     createdAt: now,
     updatedAt: now,
   });
+
+  const releaseTrackRef = doc(collection(db, 'release_tracks'));
+  batch.set(releaseTrackRef, {
+    releaseId: fields.releaseId,
+    trackId: trackRef.id,
+    position,
+    createdAt: now,
+  });
+
+  await batch.commit();
+
   return {
-    id: docRef.id,
+    id: trackRef.id,
     organizationId: fields.organizationId,
     title: fields.title,
     version: fields.version,

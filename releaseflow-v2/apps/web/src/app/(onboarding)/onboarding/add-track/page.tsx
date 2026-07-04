@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { createNewTrack } from '@/lib/track-service';
-import { addTrackToRelease } from '@/lib/release-track-repository';
 
 export default function AddTrackPage() {
   const { user, loading } = useAuth();
@@ -29,12 +28,12 @@ export default function AddTrackPage() {
     setCreating(true);
     setError('');
     try {
-      const trackId = await createNewTrack({
+      await createNewTrack({
+        releaseId,
         title: title.trim(),
         organizationId: activeOrgId,
         createdBy: user.uid,
       });
-      await addTrackToRelease(releaseId, trackId, 1);
       router.push(`/releases/${releaseId}`);
     } catch {
       setError('Could not create track. Please try again.');
