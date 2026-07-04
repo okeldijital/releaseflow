@@ -166,6 +166,7 @@ export default function NewTrackPage() {
   const { user } = useAuth();
   const { activeOrgId } = useOrgStore();
   const { artistOptions: artists, onArtistCreated: handleArtistCreated } = useArtists();
+  console.log('[TrackWizard] artists received by picker:', artists.length);
 
   const [step, setStep] = useState(0);
   const [launching, setLaunching] = useState(false);

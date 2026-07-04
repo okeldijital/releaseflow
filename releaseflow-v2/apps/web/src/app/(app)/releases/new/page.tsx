@@ -96,6 +96,7 @@ export default function NewReleasePage() {
   const { user } = useAuth();
   const { activeOrgId } = useOrgStore();
   const { artistOptions: artists, onArtistCreated } = useArtists();
+  console.log('[ReleaseWizard] artists received by picker:', artists.length);
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [launching, setLaunching] = useState(false);

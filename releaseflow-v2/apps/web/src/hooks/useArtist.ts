@@ -57,7 +57,11 @@ export function useArtists() {
   const { activeOrgId, orgVersion, artistCatalogueVersion, bumpArtistCatalogue } = useOrgStore();
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
+    console.group('[useArtists] load');
+    console.log('activeOrgId:', activeOrgId);
     if (!activeOrgId) {
+      console.warn('[useArtists] aborted — activeOrgId is empty');
+      console.groupEnd();
       setArtists([]);
       setLoading(false);
       return;
@@ -65,11 +69,17 @@ export function useArtists() {
     if (!opts?.silent) setLoading(true);
     try {
       const data = await fetchArtists(activeOrgId);
+      console.log('Repository returned:', data.length, 'artists');
       setArtists(data);
-    } catch {
-      // silent
+      if (data.length === 0) {
+        console.warn('[useArtists] catalogue empty for organization', activeOrgId);
+      }
+    } catch (err) {
+      console.error('[useArtists] unexpected repository failure:', err);
+      setArtists([]);
     } finally {
       if (!opts?.silent) setLoading(false);
+      console.groupEnd();
     }
   }, [activeOrgId]);
 
@@ -81,6 +91,10 @@ export function useArtists() {
     bumpArtistCatalogue();
     void load({ silent: true });
   }, [bumpArtistCatalogue, load]);
+
+  useEffect(() => {
+    console.log('[useArtists] state — artists:', artists.length, '| artistOptions:', artistOptions.length);
+  }, [artists, artistOptions]);
 
   return { artists, artistOptions, loading, refresh: load, onArtistCreated, bumpArtistCatalogue };
 }

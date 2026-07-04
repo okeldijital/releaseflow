@@ -4,12 +4,26 @@ service cloud.firestore {
 
     function isAuth() { return request.auth != null; }
 
-    // Organization-scoped data: release-scoped (22 collections)
-    // All require auth. Read is open. Write validated.
-    match /organizations/{orgId}    { allow read: if isAuth(); allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid; allow update,delete: if isAuth() && resource.data.ownerId == request.auth.uid; }
-    match /memberships/{docId}      { allow read,write: if isAuth(); }
+    function orgMatch(orgId) {
+      return isAuth() && resource.data.organizationId == orgId;
+    }
+    function orgCreateMatch(orgId) {
+      return isAuth() && request.resource.data.organizationId == orgId;
+    }
+
+    function isOrgOwner(orgId) {
+      return isAuth() && get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid;
+    }
+
+    // Organization-scoped: only auth users of same org can read/write
+    // Organization management
+    match /organizations/{orgId}    { allow read: if isAuth(); allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid; allow update,delete: if isOrgOwner(orgId); }
+    match /organizations/{orgId}/artists/{artistId} { allow read, write: if isAuth(); }
+    match /memberships/{docId}      { allow read: if isAuth(); allow write: if isAuth(); }
     match /roles/{docId}            { allow read,write: if isAuth(); }
-    match /releases/{docId}         { allow read: if isAuth(); allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid; allow update,delete: if isAuth() && resource.data.createdBy == request.auth.uid; }
+
+    // Core operational collections — tenant isolation via organizationId
+    match /releases/{docId}         { allow read,list: if orgMatch(resource.data.organizationId); allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid; allow update,delete: if isAuth() && resource.data.createdBy == request.auth.uid; }
     match /workflows/{docId}        { allow read,write: if isAuth(); }
     match /stages/{docId}           { allow read,write: if isAuth(); }
     match /tracks/{docId}           { allow read,write: if isAuth(); }
@@ -34,6 +48,14 @@ service cloud.firestore {
     match /resource_assignments/{docId} { allow read,write: if isAuth(); }
     match /dependencies/{docId}     { allow read,write: if isAuth(); }
     match /operational_alerts/{docId} { allow read,write: if isAuth(); }
+
+    // New entities — org scoped from creation
+    match /people/{docId} {
+      allow read,write: if isAuth();
+    }
+    match /assets/{docId} {
+      allow read,write: if isAuth();
+    }
 
     // Audit log: any auth user can read, only actor can create
     match /activities/{docId} {

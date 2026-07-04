@@ -15,6 +15,8 @@ export default function ArtistsPage() {
   const router = useRouter();
   const { artists, loading } = useArtists();
 
+  console.log('[ArtistsPage] artists received by component:', artists.length);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
