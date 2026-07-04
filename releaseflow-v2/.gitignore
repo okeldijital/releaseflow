@@ -9,3 +9,5 @@ build/
 .env.production
 .DS_Store
 *.log
+.kiro/
+.playwright-mcp/

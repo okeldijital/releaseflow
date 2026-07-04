@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
+import { fetchArtistSearch } from '@/lib/artist-service';
 import { useOrgStore } from '@/stores/org-store';
 
 interface SearchResult {
@@ -45,13 +46,12 @@ export function CommandPalette() {
       });
     }
 
-    const artSnap = await getDocs(query(collection(db, 'artists'), orderBy('name'), limit(5)));
-    artSnap.docs.forEach((d) => {
-      const data = d.data();
-      if ((data.name as string)?.toLowerCase().includes(q.toLowerCase())) {
-        all.push({ id: d.id, title: data.name as string, type: 'artist', href: `/artists/${d.id}` });
-      }
-    });
+    if (activeOrgId) {
+      const artists = await fetchArtistSearch(activeOrgId, q);
+      artists.slice(0, 5).forEach((a) => {
+        all.push({ id: a.id, title: a.name, type: 'artist', href: `/artists/${a.id}` });
+      });
+    }
 
     if (activeOrgId) {
       const campSnap = await getDocs(query(

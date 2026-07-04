@@ -8,9 +8,14 @@
     "test": "turbo test",
     "typecheck": "turbo typecheck",
     "clean": "turbo clean",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "migrate:artists": "tsx scripts/migrate-artists.ts",
+    "migrate:artists:execute": "tsx scripts/migrate-artists.ts --execute",
+    "migrate:artists:purge": "tsx scripts/migrate-artists.ts --execute --delete-legacy"
   },
   "devDependencies": {
+    "firebase-admin": "^13.1.0",
+    "tsx": "^4.19.0",
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^10.0.1",
     "eslint": "^10.5.0",

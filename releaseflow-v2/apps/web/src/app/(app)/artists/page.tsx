@@ -23,16 +23,6 @@ export default function ArtistsPage() {
     );
   }
 
-  console.group('[Artists Page]');
-  console.log('Artists received:', artists.length);
-  console.table(
-    artists.map((a) => ({
-      id: a.id,
-      name: a.name,
-    })),
-  );
-  console.groupEnd();
-
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="flex items-center justify-between mb-8">

@@ -22,7 +22,7 @@
     { "collectionGroup": "release_budgets", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "releaseId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
     { "collectionGroup": "people", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "organizationId", "order": "ASCENDING" }, { "fieldPath": "displayName", "order": "ASCENDING" }] },
     { "collectionGroup": "assets", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "organizationId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
-    { "collectionGroup": "artists", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "organizationId", "order": "ASCENDING" }, { "fieldPath": "name", "order": "ASCENDING" }] },
+    { "collectionGroup": "artists", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "name", "order": "ASCENDING" }] },
     { "collectionGroup": "tracks", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "organizationId", "order": "ASCENDING" }, { "fieldPath": "title", "order": "ASCENDING" }] },
     { "collectionGroup": "release_tracks", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "releaseId", "order": "ASCENDING" }, { "fieldPath": "position", "order": "ASCENDING" }] },
     { "collectionGroup": "track_artists", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "trackId", "order": "ASCENDING" }, { "fieldPath": "billingOrder", "order": "ASCENDING" }] }

@@ -5,6 +5,7 @@ import {
   getArtist,
   listArtists,
   searchArtists,
+  findArtistByNormalizedName,
   getArtistReleases,
   getCreditsByArtist,
   getTrackTitle,
@@ -58,6 +59,13 @@ export async function fetchArtists(organizationId: string): Promise<ArtistRecord
 
 export async function fetchArtistSearch(organizationId: string, query: string): Promise<ArtistRecord[]> {
   return searchArtists(organizationId, query);
+}
+
+export async function fetchArtistByNormalizedName(
+  organizationId: string,
+  name: string,
+): Promise<ArtistRecord | null> {
+  return findArtistByNormalizedName(organizationId, name);
 }
 
 export async function fetchArtistReleases(artistId: string) {

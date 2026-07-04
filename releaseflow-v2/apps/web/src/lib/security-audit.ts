@@ -30,7 +30,7 @@ export function auditSecurityRules(): AuditReport {
     { collection: 'distribution_packages', rule: 'auth-only', description: 'Auth required for read/write', status: 'defined', risk: 'low' },
     { collection: 'campaigns', rule: 'auth-only', description: 'Auth required for read/write', status: 'defined', risk: 'medium' },
     { collection: 'campaign_tasks', rule: 'auth-only', description: 'Auth required for read/write', status: 'defined', risk: 'medium' },
-    { collection: 'artists', rule: 'auth-only', description: 'Auth required for read/write (global catalog)', status: 'defined', risk: 'low' },
+    { collection: 'organizations/{orgId}/artists', rule: 'auth-only', description: 'Org-scoped artist subcollection', status: 'defined', risk: 'low' },
     { collection: 'release_artists', rule: 'auth-only', description: 'Auth required for read/write', status: 'defined', risk: 'low' },
     { collection: 'track_credits', rule: 'auth-only', description: 'Auth required for read/write', status: 'defined', risk: 'low' },
     { collection: 'rights_holders', rule: 'auth-only', description: 'Auth required for read/write (global catalog)', status: 'defined', risk: 'low' },

@@ -1,12 +1,9 @@
 import {
-  doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, setDoc,
+  doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, limit, Timestamp,
 } from 'firebase/firestore';
 import { getDb } from './firebase';
 import { normalizeArtistName } from './artist-field-picker-logic';
-
-/** Canonical path: organizations/{organizationId}/artists/{artistId} */
-const LEGACY_COLLECTION = 'artists';
 
 export interface ArtistRecord {
   id: string;
@@ -23,7 +20,6 @@ export interface ArtistRecord {
   status: string;
   createdAt: unknown;
   updatedAt?: unknown;
-  migratedFromLegacy?: boolean;
 }
 
 export interface ReleaseArtistRecord {
@@ -98,21 +94,10 @@ function toArtistRecord(id: string, data: Record<string, unknown>, organizationI
     status: (data.status as string) ?? 'active',
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
-    migratedFromLegacy: data.migratedFromLegacy as boolean | undefined,
   };
 }
 
-export function mergeArtistCatalogues(
-  legacyArtists: ArtistRecord[],
-  nestedArtists: ArtistRecord[],
-): ArtistRecord[] {
-  const byId = new Map<string, ArtistRecord>();
-  for (const a of legacyArtists) byId.set(a.id, a);
-  for (const a of nestedArtists) byId.set(a.id, a);
-  return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
-}
-
-async function findArtistByNormalizedName(
+export async function findArtistByNormalizedName(
   organizationId: string,
   name: string,
 ): Promise<ArtistRecord | null> {
@@ -121,54 +106,17 @@ async function findArtistByNormalizedName(
   const normalized = normalizeArtistName(name);
   if (!normalized) return null;
 
-  try {
-    const nestedSnap = await getDocs(
-      query(
-        artistsCollection(db, organizationId),
-        where('normalizedName', '==', normalized),
-        limit(1),
-      ),
-    );
-    if (!nestedSnap.empty) {
-      const d = nestedSnap.docs[0]!;
-      return toArtistRecord(d.id, d.data() as Record<string, unknown>, organizationId);
-    }
-  } catch (error) {
-    console.warn('[ArtistRepository] Nested duplicate lookup unavailable', error);
-  }
+  const snap = await getDocs(
+    query(
+      artistsCollection(db, organizationId),
+      where('normalizedName', '==', normalized),
+      limit(1),
+    ),
+  );
+  if (snap.empty) return null;
 
-  try {
-    const legacySnap = await getDocs(
-      query(
-        collection(db, LEGACY_COLLECTION),
-        where('organizationId', '==', organizationId),
-        where('normalizedName', '==', normalized),
-        limit(1),
-      ),
-    );
-    if (!legacySnap.empty) {
-      const d = legacySnap.docs[0]!;
-      return toArtistRecord(d.id, d.data() as Record<string, unknown>, organizationId);
-    }
-
-    const legacyNameSnap = await getDocs(
-      query(
-        collection(db, LEGACY_COLLECTION),
-        where('organizationId', '==', organizationId),
-        limit(200),
-      ),
-    );
-    const legacyMatch = legacyNameSnap.docs.find(
-      (d) => normalizeArtistName((d.data().name as string) ?? '') === normalized,
-    );
-    if (legacyMatch) {
-      return toArtistRecord(legacyMatch.id, legacyMatch.data() as Record<string, unknown>, organizationId);
-    }
-  } catch (error) {
-    console.warn('[ArtistRepository] Legacy duplicate lookup unavailable', error);
-  }
-
-  return null;
+  const d = snap.docs[0]!;
+  return toArtistRecord(d.id, d.data() as Record<string, unknown>, organizationId);
 }
 
 export async function createArtist(fields: CreateArtistFields): Promise<CreateArtistResult> {
@@ -213,6 +161,10 @@ export async function updateArtist(
   const db = getDb();
   if (!db || !organizationId) return;
 
+  const ref = artistDocument(db, organizationId, artistId);
+  const existing = await getDoc(ref);
+  if (!existing.exists()) return;
+
   if (fields.name !== undefined) {
     const trimmed = fields.name.trim();
     if (!trimmed) throw new Error('Artist name is required');
@@ -236,35 +188,17 @@ export async function updateArtist(
   if (fields.socialLinks !== undefined) update.socialLinks = fields.socialLinks;
   if (fields.status !== undefined) update.status = fields.status;
 
-  const nestedRef = artistDocument(db, organizationId, artistId);
-  const nestedSnap = await getDoc(nestedRef);
-  if (nestedSnap.exists()) {
-    await updateDoc(nestedRef, update);
-    return;
-  }
-
-  const legacyRef = doc(db, LEGACY_COLLECTION, artistId);
-  const legacySnap = await getDoc(legacyRef);
-  if (legacySnap.exists()) {
-    await updateDoc(legacyRef, update);
-  }
+  await updateDoc(ref, update);
 }
 
 export async function deleteArtist(organizationId: string, artistId: string): Promise<void> {
   const db = getDb();
   if (!db || !organizationId) return;
 
-  const nestedRef = artistDocument(db, organizationId, artistId);
-  const nestedSnap = await getDoc(nestedRef);
-  if (nestedSnap.exists()) {
-    await deleteDoc(nestedRef);
-    return;
-  }
-
-  const legacyRef = doc(db, LEGACY_COLLECTION, artistId);
-  const legacySnap = await getDoc(legacyRef);
-  if (legacySnap.exists()) {
-    await deleteDoc(legacyRef);
+  const ref = artistDocument(db, organizationId, artistId);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    await deleteDoc(ref);
   }
 }
 
@@ -272,130 +206,21 @@ export async function getArtist(organizationId: string, artistId: string): Promi
   const db = getDb();
   if (!db || !organizationId || !artistId) return null;
 
-  const nestedSnap = await getDoc(artistDocument(db, organizationId, artistId));
-  if (nestedSnap.exists()) {
-    return toArtistRecord(nestedSnap.id, nestedSnap.data() as Record<string, unknown>, organizationId);
-  }
+  const snap = await getDoc(artistDocument(db, organizationId, artistId));
+  if (!snap.exists()) return null;
 
-  const legacySnap = await getDoc(doc(db, LEGACY_COLLECTION, artistId));
-  if (legacySnap.exists()) {
-    const data = legacySnap.data() as Record<string, unknown>;
-    if ((data.organizationId as string) === organizationId) {
-      return toArtistRecord(legacySnap.id, data, organizationId);
-    }
-  }
-
-  return null;
+  return toArtistRecord(snap.id, snap.data() as Record<string, unknown>, organizationId);
 }
 
-async function listNestedArtists(organizationId: string): Promise<ArtistRecord[]> {
+export async function listArtists(organizationId: string): Promise<ArtistRecord[]> {
   const db = getDb();
-  if (!db) return [];
+  if (!db || !organizationId) return [];
+
   const snap = await getDocs(
     query(artistsCollection(db, organizationId), orderBy('name', 'asc')),
   );
 
-  console.group('[ArtistRepository] Firestore — nested');
-  console.log('Organization:', organizationId);
-  console.log('Nested snapshot:', snap.docs.length);
-  console.table(
-    snap.docs.map((docSnap) => ({
-      id: docSnap.id,
-      name: (docSnap.data().name as string) ?? '',
-      organizationId: (docSnap.data().organizationId as string) ?? '',
-      status: (docSnap.data().status as string) ?? '',
-      artistType: (docSnap.data().artistType as string) ?? '',
-    })),
-  );
-  console.groupEnd();
-
-  const mapped = snap.docs.map((d) => toArtistRecord(d.id, d.data() as Record<string, unknown>, organizationId));
-  console.log('[ArtistRepository] Mapped nested artists:', mapped.length);
-  return mapped;
-}
-
-async function listLegacyArtists(organizationId: string): Promise<ArtistRecord[]> {
-  const db = getDb();
-  if (!db) return [];
-  const snap = await getDocs(
-    query(
-      collection(db, LEGACY_COLLECTION),
-      where('organizationId', '==', organizationId),
-      orderBy('name', 'asc'),
-    ),
-  );
-
-  console.group('[ArtistRepository] Firestore — legacy');
-  console.log('Organization:', organizationId);
-  console.log('Legacy snapshot:', snap.docs.length);
-  console.table(
-    snap.docs.map((docSnap) => ({
-      id: docSnap.id,
-      name: (docSnap.data().name as string) ?? '',
-      organizationId: (docSnap.data().organizationId as string) ?? '',
-      status: (docSnap.data().status as string) ?? '',
-      artistType: (docSnap.data().artistType as string) ?? '',
-    })),
-  );
-  console.groupEnd();
-
-  const mapped = snap.docs.map((d) => toArtistRecord(d.id, d.data() as Record<string, unknown>, organizationId));
-  console.log('[ArtistRepository] Mapped legacy artists:', mapped.length);
-  return mapped;
-}
-
-export async function listArtists(organizationId: string): Promise<ArtistRecord[]> {
-  console.group('[ArtistRepository] listArtists');
-  console.log('organizationId:', organizationId);
-
-  if (!organizationId) {
-    console.warn('[ArtistRepository] listArtists aborted — organizationId is empty');
-    console.groupEnd();
-    return [];
-  }
-
-  let nestedArtists: ArtistRecord[] = [];
-  let legacyArtists: ArtistRecord[] = [];
-  let nestedFailed = false;
-  let legacyFailed = false;
-
-  try {
-    nestedArtists = await listNestedArtists(organizationId);
-  } catch (error) {
-    nestedFailed = true;
-    console.warn('[ArtistRepository] Nested catalogue unavailable', error);
-  }
-
-  try {
-    legacyArtists = await listLegacyArtists(organizationId);
-  } catch (error) {
-    legacyFailed = true;
-    console.warn('[ArtistRepository] Legacy catalogue unavailable', error);
-  }
-
-  console.log('[ArtistRepository] Before merge');
-  console.log({
-    nested: nestedArtists.length,
-    legacy: legacyArtists.length,
-  });
-
-  const merged = mergeArtistCatalogues(legacyArtists, nestedArtists);
-
-  console.table(
-    merged.map((a) => ({
-      id: a.id,
-      name: a.name,
-      organizationId: a.organizationId,
-    })),
-  );
-  console.log('[ArtistRepository] Merged count:', merged.length);
-
-  if (merged.length === 0 && (nestedFailed || legacyFailed)) {
-    console.warn('[ArtistRepository] Catalogue empty — nested failed:', nestedFailed, 'legacy failed:', legacyFailed);
-  }
-
-  console.groupEnd();
-  return merged;
+  return snap.docs.map((d) => toArtistRecord(d.id, d.data() as Record<string, unknown>, organizationId));
 }
 
 export async function searchArtists(organizationId: string, search: string): Promise<ArtistRecord[]> {
@@ -403,12 +228,6 @@ export async function searchArtists(organizationId: string, search: string): Pro
   const normalizedSearch = search.trim().toLowerCase();
   if (!normalizedSearch) return catalogue;
   return catalogue.filter((artist) => artist.name.toLowerCase().includes(normalizedSearch));
-}
-
-/** @deprecated Use listArtists */
-export async function getArtists(orgId?: string, _maxResults = 50): Promise<ArtistRecord[]> {
-  if (!orgId) return [];
-  return listArtists(orgId);
 }
 
 export async function getArtistsByRelease(releaseId: string): Promise<ReleaseArtistRecord[]> {
@@ -453,22 +272,4 @@ export async function getTrackTitle(trackId: string): Promise<string | null> {
   const snap = await getDoc(doc(db, 'tracks', trackId));
   if (!snap.exists()) return null;
   return (snap.data() as { title?: string }).title ?? null;
-}
-
-export async function writeArtistToCanonicalPath(
-  organizationId: string,
-  artistId: string,
-  data: Record<string, unknown>,
-): Promise<void> {
-  const db = getDb();
-  if (!db) throw new Error('Firestore not initialized');
-  const name = (data.name as string) ?? '';
-  await setDoc(artistDocument(db, organizationId, artistId), {
-    ...data,
-    organizationId,
-    normalizedName: (data.normalizedName as string) ?? normalizeArtistName(name),
-    slug: (data.slug as string) ?? slugify(name),
-    migratedFromLegacy: true,
-    updatedAt: Timestamp.now(),
-  }, { merge: true });
 }

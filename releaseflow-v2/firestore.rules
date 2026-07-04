@@ -37,7 +37,6 @@ service cloud.firestore {
     match /distribution_packages/{docId} { allow read,write: if isAuth(); }
     match /campaigns/{docId}        { allow read,write: if isAuth(); }
     match /campaign_tasks/{docId}   { allow read,write: if isAuth(); }
-    match /artists/{docId}          { allow read,write: if isAuth(); }
     match /release_artists/{docId}  { allow read,write: if isAuth(); }
     match /track_credits/{docId}    { allow read,write: if isAuth(); }
     match /rights_holders/{docId}   { allow read,write: if isAuth(); }
