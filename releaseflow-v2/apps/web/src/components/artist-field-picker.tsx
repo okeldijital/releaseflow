@@ -1,26 +1,16 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, type KeyboardEvent } from 'react';
 import { createNewArtist } from '@/lib/artist-service';
+import {
+  mergeArtistOptions,
+  findArtistByName,
+  filterArtistsForSearch,
+  canCreateArtistFromSearch,
+  type ArtistOption,
+} from '@/lib/artist-field-picker-logic';
 
-export type ArtistOption = { id: string; name: string };
-
-function normalizeArtistName(name: string): string {
-  return name.trim().toLowerCase();
-}
-
-function mergeArtistOptions(base: ArtistOption[], extras: ArtistOption[]): ArtistOption[] {
-  const byId = new Map<string, ArtistOption>();
-  for (const a of base) byId.set(a.id, a);
-  for (const a of extras) byId.set(a.id, a);
-  return Array.from(byId.values());
-}
-
-function findArtistByName(artists: ArtistOption[], name: string): ArtistOption | undefined {
-  const norm = normalizeArtistName(name);
-  if (!norm) return undefined;
-  return artists.find((a) => normalizeArtistName(a.name) === norm);
-}
+export type { ArtistOption } from '@/lib/artist-field-picker-logic';
 
 const INITIAL_PANEL_STATE = {
   showAddPanel: false,
@@ -49,6 +39,7 @@ export function ArtistAddPanel({
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const resetPanelState = useCallback(() => {
     setSearch('');
@@ -58,6 +49,7 @@ export function ArtistAddPanel({
 
   useEffect(() => {
     resetPanelState();
+    searchInputRef.current?.focus();
   }, [instanceId, resetPanelState]);
 
   const available = artists.filter((a) => !excludeIds.includes(a.id));
@@ -65,15 +57,14 @@ export function ArtistAddPanel({
   const searchTrimmed = search.trim();
   const normalizedSearch = searchTrimmed.toLowerCase();
 
-  const filteredArtists = useMemo(() => {
-    if (!normalizedSearch) return available;
-    return available.filter((artist) => artist.name.toLowerCase().includes(normalizedSearch));
-  }, [available, normalizedSearch]);
+  const filteredArtists = useMemo(
+    () => filterArtistsForSearch(available, search),
+    [available, search],
+  );
 
   const exactMatch = searchTrimmed ? findArtistByName(artists, searchTrimmed) : undefined;
   const exactMatchExcluded = exactMatch ? excludeIds.includes(exactMatch.id) : false;
-  const hasExactMatch = !!exactMatch;
-  const canCreate = normalizedSearch.length > 0 && !hasExactMatch;
+  const canCreate = canCreateArtistFromSearch(artists, search);
 
   function finishSelection(artistId: string) {
     resetPanelState();
@@ -121,17 +112,32 @@ export function ArtistAddPanel({
     onCancel?.();
   }
 
+  function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' && canCreate && !creating) {
+      e.preventDefault();
+      void handleCreate(searchTrimmed);
+    }
+  }
+
   return (
     <div className="rounded-xl border border-surface-700 bg-surface-900 p-3 space-y-3">
       <input
-        type="text"
+        ref={searchInputRef}
+        type="search"
         value={search}
         onChange={(e) => {
           setSearch(e.target.value);
           setError(null);
         }}
-        placeholder="Search artists..."
-        autoFocus
+        onKeyDown={handleSearchKeyDown}
+        placeholder="Type to search or create an artist..."
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        name={`artist-search-${instanceId}`}
+        data-1p-ignore
+        data-lpignore="true"
         className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
       />
 
@@ -181,12 +187,12 @@ export function ArtistAddPanel({
 
       {error ? <p className="text-xs text-danger-400">{error}</p> : null}
 
-      {!normalizedSearch && available.length > 0 ? (
-        <p className="text-xs text-text-500 text-center">Search to find an artist, or type a new name to create one.</p>
-      ) : null}
-
-      {!normalizedSearch && available.length === 0 ? (
-        <p className="text-xs text-text-500 text-center">No artists in catalogue yet. Type a name to create one.</p>
+      {!normalizedSearch ? (
+        <p className="text-xs text-text-500 text-center">
+          {available.length > 0
+            ? 'Type an artist name to search the catalogue or create a new artist.'
+            : 'No artists in catalogue yet. Type a name to create one.'}
+        </p>
       ) : null}
 
       {onCancel ? (
@@ -228,6 +234,7 @@ export function ArtistFieldPicker({
   const [showAddPanel, setShowAddPanel] = useState(INITIAL_PANEL_STATE.showAddPanel);
   const [panelInstance, setPanelInstance] = useState(INITIAL_PANEL_STATE.panelInstance);
   const [extraArtists, setExtraArtists] = useState<ArtistOption[]>([]);
+  const mountedInstanceId = useRef(instanceId);
 
   const catalogue = useMemo(
     () => mergeArtistOptions(artists, extraArtists),
@@ -241,7 +248,10 @@ export function ArtistFieldPicker({
   }, []);
 
   useEffect(() => {
-    resetPickerShell();
+    if (mountedInstanceId.current !== instanceId) {
+      mountedInstanceId.current = instanceId;
+      resetPickerShell();
+    }
   }, [instanceId, resetPickerShell]);
 
   useEffect(() => {
@@ -263,26 +273,27 @@ export function ArtistFieldPicker({
   return (
     <div className="space-y-2" data-artist-picker={instanceId}>
       <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">{label}</p>
-      <select
-        value={showAddPanel ? '__add__' : value}
-        onChange={(e) => {
-          if (e.target.value === '__add__') {
-            openAddPanel();
-            return;
-          }
-          setShowAddPanel(false);
-          onChange(e.target.value);
-        }}
-        className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none"
-      >
-        <option value="">Select artist...</option>
-        {catalogue.filter((a) => !excludeIds.includes(a.id)).map((a) => (
-          <option key={a.id} value={a.id}>{a.name}</option>
-        ))}
-        <option value="__add__">+ Add Artist</option>
-      </select>
-      {error ? <p className="text-xs text-danger-400">{error}</p> : null}
-      {showAddPanel ? (
+      {!showAddPanel ? (
+        <div className="space-y-2">
+          <select
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none"
+          >
+            <option value="">Select artist...</option>
+            {catalogue.filter((a) => !excludeIds.includes(a.id)).map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={openAddPanel}
+            className="block w-full h-10 rounded-xl border border-dashed border-surface-700 bg-surface-950 px-4 text-sm text-text-400 hover:text-surface-200 hover:border-surface-600 text-left transition-colors"
+          >
+            + Add Artist
+          </button>
+        </div>
+      ) : (
         <ArtistAddPanel
           key={panelKey}
           instanceId={panelKey}
@@ -296,7 +307,8 @@ export function ArtistFieldPicker({
           }}
           onCancel={() => setShowAddPanel(false)}
         />
-      ) : null}
+      )}
+      {error ? <p className="text-xs text-danger-400">{error}</p> : null}
     </div>
   );
 }
@@ -323,6 +335,7 @@ export function FeaturedArtistsPicker({
   const [showAddPanel, setShowAddPanel] = useState(INITIAL_PANEL_STATE.showAddPanel);
   const [panelInstance, setPanelInstance] = useState(INITIAL_PANEL_STATE.panelInstance);
   const [extraArtists, setExtraArtists] = useState<ArtistOption[]>([]);
+  const mountedInstanceId = useRef(instanceId);
 
   const catalogue = useMemo(
     () => mergeArtistOptions(artists, extraArtists),
@@ -336,7 +349,10 @@ export function FeaturedArtistsPicker({
   }, []);
 
   useEffect(() => {
-    resetPickerShell();
+    if (mountedInstanceId.current !== instanceId) {
+      mountedInstanceId.current = instanceId;
+      resetPickerShell();
+    }
   }, [instanceId, resetPickerShell]);
 
   useEffect(() => {
