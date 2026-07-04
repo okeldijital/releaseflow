@@ -221,7 +221,10 @@ export default function ReleaseWorkspacePage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteRole, setInviteRole] = useState<(typeof INVITE_ROLES)[number]>('Graphic Designer');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [forbidden, setForbidden] = useState(false);
+  const [artistsUnavailable, setArtistsUnavailable] = useState(false);
+  const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
   const [tab, setTab] = useState<TabId>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(`rf-tab-release-${releaseId}`);
@@ -239,60 +242,174 @@ export default function ReleaseWorkspacePage() {
     (t.id === 'budget' && false)
   )), [deliverables, release?.cLine, release?.copyright, release?.pLine]);
 
-  /* Load core data immediately */
+  /* Load core data — fault-tolerant, always clears loading */
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const rel = await fetchRelease(releaseId);
-      if (!rel) { setLoading(false); return; }
-      if (activeOrgId && rel.organizationId && rel.organizationId !== activeOrgId) {
-        setForbidden(true); setLoading(false); return;
+    let cancelled = false;
+
+    async function loadWorkspace() {
+      setLoadError(false);
+      setForbidden(false);
+      setRelease(null);
+      setDeliverables([]);
+      setTracks([]);
+      setTasks([]);
+
+      let rel: Awaited<ReturnType<typeof fetchRelease>> | null;
+      try {
+        console.time('[Workspace] loadRelease');
+        rel = await fetchRelease(releaseId);
+        console.timeEnd('[Workspace] loadRelease');
+      } catch (error) {
+        console.timeEnd('[Workspace] loadRelease');
+        console.error('[Workspace] Release load failed', error);
+        if (!cancelled) setLoadError(true);
+        return;
       }
-      setRelease(rel as unknown as Release);
 
-      const [del, trk, tsk] = await Promise.all([
-        getDeliverablesByRelease(releaseId),
-        getTracksByRelease(releaseId),
-        getTasksByEntity('release', releaseId),
-      ]);
-      setDeliverables(del);
-      setTracks(trk);
-      setTasks(tsk);
-      setLoading(false);
+      if (!rel) {
+        if (!cancelled) setRelease(null);
+        return;
+      }
+
+      if (activeOrgId && rel.organizationId && rel.organizationId !== activeOrgId) {
+        if (!cancelled) setForbidden(true);
+        return;
+      }
+
+      if (!cancelled) setRelease(rel as unknown as Release);
+
+      let del: Deliverable[] = [];
+      try {
+        console.time('[Workspace] loadDeliverables');
+        del = await getDeliverablesByRelease(releaseId);
+        console.timeEnd('[Workspace] loadDeliverables');
+      } catch (error) {
+        console.timeEnd('[Workspace] loadDeliverables');
+        console.error('[Workspace] Deliverables load failed', error);
+      }
+
+      let trk: (ReleaseTrackRecord & { track: TrackRecord | null })[] = [];
+      try {
+        console.time('[Workspace] loadTracks');
+        trk = await getTracksByRelease(releaseId);
+        console.timeEnd('[Workspace] loadTracks');
+      } catch (error) {
+        console.timeEnd('[Workspace] loadTracks');
+        console.error('[Workspace] Track load failed', error);
+      }
+
+      let tsk: Task[] = [];
+      try {
+        console.time('[Workspace] loadAssignments');
+        tsk = await getTasksByEntity('release', releaseId);
+        console.timeEnd('[Workspace] loadAssignments');
+      } catch (error) {
+        console.timeEnd('[Workspace] loadAssignments');
+        console.error('[Workspace] Assignment load failed', error);
+      }
+
+      if (!cancelled) {
+        setDeliverables(del);
+        setTracks(trk);
+        setTasks(tsk);
+      }
     }
-    load();
-  }, [releaseId, activeOrgId]);
+
+    void (async () => {
+      setLoading(true);
+      try {
+        await loadWorkspace();
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [releaseId, activeOrgId, workspaceReloadToken]);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadTrackArtistMeta() {
-      if (!activeOrgId) return;
+      if (!activeOrgId) {
+        setTrackArtistMeta({});
+        setArtistsUnavailable(false);
+        return;
+      }
+
       const { fetchArtist } = await import('@/lib/artist-service');
       const meta: Record<string, { original?: string; remixer?: string }> = {};
-      await Promise.all(
-        tracks.map(async (rt) => {
-          const t = rt.track;
-          if (!t || resolveRecordingType(t.recordingType) !== 'remix') return;
-          const [original, remixer] = await Promise.all([
-            t.originalArtistId ? fetchArtist(activeOrgId, t.originalArtistId) : null,
-            t.remixerArtistId ? fetchArtist(activeOrgId, t.remixerArtistId) : null,
-          ]);
-          meta[t.id] = { original: original?.name, remixer: remixer?.name };
-        }),
-      );
-      setTrackArtistMeta(meta);
+      let anyArtistFailed = false;
+
+      console.time('[Workspace] loadArtists');
+      for (const rt of tracks) {
+        const t = rt.track;
+        if (!t || resolveRecordingType(t.recordingType) !== 'remix') continue;
+
+        let original: { name: string } | null = null;
+        let remixer: { name: string } | null = null;
+
+        if (t.originalArtistId) {
+          try {
+            original = await fetchArtist(activeOrgId, t.originalArtistId);
+          } catch (error) {
+            anyArtistFailed = true;
+            console.error('[Workspace] loadArtists failed (original)', t.originalArtistId, error);
+          }
+        }
+
+        if (t.remixerArtistId) {
+          try {
+            remixer = await fetchArtist(activeOrgId, t.remixerArtistId);
+          } catch (error) {
+            anyArtistFailed = true;
+            console.error('[Workspace] loadArtists failed (remixer)', t.remixerArtistId, error);
+          }
+        }
+
+        meta[t.id] = { original: original?.name, remixer: remixer?.name };
+      }
+      console.timeEnd('[Workspace] loadArtists');
+
+      if (!cancelled) {
+        setTrackArtistMeta(meta);
+        setArtistsUnavailable(anyArtistFailed);
+      }
     }
-    if (tracks.length > 0) loadTrackArtistMeta();
-    else setTrackArtistMeta({});
+
+    if (tracks.length > 0) void loadTrackArtistMeta();
+    else {
+      setTrackArtistMeta({});
+      setArtistsUnavailable(false);
+    }
+
+    return () => { cancelled = true; };
   }, [tracks, activeOrgId]);
 
   /* Lazy-load activity */
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadActivity() {
+      setActivitiesLoaded(false);
+      try {
+        console.time('[Workspace] loadActivity');
+        const data = await getActivityByEntity('release', releaseId);
+        console.timeEnd('[Workspace] loadActivity');
+        if (!cancelled) setActivities(data);
+      } catch (error) {
+        console.timeEnd('[Workspace] loadActivity');
+        console.error('[Workspace] Activity load failed', error);
+        if (!cancelled) setActivities([]);
+      } finally {
+        if (!cancelled) setActivitiesLoaded(true);
+      }
+    }
+
     if (!releaseId) return;
-    getActivityByEntity('release', releaseId).then((data) => {
-      setActivities(data);
-      setActivitiesLoaded(true);
-    });
-  }, [releaseId]);
+    void loadActivity();
+    return () => { cancelled = true; };
+  }, [releaseId, workspaceReloadToken]);
 
   const handleTabChange = useCallback((id: string) => {
     setTab(id as TabId);
@@ -358,6 +475,19 @@ export default function ReleaseWorkspacePage() {
           <Skeleton variant="card" className="h-32" />
           <Skeleton variant="card" className="h-48" />
           <Skeleton variant="card" className="h-40" />
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-96 px-6 py-20">
+        <p className="text-base font-semibold text-text-900 mb-1">Unable to load release.</p>
+        <p className="text-sm text-text-500 mb-5 text-center max-w-sm">Something went wrong while loading this release. You can retry or return to the releases list.</p>
+        <div className="flex items-center gap-3">
+          <Button size="sm" variant="primary" onClick={() => setWorkspaceReloadToken((n) => n + 1)}>Retry</Button>
+          <Link href="/releases" className="text-sm font-medium text-primary-500 hover:text-primary-600 transition-colors">Back to Releases</Link>
         </div>
       </div>
     );
@@ -613,8 +743,13 @@ export default function ReleaseWorkspacePage() {
 
           {/* § Tracks */}
           <section aria-label="Tracks">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider">Tracks</h2>
+            <div className="flex items-center justify-between mb-4 gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider">Tracks</h2>
+                {artistsUnavailable ? (
+                  <span className="text-xs text-text-400">Artists unavailable</span>
+                ) : null}
+              </div>
               <Button size="sm" variant="outline" onClick={() => router.push(`/tracks/new?releaseId=${releaseId}`)}>+ Add Track</Button>
             </div>
             {tracks.length === 0 ? (
