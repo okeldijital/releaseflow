@@ -5,7 +5,6 @@
     { "collectionGroup": "tasks", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "assigneeId", "order": "ASCENDING" }, { "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "priority", "order": "DESCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
     { "collectionGroup": "tasks", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "assigneeId", "order": "ASCENDING" }, { "fieldPath": "dueDate", "order": "ASCENDING" }] },
     { "collectionGroup": "stages", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "workflowId", "order": "ASCENDING" }, { "fieldPath": "order", "order": "ASCENDING" }] },
-    { "collectionGroup": "stages", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "status", "order": "ASCENDING" }] },
     { "collectionGroup": "deliverables", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "releaseId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
     { "collectionGroup": "deliverables", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "campaignId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
     { "collectionGroup": "deliverables", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "stageId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
@@ -17,13 +16,15 @@
     { "collectionGroup": "notifications", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "userId", "order": "ASCENDING" }, { "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
     { "collectionGroup": "release_requirements", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "releaseId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" }] },
     { "collectionGroup": "cost_items", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "releaseId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
-    { "collectionGroup": "release_ownerships", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "releaseId", "order": "ASCENDING" }] },
-    { "collectionGroup": "resource_assignments", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "userId", "order": "ASCENDING" }] },
     { "collectionGroup": "approval_requests", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "approverId", "order": "ASCENDING" }, { "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
     { "collectionGroup": "comments", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "taskId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" }] },
-    { "collectionGroup": "track_credits", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "trackId", "order": "ASCENDING" }] },
-    { "collectionGroup": "release_artists", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "releaseId", "order": "ASCENDING" }] },
     { "collectionGroup": "dependencies", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "releaseId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" }] },
-    { "collectionGroup": "release_budgets", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "releaseId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] }
+    { "collectionGroup": "release_budgets", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "releaseId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "people", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "organizationId", "order": "ASCENDING" }, { "fieldPath": "displayName", "order": "ASCENDING" }] },
+    { "collectionGroup": "assets", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "organizationId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "artists", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "organizationId", "order": "ASCENDING" }, { "fieldPath": "name", "order": "ASCENDING" }] },
+    { "collectionGroup": "tracks", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "organizationId", "order": "ASCENDING" }, { "fieldPath": "title", "order": "ASCENDING" }] },
+    { "collectionGroup": "release_tracks", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "releaseId", "order": "ASCENDING" }, { "fieldPath": "position", "order": "ASCENDING" }] },
+    { "collectionGroup": "track_artists", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "trackId", "order": "ASCENDING" }, { "fieldPath": "billingOrder", "order": "ASCENDING" }] }
   ]
 }
