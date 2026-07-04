@@ -375,9 +375,17 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
       router.push(releaseId ? `/releases/${releaseId}` : '/tracks');
     } catch (error) {
       console.error(error);
-      toast.error('Unable to delete track.');
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error);
+
+      toast.error(message);
       setDeleting(false);
       setDeleteOpen(false);
+
+      throw error;
     }
   }
 

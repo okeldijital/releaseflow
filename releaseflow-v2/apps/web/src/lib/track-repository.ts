@@ -265,6 +265,9 @@ export async function deleteTrack(trackId: string): Promise<void> {
   const db = requireDb();
   if (!trackId) throw new Error('Track ID is required');
 
+  console.log(`[deleteTrack] trackId: ${trackId}`);
+  console.log('');
+
   const trackSnap = await getDoc(doc(db, 'tracks', trackId));
   if (!trackSnap.exists()) throw new Error('Track not found');
 
@@ -285,70 +288,233 @@ export async function deleteTrack(trackId: string): Promise<void> {
   const { getTasksByEntity, deleteTask } = await import('./task-service');
   const { getAssetsByTrack } = await import('./asset-lifecycle-service');
 
-  const deliverables = await getDeliverablesByTrack(trackId);
-  for (const deliverable of deliverables) {
-    await deleteReviewsAndRevisionsForEntity(db, 'deliverable', deliverable.id);
-    await deleteDoc(doc(db, 'production_deliverables', deliverable.id));
+  let step = 0;
+  const total = 21;
+
+  async function execStep<T>(label: string, query: string, fn: () => Promise<T>): Promise<T> {
+    step++;
+    console.log(`[${step}/${total}] ${label}`);
+    try {
+      const result = await fn();
+      console.log(`✓ success`);
+      console.log('');
+      return result;
+    } catch (error) {
+      console.log(`✗ failure`);
+      console.log('');
+      console.log(`Collection:`);
+      console.log(label);
+      console.log('');
+      console.log(`Query:`);
+      console.log(query);
+      console.log('');
+      const code = (error as { code?: string })?.code ?? 'unknown';
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`Firestore error code:`);
+      console.log(code);
+      console.log('');
+      console.log(`Firestore error message:`);
+      console.log(message);
+      console.log('');
+      if (error instanceof Error && error.stack) {
+        console.log(`Stack:`);
+        console.log(error.stack);
+        console.log('');
+      }
+      throw error;
+    }
   }
 
-  const specifications = await getSpecificationsByTrack(trackId);
-  for (const spec of specifications) {
-    await deleteReviewsAndRevisionsForEntity(db, 'specification', spec.id);
-    await deleteDoc(doc(db, 'specifications', spec.id));
-  }
-
-  const assets = await getAssetsByTrack(trackId);
-  await Promise.all(assets.map((asset) => deleteDoc(doc(db, 'track_assets', asset.id))));
-
-  const assignments = await getAssignmentsByEntity('track', trackId);
-  await Promise.all(assignments.map((assignment) => deleteAssignment(assignment.id)));
-
-  const activities = await getActivityByEntity('track', trackId);
-  await Promise.all(activities.map((activity) => deleteActivityEvent(activity.id)));
-
-  await deleteEntityComments(db, trackId);
-
-  await deleteDocsByQuery(db, 'notifications', 'referenceId', trackId);
-
-  const credits = await getCreditsByTrack(trackId);
-  await Promise.all(credits.map((credit) => deleteCredit(credit.id)));
-
-  await deleteDocsByQuery(db, 'track_credits', 'trackId', trackId);
-
-  const trackArtists = await getArtistsByTrack(trackId);
-  await Promise.all(trackArtists.map((record) => removeArtistFromTrack(record.id)));
-
-  const trackPeople = await getPeopleByTrack(trackId);
-  await Promise.all(trackPeople.map((record) => removePersonFromTrack(record.id)));
-
-  const rights = await getRightsByTrack(trackId);
-  await Promise.all(rights.map((right) => deleteTrackRight(right.id)));
-
-  const trackOwnerships = await getTrackOwnerships(trackId);
-  await Promise.all(trackOwnerships.map((ownership) => deleteDoc(doc(db, 'track_ownerships', ownership.id))));
-
-  const ownerships = await getOwnershipsByEntity('track', trackId);
-  await Promise.all(ownerships.map((ownership) => deleteOwnership(ownership.id)));
-
-  const publishingSplits = await getPublishingSplitsByTrack(trackId);
-  await Promise.all(publishingSplits.map((split) => deletePublishingSplit(split.id)));
-
-  const performerRoles = await getPerformerRolesByTrack(trackId);
-  await Promise.all(performerRoles.map((role) => deletePerformerRole(role.id)));
-
-  const deliveries = await getDeliveriesByTrack(trackId);
-  await Promise.all(deliveries.map((delivery) => deleteTrackDelivery(delivery.id)));
-
-  const checklists = await getChecklistByTrack(trackId);
-  await Promise.all(checklists.map((checklist) => deleteDoc(doc(db, 'production_checklists', checklist.id))));
-
-  const tasks = await getTasksByEntity('track', trackId);
-  await Promise.all(tasks.map((task) => deleteTask(task.id)));
-
-  const releaseTrackSnap = await getDocs(
-    query(collection(db, 'release_tracks'), where('trackId', '==', trackId)),
+  await execStep(
+    'production_deliverables',
+    'getDeliverablesByTrack(trackId) + delete reviews/revisions + deleteDoc(production_deliverables)',
+    async () => {
+      const deliverables = await getDeliverablesByTrack(trackId);
+      for (const deliverable of deliverables) {
+        await deleteReviewsAndRevisionsForEntity(db, 'deliverable', deliverable.id);
+        await deleteDoc(doc(db, 'production_deliverables', deliverable.id));
+      }
+    },
   );
-  await Promise.all(releaseTrackSnap.docs.map((d) => deleteDoc(d.ref)));
 
-  await deleteDoc(doc(db, 'tracks', trackId));
+  await execStep(
+    'specifications',
+    'getSpecificationsByTrack(trackId) + delete reviews/revisions + deleteDoc(specifications)',
+    async () => {
+      const specifications = await getSpecificationsByTrack(trackId);
+      for (const spec of specifications) {
+        await deleteReviewsAndRevisionsForEntity(db, 'specification', spec.id);
+        await deleteDoc(doc(db, 'specifications', spec.id));
+      }
+    },
+  );
+
+  await execStep(
+    'track_assets',
+    'getAssetsByTrack(trackId) + deleteDoc(track_assets)',
+    async () => {
+      const assets = await getAssetsByTrack(trackId);
+      await Promise.all(assets.map((asset) => deleteDoc(doc(db, 'track_assets', asset.id))));
+    },
+  );
+
+  await execStep(
+    'assignments',
+    'getAssignmentsByEntity(track, trackId) + deleteAssignment()',
+    async () => {
+      const assignments = await getAssignmentsByEntity('track', trackId);
+      await Promise.all(assignments.map((assignment) => deleteAssignment(assignment.id)));
+    },
+  );
+
+  await execStep(
+    'activities',
+    'getActivityByEntity(track, trackId) + deleteActivityEvent()',
+    async () => {
+      const activities = await getActivityByEntity('track', trackId);
+      await Promise.all(activities.map((activity) => deleteActivityEvent(activity.id)));
+    },
+  );
+
+  await execStep(
+    'entity_comments',
+    'getCommentsByEntity(track, trackId) + getReplies() + deleteDoc(entity_comments)',
+    async () => {
+      await deleteEntityComments(db, trackId);
+    },
+  );
+
+  await execStep(
+    'notifications',
+    'deleteDocsByQuery(notifications, referenceId, trackId)',
+    async () => {
+      await deleteDocsByQuery(db, 'notifications', 'referenceId', trackId);
+    },
+  );
+
+  await execStep(
+    'credits',
+    'getCreditsByTrack(trackId) + deleteCredit()',
+    async () => {
+      const credits = await getCreditsByTrack(trackId);
+      await Promise.all(credits.map((credit) => deleteCredit(credit.id)));
+    },
+  );
+
+  await execStep(
+    'track_credits',
+    'deleteDocsByQuery(track_credits, trackId, trackId)',
+    async () => {
+      await deleteDocsByQuery(db, 'track_credits', 'trackId', trackId);
+    },
+  );
+
+  await execStep(
+    'track_artists',
+    'getArtistsByTrack(trackId) + removeArtistFromTrack()',
+    async () => {
+      const trackArtists = await getArtistsByTrack(trackId);
+      await Promise.all(trackArtists.map((record) => removeArtistFromTrack(record.id)));
+    },
+  );
+
+  await execStep(
+    'track_people',
+    'getPeopleByTrack(trackId) + removePersonFromTrack()',
+    async () => {
+      const trackPeople = await getPeopleByTrack(trackId);
+      await Promise.all(trackPeople.map((record) => removePersonFromTrack(record.id)));
+    },
+  );
+
+  await execStep(
+    'track_rights',
+    'getRightsByTrack(trackId) + deleteTrackRight()',
+    async () => {
+      const rights = await getRightsByTrack(trackId);
+      await Promise.all(rights.map((right) => deleteTrackRight(right.id)));
+    },
+  );
+
+  await execStep(
+    'track_ownerships',
+    'getTrackOwnerships(trackId) + deleteDoc(track_ownerships)',
+    async () => {
+      const trackOwnerships = await getTrackOwnerships(trackId);
+      await Promise.all(trackOwnerships.map((ownership) => deleteDoc(doc(db, 'track_ownerships', ownership.id))));
+    },
+  );
+
+  await execStep(
+    'ownerships',
+    'getOwnershipsByEntity(track, trackId) + deleteOwnership()',
+    async () => {
+      const ownerships = await getOwnershipsByEntity('track', trackId);
+      await Promise.all(ownerships.map((ownership) => deleteOwnership(ownership.id)));
+    },
+  );
+
+  await execStep(
+    'publishing_splits',
+    'getPublishingSplitsByTrack(trackId) + deletePublishingSplit()',
+    async () => {
+      const publishingSplits = await getPublishingSplitsByTrack(trackId);
+      await Promise.all(publishingSplits.map((split) => deletePublishingSplit(split.id)));
+    },
+  );
+
+  await execStep(
+    'performer_roles',
+    'getPerformerRolesByTrack(trackId) + deletePerformerRole()',
+    async () => {
+      const performerRoles = await getPerformerRolesByTrack(trackId);
+      await Promise.all(performerRoles.map((role) => deletePerformerRole(role.id)));
+    },
+  );
+
+  await execStep(
+    'track_deliveries',
+    'getDeliveriesByTrack(trackId) + deleteTrackDelivery()',
+    async () => {
+      const deliveries = await getDeliveriesByTrack(trackId);
+      await Promise.all(deliveries.map((delivery) => deleteTrackDelivery(delivery.id)));
+    },
+  );
+
+  await execStep(
+    'production_checklists',
+    'getChecklistByTrack(trackId) + deleteDoc(production_checklists)',
+    async () => {
+      const checklists = await getChecklistByTrack(trackId);
+      await Promise.all(checklists.map((checklist) => deleteDoc(doc(db, 'production_checklists', checklist.id))));
+    },
+  );
+
+  await execStep(
+    'tasks',
+    'getTasksByEntity(track, trackId) + deleteTask()',
+    async () => {
+      const tasks = await getTasksByEntity('track', trackId);
+      await Promise.all(tasks.map((task) => deleteTask(task.id)));
+    },
+  );
+
+  await execStep(
+    'release_tracks',
+    'release_tracks where(trackId == trackId) + deleteDoc(ref)',
+    async () => {
+      const releaseTrackSnap = await getDocs(
+        query(collection(db, 'release_tracks'), where('trackId', '==', trackId)),
+      );
+      await Promise.all(releaseTrackSnap.docs.map((d) => deleteDoc(d.ref)));
+    },
+  );
+
+  await execStep(
+    'tracks',
+    'deleteDoc(tracks/trackId)',
+    async () => {
+      await deleteDoc(doc(db, 'tracks', trackId));
+    },
+  );
 }
