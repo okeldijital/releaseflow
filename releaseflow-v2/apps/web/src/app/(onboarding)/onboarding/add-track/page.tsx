@@ -35,9 +35,12 @@ export default function AddTrackPage() {
         createdBy: user.uid,
       });
       router.push(`/releases/${releaseId}`);
-    } catch {
-      setError('Could not create track. Please try again.');
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : String(error);
+      setError(message);
       setCreating(false);
+      throw error;
     }
   }
 
