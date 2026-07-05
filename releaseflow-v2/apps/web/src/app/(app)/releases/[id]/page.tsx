@@ -310,6 +310,7 @@ export default function ReleaseWorkspacePage() {
 
       if (!cancelled) {
         setDeliverables(del);
+        console.log("SETTING TRACKS", trk.length);
         setTracks(trk);
         setTasks(tsk);
       }
@@ -752,6 +753,7 @@ export default function ReleaseWorkspacePage() {
               </div>
               <Button size="sm" variant="outline" onClick={() => router.push(`/tracks/new?releaseId=${releaseId}`)}>+ Add Track</Button>
             </div>
+            {(() => { console.log("RENDER TRACKS", tracks.length); return null; })()}
             {tracks.length === 0 ? (
               <EmptyState title="No tracks have been added." action={{ label: 'Add First Track', onClick: () => router.push(`/tracks/new?releaseId=${releaseId}`) }} />
             ) : (
