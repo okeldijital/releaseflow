@@ -303,7 +303,12 @@ export default function NewReleasePage() {
         }
       }
       router.push(`/releases/${releaseId}`);
-    } catch { setError('Could not create release.'); setLaunching(false); }
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : String(error);
+      setError(message);
+      setLaunching(false);
+    }
   }
 
   return (

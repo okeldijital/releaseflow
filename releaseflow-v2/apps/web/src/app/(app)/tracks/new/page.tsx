@@ -441,9 +441,12 @@ export default function NewTrackPage() {
       }
 
       router.push(`/releases/${releaseId}`);
-    } catch {
-      setError('Could not create track. Please try again.');
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : String(error);
+      setError(message);
       setLaunching(false);
+      throw error;
     }
   }
 
