@@ -11,6 +11,7 @@ import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { toast } from '@/stores/toast-store';
 import { getDeliverablesByRelease } from '@/lib/deliverable-service';
 import { getTracksByRelease } from '@/lib/release-track-repository';
+import { getArtistsByRole } from '@/lib/track-artist-repository';
 import { getTasksByEntity } from '@/lib/task-service';
 import { getActivityByEntity } from '@/lib/activity-service';
 import { fmtDate } from '@/lib/utils';
@@ -346,28 +347,39 @@ export default function ReleaseWorkspacePage() {
         const t = rt.track;
         if (!t || resolveRecordingType(t.recordingType) !== 'remix') continue;
 
-        let original: { name: string } | null = null;
-        let remixer: { name: string } | null = null;
+        let originalNames: string[] = [];
+        let remixerNames: string[] = [];
 
-        if (t.originalArtistId) {
-          try {
-            original = await fetchArtist(activeOrgId, t.originalArtistId);
-          } catch (error) {
-            anyArtistFailed = true;
-            console.error('[Workspace] loadArtists failed (original)', t.originalArtistId, error);
+        try {
+          const originalRecs = await getArtistsByRole(t.id, 'ORIGINAL_ARTIST');
+          const remixRecs = await getArtistsByRole(t.id, 'REMIX_ARTIST');
+
+          if (originalRecs.length > 0) {
+            originalNames = (await Promise.all(
+              originalRecs.map((r) => fetchArtist(activeOrgId, r.artistId)),
+            )).filter(Boolean).map((a) => a!.name);
+          } else if (t.originalArtistId) {
+            const a = await fetchArtist(activeOrgId, t.originalArtistId);
+            if (a) originalNames = [a.name];
           }
+
+          if (remixRecs.length > 0) {
+            remixerNames = (await Promise.all(
+              remixRecs.map((r) => fetchArtist(activeOrgId, r.artistId)),
+            )).filter(Boolean).map((a) => a!.name);
+          } else if (t.remixerArtistId) {
+            const a = await fetchArtist(activeOrgId, t.remixerArtistId);
+            if (a) remixerNames = [a.name];
+          }
+        } catch (error) {
+          anyArtistFailed = true;
+          console.error('[Workspace] loadArtists failed', t.id, error);
         }
 
-        if (t.remixerArtistId) {
-          try {
-            remixer = await fetchArtist(activeOrgId, t.remixerArtistId);
-          } catch (error) {
-            anyArtistFailed = true;
-            console.error('[Workspace] loadArtists failed (remixer)', t.remixerArtistId, error);
-          }
-        }
-
-        meta[t.id] = { original: original?.name, remixer: remixer?.name };
+        meta[t.id] = {
+          original: originalNames.join(', '),
+          remixer: remixerNames.join(', '),
+        };
       }
       console.timeEnd('[Workspace] loadArtists');
 
@@ -784,10 +796,10 @@ export default function ReleaseWorkspacePage() {
                             {resolveRecordingType(t.recordingType) === 'remix' ? (
                               <>
                                 {trackArtistMeta[t.id]?.original ? (
-                                  <span className="block">Original Artist · {trackArtistMeta[t.id]?.original}</span>
+                                  <span className="block">Original Artists · {trackArtistMeta[t.id]?.original}</span>
                                 ) : null}
                                 {trackArtistMeta[t.id]?.remixer ? (
-                                  <span className="block">Remixer · {trackArtistMeta[t.id]?.remixer}</span>
+                                  <span className="block">Remix Artists · {trackArtistMeta[t.id]?.remixer}</span>
                                 ) : null}
                               </>
                             ) : null}

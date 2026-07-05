@@ -10,7 +10,7 @@ import { createNewTrack } from '@/lib/track-service';
 import { getStageTemplatesForReleaseType } from '@/lib/workflow-templates';
 import { getRequirementNamesForReleaseType } from '@/lib/requirement-templates';
 import { PersonAssigner } from '@/components/person-assigner';
-import { ArtistFieldPicker, FeaturedArtistsPicker, type ArtistOption } from '@/components/artist-field-picker';
+import { ArtistFieldPicker, FeaturedArtistsPicker, RepeatableArtistPicker, type ArtistOption, type RepeatableArtistEntry } from '@/components/artist-field-picker';
 import { useArtists } from '@/hooks/useArtist';
 import {
   countRecordingTypes,
@@ -45,8 +45,8 @@ type WizardTrack = {
   recordingType: RecordingType;
   primaryArtistId: string;
   featuredArtistIds: string[];
-  originalArtistId: string;
-  remixerArtistId: string;
+  originalArtists: RepeatableArtistEntry[];
+  remixArtists: RepeatableArtistEntry[];
   displayTitle: string;
   displayTitleEdited: boolean;
   mixed: boolean;
@@ -58,7 +58,7 @@ type WizardTrack = {
   lyricist: string;
   iswc: string;
   pubOpen: boolean;
-  remixErrors: { originalArtist?: string; remixer?: string };
+  remixErrors: { originalArtists?: string; remixArtists?: string };
 };
 
 function createEmptyTrack(id = String(Date.now())): WizardTrack {
@@ -69,8 +69,8 @@ function createEmptyTrack(id = String(Date.now())): WizardTrack {
     recordingType: 'original',
     primaryArtistId: '',
     featuredArtistIds: [],
-    originalArtistId: '',
-    remixerArtistId: '',
+    originalArtists: [],
+    remixArtists: [],
     displayTitle: '',
     displayTitleEdited: false,
     mixed: true,
@@ -87,6 +87,10 @@ function createEmptyTrack(id = String(Date.now())): WizardTrack {
 }
 
 type PersonOption = { id: string; displayName: string };
+
+function uid() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
 type SocialRow = { id: string; platform: string; url: string; personId: string };
 type SectionStatusMap = Record<string, 'complete' | 'incomplete' | 'skipped'>;
 type AssignerField = 'mixingEngineer' | 'masteringEngineer' | 'emailManager';
@@ -182,7 +186,7 @@ export default function NewReleasePage() {
 
   function addTrack() { setTracks((p) => [...p, createEmptyTrack()]); }
 
-  function updateTrack(id: string, f: string, v: string | boolean | string[]) {
+  function updateTrack(id: string, f: string, v: string | boolean | string[] | RepeatableArtistEntry[]) {
     setTracks((p) => p.map((t) => {
       if (t.id !== id) return t;
       const next = { ...t, [f]: v, remixErrors: { ...t.remixErrors } };
@@ -191,11 +195,13 @@ export default function NewReleasePage() {
         next.displayTitle = '';
         next.displayTitleEdited = false;
       }
-      if ((f === 'title' || f === 'remixerArtistId') && next.recordingType === 'remix' && !next.displayTitleEdited) {
-        const remixerName = artists.find((a) => a.id === next.remixerArtistId)?.name ?? '';
+      if ((f === 'title' || f === 'remixArtists') && next.recordingType === 'remix' && !next.displayTitleEdited) {
+        const remixNames = (f === 'remixArtists' ? (v as RepeatableArtistEntry[]) : next.remixArtists)
+          .map((e) => artists.find((a) => a.id === e.artistId)?.name)
+          .filter(Boolean);
         next.displayTitle = suggestRemixDisplayTitle(
           f === 'title' ? String(v) : next.title,
-          f === 'remixerArtistId' ? (artists.find((a) => a.id === v)?.name ?? '') : remixerName,
+          remixNames[0] ?? '',
         );
       }
       if (f === 'displayTitle') {
@@ -203,8 +209,8 @@ export default function NewReleasePage() {
         next.displayTitleEdited = true;
         return next;
       }
-      if (f === 'originalArtistId' || f === 'remixerArtistId') {
-        delete next.remixErrors[f === 'originalArtistId' ? 'originalArtist' : 'remixer'];
+      if (f === 'originalArtists' || f === 'remixArtists') {
+        delete next.remixErrors[f === 'originalArtists' ? 'originalArtists' : 'remixArtists'];
       }
       return next;
     }));
@@ -234,12 +240,12 @@ export default function NewReleasePage() {
     setTracks((p) => p.map((t) => {
       if (!t.title.trim() || t.recordingType !== 'remix') return t;
       const remixErrors: WizardTrack['remixErrors'] = {};
-      if (!t.originalArtistId) {
-        remixErrors.originalArtist = 'Original Artist is required for remix recordings.';
+      if (t.originalArtists.length === 0) {
+        remixErrors.originalArtists = 'At least one Original Artist is required for remix recordings.';
         valid = false;
       }
-      if (!t.remixerArtistId) {
-        remixErrors.remixer = 'Remixer is required for remix recordings.';
+      if (t.remixArtists.length === 0) {
+        remixErrors.remixArtists = 'At least one Remix Artist is required for remix recordings.';
         valid = false;
       }
       return { ...t, remixErrors };
@@ -284,20 +290,27 @@ export default function NewReleasePage() {
             createdBy: user.uid,
             version: t.version.trim() || undefined,
             recordingType: t.recordingType,
-            originalArtistId: t.recordingType === 'remix' ? t.originalArtistId : null,
-            remixerArtistId: t.recordingType === 'remix' ? t.remixerArtistId : null,
+            originalArtistId: t.recordingType === 'remix' ? (t.originalArtists[0]?.artistId ?? null) : null,
+            remixerArtistId: t.recordingType === 'remix' ? (t.remixArtists[0]?.artistId ?? null) : null,
             primaryArtistId: t.recordingType === 'original' ? t.primaryArtistId || null : null,
             featuredArtistIds: t.recordingType === 'original' ? t.featuredArtistIds : null,
             displayTitle: t.displayTitle.trim() || null,
             displayTitleEdited: t.displayTitleEdited,
           });
           if (t.recordingType === 'remix') {
-            if (t.originalArtistId) await addArtistToTrack({ trackId, artistId: t.originalArtistId, artistType: 'original_artist' });
-            if (t.remixerArtistId) await addArtistToTrack({ trackId, artistId: t.remixerArtistId, artistType: 'remixer' });
+            for (let idx = 0; idx < t.originalArtists.length; idx++) {
+              const entry = t.originalArtists[idx]!;
+              if (entry.artistId) await addArtistToTrack({ trackId, artistId: entry.artistId, role: 'ORIGINAL_ARTIST', position: idx + 1 });
+            }
+            for (let idx = 0; idx < t.remixArtists.length; idx++) {
+              const entry = t.remixArtists[idx]!;
+              if (entry.artistId) await addArtistToTrack({ trackId, artistId: entry.artistId, role: 'REMIX_ARTIST', position: idx + 1 });
+            }
           } else {
-            if (t.primaryArtistId) await addArtistToTrack({ trackId, artistId: t.primaryArtistId, artistType: 'original_artist' });
-            for (const featuredId of t.featuredArtistIds) {
-              await addArtistToTrack({ trackId, artistId: featuredId, artistType: 'featured_artist' });
+            if (t.primaryArtistId) await addArtistToTrack({ trackId, artistId: t.primaryArtistId, role: 'PRIMARY_ARTIST', position: 1, isPrimary: true });
+            for (let idx = 0; idx < t.featuredArtistIds.length; idx++) {
+              const fid = t.featuredArtistIds[idx]!;
+              if (fid) await addArtistToTrack({ trackId, artistId: fid, role: 'FEATURED_ARTIST', position: idx + 1 });
             }
           }
         }
@@ -507,7 +520,7 @@ function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, remov
   artists: ArtistOption[];
   activeOrgId: string | null;
   addTrack: () => void;
-  updateTrack: (id: string, f: string, v: string | boolean | string[]) => void;
+  updateTrack: (id: string, f: string, v: string | boolean | string[] | RepeatableArtistEntry[]) => void;
   removeTrack: (id: string) => void;
   addFeaturedArtist: (trackId: string, artistId: string) => void;
   removeFeaturedArtist: (trackId: string, artistId: string) => void;
@@ -587,35 +600,39 @@ function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, remov
               </div>
             ) : (
               <div key={`${t.id}-remix-artists`} className="space-y-3">
-                <ArtistFieldPicker
-                  key={`${t.id}-original-artist`}
-                  instanceId={`${t.id}-original-artist`}
-                  label="Original Artist"
-                  value={t.originalArtistId}
-                  onChange={(v) => updateTrack(t.id, 'originalArtistId', v)}
+                <RepeatableArtistPicker
+                  instanceId={`${t.id}-original-artists`}
+                  label="Original Artists"
+                  addLabel="+ Add Original Artist"
+                  entries={t.originalArtists}
                   artists={artists}
                   organizationId={activeOrgId}
+                  onAdd={(artistId) => updateTrack(t.id, 'originalArtists', [...t.originalArtists, { id: uid(), artistId }])}
+                  onRemove={(entryId) => updateTrack(t.id, 'originalArtists', t.originalArtists.filter((e) => e.id !== entryId))}
+                  onReorder={(entries) => updateTrack(t.id, 'originalArtists', entries)}
                   onArtistCreated={onArtistCreated}
-                  error={t.remixErrors.originalArtist}
                 />
-                <ArtistFieldPicker
-                  key={`${t.id}-remixer`}
-                  instanceId={`${t.id}-remixer`}
-                  label="Remixer"
-                  value={t.remixerArtistId}
-                  onChange={(v) => updateTrack(t.id, 'remixerArtistId', v)}
+                {t.remixErrors.originalArtists ? <p className="text-xs text-danger-400">{t.remixErrors.originalArtists}</p> : null}
+                <RepeatableArtistPicker
+                  instanceId={`${t.id}-remix-artists`}
+                  label="Remix Artists"
+                  addLabel="+ Add Remix Artist"
+                  entries={t.remixArtists}
                   artists={artists}
                   organizationId={activeOrgId}
+                  onAdd={(artistId) => updateTrack(t.id, 'remixArtists', [...t.remixArtists, { id: uid(), artistId }])}
+                  onRemove={(entryId) => updateTrack(t.id, 'remixArtists', t.remixArtists.filter((e) => e.id !== entryId))}
+                  onReorder={(entries) => updateTrack(t.id, 'remixArtists', entries)}
                   onArtistCreated={onArtistCreated}
-                  error={t.remixErrors.remixer}
                 />
+                {t.remixErrors.remixArtists ? <p className="text-xs text-danger-400">{t.remixErrors.remixArtists}</p> : null}
                 <div className="rounded-xl border border-surface-700 bg-surface-950 p-3 space-y-2">
                   <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Suggested Display Title</p>
                   <input
                     type="text"
                     value={t.displayTitle}
                     onChange={(e) => updateTrack(t.id, 'displayTitle', e.target.value)}
-                    placeholder={suggestRemixDisplayTitle(t.title, artists.find((a) => a.id === t.remixerArtistId)?.name ?? '')}
+                    placeholder={suggestRemixDisplayTitle(t.title, artists.find((a) => a.id === (t.remixArtists[0]?.artistId ?? ''))?.name ?? '')}
                     className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-900 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
                   />
                 </div>

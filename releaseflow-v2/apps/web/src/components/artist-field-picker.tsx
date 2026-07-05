@@ -282,6 +282,157 @@ interface FeaturedArtistsPickerProps {
   onArtistCreated?: (artist: ArtistOption) => void;
 }
 
+interface RepeatableArtistEntry {
+  id: string;
+  artistId: string;
+}
+
+interface RepeatableArtistPickerProps {
+  instanceId: string;
+  label: string;
+  addLabel: string;
+  entries: RepeatableArtistEntry[];
+  artists: ArtistOption[];
+  organizationId: string | null;
+  onAdd: (artistId: string) => void;
+  onRemove: (entryId: string) => void;
+  onReorder: (entries: RepeatableArtistEntry[]) => void;
+  onArtistCreated?: (artist: ArtistOption) => void;
+  excludeIds?: string[];
+  error?: string;
+}
+
+export function RepeatableArtistPicker({
+  instanceId,
+  label,
+  addLabel,
+  entries,
+  artists,
+  organizationId,
+  onAdd,
+  onRemove,
+  onReorder,
+  onArtistCreated,
+  excludeIds = [],
+  error,
+}: RepeatableArtistPickerProps) {
+  const [showAddPanel, setShowAddPanel] = useState(false);
+  const [panelInstance, setPanelInstance] = useState(0);
+  const mountedInstanceId = useRef(instanceId);
+
+  const resetPickerShell = useCallback(() => {
+    setShowAddPanel(false);
+    setPanelInstance(0);
+  }, []);
+
+  useEffect(() => {
+    if (mountedInstanceId.current !== instanceId) {
+      mountedInstanceId.current = instanceId;
+      resetPickerShell();
+    }
+  }, [instanceId, resetPickerShell]);
+
+  function openAddPanel() {
+    setPanelInstance((n) => n + 1);
+    setShowAddPanel(true);
+  }
+
+  function moveEntry(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= entries.length) return;
+    const next = [...entries];
+    const moved = next.splice(index, 1)[0]!;
+    next.splice(target, 0, moved);
+    onReorder(next);
+  }
+
+  const allExcluded = [...new Set([...excludeIds, ...entries.map((e) => e.artistId).filter(Boolean)])];
+  const panelKey = `${instanceId}-${panelInstance}`;
+
+  return (
+    <div className="space-y-2" data-artist-picker={instanceId}>
+      <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">{label}</p>
+      {entries.map((entry, i) => {
+        const artistName = artists.find((a) => a.id === entry.artistId)?.name ?? '';
+        return (
+          <div key={entry.id} className="flex items-center gap-2">
+            <span className="text-xs text-text-500 w-5 shrink-0 text-right">{i + 1}.</span>
+            <select
+              value={entry.artistId}
+              onChange={(e) => {
+                const next = [...entries];
+                const current = next[i]!;
+                next[i] = { id: current.id, artistId: e.target.value };
+                onReorder(next);
+              }}
+              className="block flex-1 h-10 rounded-xl border border-surface-700 bg-surface-950 px-3 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none"
+            >
+              <option value="">Select artist...</option>
+              {artists.filter((a) => !allExcluded.includes(a.id) || a.id === entry.artistId).map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => moveEntry(i, -1)}
+                disabled={i === 0}
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-surface-700 bg-surface-950 text-text-400 hover:text-surface-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label="Move up"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => moveEntry(i, 1)}
+                disabled={i === entries.length - 1}
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-surface-700 bg-surface-950 text-text-400 hover:text-surface-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label="Move down"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemove(entry.id)}
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-surface-700 bg-surface-950 text-danger-400 hover:text-danger-300 transition-colors"
+                aria-label="Remove"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      {!showAddPanel ? (
+        <button
+          type="button"
+          onClick={openAddPanel}
+          className="block w-full h-10 rounded-xl border border-dashed border-surface-700 bg-surface-950 px-4 text-sm text-text-400 hover:text-surface-200 hover:border-surface-600 text-left transition-colors"
+        >
+          {addLabel}
+        </button>
+      ) : (
+        <ArtistAddPanel
+          key={panelKey}
+          instanceId={panelKey}
+          artists={artists}
+          organizationId={organizationId}
+          excludeIds={allExcluded}
+          onArtistCreated={onArtistCreated}
+          onSelect={(artistId) => {
+            onAdd(artistId);
+            setShowAddPanel(false);
+          }}
+          onCancel={() => setShowAddPanel(false)}
+        />
+      )}
+      {error ? <p className="text-xs text-danger-400">{error}</p> : null}
+    </div>
+  );
+}
+
+export type { RepeatableArtistEntry };
+
 export function FeaturedArtistsPicker({
   instanceId,
   artists,

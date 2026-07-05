@@ -13,6 +13,7 @@ import type { AssignmentRecord } from '@/lib/assignment-repository';
 import type { ProductionDeliverableRecord } from '@/lib/deliverable-management-repository';
 import type { TrackRightRecord } from '@/lib/rights-repository';
 import { editTrack, removeTrack, archiveTrackById, duplicateTrack } from '@/lib/track-service';
+import { getArtistsByRole } from '@/lib/track-artist-repository';
 import { toast } from '@/stores/toast-store';
 import { fetchRelease } from '@/lib/release-service';
 import { getReleasesByTrack } from '@/lib/release-track-repository';
@@ -147,6 +148,17 @@ function humaniseTrackActivity(ev: ActivityEventRecord): string | null {
   return null;
 }
 
+async function resolveArtistNames(orgId: string | null, artistIds: string[]): Promise<string[]> {
+  if (!orgId || artistIds.length === 0) return [];
+  const names = await Promise.all(
+    artistIds.map(async (aid) => {
+      const a = await fetchArtist(orgId, aid);
+      return a?.name;
+    }),
+  );
+  return names.filter(Boolean) as string[];
+}
+
 function inferProductionStage(assets: TrackAsset[]): string {
   const master = assets.find((a) => /master/i.test(a.name) && isAssetReceived(a));
   if (master) return 'Mastered';
@@ -249,7 +261,28 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
         setReleaseName(null);
       }
 
-      if (recordingType === 'remix') {
+      const originalArtists = await getArtistsByRole(trackId, 'ORIGINAL_ARTIST');
+      const remixArtists = await getArtistsByRole(trackId, 'REMIX_ARTIST');
+      const primaryArtists = await getArtistsByRole(trackId, 'PRIMARY_ARTIST');
+      const featuredArtists = await getArtistsByRole(trackId, 'FEATURED_ARTIST');
+
+      const hasTrackArtists = originalArtists.length > 0 || remixArtists.length > 0 || primaryArtists.length > 0;
+
+      if (hasTrackArtists) {
+        if (recordingType === 'remix') {
+          const allNames = await resolveArtistNames(activeOrgId, [
+            ...originalArtists.map((a) => a.artistId),
+            ...remixArtists.map((a) => a.artistId),
+          ]);
+          setArtistSummary(allNames.join(' · ') || '—');
+        } else {
+          const allNames = await resolveArtistNames(activeOrgId, [
+            ...primaryArtists.map((a) => a.artistId),
+            ...featuredArtists.map((a) => a.artistId),
+          ]);
+          setArtistSummary(allNames.join(' · ') || '—');
+        }
+      } else if (recordingType === 'remix') {
         const [orig, rem] = await Promise.all([
           track.originalArtistId ? fetchArtist(activeOrgId, track.originalArtistId) : null,
           track.remixerArtistId ? fetchArtist(activeOrgId, track.remixerArtistId) : null,
@@ -499,7 +532,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
                 <Link href={`/releases/${releaseId}`} className="text-primary-600 hover:text-primary-700">{releaseName}</Link>
               ) : 'Not linked'}
             </dd>
-            <dt className="text-text-400">{recordingType === 'remix' ? 'Original · Remixer' : 'Artists'}</dt>
+            <dt className="text-text-400">{recordingType === 'remix' ? 'Original · Remix Artists' : 'Artists'}</dt>
             <dd className="text-text-700 truncate">{artistSummary}</dd>
             <dt className="text-text-400">Stage</dt>
             <dd className="text-text-700">{productionStage}</dd>
