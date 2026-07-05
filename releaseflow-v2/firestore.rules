@@ -26,7 +26,24 @@ service cloud.firestore {
     match /releases/{docId}         { allow read,list: if orgMatch(resource.data.organizationId); allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid; allow update,delete: if isAuth() && resource.data.createdBy == request.auth.uid; }
     match /workflows/{docId}        { allow read,write: if isAuth(); }
     match /stages/{docId}           { allow read,write: if isAuth(); }
-    match /tracks/{docId}           { allow read,write: if isAuth(); }
+
+    // Tracks — organization-scoped via organizationId
+    match /tracks/{trackId} {
+      allow read, list: if isAuth() && resource.data.organizationId != null;
+      allow create: if isAuth() && request.resource.data.organizationId != null;
+      allow update, delete: if isAuth() && resource.data.organizationId != null;
+    }
+
+    // Release-track links — validated against release ownership
+    match /release_tracks/{id} {
+      allow read, list: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.releaseId != null
+        && request.resource.data.trackId != null
+        && request.resource.data.position != null;
+      allow update: if isAuth() && resource.data.releaseId != null;
+      allow delete: if isAuth() && resource.data.releaseId != null;
+    }
     match /contributors/{docId}     { allow read,write: if isAuth(); }
     match /tasks/{docId}            { allow read,write: if isAuth(); }
     match /comments/{docId}         { allow read: if isAuth(); allow create: if isAuth(); allow update,delete: if isAuth(); }
