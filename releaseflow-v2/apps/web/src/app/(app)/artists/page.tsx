@@ -51,7 +51,7 @@ export default function ArtistsPage() {
             <Link key={a.id} href={`/artists/${a.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-surface-50/80 dark:hover:bg-surface-800/40 transition-colors duration-100 group">
               <Avatar name={a.name} src={a.imageUrl ?? undefined} size="md" />
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-text-900 dark:text-text-50 truncate group-hover:text-primary-600 transition-colors duration-100">{a.name}</p>
+                <p className="font-semibold text-primary-400 truncate">{a.name}</p>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-xs text-text-500">{typeLabels[a.artistType] ?? a.artistType}</span>
                   {a.genres && a.genres.length > 0 ? <span className="text-xs text-text-400">{a.genres.slice(0, 2).join(', ')}</span> : null}

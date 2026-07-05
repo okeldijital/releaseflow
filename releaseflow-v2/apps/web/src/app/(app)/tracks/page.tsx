@@ -191,7 +191,7 @@ export default function TracksPage() {
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div>
-                  <p className="text-sm font-medium text-text-900 dark:text-text-100">{t.title}</p>
+                  <p className="text-sm font-medium text-primary-400">{t.title}</p>
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                     <Badge
                       label={recordingTypeLabel(resolveRecordingType(t.recordingType), true)}
@@ -245,7 +245,7 @@ export default function TracksPage() {
                     className="w-full text-left flex items-center gap-3 px-5 py-3.5 hover:bg-surface-50 transition-colors"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-text-900 truncate">{r.title}</p>
+                      <p className="text-sm font-medium text-primary-400 truncate">{r.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <Badge label={r.releaseType.replace(/_/g, ' ')} color="bg-primary-50 text-primary-600" size="sm" />
                         <StatusBadge status={r.status} />

@@ -100,7 +100,7 @@ export default function WorkPage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-[1.75rem] font-semibold text-surface-50 tracking-tight">My Work</p>
+        <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">My Work</p>
         <p className="mt-1 text-sm text-text-400">Everything assigned to you.</p>
       </div>
 
@@ -145,7 +145,7 @@ function TaskCard({ task, priorityStyles, overdue }: { task: TaskWithEntity; pri
     <div className="block rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3.5 hover:border-surface-300 dark:hover:border-surface-600 transition-all duration-150">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-text-900 dark:text-text-100 truncate">{task.title}</p>
+          <p className="text-sm font-medium text-content-primary truncate">{task.title}</p>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <Badge label={task.priority} color={priorityStyles[task.priority] ?? 'bg-surface-100 text-text-500'} size="sm" />
             <span className="text-xs text-text-400 dark:text-text-500 capitalize">{task.status.replace(/_/g, ' ')}</span>

@@ -274,7 +274,7 @@ export default function PeoplePage() {
                   </span>
                 )}
                 <div>
-                  <p className="text-sm font-medium text-text-900 dark:text-text-100">{p.displayName}</p>
+                  <p className="text-sm font-medium text-primary-400">{p.displayName}</p>
                   <p className="text-xs text-text-400">{p.email}</p>
                   {p.primaryRole && p.primaryRole !== '—' ? (
                     <p className="text-xs text-text-500 mt-0.5">{p.primaryRole}</p>

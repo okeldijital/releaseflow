@@ -220,7 +220,7 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
                       <td
                         key={col.key}
                         className={`
-                          px-4 ${cellPy} text-sm text-text-900 dark:text-text-100
+                          px-4 ${cellPy} text-sm text-content-primary
                           ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}
                         `}
                       >

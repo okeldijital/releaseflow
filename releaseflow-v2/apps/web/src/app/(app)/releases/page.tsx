@@ -71,10 +71,10 @@ export default function ReleasesPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <p className="font-semibold text-text-900 dark:text-text-50 truncate group-hover:text-primary-600 transition-colors duration-100">{release.title}</p>
+                  <p className="font-semibold text-primary-400 truncate">{release.title}</p>
                   <StatusBadge status={release.status} />
                 </div>
-                <p className="mt-0.5 text-xs text-text-500 capitalize">
+                <p className="mt-0.5 text-xs text-text-600 capitalize">
                   {release.releaseType}
                   {release.targetReleaseDate ? (<> &middot; Target {fmtDate(release.targetReleaseDate)}</>) : null}
                 </p>

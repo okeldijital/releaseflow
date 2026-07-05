@@ -122,7 +122,7 @@ export default function ArtistDetailPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[1.75rem] font-semibold text-surface-50 tracking-tight">{artist.name}</p>
+                  <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">{artist.name}</p>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
                     <span className="text-sm text-text-400">{typeLabels[artist.artistType] ?? artist.artistType}</span>
                     {artist.country ? <span className="text-sm text-text-500">&middot; {artist.country}</span> : null}
@@ -163,7 +163,7 @@ export default function ArtistDetailPage() {
           <div className="space-y-8">
             <section>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-surface-50">Profile</h2>
+                <h2 className="text-base font-semibold text-primary-400">Profile</h2>
                 <Button variant="ghost" size="sm" onClick={() => setEditing(!editing)}>{editing ? 'Cancel' : 'Edit'}</Button>
               </div>
               {editing ? (
@@ -182,7 +182,7 @@ export default function ArtistDetailPage() {
             </section>
 
             <section>
-              <h2 className="text-base font-semibold text-surface-50 mb-4">Active Releases ({activeReleases.length})</h2>
+              <h2 className="text-base font-semibold text-primary-400 mb-4">Active Releases ({activeReleases.length})</h2>
               {activeReleases.length === 0 ? (
                 <EmptyState title="No active releases" description="Active releases will appear here when this artist is linked to a release in progress." />
               ) : (
@@ -190,7 +190,7 @@ export default function ArtistDetailPage() {
                   {activeReleases.map((r) => (
                      <Link key={r.id} href={`/releases/${r.id}`} className="block rounded-lg border border-surface-700/60 bg-surface-900 p-4 hover:border-primary-200 hover:shadow-raised transition-all">
                       <div className="flex items-center justify-between mb-2">
-                        <div><span className="text-base font-semibold text-surface-50">{r.title}</span><Badge label={r.releaseType} color="bg-surface-100 text-text-400" size="sm" className="ml-2" /><span className="text-sm text-text-500 ml-2 capitalize">{r.role.replace(/_/g, ' ')}</span></div>
+                        <div><span className="text-base font-semibold text-primary-400">{r.title}</span><Badge label={r.releaseType} color="bg-surface-100 text-text-400" size="sm" className="ml-2" /><span className="text-sm text-text-500 ml-2 capitalize">{r.role.replace(/_/g, ' ')}</span></div>
                         <StatusBadge status={r.status} />
                       </div>
                       <div className="flex items-center justify-between"><span className="text-xs text-text-500">Active release</span><span className="text-xs text-primary-500 font-medium">Open Release &rarr;</span></div>
@@ -202,11 +202,11 @@ export default function ArtistDetailPage() {
 
             {completedReleases.length > 0 && (
               <section>
-                <h2 className="text-base font-semibold text-surface-50 mb-4">Completed Releases ({completedReleases.length})</h2>
+                <h2 className="text-base font-semibold text-primary-400 mb-4">Completed Releases ({completedReleases.length})</h2>
                 <div className="space-y-2">
                   {completedReleases.map((r) => (
                     <Link key={r.id} href={`/releases/${r.id}`} className="flex items-center justify-between rounded-lg border border-surface-700/60 bg-surface-900 px-4 py-3 hover:bg-surface-50 transition-colors">
-                      <div><span className="text-sm font-medium text-surface-50">{r.title}</span><Badge label={r.releaseType} color="bg-surface-100 text-text-400" size="sm" className="ml-2" /></div>
+                      <div><span className="text-sm font-medium text-primary-400">{r.title}</span><Badge label={r.releaseType} color="bg-surface-100 text-text-400" size="sm" className="ml-2" /></div>
                       <div className="flex items-center gap-2"><span className="text-xs capitalize text-text-500">{r.role.replace(/_/g, ' ')}</span><StatusBadge status="completed" /></div>
                     </Link>
                   ))}
@@ -218,12 +218,12 @@ export default function ArtistDetailPage() {
 
         {tab === 'releases' && (
           <section>
-            <h2 className="text-base font-semibold text-surface-50 mb-4">Discography ({releases.length})</h2>
+            <h2 className="text-base font-semibold text-primary-400 mb-4">Discography ({releases.length})</h2>
             {releases.length === 0 ? <EmptyState title="No releases" description="Not linked to any releases yet." /> : (
               <div className="space-y-2">
                 {releases.map((r) => (
                   <Link key={r.id} href={`/releases/${r.id}`} className="flex items-center justify-between rounded-lg border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-200 transition-colors">
-                    <div><p className="text-sm font-medium text-surface-50 truncate">{r.title}</p><div className="flex items-center gap-2 mt-0.5"><Badge label={r.releaseType} color="bg-surface-100 text-text-400" size="sm" /><span className="text-xs capitalize text-text-500">{r.role.replace(/_/g, ' ')}</span></div></div>
+                    <div><p className="text-sm font-medium text-primary-400 truncate">{r.title}</p><div className="flex items-center gap-2 mt-0.5"><Badge label={r.releaseType} color="bg-surface-100 text-text-400" size="sm" /><span className="text-xs capitalize text-text-500">{r.role.replace(/_/g, ' ')}</span></div></div>
                     <StatusBadge status={r.status} />
                   </Link>
                 ))}
@@ -234,7 +234,7 @@ export default function ArtistDetailPage() {
 
         {tab === 'credits' && (
           <section>
-            <h2 className="text-base font-semibold text-surface-50 mb-4">Track Credits ({credits.length})</h2>
+              <h2 className="text-base font-semibold text-primary-400 mb-4">Track Credits ({credits.length})</h2>
             {credits.length === 0 ? <EmptyState title="No track credits" description="No track credits recorded yet." /> : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {credits.map((c) => (
@@ -248,10 +248,10 @@ export default function ArtistDetailPage() {
           </section>
         )}
 
-        {tab === 'assets' && <section><h2 className="text-base font-semibold text-surface-50 mb-4">Assets</h2><EmptyState title="No assets" description="Artist assets will appear here." /></section>}
+        {tab === 'assets' && <section>            <h2 className="text-base font-semibold text-primary-400 mb-4">Assets</h2><EmptyState title="No assets" description="Artist assets will appear here." /></section>}
         {tab === 'activity' && (
           <section>
-            <h2 className="text-base font-semibold text-surface-50 mb-4">Activity</h2>
+            <h2 className="text-base font-semibold text-primary-400 mb-4">Activity</h2>
             {activityLoading ? <div className="text-sm text-text-500 py-4">Loading&hellip;</div> : activities.length === 0 ? <EmptyState title="No activity" description="Activity will appear when this artist's releases are updated." /> : (
               <div className="space-y-1">
                 {activities.slice(0, 10).map((a) => (
@@ -266,11 +266,11 @@ export default function ArtistDetailPage() {
         )}
         {tab === 'press-kit' && (
           <section>
-            <div className="flex items-center justify-between mb-4"><h2 className="text-base font-semibold text-surface-50">Press Kit</h2><Button size="sm" variant="outline">Download PDF</Button></div>
+            <div className="flex items-center justify-between mb-4"><h2 className="text-base font-semibold text-primary-400">Press Kit</h2><Button size="sm" variant="outline">Download PDF</Button></div>
             <div className="space-y-6">
-              <Card><h3 className="text-sm font-semibold text-surface-50 mb-3">Bio</h3><p className="text-sm text-surface-100 whitespace-pre-wrap">{artist.bio || 'No bio.'}</p></Card>
-              {artist.socialLinks && <Card><h3 className="text-sm font-semibold text-surface-50 mb-3">Social Links</h3><div className="space-y-1 text-sm">{artist.socialLinks.instagram ? <p className="text-text-400">Instagram: <span className="text-surface-100">{artist.socialLinks.instagram}</span></p> : null}{artist.socialLinks.spotify ? <p className="text-text-400">Spotify: <span className="text-surface-100">{artist.socialLinks.spotify}</span></p> : null}{artist.socialLinks.website ? <p className="text-text-400">Website: <span className="text-surface-100">{artist.socialLinks.website}</span></p> : null}</div></Card>}
-              <Card><h3 className="text-sm font-semibold text-surface-50 mb-3">Discography</h3>{releases.length === 0 ? <p className="text-sm text-text-500">No releases yet.</p> : <div className="space-y-1">{releases.map((r) => <div key={r.id} className="text-sm text-surface-100">{r.title} ({r.releaseType}) &middot; {r.role.replace(/_/g, ' ')}</div>)}</div>}</Card>
+              <Card><h3 className="text-sm font-semibold text-content-primary mb-3">Bio</h3><p className="text-sm text-surface-100 whitespace-pre-wrap">{artist.bio || 'No bio.'}</p></Card>
+              {artist.socialLinks && <Card><h3 className="text-sm font-semibold text-content-primary mb-3">Social Links</h3><div className="space-y-1 text-sm">{artist.socialLinks.instagram ? <p className="text-text-400">Instagram: <span className="text-surface-100">{artist.socialLinks.instagram}</span></p> : null}{artist.socialLinks.spotify ? <p className="text-text-400">Spotify: <span className="text-surface-100">{artist.socialLinks.spotify}</span></p> : null}{artist.socialLinks.website ? <p className="text-text-400">Website: <span className="text-surface-100">{artist.socialLinks.website}</span></p> : null}</div></Card>}
+              <Card><h3 className="text-sm font-semibold text-content-primary mb-3">Discography</h3>{releases.length === 0 ? <p className="text-sm text-text-500">No releases yet.</p> : <div className="space-y-1">{releases.map((r) => <div key={r.id} className="text-sm text-surface-100">{r.title} ({r.releaseType}) &middot; {r.role.replace(/_/g, ' ')}</div>)}</div>}</Card>
             </div>
           </section>
         )}

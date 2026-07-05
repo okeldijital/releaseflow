@@ -100,8 +100,8 @@ export function Notification({
           <NotifIcon type={type} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-text-900">{title}</p>
-          {message ? <p className="text-xs text-text-500 mt-1">{message}</p> : null}
+          <p className="text-sm font-medium text-content-primary">{title}</p>
+          {message ? <p className="text-xs text-content-secondary mt-1">{message}</p> : null}
           {action ? (
             <button
               type="button"
