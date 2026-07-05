@@ -65,7 +65,7 @@ function ReleaseCard({ release }: { release: { id: string; title: string; status
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2.5 flex-wrap">
-          <p className="font-semibold text-surface-50 truncate group-hover:text-primary-400 transition-colors">{release.title}</p>
+          <p className="font-semibold text-primary-400 truncate">{release.title}</p>
           <StatusBadge status={release.status} />
         </div>
         <div className="flex items-center gap-3 mt-0.5">
@@ -128,7 +128,7 @@ export default function SchedulePage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <p className="text-[1.75rem] font-semibold text-surface-50 tracking-tight">Schedule</p>
+          <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">Schedule</p>
           <p className="mt-1 text-sm text-text-400">View your release timeline across different perspectives.</p>
           {releases.length > 0 ? (
             <p className="mt-0.5 text-sm text-text-400">{releases.length} release{releases.length !== 1 ? 's' : ''}</p>
@@ -232,7 +232,7 @@ export default function SchedulePage() {
                   </div>
                   <div className="flex-1 min-w-0 pt-0.5">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <p className="font-semibold text-surface-50 truncate group-hover:text-primary-400 transition-colors">{r.title}</p>
+                      <p className="font-semibold text-primary-400 truncate">{r.title}</p>
                       <StatusBadge status={r.status} />
                     </div>
                     {d ? (

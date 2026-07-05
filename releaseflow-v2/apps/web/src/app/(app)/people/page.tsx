@@ -202,7 +202,7 @@ export default function PeoplePage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-[1.75rem] font-semibold text-surface-50 tracking-tight">People</p>
+          <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">People</p>
           <p className="mt-1 text-sm text-text-400">Your creative team, collaborators and contributors.</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to manage people." />
@@ -218,7 +218,7 @@ export default function PeoplePage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <p className="text-[1.75rem] font-semibold text-surface-50 tracking-tight">People</p>
+          <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">People</p>
           <p className="mt-1 text-sm text-text-400">Your creative team, collaborators and contributors.</p>
         </div>
         <div className="flex items-center gap-2">

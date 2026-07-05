@@ -157,7 +157,7 @@ export default function AssetsPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-[1.75rem] font-semibold text-surface-50 tracking-tight">Assets</p>
+          <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">Assets</p>
           <p className="mt-1 text-sm text-text-400">Artwork, masters, videos and production files.</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to view its assets." />
@@ -175,7 +175,7 @@ export default function AssetsPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <p className="text-[1.75rem] font-semibold text-surface-50 tracking-tight">Assets</p>
+          <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">Assets</p>
           <p className="mt-1 text-sm text-text-400">Artwork, masters, videos and production files.</p>
         </div>
         <Button variant="primary" size="sm" className="rounded-xl" onClick={() => setShowAddForm((v) => !v)}>Upload Asset</Button>

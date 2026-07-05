@@ -132,7 +132,7 @@ const language = (release as unknown as Record<string, unknown>).language as str
             </div>
             <div className="flex-1 p-6 flex flex-col sm:flex-row gap-6">
               <div className="flex-1 min-w-0">
-                <p className="text-xl font-semibold text-surface-50 tracking-tight group-hover:text-primary-400 transition-colors">{release.title}</p>
+                <p className="text-xl font-semibold text-primary-400 tracking-tight">{release.title}</p>
                 <p className="text-sm text-text-400 mt-0.5">{releaseTypeLabel} · {artistName}</p>
                 <p className="text-xs text-text-500 mt-1">{label}</p>
                 <div className="mt-4 space-y-1">
@@ -187,7 +187,7 @@ const language = (release as unknown as Record<string, unknown>).language as str
 
       {/* Upcoming Releases */}
       <div className="mb-10">
-        <h2 className="text-sm font-semibold text-surface-50 mb-4">Upcoming Releases</h2>
+        <h2 className="text-sm font-semibold text-primary-400 mb-4">Upcoming Releases</h2>
         {releases.length === 0 ? (
           <p className="text-sm text-text-500">No releases yet.</p>
         ) : (
@@ -216,7 +216,7 @@ const language = (release as unknown as Record<string, unknown>).language as str
                       <span className="text-sm font-bold text-white/90">{initial}</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-surface-100 truncate group-hover:text-primary-400 transition-colors">{r.title}</p>
+                      <p className="text-sm font-medium text-primary-400 truncate">{r.title}</p>
                       <p className="text-xs text-text-500 mt-0.5 capitalize">{r.releaseType}</p>
                     </div>
                     <div className="text-right shrink-0">
@@ -233,7 +233,7 @@ const language = (release as unknown as Record<string, unknown>).language as str
       {/* Two-column: Activity + Tasks */}
       <div className="grid gap-8 sm:grid-cols-2">
         <div>
-          <h2 className="text-sm font-semibold text-surface-50 mb-4">Recent Activity</h2>
+          <h2 className="text-sm font-semibold text-primary-400 mb-4">Recent Activity</h2>
           {loadingExtras ? <LoadingState /> : activities.length === 0 ? (
             <p className="text-sm text-text-500">No recent activity.</p>
           ) : (
@@ -252,7 +252,7 @@ const language = (release as unknown as Record<string, unknown>).language as str
           )}
         </div>
         <div>
-          <h2 className="text-sm font-semibold text-surface-50 mb-4">My Tasks</h2>
+          <h2 className="text-sm font-semibold text-primary-400 mb-4">My Tasks</h2>
           {loadingExtras ? <LoadingState /> : tasks.length === 0 ? (
             <p className="text-sm text-text-500">No tasks assigned to you.</p>
           ) : (

@@ -512,7 +512,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
         <div className="flex flex-col gap-3 min-w-0">
           <div>
-            <h1 className="text-2xl font-semibold text-text-900 tracking-tight leading-tight">{track.title}</h1>
+            <h1 className="text-2xl font-semibold text-primary-400 tracking-tight leading-tight">{track.title}</h1>
             {track.version ? <p className="text-sm text-text-500 mt-0.5">{track.version}</p> : null}
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <Badge
@@ -525,17 +525,17 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
           </div>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
             <dt className="text-text-400">Recording Type</dt>
-            <dd className="text-text-700">{recordingTypeLabel(recordingType)}</dd>
+            <dd className="text-text-800">{recordingTypeLabel(recordingType)}</dd>
             <dt className="text-text-400">Release</dt>
-            <dd className="text-text-700 truncate">
+            <dd className="text-text-800 truncate">
               {releaseId && releaseName ? (
                 <Link href={`/releases/${releaseId}`} className="text-primary-600 hover:text-primary-700">{releaseName}</Link>
               ) : 'Not linked'}
             </dd>
             <dt className="text-text-400">{recordingType === 'remix' ? 'Original · Remix Artists' : 'Artists'}</dt>
-            <dd className="text-text-700 truncate">{artistSummary}</dd>
+            <dd className="text-text-800 truncate">{artistSummary}</dd>
             <dt className="text-text-400">Stage</dt>
-            <dd className="text-text-700">{productionStage}</dd>
+            <dd className="text-text-800">{productionStage}</dd>
             <dt className="text-text-400">Status</dt>
             <dd><StatusBadge status={track.status} /></dd>
           </dl>

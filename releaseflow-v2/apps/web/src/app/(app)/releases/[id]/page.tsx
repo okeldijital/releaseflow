@@ -619,20 +619,20 @@ export default function ReleaseWorkspacePage() {
         {/* Release info */}
         <div className="flex flex-col gap-3 min-w-0">
           <div>
-            <h1 className="text-2xl font-semibold text-text-900 tracking-tight leading-tight">{release.title}</h1>
-            <p className="text-sm text-text-500 mt-1">{artistName}</p>
+            <h1 className="text-2xl font-semibold text-primary-400 tracking-tight leading-tight">{release.title}</h1>
+            <p className="text-sm text-text-700 mt-1">{artistName}</p>
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <Badge label={titleCase(release.releaseType)} color="bg-surface-100 text-text-600" />
               <StatusBadge status={release.status} />
             </div>
           </div>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-            <dt className="text-text-400 whitespace-nowrap">Type</dt>            <dd className="text-text-700 truncate">{titleCase(release.releaseType)}</dd>
-            <dt className="text-text-400 whitespace-nowrap">Company</dt>         <dd className="text-text-700 truncate">{companyName}</dd>
-            <dt className="text-text-400 whitespace-nowrap">Catalog</dt>         <dd className="text-text-700 truncate">{release.catalogNumber ?? 'Not assigned'}</dd>
-            <dt className="text-text-400 whitespace-nowrap">Release Date</dt>    <dd className="text-text-700">{release.targetReleaseDate ? fmtDate(release.targetReleaseDate) : 'Not scheduled'}</dd>
-            <dt className="text-text-400 whitespace-nowrap">Genre</dt>           <dd className="text-text-700 truncate">{release.genre ?? 'Not set'}</dd>
-            <dt className="text-text-400 whitespace-nowrap">Language</dt>        <dd className="text-text-700">{release.language ?? 'Not set'}</dd>
+            <dt className="text-text-400 whitespace-nowrap">Type</dt>            <dd className="text-text-800 truncate">{titleCase(release.releaseType)}</dd>
+            <dt className="text-text-400 whitespace-nowrap">Company</dt>         <dd className="text-text-800 truncate">{companyName}</dd>
+            <dt className="text-text-400 whitespace-nowrap">Catalog</dt>         <dd className="text-text-800 truncate">{release.catalogNumber ?? 'Not assigned'}</dd>
+            <dt className="text-text-400 whitespace-nowrap">Release Date</dt>    <dd className="text-text-800">{release.targetReleaseDate ? fmtDate(release.targetReleaseDate) : 'Not scheduled'}</dd>
+            <dt className="text-text-400 whitespace-nowrap">Genre</dt>           <dd className="text-text-800 truncate">{release.genre ?? 'Not set'}</dd>
+            <dt className="text-text-400 whitespace-nowrap">Language</dt>        <dd className="text-text-800">{release.language ?? 'Not set'}</dd>
             <dt className="text-text-400 whitespace-nowrap">Status</dt>          <dd><StatusBadge status={release.status} /></dd>
           </dl>
         </div>
@@ -787,9 +787,9 @@ export default function ReleaseWorkspacePage() {
                     >
                       <span className="text-sm text-text-400 font-mono w-8 shrink-0">{rt.position}</span>
                       <span className="min-w-0 flex-1">
-                        <span className="text-sm font-medium text-text-900 truncate block">{t?.title ?? '—'}</span>
+                        <span className="text-sm font-medium text-primary-400 truncate block">{t?.title ?? '—'}</span>
                         {t ? (
-                          <span className="text-xs text-text-500 mt-0.5 block space-y-0.5">
+                          <span className="text-xs text-text-600 mt-0.5 block space-y-0.5">
                             <span className="block">
                               Recording Type · {recordingTypeLabel(resolveRecordingType(t.recordingType), true)}
                             </span>
@@ -806,7 +806,7 @@ export default function ReleaseWorkspacePage() {
                           </span>
                         ) : null}
                       </span>
-                      <span className="text-xs text-text-500 text-right hidden sm:block">{fmtDuration(t?.duration)}</span>
+                      <span className="text-xs text-text-600 text-right hidden sm:block">{fmtDuration(t?.duration)}</span>
                       <span className="hidden sm:block"><StatusBadge status={(t as unknown as { mixStatus?: string })?.mixStatus ?? (t?.status === 'active' ? 'in_progress' : 'draft')} /></span>
                       <span className="hidden sm:block"><StatusBadge status={(t as unknown as { masterStatus?: string })?.masterStatus ?? (t?.isrc ? 'ready' : 'draft')} /></span>
                       <span className="hidden sm:block"><StatusBadge status={(t as unknown as { publishingStatus?: string })?.publishingStatus ?? (t?.isrc ? 'ready' : 'draft')} /></span>
