@@ -1,6 +1,5 @@
-import { getAuth } from 'firebase/auth';
 import {
-  doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
+  doc, getDoc, getDocs, updateDoc, deleteDoc, writeBatch,
   collection, query, where, orderBy, Timestamp,
 } from 'firebase/firestore';
 import { getDb } from './firebase';
@@ -100,37 +99,15 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
   if (!db) throw new Error('Firestore not initialized');
   const now = Timestamp.now();
 
-  const auth = getAuth();
-
-  /* STEP 0 — Auth state */
-  console.log('STEP 0 — Auth state');
-  console.table({
-    uid: auth.currentUser?.uid ?? null,
-    email: auth.currentUser?.email ?? null,
-    authenticated: !!auth.currentUser,
-  });
-
-  /* STEP 1 — Read release_tracks for position */
-  console.log('STEP 1 — Read release_tracks position');
-  const positionQuery = query(
-    collection(db, 'release_tracks'),
-    where('releaseId', '==', fields.releaseId),
+  const positionSnap = await getDocs(
+    query(collection(db, 'release_tracks'), where('releaseId', '==', fields.releaseId)),
   );
-  let positionSnap;
-  try {
-    positionSnap = await getDocs(positionQuery);
-    console.log('STEP 1 OK — found', positionSnap.size, 'existing');
-  } catch (err) {
-    console.error('STEP 1 FAIL');
-    console.error(err);
-    throw err;
-  }
   const position = fields.position ?? (positionSnap.size + 1);
 
-  /* STEP 2 — Create track document */
-  console.log('STEP 2 — Create track document');
+  const batch = writeBatch(db);
+
   const trackRef = doc(collection(db, 'tracks'));
-  const trackPayload = {
+  batch.set(trackRef, {
     organizationId: fields.organizationId,
     title: fields.title,
     version: fields.version ?? null,
@@ -155,33 +132,17 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     createdBy: fields.createdBy,
     createdAt: now,
     updatedAt: now,
-  };
-  try {
-    await setDoc(trackRef, trackPayload);
-    console.log('STEP 2 OK — tracks/' + trackRef.id);
-  } catch (err) {
-    console.error('STEP 2 FAIL');
-    console.error(err);
-    throw err;
-  }
+  });
 
-  /* STEP 3 — Create release_track document */
-  console.log('STEP 3 — Create release_track document');
   const releaseTrackRef = doc(collection(db, 'release_tracks'));
-  const rtPayload = {
+  batch.set(releaseTrackRef, {
     releaseId: fields.releaseId,
     trackId: trackRef.id,
     position,
     createdAt: now,
-  };
-  try {
-    await setDoc(releaseTrackRef, rtPayload);
-    console.log('STEP 3 OK — release_tracks/' + releaseTrackRef.id);
-  } catch (err) {
-    console.error('STEP 3 FAIL');
-    console.error(err);
-    throw err;
-  }
+  });
+
+  await batch.commit();
 
   return {
     id: trackRef.id,

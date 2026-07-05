@@ -44,6 +44,27 @@ service cloud.firestore {
       allow update: if isAuth() && resource.data.releaseId != null;
       allow delete: if isAuth() && resource.data.releaseId != null;
     }
+
+    // Track-artist links
+    match /track_artists/{id} {
+      allow read, list: if isAuth();
+      allow create: if isAuth() && request.resource.data.trackId != null && request.resource.data.artistId != null;
+      allow update, delete: if isAuth();
+    }
+
+    // Person assignments (tracks, releases, etc.)
+    match /assignments/{id} {
+      allow read, list: if isAuth();
+      allow create: if isAuth() && request.resource.data.entityId != null;
+      allow update, delete: if isAuth();
+    }
+
+    // Production deliverables
+    match /production_deliverables/{id} {
+      allow read, list: if isAuth();
+      allow create: if isAuth() && request.resource.data.trackId != null && request.resource.data.organizationId != null;
+      allow update, delete: if isAuth();
+    }
     match /contributors/{docId}     { allow read,write: if isAuth(); }
     match /tasks/{docId}            { allow read,write: if isAuth(); }
     match /comments/{docId}         { allow read: if isAuth(); allow create: if isAuth(); allow update,delete: if isAuth(); }
