@@ -14,7 +14,6 @@ import { ArtistFieldPicker, FeaturedArtistsPicker, RepeatableArtistPicker, type 
 import { LabelFieldPicker, type LabelOption } from '@/components/label-field-picker';
 import { useArtists } from '@/hooks/useArtist';
 import { getLabelsByOrganization } from '@/lib/label-repository';
-import { createNewLabel } from '@/lib/label-service';
 import {
   countRecordingTypes,
   releaseTypeLabel,

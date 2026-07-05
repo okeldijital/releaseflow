@@ -213,9 +213,6 @@ export function LabelFieldPicker({
   }
 
   const panelKey = `${instanceId}-${panelInstance}`;
-  const selectedName = value === '__org__'
-    ? (orgName ?? 'Current Organization')
-    : labels.find((l) => l.id === value)?.name;
 
   return (
     <div className="space-y-2" data-label-picker={instanceId}>

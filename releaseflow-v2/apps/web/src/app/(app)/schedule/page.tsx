@@ -44,10 +44,6 @@ function monthLabel(d: Date): string {
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
 function isSameWeek(a: Date, b: Date): boolean {
   const start = new Date(a);
   start.setDate(a.getDate() - a.getDay());
