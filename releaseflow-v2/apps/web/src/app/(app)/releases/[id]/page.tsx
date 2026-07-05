@@ -288,15 +288,14 @@ export default function ReleaseWorkspacePage() {
         console.error('[Workspace] Deliverables load failed', error);
       }
 
-      let trk: (ReleaseTrackRecord & { track: TrackRecord | null })[];
+      let trk: (ReleaseTrackRecord & { track: TrackRecord | null })[] = [];
       try {
         console.time('[Workspace] loadTracks');
         trk = await getTracksByRelease(releaseId);
         console.timeEnd('[Workspace] loadTracks');
       } catch (error) {
         console.timeEnd('[Workspace] loadTracks');
-        console.error("getTracksByRelease FAILED", error);
-        throw error;
+        console.error('[Workspace] Track load failed', error);
       }
 
       let tsk: Task[] = [];
@@ -311,7 +310,6 @@ export default function ReleaseWorkspacePage() {
 
       if (!cancelled) {
         setDeliverables(del);
-        console.log("SETTING TRACKS", trk.length);
         setTracks(trk);
         setTasks(tsk);
       }
@@ -754,7 +752,6 @@ export default function ReleaseWorkspacePage() {
               </div>
               <Button size="sm" variant="outline" onClick={() => router.push(`/tracks/new?releaseId=${releaseId}`)}>+ Add Track</Button>
             </div>
-            {(() => { console.log("RENDER TRACKS", tracks.length); return null; })()}
             {tracks.length === 0 ? (
               <EmptyState title="No tracks have been added." action={{ label: 'Add First Track', onClick: () => router.push(`/tracks/new?releaseId=${releaseId}`) }} />
             ) : (

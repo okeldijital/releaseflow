@@ -22,11 +22,8 @@ export async function editTrack(trackId: string, fields: UpdateTrackFields): Pro
 }
 
 export async function removeTrack(trackId: string): Promise<void> {
-  console.log("removeTrack entered");
   if (!trackId) throw new Error('Track ID is required');
-  console.log("before deleteTrack");
   await deleteTrack(trackId);
-  console.log("after deleteTrack");
 }
 
 export async function archiveTrackById(trackId: string): Promise<void> {

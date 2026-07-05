@@ -1,5 +1,5 @@
 import {
-  doc, getDoc, getDocs, updateDoc, deleteDoc, writeBatch,
+  doc, getDoc, getDocs, updateDoc, writeBatch,
   collection, query, where, orderBy, Timestamp,
 } from 'firebase/firestore';
 import { getDb } from './firebase';
@@ -247,5 +247,15 @@ export async function deleteTrack(trackId: string): Promise<void> {
     throw new Error('Firestore not initialized');
   }
 
-  await deleteDoc(doc(db, 'tracks', trackId));
+  const batch = writeBatch(db);
+
+  const releaseTracksSnap = await getDocs(
+    query(collection(db, 'release_tracks'), where('trackId', '==', trackId)),
+  );
+  for (const doc of releaseTracksSnap.docs) {
+    batch.delete(doc.ref);
+  }
+
+  batch.delete(doc(db, 'tracks', trackId));
+  await batch.commit();
 }
