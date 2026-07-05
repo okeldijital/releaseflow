@@ -35,9 +35,20 @@ export async function removeTrackFromRelease(recordId: string): Promise<void> {
 export async function getTracksByRelease(releaseId: string): Promise<(ReleaseTrackRecord & { track: TrackRecord | null })[]> {
   const db = getDb();
   if (!db) return [];
-  const snap = await getDocs(
-    query(collection(db, 'release_tracks'), where('releaseId', '==', releaseId), orderBy('position', 'asc')),
-  );
+
+  console.log("QUERY 1");
+  let snap;
+  try {
+    snap = await getDocs(
+      query(collection(db, 'release_tracks'), where('releaseId', '==', releaseId), orderBy('position', 'asc')),
+    );
+    console.log("QUERY 1 OK — size:", snap.size);
+  } catch (error) {
+    console.error("QUERY 1 FAILED");
+    console.error(error);
+    throw error;
+  }
+
   console.log("RAW RELEASE_TRACK DOCS");
   console.table(
     snap.docs.map((doc) => ({
@@ -46,10 +57,22 @@ export async function getTracksByRelease(releaseId: string): Promise<(ReleaseTra
     }))
   );
   console.log("release_tracks:", snap.size);
+
   const records = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ReleaseTrackRecord);
   const results: (ReleaseTrackRecord & { track: TrackRecord | null })[] = [];
+
   for (const rec of records) {
-    const tSnap = await getDoc(doc(db, 'tracks', rec.trackId));
+    console.log("QUERY 2 — tracks/" + rec.trackId);
+    let tSnap;
+    try {
+      tSnap = await getDoc(doc(db, 'tracks', rec.trackId));
+      console.log("QUERY 2 OK — exists:", tSnap.exists());
+    } catch (error) {
+      console.error("QUERY 2 FAILED");
+      console.error(error);
+      throw error;
+    }
+
     if (tSnap.exists()) {
       const data = tSnap.data();
       results.push({
@@ -60,6 +83,7 @@ export async function getTracksByRelease(releaseId: string): Promise<(ReleaseTra
       results.push({ ...rec, track: null });
     }
   }
+
   console.log("RAW TRACK DOCS");
   console.table(
     results.map((track) => ({
