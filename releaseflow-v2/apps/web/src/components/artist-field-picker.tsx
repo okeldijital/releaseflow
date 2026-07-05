@@ -352,9 +352,7 @@ export function RepeatableArtistPicker({
   return (
     <div className="space-y-2" data-artist-picker={instanceId}>
       <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">{label}</p>
-      {entries.map((entry, i) => {
-        const artistName = artists.find((a) => a.id === entry.artistId)?.name ?? '';
-        return (
+      {entries.map((entry, i) => (
           <div key={entry.id} className="flex items-center gap-2">
             <span className="text-xs text-text-500 w-5 shrink-0 text-right">{i + 1}.</span>
             <select
@@ -401,8 +399,7 @@ export function RepeatableArtistPicker({
               </button>
             </div>
           </div>
-        );
-      })}
+        ))}
       {!showAddPanel ? (
         <button
           type="button"

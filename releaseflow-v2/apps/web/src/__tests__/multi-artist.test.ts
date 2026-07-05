@@ -59,36 +59,11 @@ describe('ArtistFieldPickerLogic — search and create', () => {
 });
 
 describe('NormalizeDoc — legacy field compatibility', () => {
-  it('maps legacy artistType to role', async () => {
+  it('exports repository functions needed for normalizeDoc', async () => {
     const mod = await import('@/lib/track-artist-repository');
-
-    const testCases: [string, string][] = [
-      ['original_artist', 'ORIGINAL_ARTIST'],
-      ['remixer', 'REMIX_ARTIST'],
-      ['featured_artist', 'FEATURED_ARTIST'],
-      ['composer', 'COMPOSER'],
-      ['producer', 'PRODUCER'],
-    ];
-
-    for (const [legacy, expected] of testCases) {
-      const doc = {
-        id: 'test-id',
-        trackId: 'track-1',
-        artistId: 'artist-1',
-        artistType: legacy,
-        billingOrder: 1,
-        createdAt: { seconds: 1000, nanoseconds: 0 },
-      } as Record<string, unknown>;
-
-      const result = await (async () => {
-        const { getArtistsByTrack } = mod;
-        return undefined;
-      })();
-
-      // Verify the normalizeDoc logic works via getArtistsByTrack
-      // We can't call Firestore, but we can test the export exists
-      expect(mod).toBeDefined();
-    }
+    expect(typeof mod.addArtistToTrack).toBe('function');
+    expect(typeof mod.getArtistsByTrack).toBe('function');
+    expect(typeof mod.getArtistsByRole).toBe('function');
   });
 });
 
@@ -103,10 +78,6 @@ describe('RepeatableArtistEntry — array manipulation', () => {
 
     function remove(entryId: string) {
       entries = entries.filter((e) => e.id !== entryId);
-    }
-
-    function reorder(newEntries: typeof entries) {
-      entries = newEntries;
     }
 
     // Test 1: Create 3 Original Artists
@@ -139,7 +110,7 @@ describe('RepeatableArtistEntry — array manipulation', () => {
       { id: 'b', artistId: 'B' },
       { id: 'c', artistId: 'C' },
     ];
-    const reordered = [entries[2]!, entries[0]!, entries[1]!];
+    const reordered = [entries[2], entries[0], entries[1]].filter(Boolean) as typeof entries;
     expect(reordered.map((e) => e.artistId)).toEqual(['C', 'A', 'B']);
 
     // Simulate persist + refresh
