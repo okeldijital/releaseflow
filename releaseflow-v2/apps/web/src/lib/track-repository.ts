@@ -142,7 +142,36 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     createdAt: now,
   });
 
-  await batch.commit();
+  const trackData = {
+    organizationId: fields.organizationId,
+    title: fields.title,
+    status: 'draft',
+  };
+  const releaseTrackData = {
+    releaseId: fields.releaseId,
+    trackId: trackRef.id,
+    position,
+  };
+
+  console.group('[createTrack] Payload');
+  console.log('Preparing track document');
+  console.table(trackData);
+  console.log('Preparing release-track document');
+  console.table(releaseTrackData);
+  console.log('Firestore Paths');
+  console.log(`tracks/${trackRef.id}`);
+  console.log(`release_tracks/${releaseTrackRef.id}`);
+  console.log('Committing batch...');
+  console.groupEnd();
+
+  try {
+    await batch.commit();
+  } catch (err) {
+    console.error('[createTrack] batch.commit() failed');
+    console.error('Code:', (err as { code?: string }).code ?? 'unknown');
+    console.error('Message:', (err as Error).message ?? String(err));
+    throw err;
+  }
 
   return {
     id: trackRef.id,
