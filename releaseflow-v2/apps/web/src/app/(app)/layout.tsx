@@ -53,6 +53,12 @@ const navItems: NavItem[] = [
     section: 'operations',
   },
   {
+    label: 'Schedule',
+    icon: NavIcon({ d: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' }),
+    href: '/schedule',
+    section: 'operations',
+  },
+  {
     label: 'Artists',
     icon: NavIcon({ d: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' }),
     href: '/artists',

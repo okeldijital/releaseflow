@@ -185,6 +185,51 @@ const language = (release as unknown as Record<string, unknown>).language as str
         </div>
       </div>
 
+      {/* Upcoming Releases */}
+      <div className="mb-10">
+        <h2 className="text-sm font-semibold text-surface-50 mb-4">Upcoming Releases</h2>
+        {releases.length === 0 ? (
+          <p className="text-sm text-text-500">No releases yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {[...releases]
+              .filter((r) => r.status !== 'released' && r.status !== 'cancelled' && r.status !== 'archived')
+              .sort((a, b) => {
+                const aDate = toDate(a.estimatedReleaseDate || a.targetReleaseDate);
+                const bDate = toDate(b.estimatedReleaseDate || b.targetReleaseDate);
+                if (!aDate && !bDate) return 0;
+                if (!aDate) return 1;
+                if (!bDate) return -1;
+                return aDate.getTime() - bDate.getTime();
+              })
+              .slice(0, 5)
+              .map((r) => {
+                const date = toDate(r.estimatedReleaseDate || r.targetReleaseDate);
+                const initial = r.title?.charAt(0)?.toUpperCase() || 'R';
+                return (
+                  <Link
+                    key={r.id}
+                    href={`/releases/${r.id}`}
+                    className="flex items-center gap-3 rounded-xl border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-500/40 transition-all duration-150 group"
+                  >
+                    <div className="h-10 w-10 shrink-0 rounded-lg bg-gradient-to-br from-primary-500 to-orange-600 flex items-center justify-center shadow">
+                      <span className="text-sm font-bold text-white/90">{initial}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-surface-100 truncate group-hover:text-primary-400 transition-colors">{r.title}</p>
+                      <p className="text-xs text-text-500 mt-0.5 capitalize">{r.releaseType}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs text-text-400">{date ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</p>
+                      <p className="text-[10px] text-text-500 mt-0.5 capitalize">{r.status.replace(/_/g, ' ')}</p>
+                    </div>
+                  </Link>
+                );
+              })}
+          </div>
+        )}
+      </div>
+
       {/* Two-column: Activity + Tasks */}
       <div className="grid gap-8 sm:grid-cols-2">
         <div>

@@ -14,12 +14,14 @@ export type ReleaseStatus = 'draft' | 'planning' | 'in_production' | 'on_hold' |
 export interface Release {
   id: string;
   title: string;
+  displayTitle?: string;
   version?: string;
   releaseType: ReleaseType;
   status: ReleaseStatus;
   organizationId: string;
   createdBy: string;
   targetReleaseDate?: unknown;
+  estimatedReleaseDate?: unknown;
   upc?: string;
   catalogNumber?: string;
   label?: string;

@@ -11,7 +11,10 @@ import { getStageTemplatesForReleaseType } from '@/lib/workflow-templates';
 import { getRequirementNamesForReleaseType } from '@/lib/requirement-templates';
 import { PersonAssigner } from '@/components/person-assigner';
 import { ArtistFieldPicker, FeaturedArtistsPicker, RepeatableArtistPicker, type ArtistOption, type RepeatableArtistEntry } from '@/components/artist-field-picker';
+import { LabelFieldPicker, type LabelOption } from '@/components/label-field-picker';
 import { useArtists } from '@/hooks/useArtist';
+import { getLabelsByOrganization } from '@/lib/label-repository';
+import { createNewLabel } from '@/lib/label-service';
 import {
   countRecordingTypes,
   releaseTypeLabel,
@@ -111,6 +114,9 @@ export default function NewReleasePage() {
   const [releaseTitle, setReleaseTitle] = useState('');
   const [version, setVersion] = useState('');
   const [releaseNotes, setReleaseNotes] = useState('');
+  const [estimatedReleaseDate, setEstimatedReleaseDate] = useState('');
+  const [labelOptions, setLabelOptions] = useState<LabelOption[]>([]);
+  const [orgName, setOrgName] = useState('');
 
   const [hasArtwork, setHasArtwork] = useState<boolean | null>(null);
   const [commissionArtwork, setCommissionArtwork] = useState<boolean | null>(null);
@@ -171,8 +177,20 @@ export default function NewReleasePage() {
     if (!user) { router.push('/sign-in'); return; }
     if (activeOrgId) {
       getPeopleByOrg(activeOrgId).then((p) => setPeople(p.map((x) => ({ id: x.id, displayName: x.displayName }))));
+      getLabelsByOrganization(activeOrgId).then((labels) => {
+        setLabelOptions(labels.map((l) => ({ id: l.id, name: l.name })));
+      });
     }
   }, [user, router, activeOrgId]);
+
+  useEffect(() => {
+    if (!activeOrgId) return;
+    import('@/lib/organization-repository').then(({ getOrganization }) => {
+      getOrganization(activeOrgId).then((org) => {
+        if (org) setOrgName(org.name);
+      });
+    });
+  }, [activeOrgId]);
 
   if (!user) return null;
 
@@ -270,8 +288,9 @@ export default function NewReleasePage() {
     setLaunching(true); setError('');
     try {
       const rt = releaseType as 'single' | 'ep' | 'album';
+      const labelValue = recordLabel === '__org__' ? (orgName || undefined) : (recordLabel ? (labelOptions.find((l) => l.id === recordLabel)?.name || recordLabel) : undefined);
       const { releaseId } = await createReleaseWithFullWorkflow(
-        { title: releaseTitle, releaseType: rt, status: 'planning', organizationId: activeOrgId, createdBy: user.uid, targetReleaseDate: null },
+        { title: releaseTitle, releaseType: rt, status: 'planning', organizationId: activeOrgId, createdBy: user.uid, targetReleaseDate: null, estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null, label: labelValue },
         getStageTemplatesForReleaseType(rt), getRequirementNamesForReleaseType(rt), user.uid,
       );
       const validTracks = tracks.filter((t) => t.title.trim());
@@ -335,7 +354,7 @@ export default function NewReleasePage() {
       <StepTitle step={currentStepKey ?? 'type'} />
 
       {currentStepKey === 'type' && <ReleaseTypeStep releaseType={releaseType} setReleaseType={setReleaseType} next={next} />}
-      {currentStepKey === 'details' && <DetailsStep releaseTitle={releaseTitle} setReleaseTitle={setReleaseTitle} version={version} setVersion={setVersion} releaseNotes={releaseNotes} setReleaseNotes={setReleaseNotes} back={back} next={next} />}
+      {currentStepKey === 'details' && <DetailsStep releaseTitle={releaseTitle} setReleaseTitle={setReleaseTitle} version={version} setVersion={setVersion} releaseNotes={releaseNotes} setReleaseNotes={setReleaseNotes} estimatedReleaseDate={estimatedReleaseDate} setEstimatedReleaseDate={setEstimatedReleaseDate} back={back} next={next} />}
       {currentStepKey === 'artwork' && <ArtworkStep hasArtwork={hasArtwork} setHasArtwork={setHasArtwork} commissionArtwork={commissionArtwork} setCommissionArtwork={setCommissionArtwork} artworkDesigner={artworkDesigner} setArtworkDesigner={setArtworkDesigner} people={people} inviteName={inviteName} setInviteName={setInviteName} inviteEmail={inviteEmail} setInviteEmail={setInviteEmail} inviteRole={inviteRole} setInviteRole={setInviteRole} showInviteForm={showInviteForm} setShowInviteForm={setShowInviteForm} handleInvite={handleInvite} back={back} next={next} />}
       {currentStepKey === 'tracks' && (
         <TracksStep
@@ -357,10 +376,10 @@ export default function NewReleasePage() {
           next={next}
         />
       )}
-      {currentStepKey === 'release_info' && <ReleaseInfoStep primaryArtist={primaryArtist} setPrimaryArtist={setPrimaryArtist} featuredArtists={featuredArtists} setFeaturedArtists={setFeaturedArtists} recordLabel={recordLabel} setRecordLabel={setRecordLabel} catalogueNumber={catalogueNumber} setCatalogueNumber={setCatalogueNumber} upc={upc} setUpc={setUpc} primaryGenre={primaryGenre} setPrimaryGenre={setPrimaryGenre} secondaryGenre={secondaryGenre} setSecondaryGenre={setSecondaryGenre} language={language} setLanguage={setLanguage} copyrightOwner={copyrightOwner} setCopyrightOwner={setCopyrightOwner} copyrightYear={copyrightYear} setCopyrightYear={setCopyrightYear} releaseOwner={releaseOwner} setReleaseOwner={setReleaseOwner} back={back} next={next} />}
+      {currentStepKey === 'release_info' && <ReleaseInfoStep primaryArtist={primaryArtist} setPrimaryArtist={setPrimaryArtist} featuredArtists={featuredArtists} setFeaturedArtists={setFeaturedArtists} recordLabel={recordLabel} setRecordLabel={setRecordLabel} catalogueNumber={catalogueNumber} setCatalogueNumber={setCatalogueNumber} upc={upc} setUpc={setUpc} primaryGenre={primaryGenre} setPrimaryGenre={setPrimaryGenre} secondaryGenre={secondaryGenre} setSecondaryGenre={setSecondaryGenre} language={language} setLanguage={setLanguage} copyrightOwner={copyrightOwner} setCopyrightOwner={setCopyrightOwner} copyrightYear={copyrightYear} setCopyrightYear={setCopyrightYear} releaseOwner={releaseOwner} setReleaseOwner={setReleaseOwner} labelOptions={labelOptions} activeOrgId={activeOrgId} orgName={orgName} onLabelCreated={(l: LabelOption) => setLabelOptions((p) => p.some((x) => x.id === l.id) ? p : [...p, l])} back={back} next={next} />}
       {currentStepKey === 'promotion' && <PromoStep promoAssets={promoAssets} setPromoAssets={setPromoAssets} assetDesigners={assetDesigners} setAssetDesigners={setAssetDesigners} people={people} socialRows={socialRows} setSocialRows={setSocialRows} addSocialRow={addSocialRow} removeSocialRow={removeSocialRow} inviteName={inviteName} setInviteName={setInviteName} inviteEmail={inviteEmail} setInviteEmail={setInviteEmail} inviteRole={inviteRole} setInviteRole={setInviteRole} showInviteForm={showInviteForm} setShowInviteForm={setShowInviteForm} handleInvite={handleInvite} setInviteTarget={setInviteTarget} back={back} next={next} />}
       {currentStepKey === 'email' && <EmailStep hasEmail={hasEmail} setHasEmail={setHasEmail} emailSubject={emailSubject} setEmailSubject={setEmailSubject} emailPreviewText={emailPreviewText} setEmailPreviewText={setEmailPreviewText} emailBody={emailBody} setEmailBody={setEmailBody} emailCampaignManager={emailCampaignManager} setEmailCampaignManager={setEmailCampaignManager} emailSendDate={emailSendDate} setEmailSendDate={setEmailSendDate} emailSendTime={emailSendTime} setEmailSendTime={setEmailSendTime} emailTimezone={emailTimezone} setEmailTimezone={setEmailTimezone} openAssigner={openAssigner} back={back} next={next} onLater={() => later('email')} />}
-      {currentStepKey === 'review' && <ReviewStep releaseTitle={releaseTitle} releaseType={releaseType} tracks={tracks} hasArtwork={hasArtwork} commissionArtwork={commissionArtwork} promoAssets={promoAssets} hasEmail={hasEmail} primaryArtist={primaryArtist} primaryGenre={primaryGenre} language={language} sectionStatus={sectionStatus} error={error} launching={launching} back={back} launch={handleLaunch} />}
+      {currentStepKey === 'review' && <ReviewStep releaseTitle={releaseTitle} releaseType={releaseType} tracks={tracks} hasArtwork={hasArtwork} commissionArtwork={commissionArtwork} promoAssets={promoAssets} hasEmail={hasEmail} primaryArtist={primaryArtist} primaryGenre={primaryGenre} language={language} estimatedReleaseDate={estimatedReleaseDate} sectionStatus={sectionStatus} error={error} launching={launching} back={back} launch={handleLaunch} />}
       <PersonAssigner
         open={assignerOpen}
         onClose={() => setAssignerOpen(false)}
@@ -445,25 +464,61 @@ function ReleaseTypeStep({ releaseType, setReleaseType, next }: { releaseType: s
   );
 }
 
-function DetailsStep({ releaseTitle, setReleaseTitle, version, setVersion, releaseNotes, setReleaseNotes, back, next }: {
+const VERSION_TEMPLATES = [
+  'Original Mix', 'Extended Mix', 'Radio Edit', 'Instrumental',
+  'Acoustic', 'Clean', 'Explicit', 'Demo', 'Live', 'Remix', 'VIP Mix',
+];
+
+function DetailsStep({ releaseTitle, setReleaseTitle, version, setVersion, releaseNotes, setReleaseNotes, estimatedReleaseDate, setEstimatedReleaseDate, back, next }: {
   releaseTitle: string;
   setReleaseTitle: (v: string) => void;
   version: string;
   setVersion: (v: string) => void;
   releaseNotes: string;
   setReleaseNotes: (v: string) => void;
+  estimatedReleaseDate: string;
+  setEstimatedReleaseDate: (v: string) => void;
   back: () => void;
   next: () => void;
 }) {
+  const displayTitle = [releaseTitle.trim(), version.trim()].filter(Boolean).join(' · ');
+
   return (
     <>
       <input type="text" value={releaseTitle} onChange={(e) => setReleaseTitle(e.target.value)} placeholder="Release title" autoFocus
         className="mt-8 block w-full h-14 rounded-xl border border-surface-700 bg-surface-900 px-5 text-[18px] text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none" />
-      <input type="text" value={version} onChange={(e) => setVersion(e.target.value)} placeholder="Version (optional)"
-        className="mt-3 block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-5 text-sm text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none" />
+      {displayTitle ? (
+        <p className="mt-2 text-xs text-text-400 text-center">Display: <span className="text-primary-400 font-medium">{displayTitle}</span></p>
+      ) : null}
+
+      <div className="mt-3">
+        <input type="text" value={version} onChange={(e) => setVersion(e.target.value)} placeholder="Version (optional)"
+          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-5 text-sm text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none" />
+        {version.trim() ? null : (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {VERSION_TEMPLATES.map((vt) => (
+              <button
+                key={vt}
+                type="button"
+                onClick={() => setVersion(vt)}
+                className="px-2.5 py-1 rounded-md border border-surface-700 bg-surface-950 text-[11px] text-text-400 hover:text-surface-100 hover:border-primary-500/40 transition-colors"
+              >
+                {vt}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3">
+        <p className="text-xs font-semibold text-text-500 uppercase tracking-wider mb-2">Estimated Release Date *</p>
+        <input type="date" value={estimatedReleaseDate} onChange={(e) => setEstimatedReleaseDate(e.target.value)}
+          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none [color-scheme:dark]" />
+      </div>
+
       <textarea value={releaseNotes} onChange={(e) => setReleaseNotes(e.target.value)} rows={2} placeholder="Release notes (optional)"
         className="mt-3 block w-full rounded-xl border border-surface-700 bg-surface-900 px-4 py-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none resize-none" />
-      <Nav back={back} next={next} canNext={!!releaseTitle.trim()} />
+      <Nav back={back} next={next} canNext={!!releaseTitle.trim() && !!estimatedReleaseDate} />
     </>
   );
 }
@@ -851,7 +906,7 @@ function EmailStep({ hasEmail, setHasEmail, emailSubject, setEmailSubject, email
   );
 }
 
-function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtists, setFeaturedArtists, recordLabel, setRecordLabel, catalogueNumber, setCatalogueNumber, upc, setUpc, primaryGenre, setPrimaryGenre, secondaryGenre, setSecondaryGenre, language, setLanguage, copyrightOwner, setCopyrightOwner, copyrightYear, setCopyrightYear, releaseOwner, setReleaseOwner, back, next }: {
+function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtists, setFeaturedArtists, recordLabel, setRecordLabel, catalogueNumber, setCatalogueNumber, upc, setUpc, primaryGenre, setPrimaryGenre, secondaryGenre, setSecondaryGenre, language, setLanguage, copyrightOwner, setCopyrightOwner, copyrightYear, setCopyrightYear, releaseOwner, setReleaseOwner, labelOptions, activeOrgId, orgName, onLabelCreated, back, next }: {
   primaryArtist: string;
   setPrimaryArtist: (v: string) => void;
   featuredArtists: string[];
@@ -874,6 +929,10 @@ function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtists, set
   setCopyrightYear: (v: string) => void;
   releaseOwner: string;
   setReleaseOwner: (v: string) => void;
+  labelOptions: LabelOption[];
+  activeOrgId: string | null;
+  orgName: string;
+  onLabelCreated: (label: LabelOption) => void;
   back: () => void;
   next: () => void;
 }) {
@@ -889,8 +948,16 @@ function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtists, set
             className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
           <input type="text" value={featuredArtists.join(', ')} onChange={(e) => setFeaturedArtists(e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
             placeholder="Featured Artist(s) — comma separated" className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
-          <input type="text" value={recordLabel} onChange={(e) => setRecordLabel(e.target.value)} placeholder="Record Label"
-            className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+          <LabelFieldPicker
+            instanceId="release-label"
+            label="Label"
+            value={recordLabel}
+            onChange={setRecordLabel}
+            labels={labelOptions}
+            organizationId={activeOrgId}
+            orgName={orgName}
+            onLabelCreated={onLabelCreated}
+          />
           <div className="grid grid-cols-2 gap-3">
             <input type="text" value={catalogueNumber} onChange={(e) => setCatalogueNumber(e.target.value)} placeholder="Catalogue Number"
               className="h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
@@ -923,7 +990,7 @@ function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtists, set
   );
 }
 
-function ReviewStep({ releaseTitle, releaseType, tracks, hasArtwork, commissionArtwork, promoAssets, hasEmail, primaryArtist, primaryGenre, language, sectionStatus, error, launching, back, launch }: {
+function ReviewStep({ releaseTitle, releaseType, tracks, hasArtwork, commissionArtwork, promoAssets, hasEmail, primaryArtist, primaryGenre, language, estimatedReleaseDate, sectionStatus, error, launching, back, launch }: {
   releaseTitle: string;
   releaseType: ReleaseTypeVal;
   tracks: WizardTrack[];
@@ -934,6 +1001,7 @@ function ReviewStep({ releaseTitle, releaseType, tracks, hasArtwork, commissionA
   primaryArtist: string;
   primaryGenre: string;
   language: string;
+  estimatedReleaseDate: string;
   sectionStatus: SectionStatusMap;
   error: string;
   launching: boolean;
@@ -945,6 +1013,7 @@ function ReviewStep({ releaseTitle, releaseType, tracks, hasArtwork, commissionA
       <p className="mt-2 text-sm text-text-400 text-center">Everything looks good?</p>
       <div className="mt-8 rounded-xl border border-surface-700 bg-surface-900 divide-y divide-surface-800">
         <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Release</span><span className="text-sm font-medium text-surface-100">{releaseTitle || '—'}</span></div>
+        <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Est. Release Date</span><span className="text-sm font-medium text-surface-100">{estimatedReleaseDate ? new Date(estimatedReleaseDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}</span></div>
         <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Type</span><span className="text-sm font-medium text-surface-100">{releaseTypeLabel(releaseType)}</span></div>
         {(() => {
           const counts = countRecordingTypes(tracks);

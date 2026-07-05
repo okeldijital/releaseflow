@@ -8,11 +8,13 @@ import type { ReleaseStatus, ReleaseType } from '@/app/(app)/types';
 export interface ReleaseRecord {
   id: string;
   title: string;
+  displayTitle?: string;
   releaseType: ReleaseType;
   status: ReleaseStatus;
   organizationId: string;
   createdBy: string;
   targetReleaseDate?: unknown;
+  estimatedReleaseDate?: unknown;
   upc?: string;
   catalogNumber?: string;
   label?: string;
@@ -34,6 +36,7 @@ export interface CreateReleaseFields {
   organizationId: string;
   createdBy: string;
   targetReleaseDate?: Date | null;
+  estimatedReleaseDate?: Date | null;
   upc?: string;
   label?: string;
   genre?: string;
@@ -44,6 +47,7 @@ export interface UpdateReleaseFields {
   releaseType?: ReleaseType;
   status?: ReleaseStatus;
   targetReleaseDate?: Date | null;
+  estimatedReleaseDate?: Date | null;
   upc?: string | null;
   catalogNumber?: string | null;
   label?: string | null;
@@ -123,6 +127,9 @@ export async function createRelease(
     targetReleaseDate: fields.targetReleaseDate
       ? Timestamp.fromDate(fields.targetReleaseDate)
       : null,
+    estimatedReleaseDate: fields.estimatedReleaseDate
+      ? Timestamp.fromDate(fields.estimatedReleaseDate)
+      : null,
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
@@ -154,6 +161,9 @@ export async function createReleaseWithWorkflow(
     ...fields,
     targetReleaseDate: fields.targetReleaseDate
       ? Timestamp.fromDate(fields.targetReleaseDate)
+      : null,
+    estimatedReleaseDate: fields.estimatedReleaseDate
+      ? Timestamp.fromDate(fields.estimatedReleaseDate)
       : null,
     createdAt: now,
     updatedAt: now,
@@ -246,6 +256,11 @@ export async function updateRelease(
   if (fields.targetReleaseDate !== undefined) {
     updateData.targetReleaseDate = fields.targetReleaseDate
       ? Timestamp.fromDate(fields.targetReleaseDate)
+      : null;
+  }
+  if (fields.estimatedReleaseDate !== undefined) {
+    updateData.estimatedReleaseDate = fields.estimatedReleaseDate
+      ? Timestamp.fromDate(fields.estimatedReleaseDate)
       : null;
   }
   if (fields.upc !== undefined) updateData.upc = fields.upc;
