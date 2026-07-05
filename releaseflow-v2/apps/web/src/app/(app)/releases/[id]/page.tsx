@@ -288,14 +288,15 @@ export default function ReleaseWorkspacePage() {
         console.error('[Workspace] Deliverables load failed', error);
       }
 
-      let trk: (ReleaseTrackRecord & { track: TrackRecord | null })[] = [];
+      let trk: (ReleaseTrackRecord & { track: TrackRecord | null })[];
       try {
         console.time('[Workspace] loadTracks');
         trk = await getTracksByRelease(releaseId);
         console.timeEnd('[Workspace] loadTracks');
       } catch (error) {
         console.timeEnd('[Workspace] loadTracks');
-        console.error('[Workspace] Track load failed', error);
+        console.error("getTracksByRelease FAILED", error);
+        throw error;
       }
 
       let tsk: Task[] = [];

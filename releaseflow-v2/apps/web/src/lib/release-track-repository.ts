@@ -38,9 +38,15 @@ export async function getTracksByRelease(releaseId: string): Promise<(ReleaseTra
   const snap = await getDocs(
     query(collection(db, 'release_tracks'), where('releaseId', '==', releaseId), orderBy('position', 'asc')),
   );
+  console.log("RAW RELEASE_TRACK DOCS");
+  console.table(
+    snap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }))
+  );
+  console.log("release_tracks:", snap.size);
   const records = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ReleaseTrackRecord);
-  console.log('release_tracks:', records.length);
-  console.table(records.map((r) => ({ id: r.id, releaseId: r.releaseId, trackId: r.trackId, position: r.position })));
   const results: (ReleaseTrackRecord & { track: TrackRecord | null })[] = [];
   for (const rec of records) {
     const tSnap = await getDoc(doc(db, 'tracks', rec.trackId));
@@ -54,8 +60,15 @@ export async function getTracksByRelease(releaseId: string): Promise<(ReleaseTra
       results.push({ ...rec, track: null });
     }
   }
-  console.log('tracks:', results.length);
-  console.table(results.map((r) => ({ id: r.id, trackId: r.trackId, trackTitle: r.track?.title ?? null, position: r.position })));
+  console.log("RAW TRACK DOCS");
+  console.table(
+    results.map((track) => ({
+      id: track.track?.id ?? null,
+      title: track.track?.title ?? null,
+      organizationId: track.track?.organizationId ?? null,
+    }))
+  );
+  console.log("tracks:", results.length);
   return results;
 }
 
