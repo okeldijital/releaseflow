@@ -1,6 +1,7 @@
 import {
   doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  collection, query, where, orderBy, limit, Timestamp,
+  collection, query, where, orderBy, limit, writeBatch, Timestamp,
+  type QueryConstraint,
 } from 'firebase/firestore';
 import { getDb } from './firebase';
 import { normalizeArtistName } from './artist-field-picker-logic';
@@ -10,12 +11,19 @@ export interface ArtistRecord {
   name: string;
   slug: string;
   normalizedName: string;
+  stageName?: string | null;
+  legalName?: string | null;
   artistType: string;
   bio?: string | null;
   country?: string | null;
   genres?: string[] | null;
   imageUrl?: string | null;
   socialLinks?: Record<string, string> | null;
+  isni?: string | null;
+  ipi?: string | null;
+  notes?: string | null;
+  contact?: string | null;
+  aliases?: string[] | null;
   organizationId: string;
   status: string;
   createdAt: unknown;
@@ -39,6 +47,8 @@ export interface TrackCreditRecord {
 
 export interface CreateArtistFields {
   name: string;
+  stageName?: string;
+  legalName?: string;
   artistType: string;
   organizationId: string;
   bio?: string;
@@ -46,6 +56,11 @@ export interface CreateArtistFields {
   genres?: string[];
   imageUrl?: string;
   socialLinks?: Record<string, string>;
+  isni?: string;
+  ipi?: string;
+  notes?: string;
+  contact?: string;
+  aliases?: string[];
 }
 
 export interface CreateArtistResult {
@@ -56,13 +71,34 @@ export interface CreateArtistResult {
 
 export interface UpdateArtistFields {
   name?: string;
+  stageName?: string | null;
+  legalName?: string | null;
   artistType?: string;
   bio?: string | null;
   country?: string | null;
   genres?: string[] | null;
   imageUrl?: string | null;
   socialLinks?: Record<string, string> | null;
+  isni?: string | null;
+  ipi?: string | null;
+  notes?: string | null;
+  contact?: string | null;
+  aliases?: string[] | null;
   status?: string;
+}
+
+export interface ArtistUsageResult {
+  tracks: number;
+  releases: number;
+  publishingCredits: number;
+  featuredAppearances: number;
+  remixes: number;
+}
+
+export interface ArtistReferenceSummary {
+  tracks: number;
+  releases: number;
+  publishingRecords: number;
 }
 
 function slugify(name: string): string {
@@ -84,12 +120,19 @@ function toArtistRecord(id: string, data: Record<string, unknown>, organizationI
     name,
     slug: (data.slug as string) ?? slugify(name),
     normalizedName: (data.normalizedName as string) ?? normalizeArtistName(name),
+    stageName: (data.stageName as string | null) ?? null,
+    legalName: (data.legalName as string | null) ?? null,
     artistType: (data.artistType as string) ?? 'original_artist',
     bio: (data.bio as string | null) ?? null,
     country: (data.country as string | null) ?? null,
     genres: (data.genres as string[] | null) ?? null,
     imageUrl: (data.imageUrl as string | null) ?? null,
     socialLinks: (data.socialLinks as Record<string, string> | null) ?? null,
+    isni: (data.isni as string | null) ?? null,
+    ipi: (data.ipi as string | null) ?? null,
+    notes: (data.notes as string | null) ?? null,
+    contact: (data.contact as string | null) ?? null,
+    aliases: (data.aliases as string[] | null) ?? null,
     organizationId: (data.organizationId as string) ?? organizationId,
     status: (data.status as string) ?? 'active',
     createdAt: data.createdAt,
@@ -138,6 +181,8 @@ export async function createArtist(fields: CreateArtistFields): Promise<CreateAr
     name: trimmedName,
     slug: slugify(trimmedName),
     normalizedName: normalized,
+    stageName: fields.stageName ?? null,
+    legalName: fields.legalName ?? null,
     artistType: fields.artistType,
     organizationId: fields.organizationId,
     bio: fields.bio ?? null,
@@ -145,6 +190,11 @@ export async function createArtist(fields: CreateArtistFields): Promise<CreateAr
     genres: fields.genres ?? null,
     imageUrl: fields.imageUrl ?? null,
     socialLinks: fields.socialLinks ?? null,
+    isni: fields.isni ?? null,
+    ipi: fields.ipi ?? null,
+    notes: fields.notes ?? null,
+    contact: fields.contact ?? null,
+    aliases: fields.aliases ?? null,
     status: 'active',
     createdAt: now,
     updatedAt: now,
@@ -180,15 +230,36 @@ export async function updateArtist(
     update.slug = slugify(fields.name);
     update.normalizedName = normalizeArtistName(fields.name);
   }
+  if (fields.stageName !== undefined) update.stageName = fields.stageName;
+  if (fields.legalName !== undefined) update.legalName = fields.legalName;
   if (fields.artistType !== undefined) update.artistType = fields.artistType;
   if (fields.bio !== undefined) update.bio = fields.bio;
   if (fields.country !== undefined) update.country = fields.country;
   if (fields.genres !== undefined) update.genres = fields.genres;
   if (fields.imageUrl !== undefined) update.imageUrl = fields.imageUrl;
   if (fields.socialLinks !== undefined) update.socialLinks = fields.socialLinks;
+  if (fields.isni !== undefined) update.isni = fields.isni;
+  if (fields.ipi !== undefined) update.ipi = fields.ipi;
+  if (fields.notes !== undefined) update.notes = fields.notes;
+  if (fields.contact !== undefined) update.contact = fields.contact;
+  if (fields.aliases !== undefined) update.aliases = fields.aliases;
   if (fields.status !== undefined) update.status = fields.status;
 
   await updateDoc(ref, update);
+}
+
+export async function archiveArtist(organizationId: string, artistId: string): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore not initialized');
+  const ref = artistDocument(db, organizationId, artistId);
+  await updateDoc(ref, { status: 'archived', updatedAt: Timestamp.now() });
+}
+
+export async function restoreArtist(organizationId: string, artistId: string): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore not initialized');
+  const ref = artistDocument(db, organizationId, artistId);
+  await updateDoc(ref, { status: 'active', updatedAt: Timestamp.now() });
 }
 
 export async function deleteArtist(organizationId: string, artistId: string): Promise<void> {
@@ -212,22 +283,37 @@ export async function getArtist(organizationId: string, artistId: string): Promi
   return toArtistRecord(snap.id, snap.data() as Record<string, unknown>, organizationId);
 }
 
-export async function listArtists(organizationId: string): Promise<ArtistRecord[]> {
+export async function listArtists(organizationId: string, opts?: { includeArchived?: boolean }): Promise<ArtistRecord[]> {
   const db = getDb();
   if (!db || !organizationId) return [];
 
+  const constraints: QueryConstraint[] = [orderBy('name', 'asc')];
+  if (!opts?.includeArchived) {
+    constraints.unshift(where('status', '!=', 'archived'));
+  }
+
   const snap = await getDocs(
-    query(artistsCollection(db, organizationId), orderBy('name', 'asc')),
+    query(artistsCollection(db, organizationId), ...constraints),
   );
 
   return snap.docs.map((d) => toArtistRecord(d.id, d.data() as Record<string, unknown>, organizationId));
 }
 
-export async function searchArtists(organizationId: string, search: string): Promise<ArtistRecord[]> {
-  const catalogue = await listArtists(organizationId);
+export async function searchArtists(
+  organizationId: string,
+  search: string,
+  opts?: { includeArchived?: boolean },
+): Promise<ArtistRecord[]> {
+  const catalogue = await listArtists(organizationId, opts);
   const normalizedSearch = search.trim().toLowerCase();
   if (!normalizedSearch) return catalogue;
-  return catalogue.filter((artist) => artist.name.toLowerCase().includes(normalizedSearch));
+  return catalogue.filter((artist) => {
+    if (artist.name.toLowerCase().includes(normalizedSearch)) return true;
+    if (artist.stageName?.toLowerCase().includes(normalizedSearch)) return true;
+    if (artist.legalName?.toLowerCase().includes(normalizedSearch)) return true;
+    if (artist.aliases?.some((a) => a.toLowerCase().includes(normalizedSearch))) return true;
+    return false;
+  });
 }
 
 export async function getArtistsByRelease(releaseId: string): Promise<ReleaseArtistRecord[]> {
@@ -272,4 +358,131 @@ export async function getTrackTitle(trackId: string): Promise<string | null> {
   const snap = await getDoc(doc(db, 'tracks', trackId));
   if (!snap.exists()) return null;
   return (snap.data() as { title?: string }).title ?? null;
+}
+
+export async function getArtistUsage(organizationId: string, artistId: string): Promise<ArtistUsageResult> {
+  const db = getDb();
+  if (!db) return { tracks: 0, releases: 0, publishingCredits: 0, featuredAppearances: 0, remixes: 0 };
+
+  const trackArtistsSnap = await getDocs(
+    query(collection(db, 'track_artists'), where('artistId', '==', artistId)),
+  );
+
+  const releaseArtistsSnap = await getDocs(
+    query(collection(db, 'release_artists'), where('artistId', '==', artistId)),
+  );
+
+  const creditsSnap = await getDocs(
+    query(collection(db, 'track_credits'), where('artistId', '==', artistId)),
+  );
+
+  const trackArtists = trackArtistsSnap.docs.map((d) => d.data());
+  const trackArtistRoles = trackArtists.map((t) => (t as { role?: string }).role ?? '');
+
+  const tracks = new Set(trackArtists.map((t) => (t as { trackId?: string }).trackId).filter(Boolean)).size;
+  const releases = releaseArtistsSnap.size;
+  const publishingCredits = creditsSnap.size;
+  const featuredAppearances = trackArtistRoles.filter((r) =>
+    r === 'FEATURED_ARTIST' || r === 'featured_artist',
+  ).length;
+  const remixes = trackArtistRoles.filter((r) =>
+    r === 'REMIX_ARTIST' || r === 'remixer',
+  ).length;
+
+  return {
+    tracks: Math.max(tracks, releases),
+    releases,
+    publishingCredits,
+    featuredAppearances,
+    remixes,
+  };
+}
+
+export async function canDeleteArtist(organizationId: string, artistId: string): Promise<{ allowed: boolean; references: ArtistReferenceSummary }> {
+  const db = getDb();
+  if (!db) return { allowed: false, references: { tracks: 0, releases: 0, publishingRecords: 0 } };
+
+  const trackArtistsSnap = await getDocs(
+    query(collection(db, 'track_artists'), where('artistId', '==', artistId)),
+  );
+
+  const releaseArtistsSnap = await getDocs(
+    query(collection(db, 'release_artists'), where('artistId', '==', artistId)),
+  );
+
+  const creditsSnap = await getDocs(
+    query(collection(db, 'track_credits'), where('artistId', '==', artistId)),
+  );
+
+  const trackArtistIds = trackArtistsSnap.docs.map((d) => (d.data() as { trackId?: string }).trackId).filter(Boolean);
+  const uniqueTracks = new Set(trackArtistIds).size;
+  const releaseCount = releaseArtistsSnap.size;
+  const creditCount = creditsSnap.size;
+
+  const allowed = uniqueTracks === 0 && releaseCount === 0 && creditCount === 0;
+
+  return {
+    allowed,
+    references: {
+      tracks: uniqueTracks,
+      releases: releaseCount,
+      publishingRecords: creditCount,
+    },
+  };
+}
+
+export async function findDuplicateArtists(
+  organizationId: string,
+  name: string,
+  stageName?: string,
+): Promise<ArtistRecord[]> {
+  const db = getDb();
+  if (!db) return [];
+
+  const all = await listArtists(organizationId, { includeArchived: true });
+  const normalizedInput = normalizeArtistName(name);
+
+  return all.filter((a) => {
+    if (normalizeArtistName(a.name) === normalizedInput) return true;
+    if (stageName && a.stageName && normalizeArtistName(a.stageName) === normalizeArtistName(stageName)) return true;
+    if (a.aliases?.some((alias) => normalizeArtistName(alias) === normalizedInput)) return true;
+    return false;
+  });
+}
+
+export async function mergeArtists(
+  organizationId: string,
+  sourceArtistId: string,
+  destinationArtistId: string,
+): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore not initialized');
+
+  const batch = writeBatch(db);
+
+  const trackArtistsSnap = await getDocs(
+    query(collection(db, 'track_artists'), where('artistId', '==', sourceArtistId)),
+  );
+  for (const d of trackArtistsSnap.docs) {
+    batch.update(d.ref, { artistId: destinationArtistId, updatedAt: Timestamp.now() });
+  }
+
+  const releaseArtistsSnap = await getDocs(
+    query(collection(db, 'release_artists'), where('artistId', '==', sourceArtistId)),
+  );
+  for (const d of releaseArtistsSnap.docs) {
+    batch.update(d.ref, { artistId: destinationArtistId, updatedAt: Timestamp.now() });
+  }
+
+  const creditsSnap = await getDocs(
+    query(collection(db, 'track_credits'), where('artistId', '==', sourceArtistId)),
+  );
+  for (const d of creditsSnap.docs) {
+    batch.update(d.ref, { artistId: destinationArtistId, updatedAt: Timestamp.now() });
+  }
+
+  const sourceRef = artistDocument(db, organizationId, sourceArtistId);
+  batch.delete(sourceRef);
+
+  await batch.commit();
 }

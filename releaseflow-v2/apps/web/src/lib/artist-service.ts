@@ -1,7 +1,9 @@
 import {
   createArtist,
   updateArtist,
-  deleteArtist,
+  deleteArtist as repoDeleteArtist,
+  archiveArtist as repoArchiveArtist,
+  restoreArtist as repoRestoreArtist,
   getArtist,
   listArtists,
   searchArtists,
@@ -9,6 +11,10 @@ import {
   getArtistReleases,
   getCreditsByArtist,
   getTrackTitle,
+  getArtistUsage,
+  canDeleteArtist,
+  findDuplicateArtists,
+  mergeArtists as repoMergeArtists,
 } from './artist-repository';
 import type {
   ArtistRecord,
@@ -16,6 +22,8 @@ import type {
   CreateArtistResult,
   UpdateArtistFields,
   TrackCreditRecord,
+  ArtistUsageResult,
+  ArtistReferenceSummary,
 } from './artist-repository';
 
 export type {
@@ -23,12 +31,25 @@ export type {
   CreateArtistFields,
   CreateArtistResult,
   UpdateArtistFields,
+  TrackCreditRecord,
+  ArtistUsageResult,
+  ArtistReferenceSummary,
 } from './artist-repository';
 
 export interface ArtistReadinessResult {
   ready: boolean;
   percentage: number;
   missing: string[];
+}
+
+export interface DuplicateInfo {
+  isDuplicate: boolean;
+  matches: ArtistRecord[];
+}
+
+export interface MergeResult {
+  success: boolean;
+  message: string;
 }
 
 export async function createNewArtist(fields: CreateArtistFields): Promise<CreateArtistResult> {
@@ -46,15 +67,15 @@ export async function editArtist(
 }
 
 export async function removeArtist(organizationId: string, artistId: string): Promise<void> {
-  return deleteArtist(organizationId, artistId);
+  return repoDeleteArtist(organizationId, artistId);
 }
 
 export async function fetchArtist(organizationId: string, artistId: string): Promise<ArtistRecord | null> {
   return getArtist(organizationId, artistId);
 }
 
-export async function fetchArtists(organizationId: string): Promise<ArtistRecord[]> {
-  return listArtists(organizationId);
+export async function fetchArtists(organizationId: string, includeArchived?: boolean): Promise<ArtistRecord[]> {
+  return listArtists(organizationId, { includeArchived });
 }
 
 export async function fetchArtistSearch(organizationId: string, query: string): Promise<ArtistRecord[]> {
@@ -105,4 +126,70 @@ export async function checkArtistReadiness(
     percentage: Math.round((passed / total) * 100),
     missing,
   };
+}
+
+export async function archiveArtist(organizationId: string, artistId: string): Promise<void> {
+  const artist = await getArtist(organizationId, artistId);
+  if (!artist) throw new Error('Artist not found');
+  if (artist.status === 'archived') throw new Error('Artist is already archived');
+  return repoArchiveArtist(organizationId, artistId);
+}
+
+export async function restoreArtist(organizationId: string, artistId: string): Promise<void> {
+  const artist = await getArtist(organizationId, artistId);
+  if (!artist) throw new Error('Artist not found');
+  if (artist.status !== 'archived') throw new Error('Artist is not archived');
+  return repoRestoreArtist(organizationId, artistId);
+}
+
+export async function validateDeleteArtist(
+  organizationId: string,
+  artistId: string,
+): Promise<{ allowed: boolean; references: ArtistReferenceSummary }> {
+  return canDeleteArtist(organizationId, artistId);
+}
+
+export async function checkDuplicateArtists(
+  organizationId: string,
+  name: string,
+  stageName?: string,
+): Promise<DuplicateInfo> {
+  const matches = await findDuplicateArtists(organizationId, name, stageName);
+  return {
+    isDuplicate: matches.length > 0,
+    matches,
+  };
+}
+
+export async function mergeArtists(
+  organizationId: string,
+  sourceArtistId: string,
+  destinationArtistId: string,
+): Promise<MergeResult> {
+  if (sourceArtistId === destinationArtistId) {
+    return { success: false, message: 'Cannot merge an artist with itself' };
+  }
+
+  const source = await getArtist(organizationId, sourceArtistId);
+  if (!source) return { success: false, message: 'Source artist not found' };
+
+  const destination = await getArtist(organizationId, destinationArtistId);
+  if (!destination) return { success: false, message: 'Destination artist not found' };
+
+  try {
+    await repoMergeArtists(organizationId, sourceArtistId, destinationArtistId);
+    return { success: true, message: `Successfully merged "${source.name}" into "${destination.name}"` };
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : 'Merge failed',
+    };
+  }
+}
+
+export async function fetchArtistUsage(
+  organizationId: string,
+  artistId: string,
+): Promise<ArtistUsageResult> {
+  return getArtistUsage(organizationId, artistId);
 }

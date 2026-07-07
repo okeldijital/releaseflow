@@ -91,7 +91,7 @@ export interface Contributor {
 export type TrackStatus = 'draft' | 'active' | 'archived';
 
 export type ArtistType = 'original_artist' | 'remix_artist' | 'cover_artist' | 'producer' | 'dj' | 'band' | 'label';
-export type ArtistStatus = 'active' | 'inactive';
+export type ArtistStatus = 'active' | 'inactive' | 'archived';
 
 export interface SocialLinks {
   instagram?: string;
@@ -105,15 +105,30 @@ export interface Artist {
   id: string;
   name: string;
   slug: string;
+  stageName?: string;
+  legalName?: string;
   artistType: ArtistType;
   bio?: string;
   country?: string;
   genres?: string[];
   imageUrl?: string;
   socialLinks?: SocialLinks;
+  isni?: string;
+  ipi?: string;
+  notes?: string;
+  contact?: string;
+  aliases?: string[];
   status: ArtistStatus;
   createdAt: unknown;
   updatedAt: unknown;
+}
+
+export interface ArtistUsage {
+  tracks: number;
+  releases: number;
+  publishingCredits: number;
+  featuredAppearances: number;
+  remixes: number;
 }
 
 export type ReleaseArtistRole = 'primary' | 'featured' | 'remixer' | 'original_artist' | 'cover_performer' | 'guest_artist';
