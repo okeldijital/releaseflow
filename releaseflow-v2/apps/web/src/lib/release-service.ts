@@ -57,7 +57,8 @@ export async function changeReleaseStatus(
 
 export async function removeRelease(
   releaseId: string,
-  _actorId: string,
+  actorId: string,
+  organizationId?: string,
 ): Promise<void> {
   const { getTracksByRelease, removeTrackFromRelease } = await import('./release-track-repository');
   const { removeTrack } = await import('./track-service');
@@ -93,10 +94,10 @@ export async function removeRelease(
     }
 
     await removeTrackFromRelease(record.id);
-    await removeTrack(record.trackId);
+    await removeTrack(record.trackId, organizationId, actorId);
   }
 
-  return deleteRelease(releaseId);
+  return deleteRelease(releaseId, organizationId, actorId);
 }
 
 export async function fetchRelease(releaseId: string) {

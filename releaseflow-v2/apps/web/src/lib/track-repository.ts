@@ -241,7 +241,13 @@ export async function archiveTrack(trackId: string): Promise<void> {
   });
 }
 
-export async function deleteTrack(trackId: string): Promise<void> {
+export async function deleteTrack(trackId: string, organizationId?: string, actorId?: string, deleteReason?: string): Promise<void> {
+  if (organizationId && actorId) {
+    const { softDelete } = await import('@/lib/retention/lifecycle-service');
+    await softDelete({ entityType: 'track', entityId: trackId, organizationId, actorId, deleteReason });
+    return;
+  }
+
   const db = getDb();
   if (!db) {
     throw new Error('Firestore not initialized');

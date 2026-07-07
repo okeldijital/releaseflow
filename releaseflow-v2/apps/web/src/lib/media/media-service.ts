@@ -245,6 +245,8 @@ export async function restoreVersion(
 
 export async function deleteAssetWithCheck(
   assetId: string,
+  organizationId?: string,
+  actorId?: string,
 ): Promise<{ success: true } | { error: string; usage?: MediaUsage[] }> {
   try {
     const usage = await getUsageByAsset(assetId);
@@ -252,7 +254,7 @@ export async function deleteAssetWithCheck(
       return { error: 'Asset is in use and cannot be deleted', usage };
     }
 
-    await deleteMediaAsset(assetId);
+    await deleteMediaAsset(assetId, organizationId, actorId);
     return { success: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Delete failed' };

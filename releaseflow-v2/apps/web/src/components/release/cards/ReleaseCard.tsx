@@ -46,7 +46,7 @@ export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardP
     if (!user) return;
     setDeleting(true);
     try {
-      await removeRelease(release.id, user.uid);
+      await removeRelease(release.id, user.uid, release.organizationId);
       toast.success('Release deleted.');
       router.refresh();
     } catch {

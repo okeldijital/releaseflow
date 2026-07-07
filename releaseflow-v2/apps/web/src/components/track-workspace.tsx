@@ -399,7 +399,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
     console.log("2");
 
-    await removeTrack(trackId);
+    await removeTrack(trackId, activeOrgId ?? undefined, user?.uid);
 
     console.log("3");
 

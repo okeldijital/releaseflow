@@ -262,7 +262,13 @@ export async function restoreArtist(organizationId: string, artistId: string): P
   await updateDoc(ref, { status: 'active', updatedAt: Timestamp.now() });
 }
 
-export async function deleteArtist(organizationId: string, artistId: string): Promise<void> {
+export async function deleteArtist(organizationId: string, artistId: string, actorId?: string, deleteReason?: string): Promise<void> {
+  if (actorId) {
+    const { softDelete } = await import('@/lib/retention/lifecycle-service');
+    await softDelete({ entityType: 'artist', entityId: artistId, organizationId, actorId, deleteReason });
+    return;
+  }
+
   const db = getDb();
   if (!db || !organizationId) return;
 

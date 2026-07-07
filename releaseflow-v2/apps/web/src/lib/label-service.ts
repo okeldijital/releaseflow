@@ -16,6 +16,6 @@ export async function createNewLabel(fields: { name: string; organizationId: str
   return createLabel(fields);
 }
 
-export async function removeLabel(labelId: string, orgId: string): Promise<void> {
-  return deleteLabel(labelId, orgId);
+export async function removeLabel(labelId: string, orgId: string, actorId?: string): Promise<void> {
+  return deleteLabel(labelId, orgId, actorId);
 }

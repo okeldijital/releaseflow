@@ -456,7 +456,7 @@ export default function ReleaseWorkspacePage() {
     if (!user) return;
     setDeleting(true);
     try {
-      await removeRelease(releaseId, user.uid);
+      await removeRelease(releaseId, user.uid, activeOrgId ?? undefined);
       toast.success('Release deleted.');
       router.push('/releases');
     } catch {

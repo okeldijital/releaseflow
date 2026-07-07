@@ -57,7 +57,12 @@ export async function archiveMediaAsset(id: string): Promise<void> {
   await updateDoc(doc(db, COLLECTION, id), { status: 'archived', updatedAt: Timestamp.now() });
 }
 
-export async function deleteMediaAsset(id: string): Promise<void> {
+export async function deleteMediaAsset(id: string, organizationId?: string, actorId?: string, deleteReason?: string): Promise<void> {
+  if (organizationId && actorId) {
+    const { softDelete } = await import('@/lib/retention/lifecycle-service');
+    await softDelete({ entityType: 'media_asset', entityId: id, organizationId, actorId, deleteReason });
+    return;
+  }
   const db = getDb();
   if (!db) return;
   await deleteDoc(doc(db, COLLECTION, id));

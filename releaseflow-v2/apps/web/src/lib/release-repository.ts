@@ -305,7 +305,12 @@ export async function updateReleaseStatus(
   });
 }
 
-export async function deleteRelease(releaseId: string): Promise<void> {
+export async function deleteRelease(releaseId: string, organizationId?: string, actorId?: string, deleteReason?: string): Promise<void> {
+  if (organizationId && actorId) {
+    const { softDelete } = await import('@/lib/retention/lifecycle-service');
+    await softDelete({ entityType: 'release', entityId: releaseId, organizationId, actorId, deleteReason });
+    return;
+  }
   const db = getDb();
   if (!db) throw new Error('Firestore unavailable');
   await deleteDoc(doc(db, 'releases', releaseId));

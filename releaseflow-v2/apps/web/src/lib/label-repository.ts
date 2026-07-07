@@ -62,7 +62,13 @@ export async function createLabel(fields: { name: string; organizationId: string
   };
 }
 
-export async function deleteLabel(labelId: string, orgId: string): Promise<void> {
+export async function deleteLabel(labelId: string, orgId: string, actorId?: string, deleteReason?: string): Promise<void> {
+  if (actorId) {
+    const { softDelete } = await import('@/lib/retention/lifecycle-service');
+    await softDelete({ entityType: 'label', entityId: labelId, organizationId: orgId, actorId, deleteReason });
+    return;
+  }
+
   const db = getDb();
   if (!db || !orgId) return;
 
