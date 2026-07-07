@@ -127,7 +127,7 @@ const language = (release as unknown as Record<string, unknown>).language as str
             <div className="sm:w-48 shrink-0 flex items-center justify-center p-8 bg-gradient-to-br from-primary-500/20 to-primary-500/5">
               {/* Placeholder artwork */}
               <div className="h-32 w-32 rounded-xl bg-gradient-to-br from-primary-500 to-orange-600 flex items-center justify-center shadow-lg">
-                <span className="text-5xl font-bold text-white/90">{initial}</span>
+                <span className="text-5xl font-bold text-surface-50/90">{initial}</span>
               </div>
             </div>
             <div className="flex-1 p-6 flex flex-col sm:flex-row gap-6">
@@ -213,7 +213,7 @@ const language = (release as unknown as Record<string, unknown>).language as str
                     className="flex items-center gap-3 rounded-xl border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-500/40 transition-all duration-150 group"
                   >
                     <div className="h-10 w-10 shrink-0 rounded-lg bg-gradient-to-br from-primary-500 to-orange-600 flex items-center justify-center shadow">
-                      <span className="text-sm font-bold text-white/90">{initial}</span>
+                      <span className="text-sm font-bold text-surface-50/90">{initial}</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-primary-400 truncate">{r.title}</p>
@@ -221,7 +221,7 @@ const language = (release as unknown as Record<string, unknown>).language as str
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs text-text-400">{date ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</p>
-                      <p className="text-[10px] text-text-500 mt-0.5 capitalize">{r.status.replace(/_/g, ' ')}</p>
+                      <p className="text-caption text-text-500 mt-0.5 capitalize">{r.status.replace(/_/g, ' ')}</p>
                     </div>
                   </Link>
                 );
@@ -263,7 +263,7 @@ const language = (release as unknown as Record<string, unknown>).language as str
                   <Link key={t.id} href={`/releases/${t.releaseId}`} className="block rounded-xl border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-500/40 transition-all duration-150">
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-surface-100 truncate">{t.title}</p>
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${priorityStyles[t.priority] ?? 'bg-surface-800 text-text-400'}`}>{t.priority}</span>
+                      <span className={`text-caption font-medium px-2 py-0.5 rounded-full ${priorityStyles[t.priority] ?? 'bg-surface-800 text-text-400'}`}>{t.priority}</span>
                     </div>
                     {dueDate && <p className="text-xs text-text-500 mt-1">Due {timeAgo(dueDate)}</p>}
                   </Link>

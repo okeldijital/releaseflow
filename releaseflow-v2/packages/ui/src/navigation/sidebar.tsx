@@ -280,7 +280,7 @@ export function Sidebar({
           <LogoMark />
           <span
             className={`
-              text-[15px] font-semibold text-text-900 dark:text-surface-50
+              text-body font-semibold text-text-900 dark:text-surface-50
               tracking-tight whitespace-nowrap overflow-hidden
               transition-[opacity,max-width] duration-200
               motion-reduce:transition-none
@@ -303,7 +303,7 @@ export function Sidebar({
                 {/* Section divider in collapsed mode, label in expanded */}
                 {collapsed
                   ? null
-                  : <p className="mb-1 px-3 text-[10px] font-medium uppercase tracking-[0.1em] text-text-300/70 dark:text-text-600" role="heading" aria-level={2}>{label}</p>
+                  : <p className="mb-1 px-3 text-caption font-medium uppercase tracking-[0.1em] text-text-300/70 dark:text-text-600" role="heading" aria-level={2}>{label}</p>
                 }
 
                 <ul className="space-y-1" role="list">
@@ -315,7 +315,7 @@ export function Sidebar({
                         onClick={() => navigate(item.href)}
                         aria-current={active ? 'page' : undefined}
                         className={`
-                          flex w-full items-center gap-2.5 rounded-md text-[13px] font-normal text-left
+                          flex w-full items-center gap-2.5 rounded-md text-body font-normal text-left
                           transition-colors duration-150 min-h-[40px]
                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30
                           ${active

@@ -595,11 +595,11 @@ export default function ReleaseWorkspacePage() {
         {/* Artwork */}
         <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-3 flex flex-col gap-3">
           <p className="text-xs font-semibold text-text-500 uppercase tracking-wider px-1">Artwork</p>
-          <div className={`w-full aspect-square rounded-xl flex items-center justify-center overflow-hidden shadow-card ring-1 ring-white/10 ${artworkAsset ? 'bg-surface-950' : artworkColor}`}>
+          <div className={`w-full aspect-square rounded-xl flex items-center justify-center overflow-hidden shadow-card ring-1 ring-surface-0/10 ${artworkAsset ? 'bg-surface-950' : artworkColor}`}>
             {artworkAsset ? (
               <img src={artworkUrl ?? ''} alt={`${release.title} artwork`} className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).classList.add(artworkColor ?? 'bg-orange-600'); }} />
             ) : (
-              <span className="text-white text-6xl font-bold select-none">{release.title.charAt(0).toUpperCase()}</span>
+              <span className="text-surface-50 text-6xl font-bold select-none">{release.title.charAt(0).toUpperCase()}</span>
             )}
           </div>
           {artworkAsset ? (
@@ -683,7 +683,7 @@ export default function ReleaseWorkspacePage() {
                       <p className="text-sm font-medium text-text-900 leading-snug">{task.title}</p>
                       <div className="flex items-center gap-2 flex-wrap">
                         <StatusBadge status={task.status} />
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${priorityColors[task.priority] ?? 'bg-surface-100 text-text-500'}`}>{task.priority}</span>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-caption font-medium capitalize ${priorityColors[task.priority] ?? 'bg-surface-100 text-text-500'}`}>{task.priority}</span>
                       </div>
                       <p className="text-xs text-text-500 truncate">
                         {isInvitationPending(task)
@@ -769,12 +769,12 @@ export default function ReleaseWorkspacePage() {
             ) : (
               <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
                 <div className="hidden sm:grid grid-cols-[2rem_1fr_4rem_6rem_6rem_6rem] gap-x-4 px-4 py-2.5 border-b border-surface-100 bg-surface-50">
-                  <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider">#</span>
-                  <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider">Title</span>
-                  <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider text-right">Dur.</span>
-                  <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider">Mix</span>
-                  <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider">Master</span>
-                  <span className="text-[11px] font-semibold text-text-400 uppercase tracking-wider">Publishing</span>
+                  <span className="text-caption font-semibold text-text-400 uppercase tracking-wider">#</span>
+                  <span className="text-caption font-semibold text-text-400 uppercase tracking-wider">Title</span>
+                  <span className="text-caption font-semibold text-text-400 uppercase tracking-wider text-right">Dur.</span>
+                  <span className="text-caption font-semibold text-text-400 uppercase tracking-wider">Mix</span>
+                  <span className="text-caption font-semibold text-text-400 uppercase tracking-wider">Master</span>
+                  <span className="text-caption font-semibold text-text-400 uppercase tracking-wider">Publishing</span>
                 </div>
                 {tracks.map((rt, i) => {
                   const t = rt.track;
@@ -830,7 +830,7 @@ export default function ReleaseWorkspacePage() {
                   const label = humaniseActivity(ev);
                   return (
                     <div key={ev.id} className={`flex items-start gap-3 px-4 py-3 ${i > 0 ? 'border-t border-surface-100' : ''}`}>
-                      <div className="h-7 w-7 rounded-full bg-primary-50 flex items-center justify-center shrink-0 text-[11px] font-semibold text-primary-700 mt-0.5">
+                      <div className="h-7 w-7 rounded-full bg-primary-50 flex items-center justify-center shrink-0 text-caption font-semibold text-primary-700 mt-0.5">
                         {(ev.actorId ?? '?').charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">

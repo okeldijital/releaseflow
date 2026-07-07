@@ -87,7 +87,7 @@ export default function AdministrationForecastsPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Forecasts</p>
+          <p className="text-display-md font-semibold text-text-900 tracking-tight">Forecasts</p>
           <p className="text-sm text-text-500 mt-1">Release completion forecasts and risk analysis</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to view forecasts." />
@@ -107,7 +107,7 @@ export default function AdministrationForecastsPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Forecasts</p>
+          <p className="text-display-md font-semibold text-text-900 tracking-tight">Forecasts</p>
           <p className="text-sm text-text-500 mt-1">Release completion forecasts and risk analysis</p>
         </div>
         <EmptyState title="Error loading forecasts" description={error} action={{ label: 'Retry', onClick: handleRefresh }} />
@@ -119,7 +119,7 @@ export default function AdministrationForecastsPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <p className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Forecasts</p>
+          <p className="text-display-md font-semibold text-text-900 tracking-tight">Forecasts</p>
           <p className="text-sm text-text-500 mt-1">Release completion forecasts and risk analysis</p>
         </div>
         <Button

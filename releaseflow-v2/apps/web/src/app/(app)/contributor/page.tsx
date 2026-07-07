@@ -175,7 +175,7 @@ export default function ContributorPage() {
                     <div className="min-w-0 flex-1 flex items-center gap-3">
                       <button onClick={() => handleComplete(t.id)}
                         className={`shrink-0 w-4 h-4 rounded border ${t.status === 'done' ? 'bg-success-500 border-success-500' : 'border-surface-300 hover:border-primary-500'} flex items-center justify-center`}>
-                        {t.status === 'done' ? <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> : null}
+                        {t.status === 'done' ? <svg className="w-3 h-3 text-surface-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> : null}
                       </button>
                       <Link href={`/releases/${t.releaseId}`} className="min-w-0 flex-1">
                         <p className={`text-sm truncate ${t.status === 'done' ? 'line-through text-text-400' : 'text-text-700'}`}>{t.title}</p>

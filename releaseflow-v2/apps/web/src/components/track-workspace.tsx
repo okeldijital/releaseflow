@@ -477,8 +477,8 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
               <img src={artworkAsset.url} alt={`${track.title} artwork`} className="w-full h-full object-cover" />
             ) : (
               <div className="text-center">
-                <span className="text-white text-6xl font-bold select-none block">{track.title.charAt(0).toUpperCase()}</span>
-                <span className="text-white/50 text-xs mt-2 block">Waveform</span>
+                <span className="text-surface-50 text-6xl font-bold select-none block">{track.title.charAt(0).toUpperCase()}</span>
+                <span className="text-surface-50/50 text-xs mt-2 block">Waveform</span>
               </div>
             )}
           </div>
@@ -498,7 +498,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
           ) : (
             <div className="space-y-2 px-1">
               <p className="text-sm text-text-500">No artwork uploaded.</p>
-              <label className="flex h-8 w-full cursor-pointer items-center justify-center rounded-md bg-primary-500 text-xs font-semibold text-white hover:bg-primary-400">
+              <label className="flex h-8 w-full cursor-pointer items-center justify-center rounded-md bg-primary-500 text-xs font-semibold text-surface-50 hover:bg-primary-400">
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) handleUploadAsset('Artwork', f);
@@ -726,7 +726,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
               <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden divide-y divide-surface-100">
                 {meaningfulActivities.map(({ ev, label }) => (
                   <div key={ev.id} className="flex items-start gap-3 px-4 py-3">
-                    <div className="h-7 w-7 rounded-full bg-primary-50 flex items-center justify-center shrink-0 text-[11px] font-semibold text-primary-700">
+                    <div className="h-7 w-7 rounded-full bg-primary-50 flex items-center justify-center shrink-0 text-caption font-semibold text-primary-700">
                       {(ev.actorId ?? '?').charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
@@ -922,7 +922,7 @@ function CreditsTable({
 }) {
   return (
     <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
-      <div className="hidden sm:grid grid-cols-[1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-surface-100 bg-surface-50 text-[11px] font-semibold text-text-400 uppercase tracking-wider">
+      <div className="hidden sm:grid grid-cols-[1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-surface-100 bg-surface-50 text-caption font-semibold text-text-400 uppercase tracking-wider">
         <span>Role</span><span>Person</span><span />
       </div>
       {CREDIT_TYPES.map((type) => {

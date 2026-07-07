@@ -665,7 +665,7 @@ function StepTitle({ step }: { step: StepKey }) {
     metadata: 'Publishing metadata',
     review: 'Ready to create this track?',
   };
-  return <h1 className="text-[1.75rem] font-semibold tracking-tight text-surface-50 text-center">{titles[step]}</h1>;
+  return <h1 className="text-display-md font-semibold tracking-tight text-surface-50 text-center">{titles[step]}</h1>;
 }
 
 function Btn({ label = 'Continue', onClick, disabled, secondary }: { label?: string; onClick: () => void; disabled?: boolean; secondary?: boolean }) {
@@ -674,10 +674,10 @@ function Btn({ label = 'Continue', onClick, disabled, secondary }: { label?: str
       type="button"
       onClick={onClick}
       disabled={disabled ?? false}
-      className={`flex-1 h-12 rounded-xl font-semibold text-[15px] active:scale-[0.98] disabled:opacity-40 transition-all duration-150 ${
+      className={`flex-1 h-12 rounded-xl font-semibold text-body active:scale-[0.98] disabled:opacity-40 transition-all duration-150 ${
         secondary
           ? 'border border-surface-700 bg-transparent text-text-400 hover:text-text-200'
-          : 'bg-primary-500 text-white hover:bg-primary-400 shadow-[0_4px_24px_rgba(204,85,0,0.25)]'
+          : 'bg-primary-500 text-surface-50 hover:bg-primary-400 shadow-[0_4px_24px_rgba(204,85,0,0.25)]'
       }`}
     >
       {label}
@@ -771,7 +771,7 @@ function BasicsStep({
         }}
         placeholder="Track title"
         autoFocus
-        className="mt-8 block w-full h-14 rounded-xl border border-surface-700 bg-surface-900 px-5 text-[18px] text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none"
+        className="mt-8 block w-full h-14 rounded-xl border border-surface-700 bg-surface-900 px-5 text-body-large text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none"
       />
       <input
         type="text"
@@ -926,7 +926,7 @@ function RecordingStep({
                 : 'border-surface-700 bg-surface-900 hover:border-surface-600'
             }`}
           >
-            <p className="text-[15px] font-medium text-surface-100">{s.label}</p>
+            <p className="text-body font-medium text-surface-100">{s.label}</p>
           </button>
         ))}
       </div>

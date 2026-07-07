@@ -34,7 +34,7 @@ export default function RightsHoldersPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="flex items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Rights Holders</h1>
+          <h1 className="text-display-md font-semibold text-text-900 tracking-tight">Rights Holders</h1>
           <p className="text-sm text-text-500 mt-1">
             {holders.length === 0 ? 'No rights holders yet.' : `${holders.length} rights holder${holders.length !== 1 ? 's' : ''}`}
           </p>

@@ -164,7 +164,7 @@ function StageActions({ stage }: { stage: WorkflowStage }) {
   if (stage.status === 'blocked') {
     return (
       <button
-        className="text-xs bg-danger-500 text-white rounded-lg px-3 py-1 hover:bg-danger-600 transition-all duration-200 shrink-0"
+        className="text-xs bg-danger-500 text-surface-50 rounded-lg px-3 py-1 hover:bg-danger-600 transition-all duration-200 shrink-0"
         onClick={(e) => {
           e.stopPropagation();
           stage.onAction?.('resolve', 'resolve');
@@ -178,7 +178,7 @@ function StageActions({ stage }: { stage: WorkflowStage }) {
   if (stage.status === 'at-risk') {
     return (
       <button
-        className="text-xs bg-warning-500 text-white rounded-lg px-3 py-1 hover:bg-warning-600 transition-all duration-200 shrink-0"
+        className="text-xs bg-warning-500 text-surface-50 rounded-lg px-3 py-1 hover:bg-warning-600 transition-all duration-200 shrink-0"
         onClick={(e) => {
           e.stopPropagation();
           stage.onAction?.('review', 'review');
@@ -195,7 +195,7 @@ function StageActions({ stage }: { stage: WorkflowStage }) {
 function ActiveStageActions({ stage }: { stage: WorkflowStage }) {
   return (
     <button
-      className="text-xs bg-primary-500 text-white rounded-lg px-3 py-1 hover:bg-primary-600 transition-all duration-200 shrink-0"
+      className="text-xs bg-primary-500 text-surface-50 rounded-lg px-3 py-1 hover:bg-primary-600 transition-all duration-200 shrink-0"
       onClick={(e) => {
         e.stopPropagation();
         stage.onComplete?.(stage.id);
@@ -472,7 +472,7 @@ export function WorkflowBoard({
             onClick={() => setFilter(opt.value)}
             className={`rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-all duration-200 ${
               filter === opt.value
-                ? 'bg-primary-500 text-white'
+                ? 'bg-primary-500 text-surface-50'
                 : 'bg-surface-100 text-text-500 hover:bg-surface-200'
             }`}
           >

@@ -113,7 +113,7 @@ export default function AdministrationMembersPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Members</p>
+          <p className="text-display-md font-semibold text-text-900 tracking-tight">Members</p>
           <p className="text-sm text-text-500 mt-1">Manage members, roles, and permissions</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to manage its members." />
@@ -129,7 +129,7 @@ export default function AdministrationMembersPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <p className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Members</p>
+          <p className="text-display-md font-semibold text-text-900 tracking-tight">Members</p>
           <p className="text-sm text-text-500 mt-1">Manage members, roles, and permissions</p>
         </div>
         <Button variant="primary" size="sm" onClick={() => setInfoOpen(true)}>Invite</Button>

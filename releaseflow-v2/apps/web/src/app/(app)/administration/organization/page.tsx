@@ -175,7 +175,7 @@ export default function AdministrationOrganizationPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Organization</p>
+          <p className="text-display-md font-semibold text-text-900 tracking-tight">Organization</p>
           <p className="text-sm text-text-500 mt-1">Organization details, branding, and logo</p>
         </div>
         <div className="text-center py-20 text-sm text-text-400">No organization selected.</div>
@@ -187,7 +187,7 @@ export default function AdministrationOrganizationPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Organization</p>
+          <p className="text-display-md font-semibold text-text-900 tracking-tight">Organization</p>
           <p className="text-sm text-text-500 mt-1">Organization details, branding, and logo</p>
         </div>
         <div className="text-center py-20 text-sm text-text-400">Loading&hellip;</div>
@@ -199,7 +199,7 @@ export default function AdministrationOrganizationPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Organization</p>
+          <p className="text-display-md font-semibold text-text-900 tracking-tight">Organization</p>
           <p className="text-sm text-text-500 mt-1">Organization details, branding, and logo</p>
         </div>
         <div className="text-center py-20 text-sm text-text-400">Organization not found.</div>
@@ -210,7 +210,7 @@ export default function AdministrationOrganizationPage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Organization</p>
+        <p className="text-display-md font-semibold text-text-900 tracking-tight">Organization</p>
         <p className="text-sm text-text-500 mt-1">Organization details, branding, and logo</p>
       </div>
 

@@ -48,12 +48,12 @@ export default function ForgotPasswordPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email"
               required
-              className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-[15px] text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
+              className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-body text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
             />
             <button
               type="submit"
               disabled={submitting}
-              className="w-full h-12 rounded-xl bg-primary-500 text-white font-semibold text-[15px] hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.2)]"
+              className="w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.2)]"
             >
               {submitting ? 'Sending...' : 'Send Reset Link'}
             </button>
@@ -61,7 +61,7 @@ export default function ForgotPasswordPage() {
         </>
       )}
 
-      <p className="mt-6 text-center text-[13px] text-text-500">
+      <p className="mt-6 text-center text-body-small text-text-500">
         <Link href="/sign-in" className="font-semibold text-primary-400 hover:text-primary-300 transition-colors duration-150">Back to sign in</Link>
       </p>
     </>

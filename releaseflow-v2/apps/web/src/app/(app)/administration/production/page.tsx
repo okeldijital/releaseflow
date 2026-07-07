@@ -100,7 +100,7 @@ export default function ProductionDashboardPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Production</p>
+          <p className="text-display-md font-semibold text-text-900 tracking-tight">Production</p>
           <p className="text-sm text-text-500 mt-1">Active specifications, deliverables, and review workflows</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to view production status." />
@@ -138,7 +138,7 @@ export default function ProductionDashboardPage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-[1.75rem] font-semibold text-text-900 tracking-tight">Production</p>
+        <p className="text-display-md font-semibold text-text-900 tracking-tight">Production</p>
         <p className="text-sm text-text-500 mt-1">Active specifications, deliverables, and review workflows</p>
       </div>
 
@@ -173,7 +173,7 @@ export default function ProductionDashboardPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-text-900 dark:text-text-100 truncate">{spec.title}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide ${specStatusColor(spec.status)}`}>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-overline font-medium uppercase tracking-wide ${specStatusColor(spec.status)}`}>
                         {spec.status.replace(/_/g, ' ')}
                       </span>
                       <span className="text-xs text-text-400">{trackMap[spec.trackId] ?? spec.trackId.slice(0, 8)}</span>
@@ -201,7 +201,7 @@ export default function ProductionDashboardPage() {
                       {sub.entityType} — rev {sub.revisionNumber}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide ${statusBadgeStyle(sub.status)}`}>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-overline font-medium uppercase tracking-wide ${statusBadgeStyle(sub.status)}`}>
                         {statusLabel(sub.status)}
                       </span>
                       <span className="text-xs text-text-400">{fmtTimestamp(sub.submittedAt)}</span>
@@ -227,7 +227,7 @@ export default function ProductionDashboardPage() {
                       {review.entityType} — {review.entityId.slice(0, 8)}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide ${
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-overline font-medium uppercase tracking-wide ${
                         review.status === 'pending' ? 'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-400'
                           : 'bg-info-50 text-info-600 dark:bg-info-500/15 dark:text-info-400'
                       }`}>
@@ -256,7 +256,7 @@ export default function ProductionDashboardPage() {
                       {del.deliverableType} (v{del.version}) — {del.type}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide ${statusBadgeStyle(del.status)}`}>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-overline font-medium uppercase tracking-wide ${statusBadgeStyle(del.status)}`}>
                         {statusLabel(del.status)}
                       </span>
                       <span className="text-xs text-text-400">{trackMap[del.trackId] ?? del.trackId.slice(0, 8)}</span>

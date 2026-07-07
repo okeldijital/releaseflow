@@ -156,7 +156,7 @@ export default function ArtistsPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">Artists</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Artists</p>
           <p className="mt-1 text-sm text-text-400">Artists connected to your catalogue.</p>
         </div>
         <Link href="/artists/new">
@@ -176,7 +176,7 @@ export default function ArtistsPage() {
             onClick={() => setStatusFilter(f.value)}
             className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
               statusFilter === f.value
-                ? 'bg-primary-500 text-white'
+                ? 'bg-primary-500 text-surface-50'
                 : 'bg-surface-800 text-text-400 hover:text-surface-50'
             }`}
           >

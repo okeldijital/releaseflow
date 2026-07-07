@@ -100,7 +100,7 @@ export default function WorkPage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">My Work</p>
+        <p className="text-display-md font-semibold text-primary-400 tracking-tight">My Work</p>
         <p className="mt-1 text-sm text-text-400">Everything assigned to you.</p>
       </div>
 

@@ -78,7 +78,7 @@ export default function ReleaseReadyPage() {
         </svg>
       </div>
 
-      <h1 className="text-[1.75rem] font-semibold tracking-tight text-surface-50">Your release is ready</h1>
+      <h1 className="text-display-md font-semibold tracking-tight text-surface-50">Your release is ready</h1>
       <p className="mt-2 text-sm text-text-400">We&apos;ll create your {typeLabel.toLowerCase()} now.</p>
 
       <div className="mt-8 rounded-xl border border-surface-700 bg-surface-900 px-5 py-4 text-left space-y-2">
@@ -106,7 +106,7 @@ export default function ReleaseReadyPage() {
         type="button"
         onClick={handleCreate}
         disabled={creating}
-        className="mt-10 w-full h-12 rounded-xl bg-primary-500 text-white font-semibold text-[15px] hover:bg-primary-400 active:scale-[0.98] disabled:opacity-60 transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)]"
+        className="mt-10 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-60 transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)]"
       >
         {creating ? 'Creating...' : 'Create Release'}
       </button>

@@ -24,7 +24,7 @@ export default function ReleasesPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">Releases</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Releases</p>
           <p className="mt-1 text-sm text-text-400">Manage every release from planning to distribution.</p>
           {releases.length > 0 ? (
             <p className="mt-0.5 text-sm text-text-400">{releases.length} release{releases.length !== 1 ? 's' : ''}</p>

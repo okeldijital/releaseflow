@@ -33,7 +33,7 @@ const stageWorkflowColors: Record<string, string> = {
 function CompletedDot() {
   return (
     <div className="h-5 w-5 rounded-full bg-success-500 flex items-center justify-center shrink-0 transition-all duration-300">
-      <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+      <svg className="h-3 w-3 text-surface-50" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M2 6l2.5 2.5L10 3" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
@@ -55,7 +55,7 @@ function PendingDot() {
 function BlockedDot() {
   return (
     <div className="h-5 w-5 rounded-full bg-danger-500 flex items-center justify-center shrink-0 transition-all duration-300">
-      <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="currentColor">
+      <svg className="h-3 w-3 text-surface-50" viewBox="0 0 12 12" fill="currentColor">
         <path d="M6 1a5 5 0 100 10A5 5 0 006 1zM5.25 3.5h1.5v3h-1.5v-3zm0 4.5h1.5v1.5h-1.5V8z" />
       </svg>
     </div>

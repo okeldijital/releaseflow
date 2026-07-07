@@ -298,7 +298,7 @@ export default function ArtistDetailPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">{artist.name}</p>
+                  <p className="text-display-md font-semibold text-primary-400 tracking-tight">{artist.name}</p>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
                     <span className="text-sm text-text-400">{typeLabels[artist.artistType] ?? artist.artistType}</span>
                     {artist.country ? <span className="text-sm text-text-500">&middot; {artist.country}</span> : null}

@@ -66,7 +66,7 @@ export default function AddTrackPage() {
       </div>
 
       <p className="text-xs font-medium text-text-500 uppercase tracking-widest mb-3">{releaseName}</p>
-      <h1 className="text-[1.75rem] font-semibold tracking-tight text-surface-50">Add your first track</h1>
+      <h1 className="text-display-md font-semibold tracking-tight text-surface-50">Add your first track</h1>
       <p className="mt-2 text-sm text-text-400">Every release starts with at least one track.</p>
 
       <input
@@ -74,7 +74,7 @@ export default function AddTrackPage() {
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Track title"
-        className="mt-8 block w-full h-14 rounded-xl border border-surface-700 bg-surface-900 px-5 text-[18px] text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
+        className="mt-8 block w-full h-14 rounded-xl border border-surface-700 bg-surface-900 px-5 text-body-large text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
         autoFocus
         onKeyDown={(e) => { if (e.key === 'Enter' && title.trim()) handleAddTrack(); }}
       />
@@ -87,7 +87,7 @@ export default function AddTrackPage() {
         type="button"
         onClick={handleAddTrack}
         disabled={!title.trim() || creating}
-        className="mt-8 w-full h-12 rounded-xl bg-primary-500 text-white font-semibold text-[15px] hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)]"
+        className="mt-8 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)]"
       >
         {creating ? 'Creating...' : 'Add Track'}
       </button>
@@ -95,7 +95,7 @@ export default function AddTrackPage() {
       <button
         type="button"
         onClick={handleSkip}
-        className="mt-3 w-full h-12 rounded-xl border border-surface-700 bg-transparent text-[15px] font-medium text-text-400 hover:text-text-200 hover:border-surface-600 active:scale-[0.98] transition-all duration-150"
+        className="mt-3 w-full h-12 rounded-xl border border-surface-700 bg-transparent text-body font-medium text-text-400 hover:text-text-200 hover:border-surface-600 active:scale-[0.98] transition-all duration-150"
       >
         Skip — add tracks later
       </button>

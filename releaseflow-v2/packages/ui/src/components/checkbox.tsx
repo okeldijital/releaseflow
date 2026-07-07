@@ -55,7 +55,7 @@ export function Checkbox({
       >
         {checked && !indeterminate ? (
           <svg
-            className="h-3 w-3 text-white"
+            className="h-3 w-3 text-surface-50"
             viewBox="0 0 12 12"
             fill="none"
             stroke="currentColor"
@@ -67,7 +67,7 @@ export function Checkbox({
         ) : null}
         {indeterminate ? (
           <svg
-            className="h-3 w-3 text-white"
+            className="h-3 w-3 text-surface-50"
             viewBox="0 0 12 12"
             fill="currentColor"
             aria-hidden="true"

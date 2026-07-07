@@ -21,7 +21,7 @@ export default function AdministrationPage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">Administration</p>
+        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Administration</p>
         <p className="mt-1 text-sm text-text-400">Manage your company, members and platform settings.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">

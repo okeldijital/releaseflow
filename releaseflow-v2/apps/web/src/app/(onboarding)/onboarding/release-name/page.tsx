@@ -42,7 +42,7 @@ export default function ReleaseNamePage() {
       </div>
 
       <p className="text-xs font-medium text-primary-400 uppercase tracking-widest mb-3">{typeLabel}</p>
-      <h1 className="text-[1.75rem] font-semibold tracking-tight text-surface-50">What is it called?</h1>
+      <h1 className="text-display-md font-semibold tracking-tight text-surface-50">What is it called?</h1>
       <p className="mt-2 text-sm text-text-400">Give your {typeLabel.toLowerCase()} a name.</p>
 
       <input
@@ -50,7 +50,7 @@ export default function ReleaseNamePage() {
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder={typeLabel === 'Album' ? 'Midnight Frequencies' : 'Track Title'}
-        className="mt-8 block w-full h-14 rounded-xl border border-surface-700 bg-surface-900 px-5 text-[18px] text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
+        className="mt-8 block w-full h-14 rounded-xl border border-surface-700 bg-surface-900 px-5 text-body-large text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
         autoFocus
         onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) handleContinue(); }}
       />
@@ -59,7 +59,7 @@ export default function ReleaseNamePage() {
         type="button"
         onClick={handleContinue}
         disabled={!name.trim()}
-        className="mt-8 w-full h-12 rounded-xl bg-primary-500 text-white font-semibold text-[15px] hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)]"
+        className="mt-8 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)]"
       >
         Continue
       </button>

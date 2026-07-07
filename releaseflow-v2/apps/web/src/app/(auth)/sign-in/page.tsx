@@ -61,7 +61,7 @@ export default function SignInPage() {
       <button
         type="button"
         onClick={handleGoogle}
-        className="mt-6 w-full h-12 rounded-xl border border-surface-700 bg-surface-900 text-[15px] font-medium text-surface-200 hover:border-surface-600 active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-3"
+        className="mt-6 w-full h-12 rounded-xl border border-surface-700 bg-surface-900 text-body font-medium text-surface-200 hover:border-surface-600 active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-3"
       >
         <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -89,7 +89,7 @@ export default function SignInPage() {
           placeholder="Email"
           required
           autoComplete="email"
-          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-[15px] text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
+          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-body text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
         />
         <div>
           <input
@@ -99,7 +99,7 @@ export default function SignInPage() {
             placeholder="Password"
             required
             autoComplete="current-password"
-            className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-[15px] text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
+            className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-body text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
           />
           <div className="flex justify-end mt-1">
             <Link href="/forgot-password" className="text-xs text-text-500 hover:text-primary-400 transition-colors duration-150">
@@ -110,13 +110,13 @@ export default function SignInPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full h-12 rounded-xl bg-primary-500 text-white font-semibold text-[15px] hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.2)]"
+          className="w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.2)]"
         >
           {submitting ? 'Signing in...' : 'Sign in'}
         </button>
       </form>
 
-      <p className="mt-6 text-center text-[13px] text-text-500">
+      <p className="mt-6 text-center text-body-small text-text-500">
         Don&apos;t have an account?{' '}
         <Link href="/sign-up" className="font-semibold text-primary-400 hover:text-primary-300 transition-colors duration-150">
           Sign up

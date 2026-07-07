@@ -67,8 +67,8 @@ export function ConfirmationDialog({
 
   const confirmBase =
     variant === 'danger'
-      ? 'bg-danger-500 text-white hover:bg-danger-600 active:bg-danger-700'
-      : 'bg-primary-500 text-white hover:bg-primary-600 active:bg-primary-700';
+      ? 'bg-danger-500 text-surface-50 hover:bg-danger-600 active:bg-danger-700'
+      : 'bg-primary-500 text-surface-50 hover:bg-primary-600 active:bg-primary-700';
 
   return (
     <div

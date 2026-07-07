@@ -55,7 +55,7 @@ export default function AuditPage() {
                   <div key={i} className="flex items-center justify-between rounded border border-surface-100 dark:border-surface-800 px-3 py-2 text-xs">
                     <div className="flex items-center gap-2">
                       <span className={`w-1.5 h-1.5 rounded-full ${g.severity === 'high' ? 'bg-red-500' : 'bg-amber-500'}`} />
-                      <code className="text-zinc-600 dark:text-zinc-400">{g.route}</code>
+                      <code className="text-text-600 dark:text-text-400">{g.route}</code>
                       <span className="text-text-400">{g.issue}</span>
                     </div>
                     <span className="text-text-400">{g.recommendation}</span>
@@ -80,7 +80,7 @@ export default function AuditPage() {
                   <div key={i} className="flex items-center justify-between rounded border border-surface-100 dark:border-surface-800 px-3 py-2 text-xs">
                     <div className="flex items-center gap-2">
                       <span className={`w-1.5 h-1.5 rounded-full ${g.severity === 'high' ? 'bg-red-500' : 'bg-amber-500'}`} />
-                      <span className="text-zinc-600 dark:text-zinc-400">{g.domain} {g.action}</span>
+                      <span className="text-text-600 dark:text-text-400">{g.domain} {g.action}</span>
                     </div>
                     <span className="text-text-400">{g.recommendation}</span>
                   </div>
@@ -131,7 +131,7 @@ export default function AuditPage() {
               <div className="grid gap-1.5 sm:grid-cols-2">
                 {perf.suggestedIndexes.map((idx, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs border border-surface-100 dark:border-surface-800 rounded px-2.5 py-1.5">
-                    <code className="text-zinc-600 dark:text-zinc-400">{idx.collection}</code>
+                    <code className="text-text-600 dark:text-text-400">{idx.collection}</code>
                     <span className="text-text-400">{idx.fields.join(', ')}</span>
                   </div>
                 ))}

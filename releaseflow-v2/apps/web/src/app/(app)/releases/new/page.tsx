@@ -403,13 +403,13 @@ function StepTitle({ step }: { step: string }) {
     release_info: 'Release Information', promotion: 'How will you promote this release?',
     email: 'Will you send an email announcement?', review: 'Ready to launch?',
   };
-  return <h1 className="text-[1.75rem] font-semibold tracking-tight text-surface-50 text-center">{titles[step] ?? step}</h1>;
+  return <h1 className="text-display-md font-semibold tracking-tight text-surface-50 text-center">{titles[step] ?? step}</h1>;
 }
 
 function Btn({ label = 'Continue', onClick, disabled, secondary }: { label?: string; onClick: () => void; disabled?: boolean; secondary?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled || false}
-      className={`flex-1 h-12 rounded-xl font-semibold text-[15px] active:scale-[0.98] disabled:opacity-40 transition-all duration-150 ${secondary ? 'border border-surface-700 bg-transparent text-text-400 hover:text-text-200' : 'bg-primary-500 text-white hover:bg-primary-400 shadow-[0_4px_24px_rgba(204,85,0,0.25)]'}`}>{label}</button>
+      className={`flex-1 h-12 rounded-xl font-semibold text-body active:scale-[0.98] disabled:opacity-40 transition-all duration-150 ${secondary ? 'border border-surface-700 bg-transparent text-text-400 hover:text-text-200' : 'bg-primary-500 text-surface-50 hover:bg-primary-400 shadow-[0_4px_24px_rgba(204,85,0,0.25)]'}`}>{label}</button>
   );
 }
 
@@ -443,7 +443,7 @@ function InviteForm({ name, setName, email, setEmail, role, setRole, onSend, onC
       <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email Address" className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
       <input type="text" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Role" className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
       <div className="flex items-center gap-2">
-        <button onClick={onSend} disabled={!name.trim() || !email.trim()} className="flex-1 h-10 rounded-xl bg-primary-500 text-white text-sm font-semibold active:scale-[0.98] disabled:opacity-40 transition-all duration-150">Send Invitation</button>
+        <button onClick={onSend} disabled={!name.trim() || !email.trim()} className="flex-1 h-10 rounded-xl bg-primary-500 text-surface-50 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 transition-all duration-150">Send Invitation</button>
         <button onClick={onCancel} className="flex-1 h-10 rounded-xl border border-surface-700 bg-transparent text-sm text-text-400 active:scale-[0.98] transition-all duration-150">Cancel</button>
       </div>
     </div>
@@ -456,7 +456,7 @@ function ReleaseTypeStep({ releaseType, setReleaseType, next }: { releaseType: s
       {RELEASE_TYPES.map((t) => (
         <button key={t.value} onClick={() => { setReleaseType(t.value); next(); }}
           className={`w-full text-left rounded-xl border px-5 py-4 transition-all duration-150 ${releaseType === t.value ? 'border-primary-500/60 bg-primary-500/10' : 'border-surface-700 bg-surface-900 hover:border-surface-600'}`}>
-          <p className="text-[15px] font-medium text-surface-100">{t.label}</p><p className="text-xs text-text-500 mt-0.5">{t.description}</p>
+          <p className="text-body font-medium text-surface-100">{t.label}</p><p className="text-xs text-text-500 mt-0.5">{t.description}</p>
         </button>
       ))}
     </div>
@@ -485,7 +485,7 @@ function DetailsStep({ releaseTitle, setReleaseTitle, version, setVersion, relea
   return (
     <>
       <input type="text" value={releaseTitle} onChange={(e) => setReleaseTitle(e.target.value)} placeholder="Release title" autoFocus
-        className="mt-8 block w-full h-14 rounded-xl border border-surface-700 bg-surface-900 px-5 text-[18px] text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none" />
+        className="mt-8 block w-full h-14 rounded-xl border border-surface-700 bg-surface-900 px-5 text-body-large text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none" />
       {displayTitle ? (
         <p className="mt-2 text-xs text-text-400 text-center">Display: <span className="text-primary-400 font-medium">{displayTitle}</span></p>
       ) : null}
@@ -500,7 +500,7 @@ function DetailsStep({ releaseTitle, setReleaseTitle, version, setVersion, relea
                 key={vt}
                 type="button"
                 onClick={() => setVersion(vt)}
-                className="px-2.5 py-1 rounded-md border border-surface-700 bg-surface-950 text-[11px] text-text-400 hover:text-surface-100 hover:border-primary-500/40 transition-colors"
+                className="px-2.5 py-1 rounded-md border border-surface-700 bg-surface-950 text-caption text-text-400 hover:text-surface-100 hover:border-primary-500/40 transition-colors"
               >
                 {vt}
               </button>
@@ -545,15 +545,15 @@ function ArtworkStep({ hasArtwork, setHasArtwork, commissionArtwork, setCommissi
   return (
     <>
       <div className="mt-8 space-y-3">
-        <button onClick={() => setHasArtwork(true)} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-[15px] font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98]">Yes, I have artwork</button>
-        <button onClick={() => setHasArtwork(false)} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-[15px] font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98]">No, not yet</button>
+        <button onClick={() => setHasArtwork(true)} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-body font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98]">Yes, I have artwork</button>
+        <button onClick={() => setHasArtwork(false)} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-body font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98]">No, not yet</button>
       </div>
       {hasArtwork === false && (
         <div className="mt-6">
           <p className="text-sm text-text-400 text-center mb-4">Would you like to commission artwork?</p>
           <div className="space-y-3">
-            <button onClick={() => setCommissionArtwork(true)} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-[15px] font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98]">Yes, find a designer</button>
-            <button onClick={() => { setCommissionArtwork(false); next(); }} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-[15px] font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98]">I'll upload later</button>
+            <button onClick={() => setCommissionArtwork(true)} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-body font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98]">Yes, find a designer</button>
+            <button onClick={() => { setCommissionArtwork(false); next(); }} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-body font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98]">I'll upload later</button>
           </div>
           {commissionArtwork && (
             <div className="mt-6">
@@ -601,7 +601,7 @@ function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, remov
               <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Track {i + 1}</p>
               {tracks.length > 1 && <button onClick={() => removeTrack(t.id)} className="text-xs text-danger-400">Remove</button>}
             </div>
-            <input type="text" value={t.title} onChange={(e) => updateTrack(t.id, 'title', e.target.value)} placeholder="Song title" className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-[15px] text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+            <input type="text" value={t.title} onChange={(e) => updateTrack(t.id, 'title', e.target.value)} placeholder="Song title" className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-body text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
 
             <div>
               <p className="text-xs font-semibold text-text-500 uppercase tracking-wider mb-2">Recording Type</p>
@@ -774,7 +774,7 @@ function PromoStep({ promoAssets, setPromoAssets, assetDesigners, setAssetDesign
               <button onClick={() => setPromoAssets((p: string[]) => p.includes(a.key) ? p.filter((x) => x !== a.key) : [...p, a.key])}
                 className="w-full text-left px-5 py-3.5 flex items-center gap-3">
                 <span className={`h-4 w-4 rounded border-2 flex items-center justify-center ${selected ? 'border-primary-500 bg-primary-500' : 'border-surface-600'}`}>
-                  {selected && <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                  {selected && <svg className="h-3 w-3 text-surface-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                 </span>
                 <span className="text-sm font-medium text-surface-100">{a.label}</span>
               </button>
@@ -841,8 +841,8 @@ function EmailStep({ hasEmail, setHasEmail, emailSubject, setEmailSubject, email
   return (
     <>
       <div className="mt-8 space-y-3">
-        <button onClick={() => setHasEmail(true)} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-[15px] font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98] transition-all duration-150">Yes</button>
-        <button onClick={() => { setHasEmail(false); if (onLater) onLater(); next(); }} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-[15px] font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98] transition-all duration-150">Not now</button>
+        <button onClick={() => setHasEmail(true)} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-body font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98] transition-all duration-150">Yes</button>
+        <button onClick={() => { setHasEmail(false); if (onLater) onLater(); next(); }} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-body font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98] transition-all duration-150">Not now</button>
       </div>
       {hasEmail && (
         <div className="mt-6 space-y-5">

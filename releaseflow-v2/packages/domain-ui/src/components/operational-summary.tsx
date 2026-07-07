@@ -54,7 +54,7 @@ function MetricCell({
       <span className={`text-xl font-semibold leading-none ${critical ? 'text-danger-600' : 'text-text-900'}`}>
         {value}
       </span>
-      <span className="mt-0.5 text-[10px] font-medium text-text-400 uppercase tracking-wider leading-tight">
+      <span className="mt-0.5 text-caption font-medium text-text-400 uppercase tracking-wider leading-tight">
         {label}
       </span>
     </>
@@ -166,7 +166,7 @@ export function OperationalSummary({
       </div>
 
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-text-400">Confidence</span>
+        <span className="text-caption font-semibold uppercase tracking-wider text-text-400">Confidence</span>
         <div className="h-px flex-1 max-w-24 bg-surface-200 dark:bg-surface-700 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-300 ${confidenceBar(confidence)}`}
@@ -182,12 +182,12 @@ export function OperationalSummary({
 
       {recommendations.length > 0 && (
         <div className="mt-5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-400 mb-2">Recommended</p>
+          <p className="text-caption font-semibold uppercase tracking-wider text-text-400 mb-2">Recommended</p>
           {recommendations.map((rec, i) => (
             <div key={i} className="flex items-start gap-2 py-1.5">
               <span className={`h-1.5 w-1.5 rounded-full shrink-0 mt-1 ${urgencyDot[rec.urgency]}`} />
               <span className="text-sm text-text-700 dark:text-text-300 flex-1">{rec.action}</span>
-              <span className={`text-[10px] font-semibold shrink-0 uppercase tracking-wide ${urgencyText[rec.urgency]}`}>
+              <span className={`text-caption font-semibold shrink-0 uppercase tracking-wide ${urgencyText[rec.urgency]}`}>
                 {rec.urgency}
               </span>
             </div>
@@ -205,7 +205,7 @@ export function OperationalSummary({
         <MetricCell value={String(daysUntilRelease)} label="Days" section="timeline" critical={daysUntilRelease < 7} onDrillDown={onDrillDown} />
       </div>
 
-      <p className="mt-4 text-[10px] text-text-400 dark:text-text-500 text-right">
+      <p className="mt-4 text-caption text-text-400 dark:text-text-500 text-right">
         {lastEvaluated ? `Evaluated ${lastEvaluated}` : 'Evaluated just now'}
       </p>
     </div>

@@ -160,12 +160,12 @@ export function PersonAssigner({
           <button onClick={handleClose} className="flex-1 h-10 rounded-xl border border-surface-700 bg-transparent text-sm font-medium text-text-400 hover:text-text-200 active:scale-[0.98] transition-all">Cancel</button>
           {mode === 'choose' ? (
             <button onClick={handleAssignExisting} disabled={!selectedPerson || saving}
-              className="flex-1 h-10 rounded-xl bg-primary-500 text-white text-sm font-semibold active:scale-[0.98] disabled:opacity-40 transition-all shadow-[0_4px_24px_rgba(204,85,0,0.2)]">
+              className="flex-1 h-10 rounded-xl bg-primary-500 text-surface-50 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 transition-all shadow-[0_4px_24px_rgba(204,85,0,0.2)]">
               {saving ? 'Assigning...' : 'Assign'}
             </button>
           ) : (
             <button onClick={handleInvite} disabled={!inviteName.trim() || !inviteEmail.trim() || saving}
-              className="flex-1 h-10 rounded-xl bg-primary-500 text-white text-sm font-semibold active:scale-[0.98] disabled:opacity-40 transition-all shadow-[0_4px_24px_rgba(204,85,0,0.2)]">
+              className="flex-1 h-10 rounded-xl bg-primary-500 text-surface-50 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 transition-all shadow-[0_4px_24px_rgba(204,85,0,0.2)]">
               {saving ? 'Sending...' : 'Send Invitation'}
             </button>
           )}

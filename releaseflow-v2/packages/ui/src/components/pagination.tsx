@@ -76,7 +76,7 @@ export function Pagination({
                 aria-label={`Page ${page}`}
                 onClick={() => onPageChange(page)}
                 className={`h-8 w-8 rounded-md text-sm transition-colors duration-100
-                  ${page === currentPage ? 'bg-primary-500 text-white' : 'text-text-700 hover:bg-surface-100'}
+                  ${page === currentPage ? 'bg-primary-500 text-surface-50' : 'text-text-700 hover:bg-surface-100'}
                 `}
               >
                 {page}

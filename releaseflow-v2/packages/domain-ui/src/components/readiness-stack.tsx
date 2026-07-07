@@ -107,7 +107,7 @@ const categoryIconMap: Record<ReadinessCategory, () => ReactNode> = {
 function ReadyIcon() {
   return (
     <div className="h-5 w-5 rounded-full bg-success-500 flex items-center justify-center shrink-0">
-      <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+      <svg className="h-3 w-3 text-surface-50" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M2 6l2.5 2.5L10 3" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>

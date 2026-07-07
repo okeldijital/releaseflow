@@ -97,7 +97,7 @@ export default function DiagnosticsPage() {
             {d.environment.vars.map((v) => (
               <div key={v.key} className="flex items-center gap-2 text-xs rounded border border-surface-100 px-2.5 py-1.5">
                 <StatusIcon ok={v.ok} />
-                <code className={`text-[11px] truncate font-mono ${v.ok ? 'text-text-500' : 'text-danger-500'}`}>{v.key}</code>
+                <code className={`text-caption truncate font-mono ${v.ok ? 'text-text-500' : 'text-danger-500'}`}>{v.key}</code>
               </div>
             ))}
           </div>

@@ -61,7 +61,7 @@ function ReleaseCard({ release }: { release: { id: string; title: string; status
       className="flex items-center gap-4 rounded-xl border border-surface-700/60 bg-surface-900 px-5 py-4 hover:border-primary-500/40 transition-all duration-150 group"
     >
       <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-primary-500 to-orange-600 flex items-center justify-center shadow-lg">
-        <span className="text-xl font-bold text-white/90">{initial}</span>
+        <span className="text-xl font-bold text-surface-50/90">{initial}</span>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -128,7 +128,7 @@ export default function SchedulePage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">Schedule</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Schedule</p>
           <p className="mt-1 text-sm text-text-400">View your release timeline across different perspectives.</p>
           {releases.length > 0 ? (
             <p className="mt-0.5 text-sm text-text-400">{releases.length} release{releases.length !== 1 ? 's' : ''}</p>
@@ -228,7 +228,7 @@ export default function SchedulePage() {
                   className="relative flex items-start gap-5 group"
                 >
                   <div className="relative z-10 flex items-center justify-center w-8 h-8 shrink-0 rounded-full border-2 border-primary-500 bg-surface-900">
-                    <span className="text-[10px] font-bold text-primary-400">{initial}</span>
+                    <span className="text-caption font-bold text-primary-400">{initial}</span>
                   </div>
                   <div className="flex-1 min-w-0 pt-0.5">
                     <div className="flex items-center gap-2.5 flex-wrap">

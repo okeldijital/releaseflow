@@ -147,7 +147,7 @@ export default function TracksPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">Tracks</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Tracks</p>
           <p className="mt-1 text-sm text-text-400">Every recording in your catalogue lives here.</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to manage tracks." />
@@ -163,7 +163,7 @@ export default function TracksPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <p className="text-[1.75rem] font-semibold text-primary-400 tracking-tight">Tracks</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Tracks</p>
           <p className="mt-1 text-sm text-text-400">Every recording in your catalogue lives here.</p>
           {tracks.length > 0 ? (
             <p className="mt-0.5 text-sm text-text-400">{tracks.length} track{tracks.length !== 1 ? 's' : ''}</p>
