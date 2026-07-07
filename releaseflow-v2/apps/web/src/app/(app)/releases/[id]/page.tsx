@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { PersonAssigner } from '@/components/person-assigner';
-import { fetchRelease, removeRelease } from '@/lib/release-service';
+import { fetchRelease, removeRelease, editRelease } from '@/lib/release-service';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { toast } from '@/stores/toast-store';
 import { getDeliverablesByRelease } from '@/lib/deliverable-service';
@@ -16,6 +16,7 @@ import { getTasksByEntity } from '@/lib/task-service';
 import { getActivityByEntity } from '@/lib/activity-service';
 import { fmtDate } from '@/lib/utils';
 import { Button, Badge, StatusBadge, Skeleton, EmptyState, LoadingState, Tabs, ConfirmationDialog } from '@releaseflow/ui';
+import { ReleaseArtwork } from '@/components/release/ReleaseArtwork';
 import type { Release, Deliverable, Task } from '../../types';
 import type { ReleaseTrackRecord } from '@/lib/release-track-repository';
 import type { TrackRecord } from '@/lib/track-repository';
@@ -219,6 +220,10 @@ export default function ReleaseWorkspacePage() {
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteRole, setInviteRole] = useState<(typeof INVITE_ROLES)[number]>('Graphic Designer');
   const [loading, setLoading] = useState(true);
@@ -447,6 +452,34 @@ export default function ReleaseWorkspacePage() {
     }
   }
 
+  async function handleArchive() {
+    if (!user) return;
+    setArchiving(true);
+    try {
+      await editRelease(releaseId, { status: 'archived' }, user.uid);
+      toast.success('Release archived.');
+      window.location.reload();
+    } catch {
+      toast.error('Could not archive release.', 'Please try again.');
+      setArchiving(false);
+      setArchiveOpen(false);
+    }
+  }
+
+  async function handleRestore() {
+    if (!user) return;
+    setRestoring(true);
+    try {
+      await editRelease(releaseId, { status: 'draft' }, user.uid);
+      toast.success('Release restored.');
+      window.location.reload();
+    } catch {
+      toast.error('Could not restore release.', 'Please try again.');
+      setRestoring(false);
+      setRestoreOpen(false);
+    }
+  }
+
   /* ─── Readiness calculation ─────────────────────────────────────────── */
   const readinessMap: Record<ReadinessCat, boolean> = {
     Audio:        deliverables.some((d) => d.type === 'audio'    && d.status === 'approved'),
@@ -522,10 +555,7 @@ export default function ReleaseWorkspacePage() {
       </div>
     );
   }
-
-  /* ─── Artwork placeholder colour ─────────────────────────────────────── */
-  const artworkColors = ['bg-primary-600','bg-purple-600','bg-teal-600','bg-pink-600','bg-amber-600'];
-  const artworkColor  = artworkColors[(release.title.charCodeAt(0) ?? 0) % artworkColors.length];
+  /* ─── Artwork ──────────────────────────────────────────────────────────── */
   const artworkAsset  = deliverables.find((d) => d.type === 'artwork' && d.status === 'approved');
   const artworkUrl = (artworkAsset as unknown as { url?: string } | undefined)?.url;
   const artistName = fieldValue(release, ['artistName', 'artist', 'primaryArtist']) ?? 'Artist not linked';
@@ -571,12 +601,18 @@ export default function ReleaseWorkspacePage() {
                 disabled: true,
                 secondaryLabel: 'Coming Soon',
               },
-              {
-                id: 'archive',
-                label: 'Archive Release',
-                disabled: true,
-                secondaryLabel: 'Coming Soon',
-              },
+              ...(release.status === 'archived'
+                ? [{
+                    id: 'restore',
+                    label: 'Restore Release',
+                    onClick: () => setRestoreOpen(true),
+                  }]
+                : [{
+                    id: 'archive',
+                    label: 'Archive Release',
+                    onClick: () => setArchiveOpen(true),
+                  }]
+              ),
               {
                 id: 'delete',
                 label: 'Delete Release',
@@ -590,75 +626,110 @@ export default function ReleaseWorkspacePage() {
       </div>
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="grid grid-cols-1 lg:grid-cols-[240px_1fr_260px] gap-6 mb-8" aria-label="Release overview">
-
-        {/* Artwork */}
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-3 flex flex-col gap-3">
-          <p className="text-xs font-semibold text-text-500 uppercase tracking-wider px-1">Artwork</p>
-          <div className={`w-full aspect-square rounded-xl flex items-center justify-center overflow-hidden shadow-card ring-1 ring-surface-0/10 ${artworkAsset ? 'bg-surface-950' : artworkColor}`}>
-            {artworkAsset ? (
-              <img src={artworkUrl ?? ''} alt={`${release.title} artwork`} className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).classList.add(artworkColor ?? 'bg-orange-600'); }} />
-            ) : (
-              <span className="text-surface-50 text-6xl font-bold select-none">{release.title.charAt(0).toUpperCase()}</span>
-            )}
+      <section className="mb-8" aria-label="Release overview">
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Artwork */}
+          <div className="w-full lg:w-64 shrink-0">
+            <ReleaseArtwork
+              title={release.title}
+              artworkUrl={artworkUrl}
+              status={artworkAsset ? 'approved' : undefined}
+              onReplace={() => handleTabChange('workflow')}
+              onUpload={() => handleTabChange('workflow')}
+              size="lg"
+            />
           </div>
-          {artworkAsset ? (
-            <div className="grid grid-cols-3 gap-2">
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => handleTabChange('workflow')}>Replace</Button>
-              <Button size="sm" variant="outline" className="text-xs" disabled={!artworkUrl} onClick={() => artworkUrl && window.open(artworkUrl, '_blank')}>Download</Button>
-              <Button size="sm" variant="outline" className="text-xs" disabled={!artworkUrl} onClick={() => artworkUrl && window.open(artworkUrl, '_blank')}>Preview</Button>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-3xl font-bold text-primary-400 tracking-tight leading-tight">{release.title}</h1>
+                  <StatusBadge status={release.status} />
+                </div>
+                <p className="text-sm text-text-700 mt-1">{artistName}</p>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <Badge label={titleCase(release.releaseType)} color="bg-primary-50 text-primary-600 dark:bg-primary-500/15 dark:text-primary-400" />
+                  {release.label && <Badge label={release.label} color="bg-surface-100 text-text-600 dark:bg-surface-800 dark:text-text-400" />}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" variant="outline" onClick={() => setRolePickerOpen(true)}>Invite</Button>
+                <Button size="sm" variant="primary" onClick={() => router.push(`/releases/${releaseId}/edit`)}>Edit</Button>
+                <EntityOverflowMenu
+                  aria-label="More release actions"
+                  items={[
+                    { id: 'edit', label: 'Edit Release', onClick: () => router.push(`/releases/${releaseId}/edit`) },
+                    { id: 'duplicate', label: 'Duplicate Release', disabled: true, secondaryLabel: 'Coming Soon' },
+                    ...(release.status === 'archived'
+                      ? [{ id: 'restore', label: 'Restore Release', onClick: () => setRestoreOpen(true) }]
+                      : [{ id: 'archive', label: 'Archive Release', onClick: () => setArchiveOpen(true) }]
+                    ),
+                    { id: 'delete', label: 'Delete Release', variant: 'danger', separatorBefore: true, onClick: () => setDeleteOpen(true) },
+                  ]}
+                />
+              </div>
             </div>
-          ) : (
-            <div className="space-y-3 px-1 pb-1">
-              <p className="text-sm text-text-500">No artwork uploaded.</p>
-              <Button size="sm" variant="primary" className="w-full text-xs" onClick={() => handleTabChange('workflow')}>Upload Artwork</Button>
+
+            {/* Progress */}
+            <div className="mt-5">
+              <div className="flex items-center justify-between text-sm mb-1.5">
+                <span className="text-text-400 font-medium">Release Readiness</span>
+                <span className={`font-semibold tabular-nums ${readinessPct >= 80 ? 'text-success-500' : readinessPct >= 50 ? 'text-warning-500' : 'text-danger-500'}`}>{readinessPct}%</span>
+              </div>
+              <div className="h-2 w-full bg-surface-200 dark:bg-surface-800 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-500 ${readinessPct >= 80 ? 'bg-success-500' : readinessPct >= 50 ? 'bg-warning-500' : 'bg-danger-500'}`} style={{ width: `${readinessPct}%` }} />
+              </div>
             </div>
-          )}
+          </div>
         </div>
+      </section>
 
-        {/* Release info */}
-        <div className="flex flex-col gap-3 min-w-0">
-          <div>
-            <h1 className="text-2xl font-semibold text-primary-400 tracking-tight leading-tight">{release.title}</h1>
-            <p className="text-sm text-text-700 mt-1">{artistName}</p>
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              <Badge label={titleCase(release.releaseType)} color="bg-surface-100 text-text-600" />
-              <StatusBadge status={release.status} />
-            </div>
-          </div>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-            <dt className="text-text-400 whitespace-nowrap">Type</dt>            <dd className="text-text-800 truncate">{titleCase(release.releaseType)}</dd>
-            <dt className="text-text-400 whitespace-nowrap">Company</dt>         <dd className="text-text-800 truncate">{companyName}</dd>
-            <dt className="text-text-400 whitespace-nowrap">Catalog</dt>         <dd className="text-text-800 truncate">{release.catalogNumber ?? 'Not assigned'}</dd>
-            <dt className="text-text-400 whitespace-nowrap">Release Date</dt>    <dd className="text-text-800">{release.targetReleaseDate ? fmtDate(release.targetReleaseDate) : 'Not scheduled'}</dd>
-            <dt className="text-text-400 whitespace-nowrap">Genre</dt>           <dd className="text-text-800 truncate">{release.genre ?? 'Not set'}</dd>
-            <dt className="text-text-400 whitespace-nowrap">Language</dt>        <dd className="text-text-800">{release.language ?? 'Not set'}</dd>
-            <dt className="text-text-400 whitespace-nowrap">Status</dt>          <dd><StatusBadge status={release.status} /></dd>
+      {/* ── Metadata Cards ────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* Release Card */}
+        <div className="rounded-xl border border-surface-200 dark:border-surface-700/80 bg-layer-2 dark:bg-surface-900 shadow-card p-4">
+          <h3 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-3">Release</h3>
+          <dl className="space-y-1.5 text-sm">
+            <div className="flex justify-between"><dt className="text-text-400">Type</dt><dd className="text-text-800 dark:text-text-200 font-medium">{titleCase(release.releaseType)}</dd></div>
+            <div className="flex justify-between"><dt className="text-text-400">Date</dt><dd className="text-text-800 dark:text-text-200">{release.targetReleaseDate ? fmtDate(release.targetReleaseDate) : 'TBD'}</dd></div>
+            <div className="flex justify-between"><dt className="text-text-400">Status</dt><dd><StatusBadge status={release.status} /></dd></div>
           </dl>
         </div>
 
-        {/* Readiness card */}
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Release Readiness</p>
-            <span className={`text-2xl font-semibold tabular-nums ${readinessPct >= 80 ? 'text-success-600' : readinessPct >= 50 ? 'text-warning-600' : 'text-danger-600'}`}>{readinessPct}%</span>
-          </div>
-          <div className="h-1.5 w-full bg-surface-200 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full transition-all duration-500 ${readinessPct >= 80 ? 'bg-success-500' : readinessPct >= 50 ? 'bg-warning-500' : 'bg-danger-500'}`} style={{ width: `${readinessPct}%` }} />
-          </div>
+        {/* Publishing Card */}
+        <div className="rounded-xl border border-surface-200 dark:border-surface-700/80 bg-layer-2 dark:bg-surface-900 shadow-card p-4">
+          <h3 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-3">Publishing</h3>
+          <dl className="space-y-1.5 text-sm">
+            <div className="flex justify-between"><dt className="text-text-400">UPC</dt><dd className="text-text-800 dark:text-text-200 font-medium">{release.upc || '—'}</dd></div>
+            <div className="flex justify-between"><dt className="text-text-400">Catalog</dt><dd className="text-text-800 dark:text-text-200">{release.catalogNumber || '—'}</dd></div>
+            <div className="flex justify-between"><dt className="text-text-400">Explicit</dt><dd className="text-text-800 dark:text-text-200">{release.explicit ? 'Yes' : 'No'}</dd></div>
+          </dl>
+        </div>
+
+        {/* Label Card */}
+        <div className="rounded-xl border border-surface-200 dark:border-surface-700/80 bg-layer-2 dark:bg-surface-900 shadow-card p-4">
+          <h3 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-3">Label</h3>
+          <p className="text-sm font-medium text-text-800 dark:text-text-200">{companyName}</p>
+          {release.genre && <p className="text-xs text-text-400 mt-1">{release.genre}{release.subgenre ? ` · ${release.subgenre}` : ''}</p>}
+        </div>
+
+        {/* Readiness Card */}
+        <div className="rounded-xl border border-surface-200 dark:border-surface-700/80 bg-layer-2 dark:bg-surface-900 shadow-card p-4">
+          <h3 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-3">Readiness</h3>
           <ul className="space-y-1.5">
             {READINESS_CATS.map((cat) => (
               <li key={cat} className="flex items-center gap-2 text-xs">
                 {readinessMap[cat]
                   ? <svg className="h-3.5 w-3.5 text-success-500 shrink-0" viewBox="0 0 16 16" fill="currentColor"><path fillRule="evenodd" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z" clipRule="evenodd" /></svg>
-                  : <span className="h-3.5 w-3.5 rounded-full border-2 border-surface-300 shrink-0 inline-block" />}
-                <span className={readinessMap[cat] ? 'text-text-700' : 'text-text-400'}>{cat}</span>
+                  : <span className="h-3.5 w-3.5 rounded-full border-2 border-surface-300 dark:border-surface-600 shrink-0 inline-block" />}
+                <span className={readinessMap[cat] ? 'text-text-700 dark:text-text-300' : 'text-text-400 dark:text-text-500'}>{cat}</span>
               </li>
             ))}
           </ul>
-          <button onClick={() => handleTabChange('workflow')} className="text-xs text-primary-500 hover:text-primary-600 font-medium text-left mt-auto transition-colors">View Checklist →</button>
         </div>
-      </section>
+      </div>
 
       {/* ── Overview workspace ───────────────────────────────────────── */}
       <div className="space-y-8">
@@ -753,63 +824,61 @@ export default function ReleaseWorkspacePage() {
             )}
           </section>
 
-          {/* § Tracks */}
+          {/* § Tracks — Album-style */}
           <section aria-label="Tracks">
             <div className="flex items-center justify-between mb-4 gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider">Tracks</h2>
+                <h2 className="text-sm font-semibold text-text-800 dark:text-text-200">Tracks</h2>
+                <span className="text-xs text-text-400">{tracks.length} track{tracks.length !== 1 ? 's' : ''}</span>
                 {artistsUnavailable ? (
-                  <span className="text-xs text-text-400">Artists unavailable</span>
+                  <span className="text-xs text-text-400">· Artists unavailable</span>
                 ) : null}
               </div>
               <Button size="sm" variant="outline" onClick={() => router.push(`/tracks/new?releaseId=${releaseId}`)}>+ Add Track</Button>
             </div>
             {tracks.length === 0 ? (
-              <EmptyState title="No tracks have been added." action={{ label: 'Add First Track', onClick: () => router.push(`/tracks/new?releaseId=${releaseId}`) }} />
+              <EmptyState title="No tracks on this release." action={{ label: 'Add First Track', onClick: () => router.push(`/tracks/new?releaseId=${releaseId}`) }} />
             ) : (
-              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
-                <div className="hidden sm:grid grid-cols-[2rem_1fr_4rem_6rem_6rem_6rem] gap-x-4 px-4 py-2.5 border-b border-surface-100 bg-surface-50">
-                  <span className="text-caption font-semibold text-text-400 uppercase tracking-wider">#</span>
-                  <span className="text-caption font-semibold text-text-400 uppercase tracking-wider">Title</span>
-                  <span className="text-caption font-semibold text-text-400 uppercase tracking-wider text-right">Dur.</span>
-                  <span className="text-caption font-semibold text-text-400 uppercase tracking-wider">Mix</span>
-                  <span className="text-caption font-semibold text-text-400 uppercase tracking-wider">Master</span>
-                  <span className="text-caption font-semibold text-text-400 uppercase tracking-wider">Publishing</span>
-                </div>
+              <div className="rounded-xl border border-surface-200 dark:border-surface-700/80 bg-layer-2 dark:bg-surface-900 shadow-card overflow-hidden">
                 {tracks.map((rt, i) => {
                   const t = rt.track;
                   return (
                     <button
                       key={rt.id}
-                      className={`w-full text-left flex sm:grid sm:grid-cols-[2rem_1fr_4rem_6rem_6rem_6rem] items-center gap-x-4 px-4 py-3.5 hover:bg-surface-50 transition-colors duration-100 ${i > 0 ? 'border-t border-surface-100' : ''}`}
                       onClick={() => t && router.push(`/tracks/${t.id}`)}
-                      aria-label={t?.title ?? `Track ${rt.position}`}
+                      className={`w-full text-left flex items-center gap-4 px-4 py-3.5 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors duration-100 group ${
+                        i > 0 ? 'border-t border-surface-100 dark:border-surface-800' : ''
+                      }`}
                     >
-                      <span className="text-sm text-text-400 font-mono w-8 shrink-0">{rt.position}</span>
-                      <span className="min-w-0 flex-1">
+                      <span className="text-sm text-text-400 font-mono w-6 shrink-0 text-right">{rt.position}</span>
+                      <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-primary-400 truncate block">{t?.title ?? '—'}</span>
-                        {t ? (
-                          <span className="text-xs text-text-600 mt-0.5 block space-y-0.5">
-                            <span className="block">
-                              Recording Type · {recordingTypeLabel(resolveRecordingType(t.recordingType), true)}
-                            </span>
-                            {resolveRecordingType(t.recordingType) === 'remix' ? (
-                              <>
-                                {trackArtistMeta[t.id]?.original ? (
-                                  <span className="block">Original Artists · {trackArtistMeta[t.id]?.original}</span>
-                                ) : null}
-                                {trackArtistMeta[t.id]?.remixer ? (
-                                  <span className="block">Remix Artists · {trackArtistMeta[t.id]?.remixer}</span>
-                                ) : null}
-                              </>
-                            ) : null}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="text-xs text-text-600 text-right hidden sm:block">{fmtDuration(t?.duration)}</span>
-                      <span className="hidden sm:block"><StatusBadge status={(t as unknown as { mixStatus?: string })?.mixStatus ?? (t?.status === 'active' ? 'in_progress' : 'draft')} /></span>
-                      <span className="hidden sm:block"><StatusBadge status={(t as unknown as { masterStatus?: string })?.masterStatus ?? (t?.isrc ? 'ready' : 'draft')} /></span>
-                      <span className="hidden sm:block"><StatusBadge status={(t as unknown as { publishingStatus?: string })?.publishingStatus ?? (t?.isrc ? 'ready' : 'draft')} /></span>
+                        <span className="text-xs text-text-500 mt-0.5 block">
+                          {t ? (
+                            <>
+                              {recordingTypeLabel(resolveRecordingType(t.recordingType), true)}
+                              {resolveRecordingType(t.recordingType) === 'remix' && trackArtistMeta[t.id]?.original && (
+                                <> · {trackArtistMeta[t.id]?.original}{trackArtistMeta[t.id]?.remixer ? ` × ${trackArtistMeta[t.id]?.remixer}` : ''}</>
+                              )}
+                            </>
+                          ) : 'Track not found'}
+                        </span>
+                      </div>
+                      <span className="text-xs text-text-500 hidden sm:block">{fmtDuration(t?.duration)}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={`h-2 w-2 rounded-full ${
+                          (t as unknown as { mixStatus?: string })?.mixStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300 dark:bg-surface-600'
+                        }`} title="Mix" />
+                        <span className={`h-2 w-2 rounded-full ${
+                          (t as unknown as { masterStatus?: string })?.masterStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300 dark:bg-surface-600'
+                        }`} title="Master" />
+                        <span className={`h-2 w-2 rounded-full ${
+                          (t as unknown as { publishingStatus?: string })?.publishingStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300 dark:bg-surface-600'
+                        }`} title="Publishing" />
+                      </div>
+                      <svg className="h-4 w-4 text-text-300 dark:text-text-600 group-hover:text-text-500 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </button>
                   );
                 })}
@@ -955,6 +1024,28 @@ export default function ReleaseWorkspacePage() {
         cancelLabel="Cancel"
         variant="danger"
         loading={deleting}
+      />
+
+      <ConfirmationDialog
+        open={archiveOpen}
+        onClose={() => { if (!archiving) setArchiveOpen(false); }}
+        onConfirm={handleArchive}
+        title="Archive Release"
+        message={`Are you sure you want to archive "${release.title}"? Archived releases can be restored later.`}
+        confirmLabel="Archive Release"
+        cancelLabel="Cancel"
+        loading={archiving}
+      />
+
+      <ConfirmationDialog
+        open={restoreOpen}
+        onClose={() => { if (!restoring) setRestoreOpen(false); }}
+        onConfirm={handleRestore}
+        title="Restore Release"
+        message={`Are you sure you want to restore "${release.title}"? It will be set back to draft status.`}
+        confirmLabel="Restore Release"
+        cancelLabel="Cancel"
+        loading={restoring}
       />
 
     </div>

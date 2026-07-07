@@ -1,0 +1,89 @@
+'use client';
+
+import type { LabelOption } from '@/components/label-field-picker';
+import { LabelFieldPicker } from '@/components/label-field-picker';
+import { Nav } from './wizard-ui';
+
+export function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtists, setFeaturedArtists, recordLabel, setRecordLabel, catalogueNumber, setCatalogueNumber, upc, setUpc, primaryGenre, setPrimaryGenre, secondaryGenre, setSecondaryGenre, language, setLanguage, copyrightOwner, setCopyrightOwner, copyrightYear, setCopyrightYear, releaseOwner, setReleaseOwner, labelOptions, activeOrgId, orgName, onLabelCreated, back, next }: {
+  primaryArtist: string;
+  setPrimaryArtist: (v: string) => void;
+  featuredArtists: string[];
+  setFeaturedArtists: (v: string[]) => void;
+  recordLabel: string;
+  setRecordLabel: (v: string) => void;
+  catalogueNumber: string;
+  setCatalogueNumber: (v: string) => void;
+  upc: string;
+  setUpc: (v: string) => void;
+  primaryGenre: string;
+  setPrimaryGenre: (v: string) => void;
+  secondaryGenre: string;
+  setSecondaryGenre: (v: string) => void;
+  language: string;
+  setLanguage: (v: string) => void;
+  copyrightOwner: string;
+  setCopyrightOwner: (v: string) => void;
+  copyrightYear: string;
+  setCopyrightYear: (v: string) => void;
+  releaseOwner: string;
+  setReleaseOwner: (v: string) => void;
+  labelOptions: LabelOption[];
+  activeOrgId: string | null;
+  orgName: string;
+  onLabelCreated: (label: LabelOption) => void;
+  back: () => void;
+  next: () => void;
+}) {
+  return (
+    <>
+      <p className="mt-2 text-sm text-text-400 text-center">Tell streaming services and stores how this release should appear.</p>
+      <div className="mt-8 space-y-6">
+
+        {/* Release section */}
+        <div className="rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-3">
+          <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Release</p>
+          <input type="text" value={primaryArtist} onChange={(e) => setPrimaryArtist(e.target.value)} placeholder="Primary Artist"
+            className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+          <input type="text" value={featuredArtists.join(', ')} onChange={(e) => setFeaturedArtists(e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
+            placeholder="Featured Artist(s) — comma separated" className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+          <LabelFieldPicker
+            instanceId="release-label"
+            label="Label"
+            value={recordLabel}
+            onChange={setRecordLabel}
+            labels={labelOptions}
+            organizationId={activeOrgId}
+            orgName={orgName}
+            onLabelCreated={onLabelCreated}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <input type="text" value={catalogueNumber} onChange={(e) => setCatalogueNumber(e.target.value)} placeholder="Catalogue Number"
+              className="h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+            <input type="text" value={upc} onChange={(e) => setUpc(e.target.value)} placeholder="UPC (optional)"
+              className="h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <input type="text" value={primaryGenre} onChange={(e) => setPrimaryGenre(e.target.value)} placeholder="Primary Genre"
+              className="h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+            <input type="text" value={secondaryGenre} onChange={(e) => setSecondaryGenre(e.target.value)} placeholder="Secondary Genre"
+              className="h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+          </div>
+          <input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="Language (e.g. English)"
+            className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+        </div>
+
+        {/* Rights section */}
+        <div className="rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-3">
+          <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Rights</p>
+          <input type="text" value={copyrightOwner} onChange={(e) => setCopyrightOwner(e.target.value)} placeholder="℗ Copyright Owner"
+            className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+          <input type="text" value={copyrightYear} onChange={(e) => setCopyrightYear(e.target.value)} placeholder="Copyright Year"
+            className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+          <input type="text" value={releaseOwner} onChange={(e) => setReleaseOwner(e.target.value)} placeholder="© Release Owner"
+            className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+        </div>
+      </div>
+      <Nav back={back} next={next}/>
+    </>
+  );
+}

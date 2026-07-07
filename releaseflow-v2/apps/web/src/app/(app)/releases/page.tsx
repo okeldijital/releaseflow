@@ -1,16 +1,131 @@
 'use client';
 
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useOrgStore } from '@/stores/org-store';
 import { useReleases } from '@/hooks/useRelease';
-import { fmtDate } from '@/lib/utils';
-import { Button, StatusBadge, LoadingState, EmptyState } from '@releaseflow/ui';
+import { Button, LoadingState, EmptyState, Input } from '@releaseflow/ui';
+import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
+import { RELEASE_STATUS_CONFIG, RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-config';
+import type { Release } from '@/app/(app)/types';
+import { useDebounce } from '@/hooks/useDebounce';
+
+type ViewMode = 'grid' | 'list';
+type SortKey = 'newest' | 'oldest' | 'releaseDate' | 'alpha' | 'status';
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'oldest', label: 'Oldest' },
+  { value: 'releaseDate', label: 'Release Date' },
+  { value: 'alpha', label: 'Alphabetical' },
+  { value: 'status', label: 'Status' },
+];
+
+const STATUS_OPTIONS = Object.entries(RELEASE_STATUS_CONFIG).map(([value, meta]) => ({
+  value,
+  label: meta.label,
+}));
+
+const TYPE_OPTIONS = Object.entries(RELEASE_TYPE_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));
+
+function filterReleases(releases: Release[], search: string, statuses: string[], types: string[], years: string[]): Release[] {
+  return releases.filter((r) => {
+    if (search && !r.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if (statuses.length > 0 && !statuses.includes(r.status)) return false;
+    if (types.length > 0 && !types.includes(r.releaseType)) return false;
+    if (years.length > 0) {
+      const ts = getDateValue(r.targetReleaseDate || r.createdAt);
+      if (!ts || !years.includes(new Date(ts).getFullYear().toString())) return false;
+    }
+    return true;
+  });
+}
+
+function getDateValue(date: unknown): number {
+  if (!date) return 0;
+  if (typeof date === 'object' && date !== null) {
+    const d = date as { seconds?: number; toDate?: () => Date };
+    if (typeof d.toDate === 'function') return d.toDate().getTime();
+    if (typeof d.seconds === 'number') return new Date(d.seconds * 1000).getTime();
+  }
+  if (typeof date === 'string' || typeof date === 'number') return new Date(date).getTime();
+  return 0;
+}
+
+function sortReleases(releases: Release[], sort: SortKey): Release[] {
+  const sorted = [...releases];
+  switch (sort) {
+    case 'newest':
+      return sorted.sort((a, b) => getDateValue(b.createdAt) - getDateValue(a.createdAt));
+    case 'oldest':
+      return sorted.sort((a, b) => getDateValue(a.createdAt) - getDateValue(b.createdAt));
+    case 'releaseDate':
+      return sorted.sort((a, b) => getDateValue(b.targetReleaseDate) - getDateValue(a.targetReleaseDate));
+    case 'alpha':
+      return sorted.sort((a, b) => a.title.localeCompare(b.title));
+    case 'status':
+      return sorted.sort((a, b) => {
+        const aOrder = RELEASE_STATUS_CONFIG[a.status]?.order ?? 99;
+        const bOrder = RELEASE_STATUS_CONFIG[b.status]?.order ?? 99;
+        return aOrder - bOrder;
+      });
+    default:
+      return sorted;
+  }
+}
+
+function getAvailableYears(releases: Release[]): string[] {
+  const years = new Set<string>();
+  for (const r of releases) {
+    const ts = getDateValue(r.targetReleaseDate || r.createdAt);
+    if (ts) years.add(new Date(ts).getFullYear().toString());
+  }
+  return Array.from(years).sort((a, b) => parseInt(b) - parseInt(a));
+}
 
 export default function ReleasesPage() {
   const { activeOrgId } = useOrgStore();
   const router = useRouter();
   const { releases, loading, error, refresh } = useReleases();
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+  const [view, setView] = useState<ViewMode>(() => {
+    if (typeof window !== 'undefined') return (localStorage.getItem('rf-releases-view') as ViewMode) || 'grid';
+    return 'grid';
+  });
+  const [sort, setSort] = useState<SortKey>('newest');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [filterType, setFilterType] = useState<string[]>([]);
+  const [filterYear, setFilterYear] = useState<string[]>([]);
+
+  useEffect(() => {
+    localStorage.setItem('rf-releases-view', view);
+  }, [view]);
+
+  const availableYears = useMemo(() => getAvailableYears(releases), [releases]);
+
+  const filtered = useMemo(() => {
+    const searched = filterReleases(releases, debouncedSearch, filterStatus, filterType, filterYear);
+    return sortReleases(searched, sort);
+  }, [releases, debouncedSearch, filterStatus, filterType, filterYear, sort]);
+
+  const hasActiveFilters = debouncedSearch || filterStatus.length > 0 || filterType.length > 0 || filterYear.length > 0;
+
+  function clearFilters() {
+    setSearch('');
+    setFilterStatus([]);
+    setFilterType([]);
+    setFilterYear([]);
+  }
+
+  function toggleFilter(arr: string[], value: string): string[] {
+    return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+  }
 
   if (loading) {
     return (
@@ -21,25 +136,29 @@ export default function ReleasesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
-      <div className="flex items-center justify-between mb-8">
+    <div className="mx-auto max-w-7xl px-5 sm:px-7 py-8 page-transition">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Releases</p>
-          <p className="mt-1 text-sm text-text-400">Manage every release from planning to distribution.</p>
-          {releases.length > 0 ? (
-            <p className="mt-0.5 text-sm text-text-400">{releases.length} release{releases.length !== 1 ? 's' : ''}</p>
-          ) : null}
+          <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Releases</h1>
+          <p className="mt-1 text-sm text-text-400">
+            {releases.length > 0
+              ? `${filtered.length} of ${releases.length} release${releases.length !== 1 ? 's' : ''}`
+              : 'Manage every release from planning to distribution.'}
+          </p>
         </div>
-        {activeOrgId ? (
-          <Link href="/releases/new">
-            <Button variant="primary" size="md" className="rounded-xl">
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              New Release
-            </Button>
-          </Link>
-        ) : null}
+        <div className="flex items-center gap-3">
+          {activeOrgId && (
+            <Link href="/releases/new">
+              <Button variant="primary" size="md" className="rounded-xl">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New Release
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {!activeOrgId ? (
@@ -52,42 +171,167 @@ export default function ReleasesPage() {
         <EmptyState title="Failed to load releases" description={error} action={{ label: 'Retry', onClick: refresh }} />
       ) : releases.length === 0 ? (
         <EmptyState
-          title="No releases yet"
+          title="Your catalogue is empty"
           description="Create your first release to begin managing production, legal, distribution and collaboration."
           action={{ label: 'Create Release', onClick: () => router.push('/releases/new') }}
+          className="py-20"
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-surface-200/80 bg-layer-2 divide-y divide-surface-100/80 dark:bg-surface-900 dark:border-surface-700/80 dark:divide-surface-800">
-          {releases.map((release) => (
-            <Link
-              key={release.id}
-              href={`/releases/${release.id}`}
-              className="flex items-center gap-4 px-5 py-4 hover:bg-surface-50/80 dark:hover:bg-surface-800/40 transition-colors duration-100 group"
-            >
-              <div className="h-10 w-10 rounded-lg bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center shrink-0 text-primary-400" aria-hidden="true">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+        <>
+          {/* Search + Sort + View Toggle */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-5">
+            <div className="flex-1">
+              <Input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search releases..."
+                className="w-full"
+                leftIcon={
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                }
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                className="h-10 rounded-xl border border-surface-200 dark:border-surface-700 bg-layer-2 dark:bg-surface-900 px-3 text-sm text-text-600 dark:text-text-400 focus:border-primary-500/60 focus:outline-none"
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`h-10 px-3 rounded-xl border transition-colors ${
+                  hasActiveFilters
+                    ? 'border-primary-500/60 bg-primary-500/10 text-primary-400'
+                    : 'border-surface-200 dark:border-surface-700 text-text-400 hover:text-text-600'
+                }`}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
+              </button>
+              <div className="flex rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden">
+                <button
+                  onClick={() => setView('grid')}
+                  className={`p-2 ${view === 'grid' ? 'bg-primary-500/10 text-primary-400' : 'text-text-400 hover:text-text-600'}`}
+                  aria-label="Grid view"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setView('list')}
+                  className={`p-2 ${view === 'list' ? 'bg-primary-500/10 text-primary-400' : 'text-text-400 hover:text-text-600'}`}
+                  aria-label="List view"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                </button>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <p className="font-semibold text-primary-400 truncate">{release.title}</p>
-                  <StatusBadge status={release.status} />
+            </div>
+          </div>
+
+          {/* Filter bar */}
+          {showFilters && (
+            <div className="mb-5 p-4 rounded-xl border border-surface-200 dark:border-surface-700 bg-layer-2 dark:bg-surface-900 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-text-400 uppercase tracking-wider">Filters</span>
+                {hasActiveFilters && (
+                  <button onClick={clearFilters} className="text-xs text-primary-500 hover:text-primary-400 font-medium">Clear all</button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-6">
+                <div className="space-y-1.5">
+                  <span className="text-xs text-text-500 font-medium">Status</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {STATUS_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setFilterStatus((p) => toggleFilter(p, opt.value))}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                          filterStatus.includes(opt.value)
+                            ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+                            : 'bg-surface-100 dark:bg-surface-800 text-text-500 border border-transparent hover:border-surface-300 dark:hover:border-surface-600'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <p className="mt-0.5 text-xs text-text-600 capitalize">
-                  {release.releaseType}
-                  {release.targetReleaseDate ? (<> &middot; Target {fmtDate(release.targetReleaseDate)}</>) : null}
-                </p>
+                <div className="space-y-1.5">
+                  <span className="text-xs text-text-500 font-medium">Type</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {TYPE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setFilterType((p) => toggleFilter(p, opt.value))}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                          filterType.includes(opt.value)
+                            ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+                            : 'bg-surface-100 dark:bg-surface-800 text-text-500 border border-transparent hover:border-surface-300 dark:hover:border-surface-600'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {availableYears.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-xs text-text-500 font-medium">Year</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableYears.map((year) => (
+                        <button
+                          key={year}
+                          onClick={() => setFilterYear((p) => toggleFilter(p, year))}
+                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                            filterYear.includes(year)
+                              ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+                              : 'bg-surface-100 dark:bg-surface-800 text-text-500 border border-transparent hover:border-surface-300 dark:hover:border-surface-600'
+                          }`}
+                        >
+                          {year}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="text-xs text-text-400 hidden sm:block">{fmtDate(release.createdAt)}</span>
-                <svg className="h-4 w-4 text-text-300 group-hover:text-text-500 transition-colors duration-100" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </Link>
-          ))}
-        </div>
+            </div>
+          )}
+
+          {/* Results */}
+          {filtered.length === 0 ? (
+            <div className="py-20">
+              <EmptyState
+                title="No releases match your search"
+                description="Try adjusting your filters or search terms."
+                action={hasActiveFilters ? { label: 'Clear Filters', onClick: clearFilters } : undefined}
+              />
+            </div>
+          ) : view === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {filtered.map((release) => (
+                <ReleaseCard key={release.id} release={release} view="grid" />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-surface-200 dark:border-surface-700/80 bg-layer-2 dark:bg-surface-900 overflow-hidden divide-y divide-surface-100 dark:divide-surface-800">
+              {filtered.map((release) => (
+                <ReleaseCard key={release.id} release={release} view="list" />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
