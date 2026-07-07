@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@releaseflow/domain-ui": "workspace:*",
+    "@releaseflow/firebase": "workspace:*",
     "firebase": "^11.10.0",
     "next": "^15.3.0",
     "react": "^19.1.0",

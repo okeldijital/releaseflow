@@ -51,7 +51,7 @@ const TAB_LABELS: Record<TabId, string> = {
   settings: 'Settings',
 };
 
-const READINESS_CATS = ['Audio', 'Artwork', 'Metadata', 'Rights', 'Credits', 'Deliverables'] as const;
+const READINESS_CATS = ['Audio', 'Metadata', 'Rights', 'Credits', 'Deliverables'] as const;
 
 const EXPECTED_DELIVERABLES = [
   { id: 'master-wav', label: 'Master WAV', pattern: /master/i },
@@ -73,7 +73,6 @@ const CREDIT_TYPES = ['Producer', 'Composer', 'Lyricist', 'Songwriter', 'Publish
 
 const TECHNICAL_ACTIONS = new Set(['entity.viewed', 'page.loaded', 'session.started']);
 
-const ARTWORK_COLORS = ['bg-primary-600', 'bg-purple-600', 'bg-teal-600', 'bg-pink-600', 'bg-amber-600'];
 
 function isAssetReceived(asset?: TrackAsset | null) {
   if (!asset) return false;
@@ -324,20 +323,18 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
   const readinessMap = useMemo(() => {
     const audio = deliverableRows.find((d) => d.id === 'master-wav')?.received ?? false;
-    const artwork = assets.some((a) => a.type === 'artwork' && isAssetReceived(a));
     const metadata = !!(track.isrc?.trim() && track.genre?.trim() && track.language?.trim());
     const rightsOk = rights.length > 0;
     const creditsOk = credits.length > 0;
     const deliverablesOk = deliverableRows.filter((d) => d.received).length >= 2;
     return {
       Audio: audio,
-      Artwork: artwork,
       Metadata: metadata,
       Rights: rightsOk,
       Credits: creditsOk,
       Deliverables: deliverablesOk,
     } satisfies Record<typeof READINESS_CATS[number], boolean>;
-  }, [deliverableRows, assets, track, rights, credits]);
+  }, [deliverableRows, track, rights, credits]);
 
   const readinessPct = Math.round(
     (READINESS_CATS.filter((c) => readinessMap[c]).length / READINESS_CATS.length) * 100,
@@ -348,9 +345,6 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
     .filter((x) => x.label !== null)
     .slice(0, 12);
 
-  const artworkAsset = assets.find((a) => a.type === 'artwork' && isAssetReceived(a));
-  const artworkColor = ARTWORK_COLORS[(track.title.charCodeAt(0) ?? 0) % ARTWORK_COLORS.length];
-
   function openAssigner(label: string, role: string, cb: (r: { personId?: string }) => void) {
     setAssignerLabel(label);
     setAssignerRole(role);
@@ -358,7 +352,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
     setAssignerOpen(true);
   }
 
-  async function handleRequestAsset(name: string, type: 'audio' | 'document' | 'artwork' = 'audio') {
+  async function handleRequestAsset(name: string, type: 'audio' | 'document' = 'audio') {
     if (!activeOrgId) return;
     await createRequestedAsset(trackId, activeOrgId, name, type);
     await load();
@@ -470,44 +464,9 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
       {/* Hero */}
       <section className="grid grid-cols-1 lg:grid-cols-[240px_1fr_260px] gap-6 mb-8" aria-label="Track overview">
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-3 flex flex-col gap-3">
-          <p className="text-xs font-semibold text-text-500 uppercase tracking-wider px-1">Artwork</p>
-          <div className={`w-full aspect-square rounded-xl flex items-center justify-center overflow-hidden shadow-card ${artworkAsset?.url ? 'bg-surface-950' : artworkColor}`}>
-            {artworkAsset?.url ? (
-              <img src={artworkAsset.url} alt={`${track.title} artwork`} className="w-full h-full object-cover" />
-            ) : (
-              <div className="text-center">
-                <span className="text-surface-50 text-6xl font-bold select-none block">{track.title.charAt(0).toUpperCase()}</span>
-                <span className="text-surface-50/50 text-xs mt-2 block">Waveform</span>
-              </div>
-            )}
-          </div>
-          {artworkAsset ? (
-            <div className="grid grid-cols-3 gap-2">
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => setTab('deliverables')}>Replace</Button>
-              <Button size="sm" variant="outline" className="text-xs" disabled={!artworkAsset.url} onClick={() => artworkAsset.url && window.open(artworkAsset.url, '_blank')}>Preview</Button>
-              <label className="text-xs">
-                <span className="sr-only">Upload artwork</span>
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleUploadAsset('Artwork', f);
-                }} />
-                <span className="inline-flex h-8 w-full items-center justify-center rounded-md border border-surface-200 text-text-600 cursor-pointer hover:bg-surface-50">Upload</span>
-              </label>
-            </div>
-          ) : (
-            <div className="space-y-2 px-1">
-              <p className="text-sm text-text-500">No artwork uploaded.</p>
-              <label className="flex h-8 w-full cursor-pointer items-center justify-center rounded-md bg-primary-500 text-xs font-semibold text-surface-50 hover:bg-primary-400">
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleUploadAsset('Artwork', f);
-                }} />
-                Upload Artwork
-              </label>
-              <Button size="sm" variant="outline" className="w-full text-xs" onClick={() => openAssigner('Assign Designer', 'Graphic Designer', () => {})}>Assign Designer</Button>
-            </div>
-          )}
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 flex flex-col items-center justify-center gap-2 min-h-[200px]">
+          <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Artwork</p>
+          <p className="text-sm text-text-400 text-center">Artwork is managed from the Release Workspace.</p>
         </div>
 
         <div className="flex flex-col gap-3 min-w-0">

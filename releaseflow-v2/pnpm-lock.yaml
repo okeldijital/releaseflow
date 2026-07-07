@@ -41,6 +41,9 @@ importers:
       '@releaseflow/domain-ui':
         specifier: workspace:*
         version: link:../../packages/domain-ui
+      '@releaseflow/firebase':
+        specifier: workspace:*
+        version: link:../../packages/firebase
       firebase:
         specifier: ^11.10.0
         version: 11.10.0

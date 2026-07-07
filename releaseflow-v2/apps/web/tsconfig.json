@@ -17,8 +17,10 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"],
-      "@releaseflow/ui": ["../../packages/ui/src/index.ts"],
-      "@releaseflow/ui/*": ["../../packages/ui/src/*"]
+    "@releaseflow/firebase": ["../../packages/firebase/src/index.ts"],
+    "@releaseflow/firebase/*": ["../../packages/firebase/src/*"],
+    "@releaseflow/ui": ["../../packages/ui/src/index.ts"],
+    "@releaseflow/ui/*": ["../../packages/ui/src/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

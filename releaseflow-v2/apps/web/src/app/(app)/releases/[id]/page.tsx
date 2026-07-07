@@ -22,6 +22,9 @@ import type { ReleaseTrackRecord } from '@/lib/release-track-repository';
 import type { TrackRecord } from '@/lib/track-repository';
 import type { ActivityEventRecord } from '@/lib/activity-service';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
+import { MediaGallery } from '@/components/media/MediaGallery';
+import { getMediaAssetsByRelease } from '@/lib/media/media-repository';
+import type { MediaAsset } from '@/lib/media/media-types';
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
 
@@ -179,7 +182,7 @@ const EXPECTED_ASSETS = [
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 
-type TabId = 'overview' | 'workflow' | 'campaign' | 'rights' | 'budget' | 'settings';
+type TabId = 'overview' | 'workflow' | 'campaign' | 'rights' | 'budget' | 'settings' | 'media';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview',  label: 'Overview'  },
@@ -188,6 +191,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'rights',    label: 'Rights'    },
   { id: 'budget',    label: 'Budget'    },
   { id: 'settings',  label: 'Settings'  },
+  { id: 'media',     label: 'Media'     },
 ];
 
 const INVITE_ROLES = [
@@ -231,6 +235,7 @@ export default function ReleaseWorkspacePage() {
   const [forbidden, setForbidden] = useState(false);
   const [artistsUnavailable, setArtistsUnavailable] = useState(false);
   const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
+  const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
   const [tab, setTab] = useState<TabId>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(`rf-tab-release-${releaseId}`);
@@ -242,6 +247,7 @@ export default function ReleaseWorkspacePage() {
   const visibleTabs = useMemo(() => TABS.filter((t) => (
     t.id === 'overview' ||
     t.id === 'workflow' ||
+    t.id === 'media' ||
     t.id === 'settings' ||
     (t.id === 'campaign' && deliverables.some((d) => d.type === 'video' || d.type === 'other')) ||
     (t.id === 'rights' && Boolean(release?.copyright || release?.pLine || release?.cLine)) ||
@@ -314,10 +320,18 @@ export default function ReleaseWorkspacePage() {
         console.error('[Workspace] Assignment load failed', error);
       }
 
+      let med: MediaAsset[] = [];
+      try {
+        med = await getMediaAssetsByRelease(releaseId);
+      } catch (error) {
+        console.error('[Workspace] Media load failed', error);
+      }
+
       if (!cancelled) {
         setDeliverables(del);
         setTracks(trk);
         setTasks(tsk);
+        setMediaAssets(med);
       }
     }
 
@@ -959,6 +973,15 @@ export default function ReleaseWorkspacePage() {
             <Button variant="outline" size="sm" onClick={() => router.push(`/releases/${releaseId}/edit`)}>Edit Release</Button>
           </div>
         </div>
+      )}
+
+      {tab === 'media' && (
+        <MediaGallery
+          assets={mediaAssets}
+          onUpload={(_type) => {
+            handleTabChange('workflow');
+          }}
+        />
       )}
 
       {rolePickerOpen ? (
