@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
-import { getDb } from '@/lib/firebase';
+import { completeUserOnboarding } from '@/lib/user-profile-repository';
 
 export default function CompletePage() {
   const { user, loading } = useAuth();
@@ -26,34 +25,14 @@ export default function CompletePage() {
   async function saveAndRoute() {
     if (!user) return;
     try {
-      const db = getDb();
-      if (db) {
-        await setDoc(doc(db, 'users', user.uid), {
-          role,
-          roleCategory: category,
-          activeOrganizationId: companyId || null,
-          updatedAt: Timestamp.now(),
-          onboardingComplete: true,
-        }, { merge: true });
-      }
+      await completeUserOnboarding(user.uid, {
+        role,
+        roleCategory: category,
+        defaultOrganizationId: companyId || null,
+      });
     } catch { /* best effort */ }
 
-    // Auto-route after brief delay for the completion animation
-    setTimeout(() => {
-      if (category === 'business') {
-        router.replace('/releases');
-      } else if (category === 'creative') {
-        router.replace('/work');
-      } else if (category === 'artist') {
-        router.replace('/releases');
-      } else {
-        if (role === 'Administrator') {
-          router.replace('/administration');
-        } else {
-          router.replace('/work');
-        }
-      }
-    }, 1500);
+    setTimeout(() => router.replace('/dashboard'), 1500);
   }
 
   if (loading || !user) return null;
@@ -80,13 +59,7 @@ export default function CompletePage() {
       <p className="mt-2 text-sm text-text-400">Your workspace is ready.</p>
 
       <button
-        onClick={() => {
-          if (category === 'business') router.replace('/releases');
-          else if (category === 'creative') router.replace('/work');
-          else if (category === 'artist') router.replace('/releases');
-          else if (role === 'Administrator') router.replace('/administration');
-          else router.replace('/work');
-        }}
+        onClick={() => router.replace('/dashboard')}
         className="mt-10 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)] animate-scale-in">
         Continue to ReleaseFlow
       </button>

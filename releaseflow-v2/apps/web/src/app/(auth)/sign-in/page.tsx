@@ -16,7 +16,7 @@ export default function SignInPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) router.push('/onboarding');
+    if (!loading && user) router.push('/dashboard');
   }, [user, loading, router]);
 
   if (loading || user) return null;
@@ -27,7 +27,7 @@ export default function SignInPage() {
       const auth = getAuthInstance();
       if (!auth) throw new Error('Auth not initialized');
       await signInWithPopup(auth, new GoogleAuthProvider());
-      router.push('/onboarding');
+      router.push('/dashboard');
     } catch {
       setError('Could not sign in with Google. Please try again.');
     }
@@ -41,7 +41,7 @@ export default function SignInPage() {
       const auth = getAuthInstance();
       if (!auth) throw new Error('Auth not initialized');
       await signInWithEmailAndPassword(auth, email, password);
-      router.push('/onboarding');
+      router.push('/dashboard');
     } catch {
       setError('Invalid email or password.');
     } finally {

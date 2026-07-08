@@ -3,28 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
-import { getDb } from '@/lib/firebase';
+import { createUserProfile } from '@/lib/user-profile-repository';
 
 export default function WelcomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (loading) return;
-    if (!user) { router.push('/sign-in'); return; }
-    async function check() {
-      const db = getDb();
-      if (db) {
-        try {
-          const snap = await getDoc(doc(db, 'users', user!.uid));
-          if (snap.exists()) router.replace('/dashboard');
-        } catch { /* first run */ }
-      }
-    }
-    check();
-  }, [user, loading, router]);
 
   if (loading || !user) return null;
 
@@ -38,14 +22,7 @@ export default function WelcomePage() {
   async function handleContinue() {
     setSaving(true);
     try {
-      const db = getDb();
-      if (db) {
-        await setDoc(doc(db, 'users', user!.uid), {
-          displayName, email, avatarUrl,
-          updatedAt: Timestamp.now(),
-          createdAt: Timestamp.now(),
-        }, { merge: true });
-      }
+      await createUserProfile(user!.uid, { displayName, email, avatarUrl });
     } catch { /* best effort */ }
     router.push('/onboarding/company');
   }
