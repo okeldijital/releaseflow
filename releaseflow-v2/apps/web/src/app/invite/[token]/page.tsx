@@ -47,7 +47,7 @@ export default function InvitePage() {
         const result = await acceptUserInvitation(token, user!.uid);
         if (result.success && result.organizationId) {
           setState({ status: 'accepted', message: 'You have joined the organization!' });
-          setTimeout(() => router.push('/dashboard'), 2000);
+          setTimeout(() => router.push('/auth/resolve'), 2000);
         } else {
           setState({ status: 'error', message: result.error || 'Failed to accept invitation.' });
         }

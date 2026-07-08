@@ -17,7 +17,7 @@ export default function SignUpPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) router.push('/dashboard');
+    if (!loading && user) router.push('/auth/resolve');
   }, [user, loading, router]);
 
   if (loading || user) return null;
@@ -28,7 +28,7 @@ export default function SignUpPage() {
       const auth = getAuthInstance();
       if (!auth) throw new Error('Auth not initialized');
       await signInWithPopup(auth, new GoogleAuthProvider());
-      router.push('/dashboard');
+      router.push('/auth/resolve');
     } catch {
       setError('Could not sign up with Google. Please try again.');
     }
@@ -43,7 +43,7 @@ export default function SignUpPage() {
       const auth = getAuthInstance();
       if (!auth) throw new Error('Auth not initialized');
       await createUserWithEmailAndPassword(auth, email, password);
-      router.push('/dashboard');
+      router.push('/auth/resolve');
     } catch {
       setError('Could not create account. The email may already be in use.');
     } finally {

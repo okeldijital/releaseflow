@@ -7,7 +7,6 @@ import { useOrgStore } from '@/stores/org-store';
 import { useRoleStore } from '@/stores/role-store';
 import { signOut as firebaseSignOut } from 'firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
-import { getUserProfile } from '@/lib/user-profile-repository';
 import { AppShell, Skeleton } from '@releaseflow/ui';
 import { CommandPalette } from '@/components/command-palette';
 import type { NavItem, NavSection } from '@releaseflow/ui';
@@ -121,26 +120,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (loading) return;
     if (!user) { router.replace('/sign-in'); return; }
     resolveRole(user.uid);
-
-    async function checkOnboarding() {
-      const profile = await getUserProfile(user!.uid);
-      if (!profile || !profile.onboardingCompleted) {
-        router.replace('/onboarding');
-      }
-    }
-    checkOnboarding();
   }, [user, loading, router, resolveRole]);
 
   useEffect(() => {
     if (!user) return;
     getOrganizationsByUser(user.uid).then((data) => {
       setOrgs(data);
+      if (data.length === 0) {
+        router.replace('/auth/resolve');
+        return;
+      }
       if (!activeOrgId || !data.find((o) => o.id === activeOrgId)) {
         if (data[0]) setActiveOrgId(data[0].id);
       }
       setOrgsLoaded(true);
     });
-  }, [user, activeOrgId, setActiveOrgId, setOrgsLoaded]);
+  }, [user, activeOrgId, setActiveOrgId, setOrgsLoaded, router]);
 
   if (loading) {
     return (

@@ -9,7 +9,7 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && user) router.replace('/dashboard');
+    if (!loading && user) router.replace('/auth/resolve');
     if (!loading && !user) router.replace('/sign-in');
   }, [user, loading, router]);
 
