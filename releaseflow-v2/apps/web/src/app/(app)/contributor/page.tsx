@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { getTasksByAssignee, completeTask } from '@/lib/task-service';
 import { getPendingRequestsByApprover, approveRequest, rejectRequest } from '@/lib/approval-service';
-import { getNotificationsByUser, markAsRead, archiveNotification } from '@/lib/notification-service';
+import { fetchUserNotifications as getNotificationsByUser, markAsRead, archiveUserNotification as archiveNotification } from '@/lib/notification-service';
 import { fmtDate } from '@/lib/utils';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { Card, Badge, StatusBadge, Button, EmptyState, Skeleton } from '@releaseflow/ui';
-import type { Task, ApprovalRequest, Notification as Notif } from '../types';
+import type { Task, ApprovalRequest } from '../types';
+import type { NotificationRecord } from '@/lib/notification-repository';
 
 function toDate(ts: unknown): Date | null {
   if (!ts) return null;
@@ -28,7 +29,7 @@ export default function ContributorPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [reviews, setReviews] = useState<ApprovalRequest[]>([]);
-  const [notifications, setNotifications] = useState<Notif[]>([]);
+  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [deadlines, setDeadlines] = useState<Task[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -55,7 +56,7 @@ export default function ContributorPage() {
       setTasks(taskData);
       setReviews(reviewData);
       setNotifications(notifData);
-      setUnreadCount(notifData.filter((n) => !n.read).length);
+      setUnreadCount(notifData.filter((n) => n.status === 'unread').length);
 
       const now = new Date();
       const week = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -94,15 +95,15 @@ export default function ContributorPage() {
   async function handleMarkRead(notifId: string) {
     await markAsRead(notifId, user?.uid ?? '');
     const updated = await getNotificationsByUser(user?.uid ?? '');
-    setNotifications(updated);
-    setUnreadCount(updated.filter((n) => !n.read).length);
+    setNotifications(updated as NotificationRecord[]);
+    setUnreadCount(updated.filter((n) => n.status === 'unread').length);
   }
 
   async function handleArchive(notifId: string) {
     await archiveNotification(notifId, user?.uid ?? '');
     const updated = await getNotificationsByUser(user?.uid ?? '');
-    setNotifications(updated);
-    setUnreadCount(updated.filter((n) => !n.read).length);
+    setNotifications(updated as NotificationRecord[]);
+    setUnreadCount(updated.filter((n) => n.status === 'unread').length);
   }
 
   if (loading) return (
@@ -243,10 +244,10 @@ export default function ContributorPage() {
             ) : (
               <div className="space-y-1.5">
                 {notifications.slice(0, 8).map((n) => (
-                  <div key={n.id} className={`rounded border px-3 py-2.5 ${n.read ? 'border-surface-100' : 'border-info-100 bg-info-50 dark:border-info-800 dark:bg-info-950'}`}>
+                  <div key={n.id} className={`rounded border px-3 py-2.5 ${n.status === 'read' ? 'border-surface-100' : 'border-info-100 bg-info-50 dark:border-info-800 dark:bg-info-950'}`}>
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
-                        <p className={`text-sm font-medium truncate ${n.read ? 'text-text-500' : 'text-text-900'}`}>{n.title}</p>
+                        <p className={`text-sm font-medium truncate ${n.status === 'read' ? 'text-text-500' : 'text-text-900'}`}>{n.title}</p>
                         <p className="text-xs text-text-400 truncate mt-0.5">{n.message}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge label={n.type.replace(/_/g, ' ')} color="bg-surface-100 text-text-500" size="sm" />
@@ -254,7 +255,7 @@ export default function ContributorPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0 ml-2">
-                        {!n.read ? (
+                        {n.status === 'unread' ? (
                           <button onClick={() => handleMarkRead(n.id)} className="text-xs text-primary-500 hover:underline">Read</button>
                         ) : null}
                         <button onClick={() => handleArchive(n.id)} className="text-xs text-text-400 hover:text-text-700">✕</button>

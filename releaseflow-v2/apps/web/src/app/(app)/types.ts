@@ -258,18 +258,27 @@ export type NotificationType =
   | 'approval'
   | 'comment'
   | 'assignment'
-  | 'deadline';
+  | 'deadline'
+  | 'invitation'
+  | 'review_request'
+  | 'release_reminder'
+  | 'system';
+
+export type NotificationStatus = 'unread' | 'read' | 'archived';
 
 export interface Notification {
   id: string;
-  userId: string;
+  organizationId: string;
   type: NotificationType;
+  status: NotificationStatus;
   title: string;
   message: string;
-  read: boolean;
-  archived: boolean;
-  referenceId?: string;
-  referenceType?: string;
+  recipientId: string;
+  recipientEmail?: string;
+  entityType?: string;
+  entityId?: string;
+  readAt?: unknown;
+  sentAt?: unknown;
   createdAt: unknown;
 }
 

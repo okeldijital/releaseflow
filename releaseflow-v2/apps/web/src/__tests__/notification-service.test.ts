@@ -4,37 +4,50 @@ import type { Notification, NotificationType } from '@/app/(app)/types';
 describe('Notification data model', () => {
   it('has all required fields', () => {
     const n: Notification = {
-      id: 'n1', userId: 'u1', type: 'task.assigned',
-      title: 'New task assigned', message: 'You have a new task: Mix vocals',
-      read: false, archived: false, createdAt: new Date(),
+      id: 'n1', organizationId: 'org1', type: 'assignment',
+      status: 'unread', title: 'New assignment', message: 'You have a new task',
+      recipientId: 'u1', createdAt: new Date(),
     };
-    expect(n.userId).toBe('u1');
-    expect(n.type).toBe('task.assigned');
-    expect(n.read).toBe(false);
-    expect(n.archived).toBe(false);
+    expect(n.recipientId).toBe('u1');
+    expect(n.type).toBe('assignment');
+    expect(n.status).toBe('unread');
   });
 
-  it('has optional reference fields', () => {
+  it('supports all notification types', () => {
+    const types: NotificationType[] = [
+      'invitation', 'assignment', 'review_request', 'comment', 'mention',
+      'approval', 'release_reminder', 'system',
+      'approval.requested', 'approval.responded', 'task.assigned', 'deadline',
+    ];
+    expect(types).toHaveLength(12);
+  });
+
+  it('supports status transitions: unread -> read -> archived', () => {
     const n: Notification = {
-      id: 'n2', userId: 'u2', type: 'approval.requested',
-      title: 'Approval needed', message: 'Deliverable ready for review',
-      read: false, archived: false, referenceId: 'd1', referenceType: 'deliverable',
-      createdAt: new Date(),
+      id: 'n1', organizationId: 'org1', type: 'mention',
+      status: 'unread', title: 'Mention', message: 'You were mentioned',
+      recipientId: 'u1', createdAt: new Date(),
     };
-    expect(n.referenceId).toBe('d1');
-    expect(n.referenceType).toBe('deliverable');
-  });
-});
-
-describe('Notification types', () => {
-  const types: NotificationType[] = ['approval.requested', 'approval.responded', 'task.assigned', 'mention'];
-
-  it('supports 4 notification types', () => {
-    expect(types).toHaveLength(4);
+    expect(n.status).toBe('unread');
+    const read = { ...n, status: 'read' as const };
+    expect(read.status).toBe('read');
+    const archived = { ...read, status: 'archived' as const };
+    expect(archived.status).toBe('archived');
   });
 
-  it.each(types)('type %s is valid', (t) => {
-    expect(types).toContain(t);
+  it('allows optional fields', () => {
+    const n: Notification = {
+      id: 'n1', organizationId: 'org1', type: 'invitation',
+      status: 'unread', title: 'Invitation', message: 'You are invited',
+      recipientId: 'u1', recipientEmail: 'user@example.com',
+      entityType: 'release', entityId: 'r1',
+      readAt: new Date(), sentAt: new Date(), createdAt: new Date(),
+    };
+    expect(n.recipientEmail).toBe('user@example.com');
+    expect(n.entityType).toBe('release');
+    expect(n.entityId).toBe('r1');
+    expect(n.readAt).toBeDefined();
+    expect(n.sentAt).toBeDefined();
   });
 });
 
@@ -43,135 +56,132 @@ describe('Notification service — module structure', () => {
     const mod = await import('@/lib/notification-service');
     expect(typeof mod.createNotification).toBe('function');
     expect(typeof mod.markAsRead).toBe('function');
-    expect(typeof mod.archiveNotification).toBe('function');
-    expect(typeof mod.getNotificationsByUser).toBe('function');
-    expect(typeof mod.getUnreadCount).toBe('function');
+    expect(typeof mod.archiveUserNotification).toBe('function');
+    expect(typeof mod.fetchUserNotifications).toBe('function');
+    expect(typeof mod.fetchUnreadCount).toBe('function');
+    expect(typeof mod.fetchOrgNotifications).toBe('function');
   });
 
-  it('createNotification takes 1 object parameter', async () => {
+  it('createNotification throws for empty recipientId', async () => {
     const mod = await import('@/lib/notification-service');
-    expect(mod.createNotification.length).toBe(1);
+    await expect(mod.createNotification({
+      organizationId: 'org1', type: 'system', title: 'Test', message: 'Test', recipientId: '',
+    })).rejects.toThrow('recipientId is required');
   });
 
-  it('markAsRead takes 2 parameters', async () => {
+  it('createNotification throws for empty title', async () => {
     const mod = await import('@/lib/notification-service');
-    expect(mod.markAsRead.length).toBe(2);
-  });
-
-  it('archiveNotification takes 2 parameters', async () => {
-    const mod = await import('@/lib/notification-service');
-    expect(mod.archiveNotification.length).toBe(2);
-  });
-
-  it('getNotificationsByUser takes 1 required parameter (+1 default)', async () => {
-    const mod = await import('@/lib/notification-service');
-    expect(mod.getNotificationsByUser.length).toBe(1);
-  });
-
-  it('getUnreadCount takes 1 parameter', async () => {
-    const mod = await import('@/lib/notification-service');
-    expect(mod.getUnreadCount.length).toBe(1);
+    await expect(mod.createNotification({
+      organizationId: 'org1', type: 'system', title: '', message: 'Test', recipientId: 'u1',
+    })).rejects.toThrow('title is required');
   });
 });
 
 describe('Notification state transitions', () => {
-  it('starts unread and not archived', () => {
-    const n = { read: false, archived: false };
-    expect(n.read).toBe(false);
-    expect(n.archived).toBe(false);
+  it('starts as unread', () => {
+    const n = { status: 'unread' as const };
+    expect(n.status).toBe('unread');
   });
 
   it('can be marked as read', () => {
-    const n = { read: false, archived: false };
-    const updated = { ...n, read: true };
-    expect(updated.read).toBe(true);
-    expect(updated.archived).toBe(false);
+    const n = { status: 'unread' as const };
+    const updated = { ...n, status: 'read' as const };
+    expect(updated.status).toBe('read');
   });
 
   it('can be archived', () => {
-    const n = { read: true, archived: false };
-    const updated = { ...n, archived: true };
-    expect(updated.archived).toBe(true);
-  });
-
-  it('read+archived state is valid', () => {
-    const n = { read: true, archived: true };
-    expect(n.read).toBe(true);
-    expect(n.archived).toBe(true);
+    const n = { status: 'read' as const };
+    const updated = { ...n, status: 'archived' as const };
+    expect(updated.status).toBe('archived');
   });
 });
 
 describe('Notification delivery — content', () => {
-  it('task assigned notification includes assignee context', () => {
+  it('assignment notification includes assignee context', () => {
     const n: Notification = {
-      id: 'n1', userId: 'u1', type: 'task.assigned',
-      title: 'You were assigned a task',
-      message: 'Task "Mix vocals" assigned by producer',
-      read: false, archived: false, referenceId: 't1', referenceType: 'task',
+      id: 'n1', organizationId: 'org1', type: 'assignment',
+      status: 'unread', title: 'New Assignment',
+      message: 'You were assigned as Mix Engineer on "Summer Hit"',
+      recipientId: 'u1', entityType: 'release', entityId: 'r1',
       createdAt: new Date(),
     };
-    expect(n.title).toContain('assigned');
-    expect(n.referenceType).toBe('task');
+    expect(n.title).toContain('Assignment');
+    expect(n.entityType).toBe('release');
   });
 
   it('mention notification includes context', () => {
     const n: Notification = {
-      id: 'n2', userId: 'u1', type: 'mention',
-      title: 'You were mentioned',
+      id: 'n2', organizationId: 'org1', type: 'mention',
+      status: 'unread', title: 'You were mentioned',
       message: '@designer mentioned you in a comment',
-      read: false, archived: false, referenceId: 'c1', referenceType: 'comment',
+      recipientId: 'u1', entityType: 'track', entityId: 't1',
       createdAt: new Date(),
     };
     expect(n.type).toBe('mention');
     expect(n.message).toContain('@designer');
   });
 
-  it('approval notification links to deliverable', () => {
+  it('invitation notification links to organization', () => {
     const n: Notification = {
-      id: 'n3', userId: 'u3', type: 'approval.requested',
-      title: 'Approval requested',
-      message: 'Deliverable "Final WAV" needs your approval',
-      read: false, archived: false, referenceId: 'd3', referenceType: 'deliverable',
+      id: 'n3', organizationId: 'org1', type: 'invitation',
+      status: 'unread', title: 'Organization Invitation',
+      message: 'Admin invited you to join Label Inc',
+      recipientId: 'u1', entityType: 'invitation', entityId: 'i1',
       createdAt: new Date(),
     };
-    expect(n.type).toBe('approval.requested');
-    expect(n.referenceId).toBe('d3');
+    expect(n.type).toBe('invitation');
+    expect(n.entityId).toBe('i1');
   });
 });
 
 describe('Unread count filtering', () => {
-  it('counts only unread and unarchived', () => {
-    const all: Pick<Notification, 'read' | 'archived'>[] = [
-      { read: false, archived: false },
-      { read: false, archived: false },
-      { read: true, archived: false },
-      { read: false, archived: true },
+  it('counts only unread notifications', () => {
+    const all: Notification[] = [
+      { id: 'n1', organizationId: 'o1', type: 'mention', status: 'unread', title: '', message: '', recipientId: 'u1', createdAt: new Date() },
+      { id: 'n2', organizationId: 'o1', type: 'mention', status: 'unread', title: '', message: '', recipientId: 'u1', createdAt: new Date() },
+      { id: 'n3', organizationId: 'o1', type: 'mention', status: 'read', title: '', message: '', recipientId: 'u1', createdAt: new Date() },
     ];
-    const unread = all.filter((n) => !n.read && !n.archived);
+    const unread = all.filter((n) => n.status === 'unread');
     expect(unread).toHaveLength(2);
   });
 
   it('returns zero for all read', () => {
-    const all: Pick<Notification, 'read' | 'archived'>[] = [
-      { read: true, archived: false },
-      { read: true, archived: false },
+    const all: Notification[] = [
+      { id: 'n1', organizationId: 'o1', type: 'mention', status: 'read', title: '', message: '', recipientId: 'u1', createdAt: new Date() },
+      { id: 'n2', organizationId: 'o1', type: 'mention', status: 'read', title: '', message: '', recipientId: 'u1', createdAt: new Date() },
     ];
-    const unread = all.filter((n) => !n.read && !n.archived);
+    const unread = all.filter((n) => n.status === 'unread');
     expect(unread).toHaveLength(0);
   });
 
   it('returns zero for empty list', () => {
-    const unread = [].filter((n: Pick<Notification, 'read' | 'archived'>) => !n.read && !n.archived);
+    const all: Notification[] = [];
+    const unread = all.filter((n) => n.status === 'unread');
     expect(unread).toHaveLength(0);
   });
 });
 
 describe('Notification user isolation', () => {
-  it('notifications are user-scoped by userId', () => {
-    const n1: Notification = { id: 'n1', userId: 'u1', type: 'mention', title: '', message: '', read: false, archived: false, createdAt: new Date() };
-    const n2: Notification = { id: 'n2', userId: 'u2', type: 'mention', title: '', message: '', read: false, archived: false, createdAt: new Date() };
-    expect(n1.userId).toBe('u1');
-    expect(n2.userId).toBe('u2');
-    expect(n1.userId).not.toBe(n2.userId);
+  it('notifications are scoped by recipientId', () => {
+    const n1: Notification = { id: 'n1', organizationId: 'o1', type: 'mention', status: 'unread', title: '', message: '', recipientId: 'u1', createdAt: new Date() };
+    const n2: Notification = { id: 'n2', organizationId: 'o1', type: 'mention', status: 'unread', title: '', message: '', recipientId: 'u2', createdAt: new Date() };
+    expect(n1.recipientId).toBe('u1');
+    expect(n2.recipientId).toBe('u2');
+    expect(n1.recipientId).not.toBe(n2.recipientId);
+  });
+});
+
+describe('Notification center service', () => {
+  it('exports notification helper functions', async () => {
+    const mod = await import('@/lib/notification-center-service');
+    expect(typeof mod.notifyMention).toBe('function');
+    expect(typeof mod.notifyApprovalRequest).toBe('function');
+    expect(typeof mod.notifyCommentReply).toBe('function');
+    expect(typeof mod.notifyAssignment).toBe('function');
+    expect(typeof mod.notifyDeadline).toBe('function');
+    expect(typeof mod.notifyReleaseReminder).toBe('function');
+    expect(typeof mod.notifyInvitation).toBe('function');
+    expect(typeof mod.notifySystem).toBe('function');
+    expect(typeof mod.getUserInbox).toBe('function');
   });
 });
