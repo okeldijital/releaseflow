@@ -62,8 +62,8 @@ describe('organisation artist catalogue helpers', () => {
       { id: 'a1', name: 'Busi Mhlongo' },
       { id: 'a2', name: 'Black Coffee' },
     ])).toEqual([
-      { id: 'a1', name: 'Busi Mhlongo' },
-      { id: 'a2', name: 'Black Coffee' },
+      { id: 'a1', name: 'Busi Mhlongo', stageName: undefined, imageUrl: null, artistType: undefined, status: undefined, aliases: undefined },
+      { id: 'a2', name: 'Black Coffee', stageName: undefined, imageUrl: null, artistType: undefined, status: undefined, aliases: undefined },
     ]);
   });
 

@@ -1,4 +1,12 @@
-export type ArtistOption = { id: string; name: string };
+export interface ArtistOption {
+  id: string;
+  name: string;
+  stageName?: string;
+  imageUrl?: string | null;
+  artistType?: string;
+  status?: string;
+  aliases?: string[];
+}
 
 export function normalizeArtistName(name: string): string {
   return name.trim().toLowerCase();
@@ -16,8 +24,16 @@ export function appendArtistOption(catalogue: ArtistOption[], created: ArtistOpt
   return [...catalogue, created];
 }
 
-export function toArtistOptions(records: { id: string; name: string }[]): ArtistOption[] {
-  return records.map((r) => ({ id: r.id, name: r.name }));
+export function toArtistOptions(records: { id: string; name: string; stageName?: string | null; imageUrl?: string | null; artistType?: string; status?: string; aliases?: string[] | null }[]): ArtistOption[] {
+  return records.map((r) => ({
+    id: r.id,
+    name: r.name,
+    stageName: r.stageName ?? undefined,
+    imageUrl: r.imageUrl ?? null,
+    artistType: r.artistType,
+    status: r.status,
+    aliases: r.aliases ?? undefined,
+  }));
 }
 
 export function findArtistByName(artists: ArtistOption[], name: string): ArtistOption | undefined {
@@ -29,7 +45,12 @@ export function findArtistByName(artists: ArtistOption[], name: string): ArtistO
 export function filterArtistsForSearch(artists: ArtistOption[], search: string): ArtistOption[] {
   const normalizedSearch = search.trim().toLowerCase();
   if (!normalizedSearch) return [];
-  return artists.filter((artist) => artist.name.toLowerCase().includes(normalizedSearch));
+  return artists.filter((artist) => {
+    if (artist.name.toLowerCase().includes(normalizedSearch)) return true;
+    if (artist.stageName?.toLowerCase().includes(normalizedSearch)) return true;
+    if (artist.aliases?.some((a) => a.toLowerCase().includes(normalizedSearch))) return true;
+    return false;
+  });
 }
 
 export function canCreateArtistFromSearch(catalogue: ArtistOption[], search: string): boolean {

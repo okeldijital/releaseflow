@@ -88,7 +88,7 @@ export function ArtistAddPanel({
         setCreating(false);
         return;
       }
-      const created = { id: result.id, name: result.name };
+      const created: ArtistOption = { id: result.id, name: result.name };
       onArtistCreated?.(created);
       finishSelection(result.id);
     } catch (err) {
@@ -132,18 +132,39 @@ export function ArtistAddPanel({
       />
 
       {filteredArtists.length > 0 ? (
-        <div className="max-h-40 overflow-y-auto space-y-1">
-          {filteredArtists.map((artist) => (
-            <button
-              key={artist.id}
-              type="button"
-              onClick={() => handleSelect(artist.id)}
-              className="w-full text-left rounded-lg border border-surface-700 bg-surface-950 px-3 py-2.5 text-sm text-surface-100 hover:border-primary-500/40 hover:bg-primary-500/5 transition-colors"
-            >
-              <span className="text-success-400 mr-2">✓</span>
-              {artist.name}
-            </button>
-          ))}
+        <div className="max-h-48 overflow-y-auto space-y-1">
+          {filteredArtists.map((artist) => {
+            const isGroup = artist.artistType === 'band';
+            const isArchived = artist.status === 'archived';
+            return (
+              <button
+                key={artist.id}
+                type="button"
+                onClick={() => handleSelect(artist.id)}
+                className="w-full text-left rounded-lg border border-surface-700 bg-surface-950 px-3 py-2 text-sm text-surface-100 hover:border-primary-500/40 hover:bg-primary-500/5 transition-colors flex items-center gap-3"
+              >
+                <div className="h-7 w-7 rounded-full bg-surface-800 flex items-center justify-center shrink-0 overflow-hidden">
+                  {artist.imageUrl ? (
+                    <img src={artist.imageUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-xs font-medium text-text-400">{artist.name.charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`truncate ${isArchived ? 'text-text-500' : 'text-surface-100'}`}>
+                      {artist.name}
+                    </span>
+                    {isGroup && <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-primary-500/10 text-primary-400 font-medium">Group</span>}
+                    {isArchived && <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-surface-700 text-text-400 font-medium">Archived</span>}
+                  </div>
+                  {artist.stageName && (
+                    <p className="text-[11px] text-text-500 truncate">{artist.stageName}</p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       ) : null}
 

@@ -18,6 +18,7 @@ export interface ArtistRecord {
   country?: string | null;
   genres?: string[] | null;
   imageUrl?: string | null;
+  imagePublicId?: string | null;
   socialLinks?: Record<string, string> | null;
   isni?: string | null;
   ipi?: string | null;
@@ -78,6 +79,7 @@ export interface UpdateArtistFields {
   country?: string | null;
   genres?: string[] | null;
   imageUrl?: string | null;
+  imagePublicId?: string | null;
   socialLinks?: Record<string, string> | null;
   isni?: string | null;
   ipi?: string | null;
@@ -127,6 +129,7 @@ function toArtistRecord(id: string, data: Record<string, unknown>, organizationI
     country: (data.country as string | null) ?? null,
     genres: (data.genres as string[] | null) ?? null,
     imageUrl: (data.imageUrl as string | null) ?? null,
+    imagePublicId: (data.imagePublicId as string | null) ?? null,
     socialLinks: (data.socialLinks as Record<string, string> | null) ?? null,
     isni: (data.isni as string | null) ?? null,
     ipi: (data.ipi as string | null) ?? null,
@@ -485,6 +488,44 @@ export async function mergeArtists(
   );
   for (const d of creditsSnap.docs) {
     batch.update(d.ref, { artistId: destinationArtistId, updatedAt: Timestamp.now() });
+  }
+
+  // Migrate memberships
+  const membershipsSnap = await getDocs(
+    query(collection(db, 'artist_memberships'), where('artistId', '==', sourceArtistId)),
+  );
+  for (const d of membershipsSnap.docs) {
+    batch.update(d.ref, { artistId: destinationArtistId, updatedAt: Timestamp.now() });
+  }
+  const groupMembershipsSnap = await getDocs(
+    query(collection(db, 'artist_memberships'), where('groupArtistId', '==', sourceArtistId)),
+  );
+  for (const d of groupMembershipsSnap.docs) {
+    batch.update(d.ref, { groupArtistId: destinationArtistId, updatedAt: Timestamp.now() });
+  }
+
+  // Migrate activity events
+  const activitySnap = await getDocs(
+    query(collection(db, 'activity_events'), where('entityId', '==', sourceArtistId), where('entityType', '==', 'artist')),
+  );
+  for (const d of activitySnap.docs) {
+    batch.update(d.ref, { entityId: destinationArtistId });
+  }
+
+  // Migrate assignments
+  const assignmentsSnap = await getDocs(
+    query(collection(db, 'assignments'), where('entityId', '==', sourceArtistId)),
+  );
+  for (const d of assignmentsSnap.docs) {
+    batch.update(d.ref, { entityId: destinationArtistId, updatedAt: Timestamp.now() });
+  }
+
+  // Migrate media usage
+  const mediaUsageSnap = await getDocs(
+    query(collection(db, 'media_usage'), where('contextId', '==', sourceArtistId)),
+  );
+  for (const d of mediaUsageSnap.docs) {
+    batch.update(d.ref, { contextId: destinationArtistId });
   }
 
   const sourceRef = artistDocument(db, organizationId, sourceArtistId);
