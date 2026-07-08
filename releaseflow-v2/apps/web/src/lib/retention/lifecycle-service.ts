@@ -1,6 +1,6 @@
 import {
-  doc, getDoc, updateDoc, deleteDoc, Timestamp,
-  writeBatch, collection,
+  doc, getDoc, updateDoc, Timestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { recordActivity } from '@/lib/activity-service';

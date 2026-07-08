@@ -1,12 +1,11 @@
 import {
   getDocs, getDoc, doc,
-  collection, query, where, orderBy, limit, Timestamp,
+  collection, query, where, orderBy, limit,
 } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import type { EntityType, RestorableEntity } from './retention-types';
-import { ENTITY_DISPLAY_NAMES } from './retention-types';
 
-async function queryDeleted<T>(
+async function queryDeleted(
   collectionName: string,
   titleField: string,
   maxCount: number,

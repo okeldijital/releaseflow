@@ -8,7 +8,7 @@ import {
 } from '@/lib/retention/recovery-repository';
 import { restore, purge } from '@/lib/retention/lifecycle-service';
 import { ENTITY_DISPLAY_NAMES } from '@/lib/retention/retention-types';
-import type { EntityType, RestorableEntity } from '@/lib/retention/retention-types';
+import type { RestorableEntity } from '@/lib/retention/retention-types';
 import { useAuth } from '@/contexts/auth-context';
 import { toast } from '@/stores/toast-store';
 import { Button, Tabs, EmptyState, LoadingState, ConfirmationDialog, StatusBadge } from '@releaseflow/ui';
@@ -60,18 +60,6 @@ function formatTimestamp(ts: unknown): string {
     if (typeof d.seconds === 'number') return new Date(d.seconds * 1000).toLocaleDateString();
   }
   return '-';
-}
-
-function getEntityLink(entity: RestorableEntity): string {
-  switch (entity.entityType) {
-    case 'release': return `/releases/${entity.id}`;
-    case 'track': return `/tracks/${entity.id}`;
-    case 'artist': return `/artists/${entity.id}`;
-    case 'label': return `/labels/${entity.id}`;
-    case 'person': return `/people/${entity.id}`;
-    case 'media_asset': return `/media/${entity.id}`;
-    default: return '#';
-  }
 }
 
 export default function ArchivePage() {
