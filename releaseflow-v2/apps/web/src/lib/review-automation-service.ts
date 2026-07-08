@@ -32,7 +32,7 @@ export async function autoAssignReviewer(
       const assignments = await getAssignmentsByEntity('track' as never, entityId);
       const firstAssignment = assignments[0];
       if (firstAssignment) {
-        assignedPersonId = firstAssignment.personId;
+        assignedPersonId = firstAssignment.assigneeId;
       }
     } catch {
       /* ignore */

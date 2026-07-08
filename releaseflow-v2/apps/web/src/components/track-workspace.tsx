@@ -363,7 +363,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
     const assetId = await createRequestedAsset(trackId, activeOrgId, name, 'audio');
     const url = URL.createObjectURL(file);
     try {
-      const assignee = assignments[0]?.personId ?? orgPeople[0]?.id;
+      const assignee = assignments[0]?.assigneeId ?? orgPeople[0]?.id;
       if (assignee) await assignAsset(assetId, assignee);
     } catch { /* best effort */ }
     try {
@@ -425,10 +425,10 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   });
 
   function resolveRoleAssignment(roleLabels: readonly string[]) {
-    const assignment = assignments.find((a) => roleLabels.some((r) => a.primaryRole.toLowerCase().includes(r.toLowerCase())));
+    const assignment = assignments.find((a) => roleLabels.some((r) => a.role.toLowerCase().includes(r.toLowerCase())));
     const person = trackPeople.find((p) => roleLabels.some((r) => p.primaryRole.toLowerCase().includes(r.toLowerCase())));
     if (assignment) {
-      const name = orgPeople.find((p) => p.id === assignment.personId)?.displayName ?? assignment.personId;
+      const name = orgPeople.find((p) => p.id === assignment.assigneeId)?.displayName ?? assignment.assigneeId;
       return { name, assignmentId: assignment.id, personLinkId: null as string | null };
     }
     if (person) return { name: person.name, assignmentId: null as string | null, personLinkId: person.id };

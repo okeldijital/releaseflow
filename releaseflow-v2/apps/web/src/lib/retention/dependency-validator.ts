@@ -121,10 +121,26 @@ export async function validateWorkDependencies(workId: string): Promise<Dependen
   };
 }
 
+export async function validateAssignmentDependencies(assignmentId: string): Promise<DependencySummary> {
+  const [activities] = await Promise.all([
+    countWhere('activity_events', 'entityId', assignmentId),
+  ]);
+  const dependencies = [
+    ...(activities > 0 ? [{ collection: 'activity_events', label: 'Activities', count: activities }] : []),
+  ];
+  return {
+    entityType: 'assignment',
+    entityId: assignmentId,
+    dependencies,
+    canPurge: dependencies.length === 0,
+  };
+}
+
 export const ENTITY_DEPENDENCY_VALIDATORS: Record<string, (id: string, orgId?: string) => Promise<DependencySummary>> = {
   release: (id: string) => validateReleaseDependencies(id),
   track: (id: string) => validateTrackDependencies(id),
   artist: (id: string, orgId?: string) => validateArtistDependencies(orgId ?? '', id),
   person: (id: string) => validatePersonDependencies(id),
   work: (id: string) => validateWorkDependencies(id),
+  assignment: (id: string) => validateAssignmentDependencies(id),
 };

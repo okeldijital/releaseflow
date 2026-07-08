@@ -420,22 +420,28 @@ export default function NewTrackPage() {
       }
 
       if (needsMixing(productionStage) && mixingEngineer.personId) {
-        await createAssignment(
-          mixingEngineer.personId,
-          'track',
-          trackId,
-          'Mixing Engineer',
-          [mixingEngineer.comment, mixingEngineer.expectedDelivery ? `Expected: ${mixingEngineer.expectedDelivery}` : ''].filter(Boolean).join(' · ') || undefined,
-        );
+        await createAssignment({
+          organizationId: activeOrgId ?? '',
+          title: `Mix - ${title}`,
+          entityType: 'track',
+          entityId: trackId,
+          assigneeId: mixingEngineer.personId,
+          assignerId: user?.uid ?? '',
+          role: 'Mixing Engineer',
+          description: [mixingEngineer.comment, mixingEngineer.expectedDelivery ? `Expected: ${mixingEngineer.expectedDelivery}` : ''].filter(Boolean).join(' · ') || undefined,
+        });
       }
       if (needsMastering(productionStage) && masteringEngineer.personId) {
-        await createAssignment(
-          masteringEngineer.personId,
-          'track',
-          trackId,
-          'Mastering Engineer',
-          [masteringEngineer.comment, masteringEngineer.expectedDelivery ? `Expected: ${masteringEngineer.expectedDelivery}` : ''].filter(Boolean).join(' · ') || undefined,
-        );
+        await createAssignment({
+          organizationId: activeOrgId ?? '',
+          title: `Master - ${title}`,
+          entityType: 'track',
+          entityId: trackId,
+          assigneeId: masteringEngineer.personId,
+          assignerId: user?.uid ?? '',
+          role: 'Mastering Engineer',
+          description: [masteringEngineer.comment, masteringEngineer.expectedDelivery ? `Expected: ${masteringEngineer.expectedDelivery}` : ''].filter(Boolean).join(' · ') || undefined,
+        });
       }
 
       for (const role of CREDIT_ROLES) {

@@ -58,7 +58,16 @@ export function PersonAssigner({
     if (!selectedPerson || !organizationId) return;
     setSaving(true);
     try {
-      await createAssignment(selectedPerson, 'track', '', contextRole, instructions || undefined);
+      await createAssignment({
+        organizationId,
+        title: contextLabel,
+        entityType: 'track',
+        entityId: '',
+        assigneeId: selectedPerson,
+        assignerId: currentUserId,
+        role: contextRole,
+        description: instructions || undefined,
+      });
     } catch { /* assignment best-effort */ }
     onAssign({ personId: selectedPerson, personName: people.find((p) => p.id === selectedPerson)?.displayName });
     setSaving(false);
