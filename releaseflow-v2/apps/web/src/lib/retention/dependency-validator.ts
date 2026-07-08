@@ -81,8 +81,28 @@ export async function validateArtistDependencies(orgId: string, artistId: string
   };
 }
 
+export async function validatePersonDependencies(personId: string): Promise<DependencySummary> {
+  const [memberships, activities, assignments] = await Promise.all([
+    countWhere('person_memberships', 'personId', personId),
+    countWhere('activity_events', 'entityId', personId),
+    countWhere('assignments', 'assigneeId', personId),
+  ]);
+  const dependencies = [
+    ...(memberships > 0 ? [{ collection: 'person_memberships', label: 'Organization Memberships', count: memberships }] : []),
+    ...(activities > 0 ? [{ collection: 'activity_events', label: 'Activities', count: activities }] : []),
+    ...(assignments > 0 ? [{ collection: 'assignments', label: 'Assignments', count: assignments }] : []),
+  ];
+  return {
+    entityType: 'person',
+    entityId: personId,
+    dependencies,
+    canPurge: dependencies.length === 0,
+  };
+}
+
 export const ENTITY_DEPENDENCY_VALIDATORS: Record<string, (id: string, orgId?: string) => Promise<DependencySummary>> = {
   release: (id: string) => validateReleaseDependencies(id),
   track: (id: string) => validateTrackDependencies(id),
   artist: (id: string, orgId?: string) => validateArtistDependencies(orgId ?? '', id),
+  person: (id: string) => validatePersonDependencies(id),
 };

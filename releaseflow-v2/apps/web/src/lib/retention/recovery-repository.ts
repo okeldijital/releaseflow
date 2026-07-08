@@ -64,7 +64,7 @@ export async function getDeletedLabels(orgId: string, maxCount = 100): Promise<R
 }
 
 export async function getDeletedPeople(orgId: string, maxCount = 100): Promise<RestorableEntity[]> {
-  return queryDeleted('people', 'name', maxCount);
+  return queryDeleted('people', 'displayName', maxCount);
 }
 
 export async function getDeletedMediaAssets(orgId: string, maxCount = 100): Promise<RestorableEntity[]> {
