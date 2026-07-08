@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { WorkRecord } from '@/lib/work-repository';
 import {
   toWorkOptions,
   filterWorksForSearch,
@@ -45,7 +46,7 @@ describe('work-field-picker search logic', () => {
 describe('work-field-picker helpers', () => {
   it('toWorkOptions maps WorkRecord to WorkOption', () => {
     const records = [
-      { id: '1', title: 'Test', iswc: 'T-111', pro: 'BMI', status: 'active' } as any,
+      { id: '1', title: 'Test', iswc: 'T-111', pro: 'BMI', status: 'active', organizationId: '' } as WorkRecord,
     ];
     const options = toWorkOptions(records);
     expect(options[0]!.title).toBe('Test');
@@ -56,7 +57,7 @@ describe('work-field-picker helpers', () => {
 
   it('toWorkOptions handles nullish iswc/pro', () => {
     const records = [
-      { id: '2', title: 'No ISWC', iswc: null, pro: null, status: 'active' } as any,
+      { id: '2', title: 'No ISWC', iswc: null, pro: null, status: 'active', organizationId: '', registrationStatus: 'unregistered' } as WorkRecord,
     ];
     const options = toWorkOptions(records);
     expect(options[0]!.iswc).toBeNull();

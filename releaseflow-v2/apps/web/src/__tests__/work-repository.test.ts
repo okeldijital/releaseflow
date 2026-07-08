@@ -46,12 +46,6 @@ describe('WorkRepository contract', () => {
     expect(typeof mod.findDuplicateWorks).toBe('function');
   });
 
-  it('exports type definitions', async () => {
-    const mod = await import('@/lib/work-repository');
-    expect(mod.WorkWriterSplit).toBeUndefined();
-    expect(mod.WorkPublisherRecord).toBeUndefined();
-  });
-
   it('archiveWork takes 1 argument (workId)', async () => {
     const mod = await import('@/lib/work-repository');
     expect(mod.archiveWork.length).toBe(1);

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { WorkRecord, CreateWorkFields } from '@/lib/work-repository';
 
 vi.mock('@/lib/work-repository', () => {
   const mockWork: Record<string, unknown> = {
@@ -44,7 +45,7 @@ describe('WorkService', () => {
   });
 
   it('createNewWork rejects missing organizationId', async () => {
-    await expect(service.createNewWork({ title: 'Test' } as any)).rejects.toThrow('Organization ID is required');
+    await expect(service.createNewWork({ title: 'Test' } as unknown as CreateWorkFields)).rejects.toThrow('Organization ID is required');
   });
 
   it('createNewWork delegates to repo on valid input', async () => {
@@ -70,7 +71,7 @@ describe('WorkService', () => {
   it('archiveWork succeeds when work is active', async () => {
     vi.mocked(repo.getWork).mockResolvedValueOnce({
       id: 'w1', organizationId: 'org1', title: 'T', registrationStatus: 'unregistered', status: 'active',
-    } as any);
+    } as WorkRecord);
     await service.archiveWork('w1');
     expect(repo.archiveWork).toHaveBeenCalledWith('w1');
   });
@@ -85,7 +86,7 @@ describe('WorkService', () => {
     vi.mocked(repo.getWork).mockResolvedValueOnce({
       id: 'w1', organizationId: 'org1', title: 'My Song', iswc: 'T-123', pro: 'ASCAP',
       registrationStatus: 'registered', status: 'active',
-    } as any);
+    } as WorkRecord);
     vi.mocked(repo.getWriters).mockResolvedValueOnce([{
       id: 's1', workId: 'w1', personId: 'p1', role: 'Writer', ownershipShare: 100,
       collectionShare: 100, publisherShare: 0, administrationShare: 0, position: 0, isPrimary: true,
@@ -103,8 +104,8 @@ describe('WorkService', () => {
 
   it('checkDuplicateWorks returns isDuplicate=true when matches exist', async () => {
     vi.mocked(repo.findDuplicateWorks).mockResolvedValueOnce([{
-      id: 'w2', organizationId: 'org1', title: 'Existing',
-    }] as any);
+      id: 'w2', organizationId: 'org1', title: 'Existing', registrationStatus: 'unregistered', status: 'active',
+    }] as WorkRecord[]);
     const result = await service.checkDuplicateWorks('org1', 'Existing');
     expect(result.isDuplicate).toBe(true);
     expect(result.matches).toHaveLength(1);
