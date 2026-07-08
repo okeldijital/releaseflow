@@ -11,7 +11,7 @@ import {
   validateDeleteArtist, mergeArtists,
 } from '@/lib/artist-service';
 import { uploadArtistImage, removeArtistImage } from '@/lib/artist-media-service';
-import { addArtistToGroup, removeArtistFromGroup, getMembersOfGroup } from '@/lib/artist-membership-repository';
+import { addArtistToGroup, removeArtistFromGroup } from '@/lib/artist-membership-repository';
 import { DISCOGRAPHY_FILTERS } from '@/lib/artist-discography-service';
 import type { DiscographyFilter } from '@/lib/artist-discography-service';
 import {
@@ -67,8 +67,7 @@ function formatDate(value: unknown): string {
   }
 }
 
-const TAB_IDS = ['overview', 'membership', 'discography', 'activity'] as const;
-type TabId = typeof TAB_IDS[number];
+type TabId = 'overview' | 'membership' | 'discography' | 'activity';
 
 export default function ArtistDetailPage() {
   const params = useParams();
