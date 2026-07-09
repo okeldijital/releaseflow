@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { getOrganizationsByUser } from '@/lib/organization-repository';
+import { getUserProfile } from '@/lib/user-profile-repository';
 import { useOrgStore } from '@/stores/org-store';
 
 export default function AuthResolvePage() {
@@ -22,11 +23,13 @@ export default function AuthResolvePage() {
     let cancelled = false;
 
     async function resolve() {
-      const orgs = await getOrganizationsByUser(uid);
-
+      const profile = await getUserProfile(uid);
       if (cancelled) return;
 
-      if (orgs.length === 0) {
+      const orgs = await getOrganizationsByUser(uid);
+      if (cancelled) return;
+
+      if (!profile || !profile.onboardingCompleted) {
         router.replace('/onboarding');
         return;
       }
@@ -42,6 +45,8 @@ export default function AuthResolvePage() {
       setOrgsLoaded(true);
 
       if (orgs.length > 1 && (!persistedOrgId || !orgs.some((o) => o.id === persistedOrgId))) {
+        router.replace('/select-organization');
+      } else if (orgs.length === 0) {
         router.replace('/select-organization');
       } else {
         router.replace('/dashboard');
