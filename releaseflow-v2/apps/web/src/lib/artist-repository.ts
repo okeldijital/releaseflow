@@ -520,9 +520,9 @@ export async function mergeArtists(
     batch.update(d.ref, { entityId: destinationArtistId, updatedAt: Timestamp.now() });
   }
 
-  // Migrate media usage
+  // Migrate media usage (organization-scoped subcollection)
   const mediaUsageSnap = await getDocs(
-    query(collection(db, 'media_usage'), where('contextId', '==', sourceArtistId)),
+    query(collection(db, 'organizations', organizationId, 'media_usage'), where('contextId', '==', sourceArtistId)),
   );
   for (const d of mediaUsageSnap.docs) {
     batch.update(d.ref, { contextId: destinationArtistId });

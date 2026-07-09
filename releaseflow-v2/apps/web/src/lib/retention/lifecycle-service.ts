@@ -38,6 +38,10 @@ function buildDocRef(entityType: EntityType, entityId: string, orgId?: string) {
     if (!orgId) throw new Error('organizationId required for subcollection entities');
     return doc(db, 'organizations', orgId, `${entityType}s`, entityId);
   }
+  if (entityType === 'media_asset') {
+    if (!orgId) throw new Error('organizationId required for subcollection entities');
+    return doc(db, 'organizations', orgId, 'media_assets', entityId);
+  }
   if (entityType === 'person') {
     return doc(db, 'people', entityId);
   }

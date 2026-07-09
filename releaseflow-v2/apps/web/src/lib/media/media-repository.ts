@@ -5,7 +5,20 @@ import {
 import { getDb } from '@/lib/firebase';
 import type { MediaAsset, MediaAssetType, MediaAssetStatus } from './media-types';
 
-const COLLECTION = 'media_assets';
+/**
+ * Media assets are stored as an organization subcollection:
+ *   organizations/{orgId}/media_assets/{assetId}
+ * following ReleaseFlow's multi-tenant architecture.
+ */
+const SUBCOLLECTION = 'media_assets';
+
+function assetsCol(db: NonNullable<ReturnType<typeof getDb>>, organizationId: string) {
+  return collection(db, 'organizations', organizationId, SUBCOLLECTION);
+}
+
+function assetDoc(db: NonNullable<ReturnType<typeof getDb>>, organizationId: string, id: string) {
+  return doc(db, 'organizations', organizationId, SUBCOLLECTION, id);
+}
 
 function toMediaAsset(id: string, data: Record<string, unknown>): MediaAsset {
   return {
@@ -34,8 +47,9 @@ export async function createMediaAsset(
 ): Promise<string> {
   const db = getDb();
   if (!db) throw new Error('Firestore not initialized');
+  if (!fields.organizationId) throw new Error('organizationId required');
   const now = Timestamp.now();
-  const ref = await addDoc(collection(db, COLLECTION), {
+  const ref = await addDoc(assetsCol(db, fields.organizationId), {
     ...fields,
     createdAt: now,
     updatedAt: now,
@@ -44,40 +58,47 @@ export async function createMediaAsset(
 }
 
 export async function updateMediaAsset(
+  organizationId: string,
   id: string,
   fields: Partial<Omit<MediaAsset, 'id' | 'createdAt'>>,
 ): Promise<void> {
   const db = getDb();
   if (!db) return;
-  await updateDoc(doc(db, COLLECTION, id), { ...fields, updatedAt: Timestamp.now() });
+  await updateDoc(assetDoc(db, organizationId, id), { ...fields, updatedAt: Timestamp.now() });
 }
 
-export async function archiveMediaAsset(id: string): Promise<void> {
+export async function archiveMediaAsset(organizationId: string, id: string): Promise<void> {
   const db = getDb();
   if (!db) return;
-  await updateDoc(doc(db, COLLECTION, id), { status: 'archived', updatedAt: Timestamp.now() });
+  await updateDoc(assetDoc(db, organizationId, id), { status: 'archived', updatedAt: Timestamp.now() });
 }
 
-export async function deleteMediaAsset(id: string, organizationId?: string, actorId?: string, deleteReason?: string): Promise<void> {
-  if (organizationId && actorId) {
+export async function deleteMediaAsset(
+  organizationId: string,
+  id: string,
+  actorId?: string,
+  deleteReason?: string,
+): Promise<void> {
+  if (actorId) {
     const { softDelete } = await import('@/lib/retention/lifecycle-service');
     await softDelete({ entityType: 'media_asset', entityId: id, organizationId, actorId, deleteReason });
     return;
   }
   const db = getDb();
   if (!db) return;
-  await deleteDoc(doc(db, COLLECTION, id));
+  await deleteDoc(assetDoc(db, organizationId, id));
 }
 
-export async function getMediaAsset(id: string): Promise<MediaAsset | null> {
+export async function getMediaAsset(organizationId: string, id: string): Promise<MediaAsset | null> {
   const db = getDb();
   if (!db) return null;
-  const snap = await getDoc(doc(db, COLLECTION, id));
+  const snap = await getDoc(assetDoc(db, organizationId, id));
   if (!snap.exists()) return null;
   return toMediaAsset(snap.id, snap.data() as Record<string, unknown>);
 }
 
 export async function getMediaAssetsByRelease(
+  organizationId: string,
   releaseId: string,
   assetType?: MediaAssetType,
 ): Promise<MediaAsset[]> {
@@ -85,7 +106,7 @@ export async function getMediaAssetsByRelease(
   if (!db) return [];
   const constraints = [where('releaseId', '==', releaseId), orderBy('createdAt', 'desc')];
   if (assetType) constraints.splice(1, 0, where('assetType', '==', assetType));
-  const snap = await getDocs(query(collection(db, COLLECTION), ...constraints));
+  const snap = await getDocs(query(assetsCol(db, organizationId), ...constraints));
   return snap.docs.map((d) => toMediaAsset(d.id, d.data() as Record<string, unknown>));
 }
 
@@ -95,7 +116,7 @@ export async function getMediaAssetsByOrganization(
   const db = getDb();
   if (!db) return [];
   const snap = await getDocs(
-    query(collection(db, COLLECTION), where('organizationId', '==', organizationId), orderBy('createdAt', 'desc')),
+    query(assetsCol(db, organizationId), orderBy('createdAt', 'desc')),
   );
   return snap.docs.map((d) => toMediaAsset(d.id, d.data() as Record<string, unknown>));
 }

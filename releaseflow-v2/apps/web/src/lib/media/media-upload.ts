@@ -3,6 +3,7 @@ import {
   getAssetUrl as cloudinaryGetAssetUrl,
 } from '@releaseflow/firebase/cloudinary';
 import type { UploadResult } from '@releaseflow/firebase/cloudinary';
+import { getAuthInstance } from '@/lib/firebase';
 
 const ALLOWED_MIME_TYPES = [
   'image/png',
@@ -42,9 +43,18 @@ export async function uploadFile(
   file: File,
   options: SignedUploadOptions,
 ): Promise<UploadResult> {
+  const currentUser = getAuthInstance()?.currentUser;
+  if (!currentUser) {
+    throw new Error('You must be signed in to upload media.');
+  }
+  const idToken = await currentUser.getIdToken();
+
   const signatureRes = await fetch('/api/media/upload-signature', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
     body: JSON.stringify({
       entityType: options.entityType,
       entityId: options.entityId,

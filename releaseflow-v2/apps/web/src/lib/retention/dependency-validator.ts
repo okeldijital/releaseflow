@@ -1,5 +1,5 @@
 import {
-  getDocs, collection, query, where, limit,
+  getDocs, collection, collectionGroup, query, where, limit,
 } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import type { EntityType } from './retention-types';
@@ -18,10 +18,18 @@ async function countWhere(collectionName: string, field: string, value: string):
   return snap.size;
 }
 
+/** Counts across an org-scoped subcollection group (e.g. media_assets under any organization). */
+async function countGroupWhere(collectionId: string, field: string, value: string): Promise<number> {
+  const db = getDb();
+  if (!db) return 0;
+  const snap = await getDocs(query(collectionGroup(db, collectionId), where(field, '==', value), limit(1000)));
+  return snap.size;
+}
+
 export async function validateReleaseDependencies(releaseId: string): Promise<DependencySummary> {
   const [tracks, media, assets, deliverables, activities, tasks] = await Promise.all([
     countWhere('release_tracks', 'releaseId', releaseId),
-    countWhere('media_assets', 'releaseId', releaseId),
+    countGroupWhere('media_assets', 'releaseId', releaseId),
     countWhere('asset_references', 'releaseId', releaseId),
     countWhere('deliverables', 'releaseId', releaseId),
     countWhere('activity_events', 'entityId', releaseId),

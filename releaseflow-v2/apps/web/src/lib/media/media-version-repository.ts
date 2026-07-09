@@ -5,7 +5,16 @@ import {
 import { getDb } from '@/lib/firebase';
 import type { MediaVersion } from './media-types';
 
-const COLLECTION = 'media_versions';
+/** organizations/{orgId}/media_versions/{versionId} */
+const SUBCOLLECTION = 'media_versions';
+
+function versionsCol(db: NonNullable<ReturnType<typeof getDb>>, organizationId: string) {
+  return collection(db, 'organizations', organizationId, SUBCOLLECTION);
+}
+
+function versionDoc(db: NonNullable<ReturnType<typeof getDb>>, organizationId: string, id: string) {
+  return doc(db, 'organizations', organizationId, SUBCOLLECTION, id);
+}
 
 function toVersion(id: string, data: Record<string, unknown>): MediaVersion {
   return {
@@ -24,36 +33,37 @@ function toVersion(id: string, data: Record<string, unknown>): MediaVersion {
 }
 
 export async function createMediaVersion(
+  organizationId: string,
   fields: Omit<MediaVersion, 'id' | 'createdAt'>,
 ): Promise<string> {
   const db = getDb();
   if (!db) throw new Error('Firestore not initialized');
-  const ref = await addDoc(collection(db, COLLECTION), {
+  const ref = await addDoc(versionsCol(db, organizationId), {
     ...fields,
     createdAt: Timestamp.now(),
   });
   return ref.id;
 }
 
-export async function getVersionsByAsset(assetId: string): Promise<MediaVersion[]> {
+export async function getVersionsByAsset(organizationId: string, assetId: string): Promise<MediaVersion[]> {
   const db = getDb();
   if (!db) return [];
   const snap = await getDocs(
-    query(collection(db, COLLECTION), where('assetId', '==', assetId), orderBy('versionNumber', 'desc')),
+    query(versionsCol(db, organizationId), where('assetId', '==', assetId), orderBy('versionNumber', 'desc')),
   );
   return snap.docs.map((d) => toVersion(d.id, d.data() as Record<string, unknown>));
 }
 
-export async function getMediaVersion(id: string): Promise<MediaVersion | null> {
+export async function getMediaVersion(organizationId: string, id: string): Promise<MediaVersion | null> {
   const db = getDb();
   if (!db) return null;
-  const snap = await getDoc(doc(db, COLLECTION, id));
+  const snap = await getDoc(versionDoc(db, organizationId, id));
   if (!snap.exists()) return null;
   return toVersion(snap.id, snap.data() as Record<string, unknown>);
 }
 
-export async function deleteMediaVersion(id: string): Promise<void> {
+export async function deleteMediaVersion(organizationId: string, id: string): Promise<void> {
   const db = getDb();
   if (!db) return;
-  await deleteDoc(doc(db, COLLECTION, id));
+  await deleteDoc(versionDoc(db, organizationId, id));
 }

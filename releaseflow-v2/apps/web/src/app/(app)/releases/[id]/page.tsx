@@ -324,7 +324,7 @@ export default function ReleaseWorkspacePage() {
 
       let med: MediaAsset[] = [];
       try {
-        med = await getMediaAssetsByRelease(releaseId);
+        if (activeOrgId) med = await getMediaAssetsByRelease(activeOrgId, releaseId);
       } catch (error) {
         console.error('[Workspace] Media load failed', error);
       }

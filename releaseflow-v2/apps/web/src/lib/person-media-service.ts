@@ -20,7 +20,7 @@ async function recordImageUsage(
 ): Promise<void> {
   const db = getDb();
   if (!db) return;
-  await addDoc(collection(db, 'media_usage'), {
+  await addDoc(collection(db, 'organizations', organizationId, 'media_usage'), {
     assetId: publicId,
     contextType: 'person',
     contextId: personId,

@@ -68,7 +68,7 @@ export async function getDeletedPeople(orgId: string, maxCount = 100): Promise<R
 }
 
 export async function getDeletedMediaAssets(orgId: string, maxCount = 100): Promise<RestorableEntity[]> {
-  return queryDeleted('media_assets', 'filename', maxCount);
+  return queryDeleted('media_assets', 'title', maxCount, orgId, 'media_assets');
 }
 
 export async function getDeletedAssignments(orgId: string, maxCount = 100): Promise<RestorableEntity[]> {
@@ -109,6 +109,9 @@ export async function getEntityById(
   if (entityType === 'artist' || entityType === 'label') {
     if (!orgId) return null;
     ref = doc(db, 'organizations', orgId, `${entityType}s`, entityId);
+  } else if (entityType === 'media_asset') {
+    if (!orgId) return null;
+    ref = doc(db, 'organizations', orgId, 'media_assets', entityId);
   } else if (entityType === 'person') {
     ref = doc(db, 'people', entityId);
   } else {
