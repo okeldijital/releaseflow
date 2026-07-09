@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./cloudinary": "./src/cloudinary/index.ts"
+    "./cloudinary": "./src/cloudinary/index.ts",
+    "./cloudinary/signature": "./src/cloudinary/signature.ts",
+    "./cloudinary/config": "./src/cloudinary/config.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit",

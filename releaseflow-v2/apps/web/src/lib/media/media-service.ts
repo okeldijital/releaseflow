@@ -15,9 +15,10 @@ import {
 } from './media-review-repository';
 import {
   getUsageByAsset,
+  trackMediaUsage,
 } from './media-usage-repository';
 import { uploadFile, getImageDimensions, generateThumbnailUrl } from './media-upload';
-import { cloudinaryConfig } from '@releaseflow/firebase/cloudinary';
+import { upsertArtworkDeliverable } from '@/lib/deliverable-service';
 import type { MediaAsset, MediaVersion, MediaReview, MediaUsage } from './media-types';
 
 export async function uploadReleaseArtwork(
@@ -26,7 +27,7 @@ export async function uploadReleaseArtwork(
   organizationId: string,
   userId: string,
   notes?: string,
-): Promise<{ assetId: string; versionId: string } | { error: string }> {
+): Promise<{ assetId: string; versionId: string; deliverableId: string } | { error: string }> {
   try {
     const dimensions = await getImageDimensions(file);
     if (dimensions && (dimensions.width < 1400 || dimensions.height < 1400)) {
@@ -34,13 +35,11 @@ export async function uploadReleaseArtwork(
     }
 
     const result = await uploadFile(file, {
-      folder: cloudinaryConfig.folders.releases,
+      entityType: 'release',
+      entityId: releaseId,
+      organizationId,
       tags: [`release:${releaseId}`, `org:${organizationId}`],
     });
-
-    if (!result) {
-      return { error: 'Cloudinary is not configured' };
-    }
 
     const storageKey = result.publicId;
     const thumbnailUrl = generateThumbnailUrl(result.publicId);
@@ -51,6 +50,7 @@ export async function uploadReleaseArtwork(
       assetType: 'cover',
       title: file.name,
       storageKey,
+      secureUrl: result.secureUrl,
       thumbnailUrl,
       mimeType: file.type,
       fileSize: result.bytes,
@@ -71,9 +71,23 @@ export async function uploadReleaseArtwork(
       uploadedBy: userId,
     });
 
+    await trackMediaUsage({
+      assetId,
+      contextType: 'release',
+      contextId: releaseId,
+      contextLabel: 'Release Artwork',
+      organizationId,
+    });
+
+    const deliverableId = await upsertArtworkDeliverable(releaseId, userId, userId, {
+      title: file.name,
+      mediaAssetId: assetId,
+      url: result.secureUrl,
+    });
+
     await updateMediaAsset(assetId, { currentVersionId: versionId });
 
-    return { assetId, versionId };
+    return { assetId, versionId, deliverableId };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Upload failed' };
   }
@@ -95,13 +109,11 @@ export async function replaceReleaseArtwork(
     }
 
     const result = await uploadFile(file, {
-      folder: cloudinaryConfig.folders.releases,
+      entityType: 'release',
+      entityId: asset.releaseId,
+      organizationId: asset.organizationId,
       tags: [`release:${asset.releaseId}`, `org:${asset.organizationId}`],
     });
-
-    if (!result) {
-      return { error: 'Cloudinary is not configured' };
-    }
 
     const versions = await getVersionsByAsset(assetId);
     const maxVersion = versions.reduce((max, v) => Math.max(max, v.versionNumber), 0);
@@ -124,11 +136,18 @@ export async function replaceReleaseArtwork(
     await updateMediaAsset(assetId, {
       currentVersionId: versionId,
       storageKey,
+      secureUrl: result.secureUrl,
       thumbnailUrl,
       mimeType: file.type,
       fileSize: result.bytes,
       dimensions: dimensions ?? undefined,
       status: 'draft',
+    });
+
+    await upsertArtworkDeliverable(asset.releaseId, userId, userId, {
+      title: file.name,
+      mediaAssetId: assetId,
+      url: result.secureUrl,
     });
 
     return { versionId };

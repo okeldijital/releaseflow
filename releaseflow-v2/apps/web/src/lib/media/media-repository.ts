@@ -17,6 +17,7 @@ function toMediaAsset(id: string, data: Record<string, unknown>): MediaAsset {
     description: data.description as string | undefined,
     storageKey: data.storageKey as string,
     thumbnailUrl: data.thumbnailUrl as string | undefined,
+    secureUrl: data.secureUrl as string | undefined,
     mimeType: data.mimeType as string,
     fileSize: data.fileSize as number,
     dimensions: data.dimensions as { width: number; height: number } | undefined,

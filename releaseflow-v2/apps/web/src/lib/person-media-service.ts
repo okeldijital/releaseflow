@@ -1,7 +1,6 @@
 import { updateDoc, doc, addDoc, collection, Timestamp } from '@firebase/firestore';
 import { getDb } from './firebase';
 import { uploadFile, generateThumbnailUrl, validateMediaFile, getImageDimensions } from './media/media-upload';
-import { cloudinaryConfig } from '@releaseflow/firebase/cloudinary';
 
 export interface PersonImageUploadResult {
   publicId: string;
@@ -48,7 +47,9 @@ export async function uploadPersonImage(
 
   const dimensions = await getImageDimensions(file);
   const result = await uploadFile(file, {
-    folder: cloudinaryConfig.folders.avatars,
+    entityType: 'person',
+    entityId: personId,
+    organizationId,
     tags: ['person', `org:${organizationId}`, `person:${personId}`],
   });
   if (!result) throw new Error('Image upload failed');

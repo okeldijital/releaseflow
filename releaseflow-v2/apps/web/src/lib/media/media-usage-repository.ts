@@ -33,6 +33,7 @@ export async function getUsageByAsset(assetId: string): Promise<MediaUsage[]> {
       contextType: data.contextType as string,
       contextId: data.contextId as string,
       contextLabel: data.contextLabel as string,
+      organizationId: data.organizationId as string | undefined,
       createdAt: data.createdAt as Timestamp,
     };
   });

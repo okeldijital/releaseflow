@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { cloudinaryConfig } from './config';
 
 interface SignedUploadParams {
@@ -8,16 +9,21 @@ interface SignedUploadParams {
   apiKey: string;
 }
 
+/**
+ * Generates a Cloudinary upload signature. Must run server-side only:
+ * it derives the signature from CLOUDINARY_API_SECRET, which must never
+ * reach the browser bundle.
+ */
 export function signUpload(options: {
   folder?: string;
   publicId?: string;
   timestamp?: number;
 }): SignedUploadParams {
-  const timestamp = options.timestamp ?? Math.round(Date.now() / 1000);
+  const timestamp = options.timestamp ?? Math.floor(Date.now() / 1000);
   const params = new URLSearchParams();
   params.append('timestamp', String(timestamp));
   if (options.folder) params.append('folder', options.folder);
-  if (options.publicId) params.append('public_id', options.publicId);
+  if (options.publicId) params.append('publicId', options.publicId);
 
   const signature = generateSignature(params.toString());
 
@@ -38,13 +44,5 @@ function generateSignature(params: string): string {
     .sort()
     .join('&');
   const stringToSign = `${sortedParams}${secret}`;
-
-  if (typeof window === 'undefined') {
-    return require('crypto')
-      .createHash('sha256')
-      .update(stringToSign)
-      .digest('hex');
-  }
-
-  throw new Error('Signed uploads must be performed server-side');
+  return createHash('sha1').update(stringToSign).digest('hex');
 }

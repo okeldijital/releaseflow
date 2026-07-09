@@ -593,8 +593,12 @@ export default function ReleaseWorkspacePage() {
     );
   }
   /* ─── Artwork ──────────────────────────────────────────────────────────── */
-  const artworkAsset  = deliverables.find((d) => d.type === 'artwork' && d.status === 'approved');
-  const artworkUrl = (artworkAsset as unknown as { url?: string } | undefined)?.url;
+  const artworkDeliverable = deliverables.find((d) => d.type === 'artwork' && d.mediaAssetId);
+  const artworkMedia = artworkDeliverable
+    ? mediaAssets.find((m) => m.id === artworkDeliverable.mediaAssetId)
+    : undefined;
+  const artworkUrl = artworkMedia?.secureUrl ?? artworkMedia?.thumbnailUrl;
+  const artworkStatus = artworkDeliverable?.status;
   const artistName = fieldValue(release, ['artistName', 'artist', 'primaryArtist']) ?? 'Artist not linked';
   const companyName = release.label ?? fieldValue(release, ['company', 'companyName']) ?? 'Company not set';
   const meaningfulActivities = activities.filter((ev) => humaniseActivity(ev) !== null);
@@ -670,7 +674,7 @@ export default function ReleaseWorkspacePage() {
             <ReleaseArtwork
               title={release.title}
               artworkUrl={artworkUrl}
-              status={artworkAsset ? 'approved' : undefined}
+              status={artworkStatus as 'approved' | 'pending' | 'missing' | undefined}
               onReplace={() => undefined}
               onUpload={handleArtworkUpload}
               size="lg"

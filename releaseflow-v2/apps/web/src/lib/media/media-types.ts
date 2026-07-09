@@ -20,6 +20,7 @@ export interface MediaAsset {
   description?: string;
   storageKey: string;
   thumbnailUrl?: string;
+  secureUrl?: string;
   mimeType: string;
   fileSize: number;
   dimensions?: { width: number; height: number };
@@ -71,5 +72,6 @@ export interface MediaUsage {
   contextType: string;
   contextId: string;
   contextLabel: string;
+  organizationId?: string;
   createdAt: unknown;
 }

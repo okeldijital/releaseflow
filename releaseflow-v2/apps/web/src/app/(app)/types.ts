@@ -207,6 +207,8 @@ export interface Deliverable {
   status: DeliverableStatus;
   version?: string;
   ownerId: string;
+  mediaAssetId?: string;
+  url?: string;
   createdAt: unknown;
 }
 
