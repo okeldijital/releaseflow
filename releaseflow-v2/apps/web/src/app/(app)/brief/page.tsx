@@ -6,7 +6,7 @@ import { useOrgStore } from '@/stores/org-store';
 import { getActiveAlerts, generateOrgAlerts } from '@/lib/alert-engine';
 import { generateRecommendations } from '@/lib/recommendation-engine';
 import { fmtDate } from '@/lib/utils';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import type { OperationalAlert, Task, Stage, ReleaseBudget } from '../types';
 import type { Recommendation } from '@/lib/recommendation-engine';

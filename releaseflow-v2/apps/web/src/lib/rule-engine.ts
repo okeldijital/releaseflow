@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { checkDependencyRules } from '@/lib/dependency-health';
 import type { Task, Stage, Deliverable, ReleaseRequirement, Campaign, ReleaseBudget, Dependency } from '@/app/(app)/types';

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useOrgStore } from '@/stores/org-store';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { getBudgetSummary } from '@/lib/budget-service';
 import { getUserUtilization } from '@/lib/resource-service';

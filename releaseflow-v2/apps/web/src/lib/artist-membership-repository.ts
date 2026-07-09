@@ -1,7 +1,7 @@
 import {
   doc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, limit, Timestamp, writeBatch,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export interface ArtistMembershipRecord {

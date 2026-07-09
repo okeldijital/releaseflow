@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, updateDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, getDocs, query, where, orderBy, Timestamp } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { logActivity } from '@/lib/workflow-service';
 import type { Campaign, CampaignTask, CampaignTaskType, TaskPriority } from '@/app/(app)/types';

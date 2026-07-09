@@ -1,6 +1,6 @@
 import {
   collection, query, where, getDocs, doc, addDoc, updateDoc, deleteDoc, Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export interface PublishingSplitRecord {

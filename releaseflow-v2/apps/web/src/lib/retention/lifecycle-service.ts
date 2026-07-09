@@ -1,7 +1,7 @@
 import {
   doc, getDoc, updateDoc, Timestamp,
   writeBatch,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { recordActivity } from '@/lib/activity-service';
 import { ENTITY_DEPENDENCY_VALIDATORS } from './dependency-validator';

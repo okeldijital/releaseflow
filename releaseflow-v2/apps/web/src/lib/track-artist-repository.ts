@@ -1,7 +1,7 @@
 import {
   doc, getDocs, addDoc, deleteDoc, writeBatch,
   collection, query, where, orderBy, Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export type TrackArtistRole =
@@ -96,7 +96,7 @@ export async function addArtistToTrack(fields: AddArtistToTrackFields): Promise<
 export async function updateArtistPosition(recordId: string, position: number): Promise<void> {
   const db = getDb();
   if (!db) return;
-  const { updateDoc } = await import('firebase/firestore');
+  const { updateDoc } = await import('@firebase/firestore');
   await updateDoc(doc(db, 'track_artists', recordId), { position, updatedAt: Timestamp.now() });
 }
 

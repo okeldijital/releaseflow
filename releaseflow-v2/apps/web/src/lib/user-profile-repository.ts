@@ -1,6 +1,6 @@
 import {
   doc, getDoc, setDoc, updateDoc, Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export interface UserProfileRecord {

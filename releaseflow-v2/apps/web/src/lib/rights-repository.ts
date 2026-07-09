@@ -1,8 +1,8 @@
 import {
   doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, Timestamp,
-} from 'firebase/firestore';
-import type { QueryConstraint } from 'firebase/firestore';
+} from '@firebase/firestore';
+import type { QueryConstraint } from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export interface RightsHolderRecord {

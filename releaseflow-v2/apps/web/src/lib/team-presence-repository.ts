@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, getDocs, collection, query, where, deleteDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocs, collection, query, where, deleteDoc, Timestamp } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 
 export interface TeamPresenceRecord {

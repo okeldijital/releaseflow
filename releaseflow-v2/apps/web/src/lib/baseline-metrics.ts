@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 
 interface QuerySnapshotMetric {

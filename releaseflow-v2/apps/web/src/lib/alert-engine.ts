@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, where, orderBy, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, orderBy, updateDoc, doc, Timestamp } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { runRules, runOrgRules } from '@/lib/rule-engine';
 import type { OperationalAlert } from '@/app/(app)/types';

@@ -5,7 +5,7 @@ import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { createCampaign } from '@/lib/campaign-service';
 import { Button, Card, Input, Select } from '@releaseflow/ui';

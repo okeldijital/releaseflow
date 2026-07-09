@@ -1,7 +1,7 @@
 import {
   collection, query, where, orderBy, getDocs, getDoc, doc,
   addDoc, updateDoc, Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export interface PersonRecord {

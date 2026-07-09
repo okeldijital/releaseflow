@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, addDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, orderBy, limit } from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export interface AuditRecord {

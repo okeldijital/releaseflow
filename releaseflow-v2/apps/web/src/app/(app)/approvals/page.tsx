@@ -12,7 +12,7 @@ import {
 import { getUserInbox } from '@/lib/notification-center-service';
 import { Card, Badge, StatusBadge, Button, EmptyState, Skeleton, Modal } from '@releaseflow/ui';
 import { fmtDate } from '@/lib/utils';
-import { getDoc, doc } from 'firebase/firestore';
+import { getDoc, doc } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import type { ApprovalRequest, Deliverable, LifecycleState } from '../types';
 

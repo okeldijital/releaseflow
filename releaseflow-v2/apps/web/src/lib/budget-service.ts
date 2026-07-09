@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, updateDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, getDocs, query, where, orderBy, Timestamp } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import type { ReleaseBudget, CostItem, CostCategory, BudgetStatus } from '@/app/(app)/types';
 

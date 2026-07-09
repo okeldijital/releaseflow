@@ -1,7 +1,7 @@
 import {
   doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, writeBatch, Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 import type { ReleaseStatus, ReleaseType } from '@/app/(app)/types';
 

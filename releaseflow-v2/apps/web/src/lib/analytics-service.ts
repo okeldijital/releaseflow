@@ -76,7 +76,7 @@ async function computeAvgApprovalTime(orgId: string): Promise<number> {
   try {
     const { getDb } = await import('./firebase');
     const { collection, query, where, orderBy, getDocs } = await import(
-      'firebase/firestore'
+      '@firebase/firestore'
     );
     const db = getDb();
     if (!db) return 0;
@@ -126,7 +126,7 @@ async function computeAvgSpecCompletion(orgId: string): Promise<number> {
   try {
     const { getDb } = await import('./firebase');
     const { collection, query, where, getDocs } = await import(
-      'firebase/firestore'
+      '@firebase/firestore'
     );
     const db = getDb();
     if (!db) return 0;
@@ -181,7 +181,7 @@ async function computeCollaborationResponsiveness(
   try {
     const { getDb } = await import('./firebase');
     const { collection, query, where, getDocs } = await import(
-      'firebase/firestore'
+      '@firebase/firestore'
     );
     const db = getDb();
     if (!db) return 0;

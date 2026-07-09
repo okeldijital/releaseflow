@@ -1,4 +1,4 @@
-import { updateDoc, doc, addDoc, collection, Timestamp } from 'firebase/firestore';
+import { updateDoc, doc, addDoc, collection, Timestamp } from '@firebase/firestore';
 import { getDb } from './firebase';
 import { uploadFile, generateThumbnailUrl, validateMediaFile, getImageDimensions } from './media/media-upload';
 import { cloudinaryConfig } from '@releaseflow/firebase/cloudinary';

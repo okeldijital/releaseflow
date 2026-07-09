@@ -1,7 +1,7 @@
 import {
   doc, getDoc, getDocs, addDoc, updateDoc,
   collection, query, where, orderBy, Timestamp, limit,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export interface WorkflowRecord {

@@ -1,6 +1,6 @@
 import {
   getDocs, collection, query, where, limit,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import type { EntityType } from './retention-types';
 

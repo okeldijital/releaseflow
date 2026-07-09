@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { fetchArtistSearch } from '@/lib/artist-service';
 import { useOrgStore } from '@/stores/org-store';

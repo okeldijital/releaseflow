@@ -1,7 +1,7 @@
 import {
   doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, limit, Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 import type { NotificationType, NotificationStatus } from '@/app/(app)/types';
 

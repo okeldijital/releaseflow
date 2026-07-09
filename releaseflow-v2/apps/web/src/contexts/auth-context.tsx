@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { onAuthStateChanged, type User } from 'firebase/auth';
+import { onAuthStateChanged, type User } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
 import { validateEnvironment } from '@/lib/env-validator';
 import { ConfigErrorScreen } from '@/components/config-error';

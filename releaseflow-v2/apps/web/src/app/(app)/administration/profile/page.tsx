@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { updateProfile } from 'firebase/auth';
-import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { updateProfile } from '@firebase/auth';
+import { doc, setDoc, getDoc, Timestamp } from '@firebase/firestore';
 import { useAuth } from '@/contexts/auth-context';
 import { getDb } from '@/lib/firebase';
 import { Button, Input, Select, Checkbox, TextArea } from '@releaseflow/ui';

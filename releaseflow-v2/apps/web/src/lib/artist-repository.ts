@@ -2,7 +2,7 @@ import {
   doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, limit, writeBatch, Timestamp,
   type QueryConstraint,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 import { normalizeArtistName } from './artist-field-picker-logic';
 

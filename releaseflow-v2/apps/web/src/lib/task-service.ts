@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, Timestamp } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { logActivity } from '@/lib/workflow-service';
 import { createNotification } from '@/lib/notification-service';

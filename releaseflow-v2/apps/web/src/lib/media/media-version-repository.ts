@@ -1,7 +1,7 @@
 import {
   doc, getDoc, getDocs, addDoc, deleteDoc,
   collection, query, where, orderBy, Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import type { MediaVersion } from './media-types';
 

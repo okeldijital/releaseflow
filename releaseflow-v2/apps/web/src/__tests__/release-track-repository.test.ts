@@ -24,7 +24,7 @@ describe('getTracksByRelease orphan tolerance', () => {
       getDb: () => ({ _mock: true }),
     }));
 
-    vi.doMock('firebase/firestore', () => ({
+    vi.doMock('@firebase/firestore', () => ({
       getDoc: mockGetDoc,
       getDocs: mockGetDocs,
       doc: (_db: unknown, _collection: string, id: string) => ({ id }),
@@ -92,7 +92,7 @@ describe('getTracksByRelease orphan tolerance', () => {
       getDb: () => ({ _mock: true }),
     }));
 
-    vi.doMock('firebase/firestore', () => ({
+    vi.doMock('@firebase/firestore', () => ({
       getDoc: mockGetDoc,
       getDocs: mockGetDocs,
       doc: (_db: unknown, _collection: string, id: string) => ({ id }),

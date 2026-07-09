@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, getDoc, doc, addDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, addDoc, updateDoc, deleteDoc, Timestamp } from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export interface OrganizationRecord {

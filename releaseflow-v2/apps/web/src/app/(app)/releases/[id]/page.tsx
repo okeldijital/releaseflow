@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { PersonAssigner } from '@/components/person-assigner';
 import { fetchRelease, removeRelease, editRelease } from '@/lib/release-service';
+import { uploadReleaseArtwork } from '@/lib/media/media-service';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { toast } from '@/stores/toast-store';
 import { getDeliverablesByRelease } from '@/lib/deliverable-service';
@@ -236,6 +237,7 @@ export default function ReleaseWorkspacePage() {
   const [artistsUnavailable, setArtistsUnavailable] = useState(false);
   const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
+  const [, setArtworkUploading] = useState(false);
   const [tab, setTab] = useState<TabId>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(`rf-tab-release-${releaseId}`);
@@ -448,6 +450,27 @@ export default function ReleaseWorkspacePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [releaseId]);
 
+  const handleArtworkUpload = useCallback(async (file: File) => {
+    if (!user || !activeOrgId) {
+      toast.error('Cannot upload artwork', 'You must be signed in to an organisation.');
+      return;
+    }
+    setArtworkUploading(true);
+    try {
+      const result = await uploadReleaseArtwork(file, releaseId, activeOrgId, user.uid);
+      if ('error' in result) {
+        toast.error('Artwork upload failed', result.error);
+      } else {
+        toast.success('Artwork uploaded successfully.');
+        setWorkspaceReloadToken((t) => t + 1);
+      }
+    } catch {
+      toast.error('Artwork upload failed', 'Please try again.');
+    } finally {
+      setArtworkUploading(false);
+    }
+  }, [user, activeOrgId, releaseId]);
+
   useEffect(() => {
     if (!visibleTabs.some((t) => t.id === tab)) setTab('overview');
   }, [tab, visibleTabs]);
@@ -648,8 +671,8 @@ export default function ReleaseWorkspacePage() {
               title={release.title}
               artworkUrl={artworkUrl}
               status={artworkAsset ? 'approved' : undefined}
-              onReplace={() => handleTabChange('workflow')}
-              onUpload={() => handleTabChange('workflow')}
+              onReplace={() => undefined}
+              onUpload={handleArtworkUpload}
               size="lg"
             />
           </div>

@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp } from '@firebase/firestore';
 import { getStages, updateStage, updateWorkflow, createActivity } from './workflow-repository';
 import { computeProgress } from './workflow-progress';
 import { computeWorkflowHealth } from './workflow-health';

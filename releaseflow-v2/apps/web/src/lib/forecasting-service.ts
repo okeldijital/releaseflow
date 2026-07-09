@@ -34,7 +34,7 @@ async function getTaskCompletionDays(): Promise<number> {
   try {
     const { getDb } = await import('./firebase');
     const { collection, query, where, getDocs } = await import(
-      'firebase/firestore'
+      '@firebase/firestore'
     );
     const db = getDb();
     if (!db) return 3;
@@ -79,7 +79,7 @@ export async function computeReleaseForecast(
   try {
     const { getDb } = await import('./firebase');
     const { collection, query, where, getDocs } = await import(
-      'firebase/firestore'
+      '@firebase/firestore'
     );
     const db = getDb();
     if (db) {

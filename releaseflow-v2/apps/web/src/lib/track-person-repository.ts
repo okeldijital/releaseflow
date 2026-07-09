@@ -1,7 +1,7 @@
 import {
   doc, getDocs, addDoc, deleteDoc,
   collection, query, where, Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export interface TrackPersonRecord {

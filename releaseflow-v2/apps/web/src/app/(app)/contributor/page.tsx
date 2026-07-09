@@ -7,7 +7,7 @@ import { getTasksByAssignee, completeTask } from '@/lib/task-service';
 import { getPendingRequestsByApprover, approveRequest, rejectRequest } from '@/lib/approval-service';
 import { fetchUserNotifications as getNotificationsByUser, markAsRead, archiveUserNotification as archiveNotification } from '@/lib/notification-service';
 import { fmtDate } from '@/lib/utils';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { Card, Badge, StatusBadge, Button, EmptyState, Skeleton } from '@releaseflow/ui';
 import type { Task, ApprovalRequest } from '../types';

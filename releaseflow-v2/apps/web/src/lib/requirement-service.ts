@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, updateDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, getDocs, query, where, orderBy, Timestamp } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { getRequirementNamesForReleaseType } from '@/lib/requirement-templates';
 import type { ReleaseRequirement } from '@/app/(app)/types';

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useOrgStore } from '@/stores/org-store';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { Button, Card, EmptyState, LoadingState, StatusBadge } from '@releaseflow/ui';
 import type { Campaign } from '../types';

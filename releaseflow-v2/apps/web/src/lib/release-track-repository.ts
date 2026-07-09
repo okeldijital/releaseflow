@@ -1,7 +1,7 @@
 import {
   doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 import type { TrackRecord } from './track-repository';
 import { resolveRecordingType } from '@/lib/recording-type';

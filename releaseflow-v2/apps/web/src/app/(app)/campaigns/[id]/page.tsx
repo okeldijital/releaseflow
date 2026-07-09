@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect, FormEvent } from 'react';
 import { useParams } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { useAuth } from '@/contexts/auth-context';
 import {

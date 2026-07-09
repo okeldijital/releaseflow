@@ -1,7 +1,7 @@
 import {
   doc, getDoc, getDocs, addDoc, updateDoc,
   collection, query, where, orderBy, Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export type ChecklistCategory = 'mastering' | 'artwork' | 'video' | 'general';

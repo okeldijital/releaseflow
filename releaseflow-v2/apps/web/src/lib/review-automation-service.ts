@@ -1,4 +1,4 @@
-import { getDocs, collection, query, where } from 'firebase/firestore';
+import { getDocs, collection, query, where } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 
 export async function autoAssignReviewer(

@@ -57,7 +57,7 @@ export async function submitForReview(
     deliverableId = entityId;
   } else {
     const { getDeliverable } = await import('@/lib/deliverable-management-repository');
-    const { doc, updateDoc, Timestamp } = await import('firebase/firestore');
+    const { doc, updateDoc, Timestamp } = await import('@firebase/firestore');
     const db = getDb();
     if (!db) throw new Error('Firestore not initialized');
     const del = await getDeliverable(entityId);

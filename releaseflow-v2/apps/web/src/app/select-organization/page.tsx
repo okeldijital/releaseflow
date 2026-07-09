@@ -14,7 +14,7 @@ import {
   type MembershipRecord,
 } from '@/lib/organization-repository';
 import { getAuthInstance } from '@/lib/firebase';
-import { signOut } from 'firebase/auth';
+import { signOut } from '@firebase/auth';
 
 export default function SelectOrganizationPage() {
   const { user, loading: authLoading } = useAuth();

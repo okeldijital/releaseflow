@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { useRoleStore } from '@/stores/role-store';
-import { signOut as firebaseSignOut } from 'firebase/auth';
+import { signOut as firebaseSignOut } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
 import { AppShell, Skeleton } from '@releaseflow/ui';
 import { CommandPalette } from '@/components/command-palette';

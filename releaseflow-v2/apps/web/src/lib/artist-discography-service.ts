@@ -1,4 +1,4 @@
-import { getDocs, collection, query, where, getDoc, doc } from 'firebase/firestore';
+import { getDocs, collection, query, where, getDoc, doc } from '@firebase/firestore';
 import { getDb } from './firebase';
 import { getGroupsForArtist } from './artist-membership-repository';
 

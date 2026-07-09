@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 
 export interface IntegrityIssue {

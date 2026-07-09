@@ -1,7 +1,7 @@
 import {
   doc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 
 export interface EntityCommentRecord {

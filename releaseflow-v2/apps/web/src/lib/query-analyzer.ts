@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, getCountFromServer, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, getCountFromServer, limit } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 import { reviewPerformance } from '@/lib/performance-review';
 

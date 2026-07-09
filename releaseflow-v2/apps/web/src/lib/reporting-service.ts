@@ -130,7 +130,7 @@ async function generateTasksReport(
   config: ReportConfig,
 ): Promise<Record<string, unknown>[]> {
   const { getDb } = await import('./firebase');
-  const { collection, query, where, getDocs } = await import('firebase/firestore');
+  const { collection, query, where, getDocs } = await import('@firebase/firestore');
   const db = getDb();
   if (!db) return [];
 
@@ -202,7 +202,7 @@ async function generateCreditsReport(
   config: ReportConfig,
 ): Promise<Record<string, unknown>[]> {
   const { getDb } = await import('./firebase');
-  const { collection, query, where, getDocs } = await import('firebase/firestore');
+  const { collection, query, where, getDocs } = await import('@firebase/firestore');
   const db = getDb();
   if (!db) return [];
 
@@ -243,7 +243,7 @@ async function generateRightsReport(
   config: ReportConfig,
 ): Promise<Record<string, unknown>[]> {
   const { getDb } = await import('./firebase');
-  const { collection, query, where, getDocs } = await import('firebase/firestore');
+  const { collection, query, where, getDocs } = await import('@firebase/firestore');
   const db = getDb();
   if (!db) return [];
 
@@ -284,7 +284,7 @@ async function generateDistributionReport(
   config: ReportConfig,
 ): Promise<Record<string, unknown>[]> {
   const { getDb } = await import('./firebase');
-  const { collection, query, where, getDocs, orderBy } = await import('firebase/firestore');
+  const { collection, query, where, getDocs, orderBy } = await import('@firebase/firestore');
   const db = getDb();
   if (!db) return [];
 

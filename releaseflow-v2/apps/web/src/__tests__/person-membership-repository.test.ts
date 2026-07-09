@@ -4,7 +4,7 @@ vi.mock('@/lib/firebase', () => ({
   getDb: vi.fn(() => ({})),
 }));
 
-vi.mock('firebase/firestore', () => {
+vi.mock('@firebase/firestore', () => {
   const callHistory: Array<{ fn: string; args: unknown[] }> = [];
   const pendingWheres: Array<{ field: string; op: string; value: string }> = [];
 

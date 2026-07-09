@@ -149,7 +149,7 @@ export function ReleaseArtwork({
         )}
       </div>
 
-      {onUpload && (
+      {(onUpload || onReplace) && (
         <input
           ref={inputRef}
           type="file"
@@ -163,7 +163,7 @@ export function ReleaseArtwork({
       {hasArtwork && (onReplace || onRemove) && (
         <div className="flex gap-2 mt-3">
           {onReplace && (
-            <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={onReplace}>
+            <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={handleUploadClick}>
               Replace
             </Button>
           )}

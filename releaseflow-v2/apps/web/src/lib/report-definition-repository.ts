@@ -8,7 +8,7 @@ import {
   where,
   orderBy,
   Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 import type { ReportDomain } from './reporting-service';
 

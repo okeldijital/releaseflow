@@ -1,7 +1,7 @@
 import {
   doc, getDoc, getDocs, addDoc, deleteDoc,
   collection, query, orderBy, Timestamp,
-} from 'firebase/firestore';
+} from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export interface LabelRecord {

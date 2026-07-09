@@ -138,7 +138,7 @@ export default function AdministrationMembersPage() {
     let cancelled = false;
     async function load() {
       const [{ getDoc, doc }, { getDb }] = await Promise.all([
-        import('firebase/firestore'),
+        import('@firebase/firestore'),
         import('@/lib/firebase'),
       ]);
       const db = getDb();
