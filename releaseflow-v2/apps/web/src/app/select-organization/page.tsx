@@ -13,7 +13,6 @@ import {
   type OrganizationRecord,
   type MembershipRecord,
 } from '@/lib/organization-repository';
-import { getUserProfile } from '@/lib/user-profile-repository';
 import { getAuthInstance } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 
@@ -43,14 +42,6 @@ export default function SelectOrganizationPage() {
     let cancelled = false;
 
     async function load() {
-      const profile = await getUserProfile(uid);
-      if (cancelled) return;
-
-      if (!profile || !profile.onboardingCompleted) {
-        router.replace('/onboarding');
-        return;
-      }
-
       const userOrgs = await getOrganizationsByUser(uid);
       if (cancelled) return;
       setOrgs(userOrgs);

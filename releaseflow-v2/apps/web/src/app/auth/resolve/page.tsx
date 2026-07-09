@@ -4,9 +4,20 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { getOrganizationsByUser } from '@/lib/organization-repository';
-import { getUserProfile } from '@/lib/user-profile-repository';
 import { useOrgStore } from '@/stores/org-store';
 
+/**
+ * Authentication resolver.
+ *
+ * Routing is determined exclusively by organization memberships.
+ * The `onboardingCompleted` flag is informational only and does not
+ * participate in routing decisions.
+ *
+ * Decision matrix:
+ *   0 memberships          → /onboarding
+ *   1 membership           → /dashboard
+ *   >1 memberships         → /select-organization
+ */
 export default function AuthResolvePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -23,13 +34,11 @@ export default function AuthResolvePage() {
     let cancelled = false;
 
     async function resolve() {
-      const profile = await getUserProfile(uid);
-      if (cancelled) return;
-
       const orgs = await getOrganizationsByUser(uid);
       if (cancelled) return;
 
-      if (!profile || !profile.onboardingCompleted) {
+      if (orgs.length === 0) {
+        // No memberships — new user or account with no org yet.
         router.replace('/onboarding');
         return;
       }
@@ -37,20 +46,24 @@ export default function AuthResolvePage() {
       const persistedOrgId = useOrgStore.getState().activeOrgId;
 
       if (persistedOrgId && orgs.some((o) => o.id === persistedOrgId)) {
+        // Honour the persisted org selection.
         setActiveOrgId(persistedOrgId);
-      } else if (orgs.length === 1 && orgs[0]) {
-        setActiveOrgId(orgs[0].id);
-      }
-
-      setOrgsLoaded(true);
-
-      if (orgs.length > 1 && (!persistedOrgId || !orgs.some((o) => o.id === persistedOrgId))) {
-        router.replace('/select-organization');
-      } else if (orgs.length === 0) {
-        router.replace('/select-organization');
-      } else {
+        setOrgsLoaded(true);
         router.replace('/dashboard');
+        return;
       }
+
+      if (orgs.length === 1 && orgs[0]) {
+        // Exactly one org — select it and go straight to the dashboard.
+        setActiveOrgId(orgs[0].id);
+        setOrgsLoaded(true);
+        router.replace('/dashboard');
+        return;
+      }
+
+      // Multiple orgs with no valid persisted selection — let the user choose.
+      setOrgsLoaded(true);
+      router.replace('/select-organization');
     }
 
     resolve();
