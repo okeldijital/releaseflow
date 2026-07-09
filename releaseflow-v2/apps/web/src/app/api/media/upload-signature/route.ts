@@ -2,20 +2,28 @@ import { NextResponse } from 'next/server';
 import { cloudinaryConfig } from '@releaseflow/firebase/cloudinary/config';
 import { signUpload } from '@releaseflow/firebase/cloudinary/signature';
 import { getAdminAuth, getAdminDb } from '@/lib/server/firebase-admin';
+import { hasPermission, type MembershipResolver } from '@/lib/auth/authorization-service';
+import { resolveRole } from '@releaseflow/core/auth/authorization';
 
 export const runtime = 'nodejs';
 
-const ENTITY_FOLDERS: Record<string, string> = {
-  release: cloudinaryConfig.folders.releases,
-  artist: cloudinaryConfig.folders.avatars,
-  person: cloudinaryConfig.folders.avatars,
+const ROOT_FOLDER = 'releaseflow';
+
+// Server-controlled mapping of entity type → org-scoped subfolder.
+const ENTITY_SUBFOLDER: Record<string, string> = {
+  release: 'releases',
+  artist: 'artists',
+  person: 'people',
+  marketing: 'marketing',
 };
 
 function configIncomplete(): boolean {
   return !cloudinaryConfig.cloudName || !cloudinaryConfig.apiKey || !cloudinaryConfig.apiSecret;
 }
 
-async function isOrgMember(uid: string, organizationId: string): Promise<boolean> {
+// Membership resolution via the Admin SDK. The role → permission decision is
+// delegated to the Authorization Service; we only resolve the active role here.
+const serverMembershipResolver: MembershipResolver = async (organizationId, uid) => {
   const db = getAdminDb();
   const snap = await db
     .collection('memberships')
@@ -24,8 +32,10 @@ async function isOrgMember(uid: string, organizationId: string): Promise<boolean
     .where('status', '==', 'active')
     .limit(1)
     .get();
-  return !snap.empty;
-}
+  if (snap.empty) return null;
+  const data = snap.docs[0]?.data() as { roleId?: string | null; status?: string } | undefined;
+  return resolveRole(data);
+};
 
 export async function POST(request: Request) {
   try {
@@ -53,14 +63,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing upload context.' }, { status: 400 });
     }
 
-    if (!(await isOrgMember(uid, body.organizationId))) {
+    if (!(await hasPermission(body.organizationId, uid, 'media.upload', { membershipResolver: serverMembershipResolver }))) {
       return NextResponse.json(
         { error: 'You do not have permission to upload artwork for this release.' },
         { status: 403 },
       );
     }
 
-    const folder = ENTITY_FOLDERS[body.entityType] ?? cloudinaryConfig.folders.assets;
+    // The folder is always derived server-side from the authenticated
+    // organization; the client never controls the storage path.
+    const subfolder = ENTITY_SUBFOLDER[body.entityType] ?? 'assets';
+    const folder = `${ROOT_FOLDER}/${body.organizationId}/${subfolder}`;
     const timestamp = Math.floor(Date.now() / 1000);
     const signed = signUpload({ folder, timestamp });
 

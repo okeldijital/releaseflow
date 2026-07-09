@@ -47,6 +47,9 @@ importers:
       '@firebase/firestore':
         specifier: 4.8.0
         version: 4.8.0(@firebase/app@0.13.2)
+      '@releaseflow/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@releaseflow/domain-ui':
         specifier: workspace:*
         version: link:../../packages/domain-ui
@@ -102,6 +105,15 @@ importers:
 
   packages/config:
     devDependencies:
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+
+  packages/core:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.0
+        version: 22.20.0
       typescript:
         specifier: ^5.8.0
         version: 5.9.3

@@ -17,6 +17,8 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"],
+    "@releaseflow/core": ["../../packages/core/src/index.ts"],
+    "@releaseflow/core/*": ["../../packages/core/src/*"],
     "@releaseflow/firebase": ["../../packages/firebase/src/index.ts"],
     "@releaseflow/firebase/*": ["../../packages/firebase/src/*"],
     "@releaseflow/ui": ["../../packages/ui/src/index.ts"],

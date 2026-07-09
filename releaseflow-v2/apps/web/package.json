@@ -12,6 +12,7 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@releaseflow/core": "workspace:*",
     "@releaseflow/domain-ui": "workspace:*",
     "@releaseflow/firebase": "workspace:*",
     "@firebase/app": "0.13.2",

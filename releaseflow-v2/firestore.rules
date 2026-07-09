@@ -15,10 +15,28 @@ service cloud.firestore {
       return isAuth() && get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid;
     }
 
-    // Organization-scoped: only auth users of same org can read/write
-    // Organization management
+    // BUILD-031A — Firestore Rules enforce the outer boundary only:
+    //   authenticated + tenant isolation. The full RBAC model (membership →
+    //   role → permission) is NOT encoded here; it is enforced server-side by
+    //   the Authorization Service, which resolves memberships and roles. Rules
+    //   therefore only stop cross-org / unauthenticated access.
+
+    // Organization management stays owner-only (organization.manage).
     match /organizations/{orgId}    { allow read: if isAuth(); allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid; allow update,delete: if isOrgOwner(orgId); }
     match /organizations/{orgId}/artists/{artistId} { allow read, write: if isAuth(); }
+
+    // Media subsystem — organization-scoped subcollections (multi-tenant).
+    // Rules enforce auth + tenant isolation (the asset's organizationId must
+    // match the path org). Per-role permissions (upload/replace/delete/approve)
+    // are enforced server-side; do not encode them here.
+    function mediaGuard(orgId) {
+      return isAuth() && orgMatch(orgId);
+    }
+    match /organizations/{orgId}/media_assets/{assetId}     { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
+    match /organizations/{orgId}/media_versions/{versionId} { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
+    match /organizations/{orgId}/media_usage/{usageId}      { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
+    match /organizations/{orgId}/media_reviews/{reviewId}   { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
+    match /organizations/{orgId}/media_comments/{commentId} { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
     match /memberships/{docId}      { allow read: if isAuth(); allow write: if isAuth(); }
     match /roles/{docId}            { allow read,write: if isAuth(); }
 

@@ -1,0 +1,22 @@
+{
+  "name": "@releaseflow/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth/permissions": "./src/auth/permissions.ts",
+    "./auth/registry": "./src/auth/registry.ts",
+    "./auth/roles": "./src/auth/roles.ts",
+    "./auth/authorization": "./src/auth/authorization.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "typescript": "^5.8.0"
+  }
+}

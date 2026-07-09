@@ -19,6 +19,7 @@ import {
 } from './media-usage-repository';
 import { uploadFile, getImageDimensions, generateThumbnailUrl } from './media-upload';
 import { upsertArtworkDeliverable } from '@/lib/deliverable-service';
+import { hasPermission } from '@/lib/auth/authorization-service';
 import type { MediaAsset, MediaVersion, MediaReview, MediaUsage } from './media-types';
 
 export async function uploadReleaseArtwork(
@@ -27,8 +28,12 @@ export async function uploadReleaseArtwork(
   organizationId: string,
   userId: string,
   notes?: string,
-): Promise<{ assetId: string; versionId: string; deliverableId: string } | { error: string }> {
+):   Promise<{ assetId: string; versionId: string; deliverableId: string } | { error: string }> {
   try {
+    if (!(await hasPermission(organizationId, userId, 'media.upload'))) {
+      return { error: 'You do not have permission to upload media for this organization.' };
+    }
+
     const dimensions = await getImageDimensions(file);
     if (dimensions && (dimensions.width < 1400 || dimensions.height < 1400)) {
       return { error: `Image dimensions too small. Minimum 1400x1400px (got ${dimensions.width}x${dimensions.height})` };
@@ -59,7 +64,7 @@ export async function uploadReleaseArtwork(
       createdBy: userId,
     });
 
-    const versionId = await createMediaVersion({
+    const versionId = await createMediaVersion(organizationId, {
       assetId,
       versionNumber: 1,
       storageKey,
@@ -71,7 +76,7 @@ export async function uploadReleaseArtwork(
       uploadedBy: userId,
     });
 
-    await trackMediaUsage({
+    await trackMediaUsage(organizationId, {
       assetId,
       contextType: 'release',
       contextId: releaseId,
@@ -85,7 +90,7 @@ export async function uploadReleaseArtwork(
       url: result.secureUrl,
     });
 
-    await updateMediaAsset(assetId, { currentVersionId: versionId });
+    await updateMediaAsset(organizationId, assetId, { currentVersionId: versionId });
 
     return { assetId, versionId, deliverableId };
   } catch (err) {
@@ -94,13 +99,18 @@ export async function uploadReleaseArtwork(
 }
 
 export async function replaceReleaseArtwork(
+  organizationId: string,
   assetId: string,
   file: File,
   userId: string,
   notes?: string,
-): Promise<{ versionId: string } | { error: string }> {
+):   Promise<{ versionId: string } | { error: string }> {
   try {
-    const asset = await getMediaAsset(assetId);
+    if (!(await hasPermission(organizationId, userId, 'media.replace'))) {
+      return { error: 'You do not have permission to replace this media asset.' };
+    }
+
+    const asset = await getMediaAsset(organizationId, assetId);
     if (!asset) return { error: 'Asset not found' };
 
     const dimensions = await getImageDimensions(file);
@@ -115,13 +125,13 @@ export async function replaceReleaseArtwork(
       tags: [`release:${asset.releaseId}`, `org:${asset.organizationId}`],
     });
 
-    const versions = await getVersionsByAsset(assetId);
+    const versions = await getVersionsByAsset(organizationId, assetId);
     const maxVersion = versions.reduce((max, v) => Math.max(max, v.versionNumber), 0);
 
     const storageKey = result.publicId;
     const thumbnailUrl = generateThumbnailUrl(result.publicId);
 
-    const versionId = await createMediaVersion({
+    const versionId = await createMediaVersion(organizationId, {
       assetId,
       versionNumber: maxVersion + 1,
       storageKey,
@@ -133,7 +143,7 @@ export async function replaceReleaseArtwork(
       uploadedBy: userId,
     });
 
-    await updateMediaAsset(assetId, {
+    await updateMediaAsset(organizationId, assetId, {
       currentVersionId: versionId,
       storageKey,
       secureUrl: result.secureUrl,
@@ -157,16 +167,21 @@ export async function replaceReleaseArtwork(
 }
 
 export async function approveAsset(
+  organizationId: string,
   assetId: string,
   versionId: string,
   reviewerId: string,
   comments?: string,
 ): Promise<{ reviewId: string } | { error: string }> {
   try {
-    const asset = await getMediaAsset(assetId);
+    if (!(await hasPermission(organizationId, reviewerId, 'media.approve'))) {
+      return { error: 'You do not have permission to approve this media asset.' };
+    }
+
+    const asset = await getMediaAsset(organizationId, assetId);
     if (!asset) return { error: 'Asset not found' };
 
-    const reviewId = await createMediaReview({
+    const reviewId = await createMediaReview(organizationId, {
       assetId,
       versionId,
       reviewerId,
@@ -174,7 +189,7 @@ export async function approveAsset(
       comments,
     });
 
-    await updateMediaAsset(assetId, { status: 'approved' });
+    await updateMediaAsset(organizationId, assetId, { status: 'approved' });
 
     return { reviewId };
   } catch (err) {
@@ -183,16 +198,21 @@ export async function approveAsset(
 }
 
 export async function rejectAsset(
+  organizationId: string,
   assetId: string,
   versionId: string,
   reviewerId: string,
   comments?: string,
 ): Promise<{ reviewId: string } | { error: string }> {
   try {
-    const asset = await getMediaAsset(assetId);
+    if (!(await hasPermission(organizationId, reviewerId, 'media.approve'))) {
+      return { error: 'You do not have permission to reject this media asset.' };
+    }
+
+    const asset = await getMediaAsset(organizationId, assetId);
     if (!asset) return { error: 'Asset not found' };
 
-    const reviewId = await createMediaReview({
+    const reviewId = await createMediaReview(organizationId, {
       assetId,
       versionId,
       reviewerId,
@@ -200,7 +220,7 @@ export async function rejectAsset(
       comments,
     });
 
-    await updateMediaAsset(assetId, { status: 'rejected' });
+    await updateMediaAsset(organizationId, assetId, { status: 'rejected' });
 
     return { reviewId };
   } catch (err) {
@@ -209,16 +229,21 @@ export async function rejectAsset(
 }
 
 export async function requestChanges(
+  organizationId: string,
   assetId: string,
   versionId: string,
   reviewerId: string,
   comments?: string,
 ): Promise<{ reviewId: string } | { error: string }> {
   try {
-    const asset = await getMediaAsset(assetId);
+    if (!(await hasPermission(organizationId, reviewerId, 'media.review'))) {
+      return { error: 'You do not have permission to review this media asset.' };
+    }
+
+    const asset = await getMediaAsset(organizationId, assetId);
     if (!asset) return { error: 'Asset not found' };
 
-    const reviewId = await createMediaReview({
+    const reviewId = await createMediaReview(organizationId, {
       assetId,
       versionId,
       reviewerId,
@@ -226,7 +251,7 @@ export async function requestChanges(
       comments,
     });
 
-    await updateMediaAsset(assetId, { status: 'changes_requested' });
+    await updateMediaAsset(organizationId, assetId, { status: 'changes_requested' });
 
     return { reviewId };
   } catch (err) {
@@ -235,18 +260,23 @@ export async function requestChanges(
 }
 
 export async function restoreVersion(
+  organizationId: string,
   assetId: string,
   versionId: string,
   _userId: string,
 ): Promise<{ success: true } | { error: string }> {
   try {
-    const asset = await getMediaAsset(assetId);
+    if (!(await hasPermission(organizationId, _userId, 'media.restore'))) {
+      return { error: 'You do not have permission to restore this media asset.' };
+    }
+
+    const asset = await getMediaAsset(organizationId, assetId);
     if (!asset) return { error: 'Asset not found' };
 
-    const version = await getMediaVersion(versionId);
+    const version = await getMediaVersion(organizationId, versionId);
     if (!version || version.assetId !== assetId) return { error: 'Version not found' };
 
-    await updateMediaAsset(assetId, {
+    await updateMediaAsset(organizationId, assetId, {
       currentVersionId: versionId,
       storageKey: version.storageKey,
       thumbnailUrl: version.thumbnailUrl,
@@ -263,17 +293,21 @@ export async function restoreVersion(
 }
 
 export async function deleteAssetWithCheck(
+  organizationId: string,
   assetId: string,
-  organizationId?: string,
   actorId?: string,
 ): Promise<{ success: true } | { error: string; usage?: MediaUsage[] }> {
   try {
-    const usage = await getUsageByAsset(assetId);
+    if (actorId && !(await hasPermission(organizationId, actorId, 'media.delete'))) {
+      return { error: 'You do not have permission to delete this media asset.' };
+    }
+
+    const usage = await getUsageByAsset(organizationId, assetId);
     if (usage.length > 0) {
       return { error: 'Asset is in use and cannot be deleted', usage };
     }
 
-    await deleteMediaAsset(assetId, organizationId, actorId);
+    await deleteMediaAsset(organizationId, assetId, actorId);
     return { success: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Delete failed' };
@@ -287,13 +321,16 @@ export interface AssetWithDetails {
   usage: MediaUsage[];
 }
 
-export async function getAssetWithDetails(assetId: string): Promise<AssetWithDetails | null> {
+export async function getAssetWithDetails(
+  organizationId: string,
+  assetId: string,
+): Promise<AssetWithDetails | null> {
   try {
     const [asset, versions, reviews, usage] = await Promise.all([
-      getMediaAsset(assetId),
-      getVersionsByAsset(assetId),
-      getReviewsByAsset(assetId),
-      getUsageByAsset(assetId),
+      getMediaAsset(organizationId, assetId),
+      getVersionsByAsset(organizationId, assetId),
+      getReviewsByAsset(organizationId, assetId),
+      getUsageByAsset(organizationId, assetId),
     ]);
 
     if (!asset) return null;
