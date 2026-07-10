@@ -31,7 +31,7 @@ export function reviewPerformance(): PerformanceReport {
     { collection: 'deliverables', filters: ['releaseId'], order: ['createdAt'], frequency: 'high', recommendation: 'Composite index: releaseId + createdAt' },
     { collection: 'campaigns', filters: ['releaseId'], order: ['createdAt'], frequency: 'medium', recommendation: 'Composite index: releaseId + createdAt' },
     { collection: 'operational_alerts', filters: ['releaseId', 'resolved'], order: ['priority', 'createdAt'], frequency: 'medium', recommendation: 'Composite index: releaseId + resolved + priority + createdAt' },
-    { collection: 'activities', filters: [], order: ['createdAt'], frequency: 'medium', recommendation: 'Consider composite index for querying by releaseId + createdAt for audit trails' },
+    { collection: 'activity_events', filters: [], order: ['createdAt'], frequency: 'medium', recommendation: 'Consider composite index for querying by entityId + createdAt for audit trails' },
     { collection: 'notifications', filters: ['userId', 'read', 'archived'], order: ['createdAt'], frequency: 'high', recommendation: 'Composite index: userId + read + archived + createdAt' },
   ];
 
@@ -42,7 +42,7 @@ export function reviewPerformance(): PerformanceReport {
     { collection: 'deliverables', fields: ['releaseId', 'createdAt', 'desc'], reason: 'Deliverable listing', suggested: true },
     { collection: 'notifications', fields: ['userId', 'read', 'archived', 'createdAt', 'desc'], reason: 'Notification feed', suggested: true },
     { collection: 'operational_alerts', fields: ['releaseId', 'resolved', 'priority', 'desc', 'createdAt', 'desc'], reason: 'Alert dashboard', suggested: true },
-    { collection: 'activities', fields: ['releaseId', 'createdAt', 'desc'], reason: 'Activity feed per release', suggested: true },
+    { collection: 'activity_events', fields: ['entityId', 'createdAt', 'desc'], reason: 'Activity feed per release', suggested: true },
     { collection: 'campaigns', fields: ['releaseId', 'createdAt', 'desc'], reason: 'Campaign listing', suggested: true },
     { collection: 'release_requirements', fields: ['releaseId', 'createdAt', 'asc'], reason: 'Requirement listing', suggested: true },
     { collection: 'cost_items', fields: ['releaseId', 'createdAt', 'desc'], reason: 'Budget cost tracking', suggested: true },
@@ -56,7 +56,7 @@ export function reviewPerformance(): PerformanceReport {
   ];
 
   const collectionGrowth: string[] = [
-    'activities — grows linearly with every action (fastest growing)',
+    'activity_events — grows linearly with every action (fastest growing)',
     'operational_alerts — grows per rule evaluation (medium growth, periodic cleanup needed)',
     'notifications — grows per event (medium growth, archive old)',
     'tasks, deliverables, comments — grows per release (steady)',
@@ -66,7 +66,7 @@ export function reviewPerformance(): PerformanceReport {
 
   const recommendations: string[] = [
     'Use Firestore composite indexes defined above to avoid index errors on compound queries',
-    'Consider paginating tasks/activities using cursor-based pagination (startAfter)',
+    'Consider paginating tasks/activity_events using cursor-based pagination (startAfter)',
     'Add a cleanup job to archive resolved alerts older than 30 days',
     'Add a "search_releases" index for free-text title search if needed',
     'Consider denormalizing release title into tasks/deliverables for cheaper reads',

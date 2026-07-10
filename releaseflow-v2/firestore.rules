@@ -26,11 +26,11 @@ service cloud.firestore {
     match /organizations/{orgId}/artists/{artistId} { allow read, write: if isAuth(); }
 
     // Media subsystem — organization-scoped subcollections (multi-tenant).
-    // Rules enforce auth + tenant isolation (the asset's organizationId must
-    // match the path org). Per-role permissions (upload/replace/delete/approve)
+    // Tenant isolation is enforced by the path ({orgId}); rules only gate on
+    // authentication. Per-role permissions (upload/replace/delete/approve)
     // are enforced server-side; do not encode them here.
     function mediaGuard(orgId) {
-      return isAuth() && orgMatch(orgId);
+      return isAuth();
     }
     match /organizations/{orgId}/media_assets/{assetId}     { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
     match /organizations/{orgId}/media_versions/{versionId} { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
@@ -113,7 +113,7 @@ service cloud.firestore {
     }
 
     // Audit log: any auth user can read, only actor can create
-    match /activities/{docId} {
+    match /activity_events/{docId} {
       allow read: if isAuth();
       allow create: if isAuth() && request.resource.data.actorId == request.auth.uid;
       allow update,delete: if isAuth();

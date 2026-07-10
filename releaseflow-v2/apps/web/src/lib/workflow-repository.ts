@@ -97,8 +97,20 @@ export async function createActivity(fields: {
 }): Promise<void> {
   const db = getDb();
   if (!db) return;
-  await addDoc(collection(db, 'activities'), {
-    ...fields,
+  const releaseSnap = await getDoc(doc(db, 'releases', fields.releaseId));
+  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined;
+  await addDoc(collection(db, 'activity_events'), {
+    entityType: 'release',
+    entityId: fields.releaseId,
+    organizationId: organizationId ?? '',
+    actorId: fields.actorId,
+    action: fields.type,
+    details: null,
+    metadata: {
+      ...(fields.metadata ?? {}),
+      workflowId: fields.workflowId,
+      stageId: fields.stageId,
+    },
     createdAt: Timestamp.now(),
   });
 }
@@ -111,8 +123,9 @@ export async function getActivities(
   if (!db) return [];
   const snap = await getDocs(
     query(
-      collection(db, 'activities'),
-      where('releaseId', '==', releaseId),
+      collection(db, 'activity_events'),
+      where('entityType', '==', 'release'),
+      where('entityId', '==', releaseId),
       orderBy('createdAt', 'desc'),
       limit(maxResults),
     ),
@@ -121,10 +134,10 @@ export async function getActivities(
     const data = d.data();
     return {
       id: d.id,
-      type: data.type as string,
-      releaseId: data.releaseId as string,
-      workflowId: data.workflowId as string | null,
-      stageId: data.stageId as string | null,
+      type: data.action as string,
+      releaseId: data.entityId as string,
+      workflowId: (data.metadata as Record<string, unknown> | null)?.workflowId as string | null | undefined,
+      stageId: (data.metadata as Record<string, unknown> | null)?.stageId as string | null | undefined,
       actorId: data.actorId as string,
       metadata: data.metadata as Record<string, unknown> | null,
       createdAt: (data.createdAt as { toDate: () => Date }).toDate(),

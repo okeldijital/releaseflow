@@ -41,7 +41,7 @@ export function auditSecurityRules(): AuditReport {
     { collection: 'resource_assignments', rule: 'auth-only', description: 'Auth required for read/write', status: 'defined', risk: 'medium' },
     { collection: 'dependencies', rule: 'auth-only', description: 'Auth required for read/write', status: 'defined', risk: 'medium' },
     { collection: 'operational_alerts', rule: 'auth-only', description: 'Auth required for read/write', status: 'defined', risk: 'low' },
-    { collection: 'activities', rule: 'actor-only create', description: 'Only actor can create activities', status: 'defined', risk: 'medium' },
+    { collection: 'activity_events', rule: 'actor-only create', description: 'Only actor can create activity events', status: 'defined', risk: 'medium' },
     { collection: 'notifications', rule: 'user-only', description: 'Only owner can read/write', status: 'defined', risk: 'medium' },
   ];
 

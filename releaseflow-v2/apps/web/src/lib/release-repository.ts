@@ -133,12 +133,13 @@ export async function createRelease(
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
-  await addDoc(collection(db, 'activities'), {
-    type: 'release.created',
-    releaseId: ref.id,
-    workflowId: null,
-    stageId: null,
+  await addDoc(collection(db, 'activity_events'), {
+    entityType: 'release',
+    entityId: ref.id,
+    organizationId: fields.organizationId,
     actorId,
+    action: 'release.created',
+    details: null,
     metadata: { title: fields.title, releaseType: fields.releaseType },
     createdAt: Timestamp.now(),
   });
@@ -214,25 +215,27 @@ export async function createReleaseWithWorkflow(
     });
   }
 
-  const activityRef = doc(collection(db, 'activities'));
+  const activityRef = doc(collection(db, 'activity_events'));
   batch.set(activityRef, {
-    type: 'release.created',
-    releaseId: releaseRef.id,
-    workflowId,
-    stageId: null,
+    entityType: 'release',
+    entityId: releaseRef.id,
+    organizationId: fields.organizationId,
     actorId,
+    action: 'release.created',
+    details: null,
     metadata: { title: fields.title, releaseType: fields.releaseType },
     createdAt: now,
   });
 
   if (workflowId) {
-    const wfActivityRef = doc(collection(db, 'activities'));
+    const wfActivityRef = doc(collection(db, 'activity_events'));
     batch.set(wfActivityRef, {
-      type: 'workflow.generated',
-      releaseId: releaseRef.id,
-      workflowId,
-      stageId: null,
+      entityType: 'release',
+      entityId: releaseRef.id,
+      organizationId: fields.organizationId,
       actorId,
+      action: 'workflow.generated',
+      details: null,
       metadata: { stageCount: stageTemplates.length },
       createdAt: now,
     });
@@ -274,12 +277,15 @@ export async function updateRelease(
   if (fields.language !== undefined) updateData.language = fields.language;
   if (fields.explicit !== undefined) updateData.explicit = fields.explicit;
   await updateDoc(doc(db, 'releases', releaseId), updateData);
-  await addDoc(collection(db, 'activities'), {
-    type: 'release.updated',
-    releaseId,
-    workflowId: null,
-    stageId: null,
+  const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
+  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined;
+  await addDoc(collection(db, 'activity_events'), {
+    entityType: 'release',
+    entityId: releaseId,
+    organizationId: organizationId ?? '',
     actorId,
+    action: 'release.updated',
+    details: null,
     metadata: { changes: Object.keys(updateData).filter((k) => k !== 'updatedAt') },
     createdAt: Timestamp.now(),
   });
@@ -294,12 +300,15 @@ export async function updateReleaseStatus(
   const db = getDb();
   if (!db) throw new Error('Firestore unavailable');
   await updateDoc(doc(db, 'releases', releaseId), { status, updatedAt: Timestamp.now() });
-  await addDoc(collection(db, 'activities'), {
-    type: 'release.status.changed',
-    releaseId,
-    workflowId: null,
-    stageId: null,
+  const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
+  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined;
+  await addDoc(collection(db, 'activity_events'), {
+    entityType: 'release',
+    entityId: releaseId,
+    organizationId: organizationId ?? '',
     actorId,
+    action: 'release.status.changed',
+    details: null,
     metadata: { newStatus: status, ...metadata },
     createdAt: Timestamp.now(),
   });

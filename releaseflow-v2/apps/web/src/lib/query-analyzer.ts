@@ -28,7 +28,7 @@ export async function analyzeQueries(orgId: string): Promise<QueryReport> {
   if (ids.length === 0) return { totalQueries: 0, profiles: [], score: 0, improvements: ['No releases found for this organization'] };
 
   const counts: { name: string; count: number }[] = [];
-  for (const col of ['tasks', 'deliverables', 'stages', 'activities', 'notifications', 'operational_alerts', 'campaigns']) {
+  for (const col of ['tasks', 'deliverables', 'stages', 'activity_events', 'notifications', 'operational_alerts', 'campaigns']) {
     try {
       const countSnap = await getCountFromServer(
         query(collection(db, col), where('releaseId', 'in', ids.slice(0, 10))),
