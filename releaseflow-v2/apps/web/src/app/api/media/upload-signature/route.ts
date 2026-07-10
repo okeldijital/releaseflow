@@ -15,6 +15,7 @@ const ENTITY_SUBFOLDER: Record<string, string> = {
   artist: 'artists',
   person: 'people',
   marketing: 'marketing',
+  artwork: 'releases',
 };
 
 function configIncomplete(): boolean {
@@ -63,9 +64,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing upload context.' }, { status: 400 });
     }
 
-    if (!(await hasPermission(body.organizationId, uid, 'media.upload', { membershipResolver: serverMembershipResolver }))) {
+    if (!(await hasPermission(body.organizationId, uid, body.entityType === 'artwork' ? 'artwork.upload' : 'media.upload', { membershipResolver: serverMembershipResolver }))) {
       return NextResponse.json(
-        { error: 'You do not have permission to upload artwork for this release.' },
+        { error: `You do not have permission to upload ${body.entityType === 'artwork' ? 'artwork' : 'media'} for this organization.` },
         { status: 403 },
       );
     }

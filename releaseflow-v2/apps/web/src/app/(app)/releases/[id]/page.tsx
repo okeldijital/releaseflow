@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { PersonAssigner } from '@/components/person-assigner';
 import { fetchRelease, removeRelease, editRelease } from '@/lib/release-service';
-import { uploadReleaseArtwork } from '@/lib/media/media-service';
+import { uploadArtwork, replaceArtwork, removeArtwork, getArtworkByRelease } from '@/lib/artwork/artwork-service';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { toast } from '@/stores/toast-store';
 import { getDeliverablesByRelease } from '@/lib/deliverable-service';
@@ -23,9 +23,7 @@ import type { ReleaseTrackRecord } from '@/lib/release-track-repository';
 import type { TrackRecord } from '@/lib/track-repository';
 import type { ActivityEventRecord } from '@/lib/activity-service';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
-import { MediaGallery } from '@/components/media/MediaGallery';
-import { getMediaAssetsByRelease } from '@/lib/media/media-repository';
-import type { MediaAsset } from '@/lib/media/media-types';
+import type { Artwork } from '@/lib/artwork/artwork-types';
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
 
@@ -183,7 +181,7 @@ const EXPECTED_ASSETS = [
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 
-type TabId = 'overview' | 'workflow' | 'campaign' | 'rights' | 'budget' | 'settings' | 'media';
+type TabId = 'overview' | 'workflow' | 'campaign' | 'rights' | 'budget' | 'settings';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview',  label: 'Overview'  },
@@ -192,7 +190,6 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'rights',    label: 'Rights'    },
   { id: 'budget',    label: 'Budget'    },
   { id: 'settings',  label: 'Settings'  },
-  { id: 'media',     label: 'Media'     },
 ];
 
 const INVITE_ROLES = [
@@ -236,7 +233,7 @@ export default function ReleaseWorkspacePage() {
   const [forbidden, setForbidden] = useState(false);
   const [artistsUnavailable, setArtistsUnavailable] = useState(false);
   const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
-  const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
+  const [artwork, setArtwork] = useState<Artwork | null>(null);
   const [, setArtworkUploading] = useState(false);
   const [tab, setTab] = useState<TabId>(() => {
     if (typeof window !== 'undefined') {
@@ -249,7 +246,6 @@ export default function ReleaseWorkspacePage() {
   const visibleTabs = useMemo(() => TABS.filter((t) => (
     t.id === 'overview' ||
     t.id === 'workflow' ||
-    t.id === 'media' ||
     t.id === 'settings' ||
     (t.id === 'campaign' && deliverables.some((d) => d.type === 'video' || d.type === 'other')) ||
     (t.id === 'rights' && Boolean(release?.copyright || release?.pLine || release?.cLine)) ||
@@ -322,18 +318,18 @@ export default function ReleaseWorkspacePage() {
         console.error('[Workspace] Assignment load failed', error);
       }
 
-      let med: MediaAsset[] = [];
+      let art: Artwork | null = null;
       try {
-        if (activeOrgId) med = await getMediaAssetsByRelease(activeOrgId, releaseId);
+        if (activeOrgId) art = await getArtworkByRelease(activeOrgId, releaseId);
       } catch (error) {
-        console.error('[Workspace] Media load failed', error);
+        console.error('[Workspace] Artwork load failed', error);
       }
 
       if (!cancelled) {
         setDeliverables(del);
         setTracks(trk);
         setTasks(tsk);
-        setMediaAssets(med);
+        setArtwork(art);
       }
     }
 
@@ -460,19 +456,47 @@ export default function ReleaseWorkspacePage() {
     }
     setArtworkUploading(true);
     try {
-      const result = await uploadReleaseArtwork(file, releaseId, activeOrgId, user.uid);
-      if ('error' in result) {
-        toast.error('Artwork upload failed', result.error);
+      if (artwork) {
+        const result = await replaceArtwork(artwork.id, file, activeOrgId, user.uid);
+        if ('error' in result) {
+          toast.error('Artwork replace failed', result.error);
+        } else {
+          toast.success('Artwork replaced successfully.');
+          setWorkspaceReloadToken((t) => t + 1);
+        }
       } else {
-        toast.success('Artwork uploaded successfully.');
-        setWorkspaceReloadToken((t) => t + 1);
+        const result = await uploadArtwork(file, releaseId, activeOrgId, user.uid);
+        if ('error' in result) {
+          toast.error('Artwork upload failed', result.error);
+        } else {
+          toast.success('Artwork uploaded successfully.');
+          setWorkspaceReloadToken((t) => t + 1);
+        }
       }
     } catch {
-      toast.error('Artwork upload failed', 'Please try again.');
+      toast.error('Artwork operation failed', 'Please try again.');
     } finally {
       setArtworkUploading(false);
     }
-  }, [user, activeOrgId, releaseId]);
+  }, [user, activeOrgId, releaseId, artwork]);
+
+  const handleArtworkRemove = useCallback(async () => {
+    if (!user || !activeOrgId || !artwork) {
+      toast.error('Cannot delete artwork', 'You must be signed in to an organisation with an existing artwork.');
+      return;
+    }
+    try {
+      const result = await removeArtwork(artwork.id, activeOrgId, user.uid);
+      if ('error' in result) {
+        toast.error('Artwork delete failed', result.error);
+      } else {
+        toast.success('Artwork deleted successfully.');
+        setWorkspaceReloadToken((t) => t + 1);
+      }
+    } catch {
+      toast.error('Artwork delete failed', 'Please try again.');
+    }
+  }, [user, activeOrgId, artwork]);
 
   useEffect(() => {
     if (!visibleTabs.some((t) => t.id === tab)) setTab('overview');
@@ -523,7 +547,7 @@ export default function ReleaseWorkspacePage() {
   /* ─── Readiness calculation ─────────────────────────────────────────── */
   const readinessMap: Record<ReadinessCat, boolean> = {
     Audio:        deliverables.some((d) => d.type === 'audio'    && d.status === 'approved'),
-    Artwork:      deliverables.some((d) => d.type === 'artwork'  && d.status === 'approved'),
+    Artwork:      Boolean(artwork),
     Metadata:     !!(release?.upc),
     Rights:       false, // resolved by rights service — default safe
     Distribution: false, // resolved by dist service — default safe
@@ -596,12 +620,8 @@ export default function ReleaseWorkspacePage() {
     );
   }
   /* ─── Artwork ──────────────────────────────────────────────────────────── */
-  const artworkDeliverable = deliverables.find((d) => d.type === 'artwork' && d.mediaAssetId);
-  const artworkMedia = artworkDeliverable
-    ? mediaAssets.find((m) => m.id === artworkDeliverable.mediaAssetId)
-    : undefined;
-  const artworkUrl = artworkMedia?.secureUrl ?? artworkMedia?.thumbnailUrl;
-  const artworkStatus = artworkDeliverable?.status;
+  const artworkUrl = artwork?.secureUrl;
+  const artworkStatus = artwork ? 'approved' : 'missing';
   const artistName = fieldValue(release, ['artistName', 'artist', 'primaryArtist']) ?? 'Artist not linked';
   const companyName = release.label ?? fieldValue(release, ['company', 'companyName']) ?? 'Company not set';
   const meaningfulActivities = activities.filter((ev) => humaniseActivity(ev) !== null);
@@ -679,6 +699,7 @@ export default function ReleaseWorkspacePage() {
               artworkUrl={artworkUrl}
               status={artworkStatus as 'approved' | 'pending' | 'missing' | undefined}
               onReplace={() => undefined}
+              onRemove={artwork ? handleArtworkRemove : undefined}
               onUpload={handleArtworkUpload}
               size="lg"
             />
@@ -1003,15 +1024,6 @@ export default function ReleaseWorkspacePage() {
             <Button variant="outline" size="sm" onClick={() => router.push(`/releases/${releaseId}/edit`)}>Edit Release</Button>
           </div>
         </div>
-      )}
-
-      {tab === 'media' && (
-        <MediaGallery
-          assets={mediaAssets}
-          onUpload={(_type) => {
-            handleTabChange('workflow');
-          }}
-        />
       )}
 
       {rolePickerOpen ? (

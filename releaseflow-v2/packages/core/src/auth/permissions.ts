@@ -20,6 +20,12 @@ export const PERMISSIONS = {
   MediaApprove: 'media.approve',
   MediaRestore: 'media.restore',
 
+  // --- Artwork module ---
+  ArtworkRead: 'artwork.read',
+  ArtworkUpload: 'artwork.upload',
+  ArtworkReplace: 'artwork.replace',
+  ArtworkDelete: 'artwork.delete',
+
   // --- Platform (seeded, consumed by future modules) ---
   ReleaseRead: 'release.read',
   ReleaseWrite: 'release.write',

@@ -37,6 +37,7 @@ service cloud.firestore {
     match /organizations/{orgId}/media_usage/{usageId}      { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
     match /organizations/{orgId}/media_reviews/{reviewId}   { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
     match /organizations/{orgId}/media_comments/{commentId} { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
+    match /organizations/{orgId}/artworks/{artworkId}     { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
     match /memberships/{docId}      { allow read: if isAuth(); allow write: if isAuth(); }
     match /roles/{docId}            { allow read,write: if isAuth(); }
 

@@ -65,6 +65,30 @@ export const PERMISSION_REGISTRY: readonly PermissionRegistryEntry[] = Object.fr
     usedBy: ['Release Artwork'],
   },
   {
+    id: 'artwork.read',
+    description: 'View release artwork.',
+    defaultRoles: ['owner', 'administrator', 'project_manager', 'producer', 'designer', 'engineer', 'reviewer', 'contributor', 'viewer'],
+    usedBy: ['Release Workspace'],
+  },
+  {
+    id: 'artwork.upload',
+    description: 'Upload release artwork.',
+    defaultRoles: ['owner', 'administrator', 'project_manager', 'producer', 'designer', 'contributor'],
+    usedBy: ['Release Workspace'],
+  },
+  {
+    id: 'artwork.replace',
+    description: 'Replace an existing release artwork.',
+    defaultRoles: ['owner', 'administrator', 'project_manager', 'designer'],
+    usedBy: ['Release Workspace'],
+  },
+  {
+    id: 'artwork.delete',
+    description: 'Delete release artwork.',
+    defaultRoles: ['owner', 'administrator', 'project_manager'],
+    usedBy: ['Release Workspace'],
+  },
+  {
     id: 'release.read',
     description: 'View releases and their related metadata.',
     defaultRoles: ['owner', 'administrator', 'project_manager'],
