@@ -3,6 +3,7 @@ import {
   collection, query, where, Timestamp,
 } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
+import { traceMediaBefore, traceMediaError, type TraceOpts } from './media-debug-trace';
 import type { MediaUsage } from './media-types';
 
 /** organizations/{orgId}/media_usage/{usageId} */
@@ -33,9 +34,22 @@ export async function trackMediaUsage(
 export async function getUsageByAsset(organizationId: string, assetId: string): Promise<MediaUsage[]> {
   const db = getDb();
   if (!db) return [];
-  const snap = await getDocs(
-    query(usageCol(db, organizationId), where('assetId', '==', assetId)),
-  );
+  const q = query(usageCol(db, organizationId), where('assetId', '==', assetId));
+  const trace: TraceOpts = {
+    repo: 'media_usage',
+    op: 'getUsageByAsset',
+    organizationId,
+    queryPath: `organizations/${organizationId}/media_usage`,
+    constraints: `where(assetId==${assetId})`,
+  };
+  traceMediaBefore(trace);
+  let snap;
+  try {
+    snap = await getDocs(q);
+  } catch (e) {
+    traceMediaError(trace, e);
+    throw e;
+  }
   return snap.docs.map((d) => {
     const data = d.data() as Record<string, unknown>;
     return {
@@ -63,12 +77,25 @@ export async function getAssetIdsInUse(
 ): Promise<string[]> {
   const db = getDb();
   if (!db) return [];
-  const snap = await getDocs(
-    query(
-      usageCol(db, organizationId),
-      where('contextType', '==', contextType),
-      where('contextId', '==', contextId),
-    ),
+  const q = query(
+    usageCol(db, organizationId),
+    where('contextType', '==', contextType),
+    where('contextId', '==', contextId),
   );
+  const trace: TraceOpts = {
+    repo: 'media_usage',
+    op: 'getAssetIdsInUse',
+    organizationId,
+    queryPath: `organizations/${organizationId}/media_usage`,
+    constraints: `where(contextType==${contextType}), where(contextId==${contextId})`,
+  };
+  traceMediaBefore(trace);
+  let snap;
+  try {
+    snap = await getDocs(q);
+  } catch (e) {
+    traceMediaError(trace, e);
+    throw e;
+  }
   return snap.docs.map((d) => (d.data() as Record<string, unknown>).assetId as string);
 }

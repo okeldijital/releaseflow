@@ -3,6 +3,7 @@ import {
   collection, query, where, orderBy, Timestamp,
 } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
+import { traceMediaBefore, traceMediaError, type TraceOpts } from './media-debug-trace';
 import type { MediaVersion } from './media-types';
 
 /** organizations/{orgId}/media_versions/{versionId} */
@@ -48,9 +49,22 @@ export async function createMediaVersion(
 export async function getVersionsByAsset(organizationId: string, assetId: string): Promise<MediaVersion[]> {
   const db = getDb();
   if (!db) return [];
-  const snap = await getDocs(
-    query(versionsCol(db, organizationId), where('assetId', '==', assetId), orderBy('versionNumber', 'desc')),
-  );
+  const q = query(versionsCol(db, organizationId), where('assetId', '==', assetId), orderBy('versionNumber', 'desc'));
+  const trace: TraceOpts = {
+    repo: 'media_versions',
+    op: 'getVersionsByAsset',
+    organizationId,
+    queryPath: `organizations/${organizationId}/media_versions`,
+    constraints: `where(assetId==${assetId}), orderBy(versionNumber desc)`,
+  };
+  traceMediaBefore(trace);
+  let snap;
+  try {
+    snap = await getDocs(q);
+  } catch (e) {
+    traceMediaError(trace, e);
+    throw e;
+  }
   return snap.docs.map((d) => toVersion(d.id, d.data() as Record<string, unknown>));
 }
 

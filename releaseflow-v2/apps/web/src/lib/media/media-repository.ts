@@ -3,6 +3,7 @@ import {
   collection, query, where, orderBy, Timestamp,
 } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
+import { traceMediaBefore, traceMediaError, type TraceOpts } from './media-debug-trace';
 import type { MediaAsset, MediaAssetType, MediaAssetStatus } from './media-types';
 
 /**
@@ -106,7 +107,23 @@ export async function getMediaAssetsByRelease(
   if (!db) return [];
   const constraints = [where('releaseId', '==', releaseId), orderBy('createdAt', 'desc')];
   if (assetType) constraints.splice(1, 0, where('assetType', '==', assetType));
-  const snap = await getDocs(query(assetsCol(db, organizationId), ...constraints));
+  const q = query(assetsCol(db, organizationId), ...constraints);
+  const trace: TraceOpts = {
+    repo: 'media_assets',
+    op: 'getMediaAssetsByRelease',
+    organizationId,
+    releaseId,
+    queryPath: `organizations/${organizationId}/media_assets`,
+    constraints: `where(releaseId==${releaseId}), orderBy(createdAt desc)${assetType ? `, where(assetType==${assetType})` : ''}`,
+  };
+  traceMediaBefore(trace);
+  let snap;
+  try {
+    snap = await getDocs(q);
+  } catch (e) {
+    traceMediaError(trace, e);
+    throw e;
+  }
   return snap.docs.map((d) => toMediaAsset(d.id, d.data() as Record<string, unknown>));
 }
 
@@ -115,9 +132,22 @@ export async function getMediaAssetsByOrganization(
 ): Promise<MediaAsset[]> {
   const db = getDb();
   if (!db) return [];
-  const snap = await getDocs(
-    query(assetsCol(db, organizationId), orderBy('createdAt', 'desc')),
-  );
+  const q = query(assetsCol(db, organizationId), orderBy('createdAt', 'desc'));
+  const trace: TraceOpts = {
+    repo: 'media_assets',
+    op: 'getMediaAssetsByOrganization',
+    organizationId,
+    queryPath: `organizations/${organizationId}/media_assets`,
+    constraints: 'orderBy(createdAt desc)',
+  };
+  traceMediaBefore(trace);
+  let snap;
+  try {
+    snap = await getDocs(q);
+  } catch (e) {
+    traceMediaError(trace, e);
+    throw e;
+  }
   return snap.docs.map((d) => toMediaAsset(d.id, d.data() as Record<string, unknown>));
 }
 

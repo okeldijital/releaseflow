@@ -1,8 +1,8 @@
-import {
-  getDocs, addDoc,
+import { getDocs, addDoc,
   collection, query, where, orderBy, Timestamp,
 } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
+import { traceMediaBefore, traceMediaError, type TraceOpts } from './media-debug-trace';
 import type { MediaReview, MediaComment, ReviewDecision } from './media-types';
 
 /**
@@ -38,9 +38,22 @@ export async function createMediaReview(
 export async function getReviewsByAsset(organizationId: string, assetId: string): Promise<MediaReview[]> {
   const db = getDb();
   if (!db) return [];
-  const snap = await getDocs(
-    query(reviewsCol(db, organizationId), where('assetId', '==', assetId), orderBy('createdAt', 'desc')),
-  );
+  const q = query(reviewsCol(db, organizationId), where('assetId', '==', assetId), orderBy('createdAt', 'desc'));
+  const trace: TraceOpts = {
+    repo: 'media_reviews',
+    op: 'getReviewsByAsset',
+    organizationId,
+    queryPath: `organizations/${organizationId}/media_reviews`,
+    constraints: `where(assetId==${assetId}), orderBy(createdAt desc)`,
+  };
+  traceMediaBefore(trace);
+  let snap;
+  try {
+    snap = await getDocs(q);
+  } catch (e) {
+    traceMediaError(trace, e);
+    throw e;
+  }
   return snap.docs.map((d) => {
     const data = d.data() as Record<string, unknown>;
     return {
@@ -58,9 +71,22 @@ export async function getReviewsByAsset(organizationId: string, assetId: string)
 export async function getReviewsByVersion(organizationId: string, versionId: string): Promise<MediaReview[]> {
   const db = getDb();
   if (!db) return [];
-  const snap = await getDocs(
-    query(reviewsCol(db, organizationId), where('versionId', '==', versionId), orderBy('createdAt', 'desc')),
-  );
+  const q = query(reviewsCol(db, organizationId), where('versionId', '==', versionId), orderBy('createdAt', 'desc'));
+  const trace: TraceOpts = {
+    repo: 'media_reviews',
+    op: 'getReviewsByVersion',
+    organizationId,
+    queryPath: `organizations/${organizationId}/media_reviews`,
+    constraints: `where(versionId==${versionId}), orderBy(createdAt desc)`,
+  };
+  traceMediaBefore(trace);
+  let snap;
+  try {
+    snap = await getDocs(q);
+  } catch (e) {
+    traceMediaError(trace, e);
+    throw e;
+  }
   return snap.docs.map((d) => {
     const data = d.data() as Record<string, unknown>;
     return {
@@ -93,9 +119,22 @@ export async function createMediaComment(
 export async function getCommentsByAsset(organizationId: string, assetId: string): Promise<MediaComment[]> {
   const db = getDb();
   if (!db) return [];
-  const snap = await getDocs(
-    query(commentsCol(db, organizationId), where('assetId', '==', assetId), orderBy('createdAt', 'asc')),
-  );
+  const q = query(commentsCol(db, organizationId), where('assetId', '==', assetId), orderBy('createdAt', 'asc'));
+  const trace: TraceOpts = {
+    repo: 'media_comments',
+    op: 'getCommentsByAsset',
+    organizationId,
+    queryPath: `organizations/${organizationId}/media_comments`,
+    constraints: `where(assetId==${assetId}), orderBy(createdAt asc)`,
+  };
+  traceMediaBefore(trace);
+  let snap;
+  try {
+    snap = await getDocs(q);
+  } catch (e) {
+    traceMediaError(trace, e);
+    throw e;
+  }
   return snap.docs.map((d) => {
     const data = d.data() as Record<string, unknown>;
     return {
