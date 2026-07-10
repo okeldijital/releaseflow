@@ -3,6 +3,7 @@ import {
   collection, query, where, orderBy, writeBatch, Timestamp,
 } from '@firebase/firestore';
 import { getDb } from './firebase';
+import { recordActivity } from './activity-service';
 import type { ReleaseStatus, ReleaseType } from '@/app/(app)/types';
 
 export interface ReleaseRecord {
@@ -133,15 +134,13 @@ export async function createRelease(
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
-  await addDoc(collection(db, 'activity_events'), {
+  await recordActivity({
     entityType: 'release',
     entityId: ref.id,
     organizationId: fields.organizationId,
     actorId,
     action: 'release.created',
-    details: null,
     metadata: { title: fields.title, releaseType: fields.releaseType },
-    createdAt: Timestamp.now(),
   });
   return ref.id;
 }
@@ -215,29 +214,25 @@ export async function createReleaseWithWorkflow(
     });
   }
 
-  const activityRef = doc(collection(db, 'activity_events'));
-  batch.set(activityRef, {
+  await recordActivity({
     entityType: 'release',
     entityId: releaseRef.id,
     organizationId: fields.organizationId,
     actorId,
     action: 'release.created',
-    details: null,
     metadata: { title: fields.title, releaseType: fields.releaseType },
-    createdAt: now,
+    batch,
   });
 
   if (workflowId) {
-    const wfActivityRef = doc(collection(db, 'activity_events'));
-    batch.set(wfActivityRef, {
+    await recordActivity({
       entityType: 'release',
       entityId: releaseRef.id,
       organizationId: fields.organizationId,
       actorId,
       action: 'workflow.generated',
-      details: null,
       metadata: { stageCount: stageTemplates.length },
-      createdAt: now,
+      batch,
     });
   }
 
@@ -278,16 +273,14 @@ export async function updateRelease(
   if (fields.explicit !== undefined) updateData.explicit = fields.explicit;
   await updateDoc(doc(db, 'releases', releaseId), updateData);
   const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
-  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined;
-  await addDoc(collection(db, 'activity_events'), {
+  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined ?? '';
+  await recordActivity({
     entityType: 'release',
     entityId: releaseId,
-    organizationId: organizationId ?? '',
+    organizationId,
     actorId,
     action: 'release.updated',
-    details: null,
     metadata: { changes: Object.keys(updateData).filter((k) => k !== 'updatedAt') },
-    createdAt: Timestamp.now(),
   });
 }
 
@@ -301,16 +294,14 @@ export async function updateReleaseStatus(
   if (!db) throw new Error('Firestore unavailable');
   await updateDoc(doc(db, 'releases', releaseId), { status, updatedAt: Timestamp.now() });
   const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
-  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined;
-  await addDoc(collection(db, 'activity_events'), {
+  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined ?? '';
+  await recordActivity({
     entityType: 'release',
     entityId: releaseId,
-    organizationId: organizationId ?? '',
+    organizationId,
     actorId,
     action: 'release.status.changed',
-    details: null,
     metadata: { newStatus: status, ...metadata },
-    createdAt: Timestamp.now(),
   });
 }
 

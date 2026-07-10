@@ -8,17 +8,18 @@ import { getActivityByEntity } from '@/lib/activity-service';
 import type { ActivityEventRecord } from '@/lib/activity-service';
 
 export function useAssignment(assignmentId: string | undefined) {
+  const { activeOrgId } = useOrgStore();
   const [assignment, setAssignment] = useState<AssignmentRecord | null>(null);
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!assignmentId) { setLoading(false); return; }
+    if (!assignmentId || !activeOrgId) { setLoading(false); return; }
     setLoading(true);
     try {
       const [a, acts] = await Promise.all([
         fetchAssignment(assignmentId),
-        getActivityByEntity('task', assignmentId),
+        getActivityByEntity(activeOrgId, 'task', assignmentId),
       ]);
       setAssignment(a);
       setActivities(acts);
@@ -27,7 +28,7 @@ export function useAssignment(assignmentId: string | undefined) {
     } finally {
       setLoading(false);
     }
-  }, [assignmentId]);
+  }, [assignmentId, activeOrgId]);
 
   useEffect(() => { void load(); }, [load]);
 

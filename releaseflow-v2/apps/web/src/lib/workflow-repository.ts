@@ -1,6 +1,6 @@
 import {
-  doc, getDoc, getDocs, addDoc, updateDoc,
-  collection, query, where, orderBy, Timestamp, limit,
+  doc, getDoc, getDocs, updateDoc,
+  collection, query, where, orderBy, limit,
 } from '@firebase/firestore';
 import { getDb } from './firebase';
 
@@ -27,17 +27,6 @@ export interface StageRecord {
   startedAt?: unknown;
   completedAt?: unknown;
   daysInStage?: number;
-}
-
-export interface ActivityRecord {
-  id: string;
-  type: string;
-  releaseId: string;
-  workflowId?: string | null;
-  stageId?: string | null;
-  actorId: string;
-  metadata?: Record<string, unknown> | null;
-  createdAt: Date;
 }
 
 export async function getWorkflow(releaseId: string): Promise<WorkflowRecord | null> {
@@ -85,62 +74,4 @@ export async function updateWorkflow(
   const db = getDb();
   if (!db) return;
   await updateDoc(doc(db, 'workflows', workflowId), fields as Record<string, unknown>);
-}
-
-export async function createActivity(fields: {
-  type: string;
-  releaseId: string;
-  workflowId?: string | null;
-  stageId?: string | null;
-  actorId: string;
-  metadata?: Record<string, unknown> | null;
-}): Promise<void> {
-  const db = getDb();
-  if (!db) return;
-  const releaseSnap = await getDoc(doc(db, 'releases', fields.releaseId));
-  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined;
-  await addDoc(collection(db, 'activity_events'), {
-    entityType: 'release',
-    entityId: fields.releaseId,
-    organizationId: organizationId ?? '',
-    actorId: fields.actorId,
-    action: fields.type,
-    details: null,
-    metadata: {
-      ...(fields.metadata ?? {}),
-      workflowId: fields.workflowId,
-      stageId: fields.stageId,
-    },
-    createdAt: Timestamp.now(),
-  });
-}
-
-export async function getActivities(
-  releaseId: string,
-  maxResults = 50,
-): Promise<ActivityRecord[]> {
-  const db = getDb();
-  if (!db) return [];
-  const snap = await getDocs(
-    query(
-      collection(db, 'activity_events'),
-      where('entityType', '==', 'release'),
-      where('entityId', '==', releaseId),
-      orderBy('createdAt', 'desc'),
-      limit(maxResults),
-    ),
-  );
-  return snap.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: d.id,
-      type: data.action as string,
-      releaseId: data.entityId as string,
-      workflowId: (data.metadata as Record<string, unknown> | null)?.workflowId as string | null | undefined,
-      stageId: (data.metadata as Record<string, unknown> | null)?.stageId as string | null | undefined,
-      actorId: data.actorId as string,
-      metadata: data.metadata as Record<string, unknown> | null,
-      createdAt: (data.createdAt as { toDate: () => Date }).toDate(),
-    };
-  });
 }

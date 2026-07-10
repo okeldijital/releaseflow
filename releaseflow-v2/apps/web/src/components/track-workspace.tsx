@@ -140,10 +140,9 @@ function humaniseTrackActivity(ev: ActivityEventRecord): string | null {
     'deliverable.approved': 'approved a deliverable',
   };
   if (labels[ev.action]) return labels[ev.action]!;
-  if (ev.action.includes('upload')) return ev.details ?? 'uploaded a file';
-  if (ev.action.includes('approv')) return ev.details ?? 'approved work';
+  if (ev.action.includes('upload')) return 'uploaded a file';
+  if (ev.action.includes('approv')) return 'approved work';
   if (ev.action.includes('invit')) return 'invited a collaborator';
-  if (ev.details) return ev.details;
   return null;
 }
 
@@ -224,7 +223,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
         getPeopleByTrack(trackId),
         getCreditsByTrack(trackId),
         getRightsByTrack(trackId),
-        getActivityByEntity('track', trackId),
+        getActivityByEntity(activeOrgId, 'track', trackId),
         getReleasesByTrack(trackId),
       ]);
 

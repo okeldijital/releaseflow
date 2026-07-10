@@ -1,20 +1,26 @@
 import {
   getDocs, addDoc, deleteDoc, doc,
   collection, query, where, orderBy, limit,
-  Timestamp,
+  Timestamp, WriteBatch,
 } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
 
 export interface ActivityEventRecord {
   id: string;
-  entityType: 'release' | 'track' | 'task' | 'specification' | 'asset' | 'distribution_package' | 'comment' | 'approval' | 'ownership' | 'credit' | 'right';
-  entityId: string;
+
   organizationId: string;
-  actorId: string;
+
+  entityType: 'release' | 'track' | 'task' | 'specification' | 'asset' | 'distribution_package' | 'comment' | 'approval' | 'ownership' | 'credit' | 'right';
+
+  entityId: string;
+
   action: string;
-  details?: string | null;
+
+  actorId: string;
+
   metadata?: Record<string, unknown> | null;
-  createdAt: unknown;
+
+  createdAt: Timestamp;
 }
 
 export interface RecordActivityFields {
@@ -23,28 +29,37 @@ export interface RecordActivityFields {
   organizationId: string;
   actorId: string;
   action: string;
-  details?: string | null;
   metadata?: Record<string, unknown> | null;
+  details?: string | null;
+  batch?: WriteBatch;
 }
 
 export async function recordActivity(fields: RecordActivityFields): Promise<string> {
   const db = getDb();
   if (!db) throw new Error('Firestore not initialized');
   const now = Timestamp.now();
-  const ref = await addDoc(collection(db, 'activity_events'), {
+  const metadata: Record<string, unknown> = { ...(fields.metadata ?? {}) };
+  if (fields.details !== undefined) metadata.details = fields.details ?? null;
+  const data = {
     entityType: fields.entityType,
     entityId: fields.entityId,
     organizationId: fields.organizationId,
     actorId: fields.actorId,
     action: fields.action,
-    details: fields.details ?? null,
-    metadata: fields.metadata ?? null,
+    metadata,
     createdAt: now,
-  });
+  };
+  if (fields.batch) {
+    const ref = doc(collection(db, 'activity_events'));
+    fields.batch.set(ref, data);
+    return ref.id;
+  }
+  const ref = await addDoc(collection(db, 'activity_events'), data);
   return ref.id;
 }
 
 export async function getActivityByEntity(
+  organizationId: string,
   entityType: ActivityEventRecord['entityType'],
   entityId: string,
 ): Promise<ActivityEventRecord[]> {
@@ -53,6 +68,7 @@ export async function getActivityByEntity(
   const snap = await getDocs(
     query(
       collection(db, 'activity_events'),
+      where('organizationId', '==', organizationId),
       where('entityType', '==', entityType),
       where('entityId', '==', entityId),
       orderBy('createdAt', 'desc'),

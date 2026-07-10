@@ -34,7 +34,7 @@ export function useWork(workId: string | undefined) {
         getWorkWriters(workId),
         getWorkPublishers(workId),
         getWorkLinkedTracks(workId),
-        getActivityByEntity('release', workId),
+        getActivityByEntity(activeOrgId, 'release', workId),
         checkWorkReadiness(workId),
       ]);
       setWork(w);
@@ -42,7 +42,7 @@ export function useWork(workId: string | undefined) {
       setPublishers(pubs);
       setLinkedTracks(tracks);
       setReadiness(r);
-      const activityEvents = acts.length > 0 ? acts : await getActivityByEntity('track', workId);
+      const activityEvents = acts.length > 0 ? acts : await getActivityByEntity(activeOrgId, 'track', workId);
       setActivities(activityEvents);
     } catch {
       // silent

@@ -425,9 +425,13 @@ export default function ReleaseWorkspacePage() {
 
     async function loadActivity() {
       setActivitiesLoaded(false);
+      if (!releaseId || !activeOrgId) {
+        if (!cancelled) setActivitiesLoaded(true);
+        return;
+      }
       try {
         console.time('[Workspace] loadActivity');
-        const data = await getActivityByEntity('release', releaseId);
+        const data = await getActivityByEntity(activeOrgId, 'release', releaseId);
         console.timeEnd('[Workspace] loadActivity');
         if (!cancelled) setActivities(data);
       } catch (error) {
@@ -439,10 +443,9 @@ export default function ReleaseWorkspacePage() {
       }
     }
 
-    if (!releaseId) return;
     void loadActivity();
     return () => { cancelled = true; };
-  }, [releaseId, workspaceReloadToken]);
+  }, [releaseId, activeOrgId, workspaceReloadToken]);
 
   const handleTabChange = useCallback((id: string) => {
     setTab(id as TabId);

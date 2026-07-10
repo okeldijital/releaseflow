@@ -243,7 +243,6 @@ const language = (release as unknown as Record<string, unknown>).language as str
                   <span className="mt-0.5 h-2 w-2 rounded-full bg-primary-500/60 shrink-0" />
                   <div>
                     <p className="text-sm text-surface-100 capitalize">{a.action.replace(/_/g, ' ')}</p>
-                    {a.details && <p className="text-xs text-text-500 mt-0.5">{a.details}</p>}
                     <p className="text-xs text-text-600 mt-1">{timeAgo((a.createdAt as { toDate: () => Date }).toDate?.() ?? new Date())}</p>
                   </div>
                 </div>

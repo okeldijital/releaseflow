@@ -35,7 +35,7 @@ export async function computeOrganizationHealth(orgId: string): Promise<OrgHealt
   const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
   const recentEvents = recentActivity.filter((a) => {
     const ts = a.createdAt;
-    if (ts && typeof ts === 'object' && 'toDate' in (ts as Record<string, unknown>)) {
+    if (ts && typeof ts === 'object' && 'toDate' in ts) {
       return (ts as { toDate: () => Date }).toDate().getTime() > thirtyDaysAgo;
     }
     return false;

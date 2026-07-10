@@ -311,7 +311,6 @@ export default function AssignmentDetailPage() {
                   <div key={act.id} className="flex items-start gap-3 p-3 rounded-lg bg-surface-800/50">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-surface-100 capitalize">{act.action.replace(/_/g, ' ')}</p>
-                      {act.details && <p className="text-xs text-text-500 mt-0.5">{act.details}</p>}
                       <p className="text-xs text-text-500 mt-1">{formatDate(act.createdAt)}</p>
                     </div>
                   </div>

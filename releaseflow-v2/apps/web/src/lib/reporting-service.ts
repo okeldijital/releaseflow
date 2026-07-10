@@ -392,7 +392,6 @@ async function generateTeamActivityReport(
     entityId: a.entityId,
     actorId: a.actorId,
     action: a.action,
-    details: a.details,
     metadata: a.metadata,
     createdAt: a.createdAt,
   }));

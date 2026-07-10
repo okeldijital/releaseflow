@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { fetchWorkflow, fetchStages, fetchActivity } from '@/lib/workflow-service';
-import type { WorkflowRecord, StageRecord, ActivityRecord } from '@/lib/workflow-repository';
+import type { WorkflowRecord, StageRecord } from '@/lib/workflow-repository';
+import type { ActivityEventRecord } from '@/lib/activity-service';
 
 export function useWorkflow(releaseId: string | undefined) {
   const [workflow, setWorkflow] = useState<WorkflowRecord | null>(null);
@@ -39,7 +40,7 @@ export function useWorkflow(releaseId: string | undefined) {
 }
 
 export function useActivity(releaseId: string | undefined) {
-  const [activities, setActivities] = useState<ActivityRecord[]>([]);
+  const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {

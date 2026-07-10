@@ -1,9 +1,10 @@
 import { Timestamp } from '@firebase/firestore';
-import { getStages, updateStage, updateWorkflow, createActivity } from './workflow-repository';
+import { getStages, updateStage, updateWorkflow } from './workflow-repository';
 import { computeProgress } from './workflow-progress';
 import { computeWorkflowHealth } from './workflow-health';
 import type { StageRecord } from './workflow-repository';
 import type { Stage } from '@/app/(app)/types';
+import { logActivity } from './workflow-service';
 
 function toStage(s: StageRecord): Stage {
   return s as unknown as Stage;
@@ -70,7 +71,7 @@ export async function stageComplete(
     });
 
     await Promise.all([
-      createActivity({
+      logActivity({
         type: 'stage.completed',
         releaseId,
         workflowId,
@@ -78,7 +79,7 @@ export async function stageComplete(
         actorId,
         metadata: { stageName: currentStage.name, daysInStage },
       }),
-      createActivity({
+      logActivity({
         type: 'stage.started',
         releaseId,
         workflowId,
@@ -102,7 +103,7 @@ export async function stageComplete(
       updatedAt: Timestamp.now(),
     });
 
-    await createActivity({
+    await logActivity({
       type: 'stage.completed',
       releaseId,
       workflowId,

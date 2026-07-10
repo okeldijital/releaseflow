@@ -71,7 +71,9 @@ export async function removeRelease(
     await deleteAsset(asset.id);
   }
 
-  const releaseActivities = await getActivityByEntity('release', releaseId);
+  const orgId = organizationId ?? (await getRelease(releaseId))?.organizationId ?? '';
+
+  const releaseActivities = await getActivityByEntity(orgId, 'release', releaseId);
   for (const activity of releaseActivities) {
     await deleteActivityEvent(activity.id);
   }
@@ -88,7 +90,7 @@ export async function removeRelease(
       await deleteAssignment(assignment.id);
     }
 
-    const trackActivities = await getActivityByEntity('track', record.trackId);
+    const trackActivities = await getActivityByEntity(orgId, 'track', record.trackId);
     for (const activity of trackActivities) {
       await deleteActivityEvent(activity.id);
     }

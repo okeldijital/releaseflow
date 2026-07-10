@@ -707,7 +707,7 @@ export default function ArtistDetailPage() {
                   <div key={a.id} className="flex items-start gap-3 border-l-2 border-surface-700/60 pl-3 py-1">
                     <span className="h-1.5 w-1.5 mt-1.5 rounded-full bg-primary-500 shrink-0" />
                     <div>
-                      <p className="text-sm text-surface-100 capitalize">{a.type.replace(/_/g, ' ')}</p>
+                      <p className="text-sm text-surface-100 capitalize">{a.action.replace(/_/g, ' ')}</p>
                       <p className="text-xs text-text-500">{a.actorId} &middot; {formatDate(a.createdAt)}</p>
                     </div>
                   </div>

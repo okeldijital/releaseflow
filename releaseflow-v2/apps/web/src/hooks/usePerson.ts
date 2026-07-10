@@ -31,7 +31,7 @@ export function usePerson(personId: string | undefined) {
       const [p, mems, acts, r, asgn] = await Promise.all([
         fetchPerson(personId),
         getActiveMembershipsForPerson(personId),
-        getActivityByEntity('release', personId),
+        getActivityByEntity(activeOrgId, 'release', personId),
         checkPersonReadiness(personId),
         fetchAssignmentSummary(personId),
       ]);
@@ -40,7 +40,7 @@ export function usePerson(personId: string | undefined) {
       setReadiness(r);
       setAssignmentSummary(asgn);
 
-      const activityEvents = acts.length > 0 ? acts : await getActivityByEntity('track', personId);
+      const activityEvents = acts.length > 0 ? acts : await getActivityByEntity(activeOrgId, 'track', personId);
       setActivities(activityEvents);
     } catch {
       // silent

@@ -1,5 +1,6 @@
 import { getReleasesByOrganization } from './release-repository';
-import { getWorkflow, getStages, getActivities } from './workflow-repository';
+import { getWorkflow, getStages } from './workflow-repository';
+import { getActivityByEntity } from './activity-service';
 import { getDependenciesByRelease } from './dependency-service';
 import { getRequirementsByRelease } from './requirement-service';
 import { getDeliverablesByRelease } from './deliverable-service';
@@ -184,8 +185,8 @@ export async function fetchOrgIntelligence(orgId: string): Promise<OrgIntelligen
       (async () => { const w = await getWorkflow(release.id); return w ? getStages(w.id) : []; })(),
       getDependenciesByRelease(release.id).catch(() => []),
       getRequirementsByRelease(release.id).catch(() => []),
-      getDeliverablesByRelease(release.id).catch(() => []),
-      getActivities(release.id, 5).catch(() => []),
+       getDeliverablesByRelease(release.id).catch(() => []),
+       getActivityByEntity(release.organizationId, 'release', release.id).catch(() => []),
     ]);
 
     const readiness = computeReadiness(reqs, stages, dels, deps);
@@ -194,8 +195,8 @@ export async function fetchOrgIntelligence(orgId: string): Promise<OrgIntelligen
       ? stages.find((s) => s.id === workflow.currentStageId)?.name ?? release.status.replace(/_/g, ' ')
       : release.status.replace(/_/g, ' ');
 
-    for (const a of acts) {
-      activities.push({ id: a.id, message: a.type.replace(/_/g, ' '), releaseId: release.id, type: a.type, createdAt: a.createdAt });
+    for (const a of acts.slice(0, 5)) {
+      activities.push({ id: a.id, message: a.action.replace(/_/g, ' '), releaseId: release.id, type: a.action, createdAt: a.createdAt.toDate() });
     }
     for (const d of blockDeps) {
       blockedItems.push({ id: d.id, releaseId: release.id, name: d.title, type: 'dependency', owner: d.owner, age: ageLabel((d as { createdAt?: unknown }).createdAt as Date ?? new Date()), status: 'blocked' });
