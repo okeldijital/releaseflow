@@ -20,12 +20,12 @@ export function signUpload(options: {
   timestamp?: number;
 }): SignedUploadParams {
   const timestamp = options.timestamp ?? Math.floor(Date.now() / 1000);
-  const params = new URLSearchParams();
-  params.append('timestamp', String(timestamp));
-  if (options.folder) params.append('folder', options.folder);
-  if (options.publicId) params.append('publicId', options.publicId);
+  const params: string[] = [];
+  params.push(`timestamp=${timestamp}`);
+  if (options.folder) params.push(`folder=${options.folder}`);
+  if (options.publicId) params.push(`publicId=${options.publicId}`);
 
-  const signature = generateSignature(params.toString());
+  const signature = generateSignature(params);
 
   return {
     timestamp,
@@ -36,13 +36,9 @@ export function signUpload(options: {
   };
 }
 
-function generateSignature(params: string): string {
+function generateSignature(params: string[]): string {
   const secret = cloudinaryConfig().apiSecret;
-  const sortedParams = params
-    .split('&')
-    .filter(Boolean)
-    .sort()
-    .join('&');
+  const sortedParams = params.sort().join('&');
   const stringToSign = `${sortedParams}${secret}`;
   return createHash('sha1').update(stringToSign).digest('hex');
 }

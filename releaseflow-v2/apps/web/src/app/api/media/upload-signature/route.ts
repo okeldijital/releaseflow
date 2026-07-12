@@ -18,10 +18,6 @@ const ENTITY_SUBFOLDER: Record<string, string> = {
   artwork: 'releases',
 };
 
-function configIncomplete(): boolean {
-  return !cloudinaryConfig().cloudName || !cloudinaryConfig().apiKey || !cloudinaryConfig().apiSecret;
-}
-
 // Membership resolution via the Admin SDK. The role → permission decision is
 // delegated to the Authorization Service; we only resolve the active role here.
 const serverMembershipResolver: MembershipResolver = async (organizationId, uid) => {
@@ -40,12 +36,13 @@ const serverMembershipResolver: MembershipResolver = async (organizationId, uid)
 
 export async function POST(request: Request) {
   try {
-    if (configIncomplete()) {
-      console.error('Cloudinary config incomplete:', {
-        cloudName: cloudinaryConfig().cloudName,
-        apiKey: cloudinaryConfig().apiKey,
-        apiSecret: cloudinaryConfig().apiSecret ? '[redacted]' : undefined,
-      });
+    let cfg;
+    try {
+      cfg = cloudinaryConfig();
+    } catch {
+      return NextResponse.json({ error: 'Cloudinary configuration is incomplete.' }, { status: 500 });
+    }
+    if (!cfg.cloudName || !cfg.apiKey || !cfg.apiSecret) {
       return NextResponse.json({ error: 'Cloudinary configuration is incomplete.' }, { status: 500 });
     }
 
@@ -76,16 +73,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // The folder is always derived server-side from the authenticated
-    // organization; the client never controls the storage path.
     const subfolder = ENTITY_SUBFOLDER[body.entityType] ?? 'assets';
     const folder = `${ROOT_FOLDER}/${body.organizationId}/${subfolder}`;
     const timestamp = Math.floor(Date.now() / 1000);
     const signed = signUpload({ folder, timestamp });
 
     return NextResponse.json({
-      cloudName: cloudinaryConfig().cloudName,
-      apiKey: cloudinaryConfig().apiKey,
+      cloudName: cfg.cloudName,
+      apiKey: cfg.apiKey,
       timestamp: signed.timestamp,
       signature: signed.signature,
       folder: signed.folder,

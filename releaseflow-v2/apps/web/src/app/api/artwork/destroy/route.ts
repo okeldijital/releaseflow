@@ -24,7 +24,13 @@ const serverMembershipResolver: MembershipResolver = async (organizationId, uid)
 
 export async function POST(request: Request) {
   try {
-    if (!cloudinaryConfig().cloudName || !cloudinaryConfig().apiKey || !cloudinaryConfig().apiSecret) {
+    let cfg;
+    try {
+      cfg = cloudinaryConfig();
+    } catch {
+      return NextResponse.json({ error: 'Cloudinary configuration is incomplete.' }, { status: 500 });
+    }
+    if (!cfg.cloudName || !cfg.apiKey || !cfg.apiSecret) {
       return NextResponse.json({ error: 'Cloudinary configuration is incomplete.' }, { status: 500 });
     }
 
@@ -54,21 +60,21 @@ export async function POST(request: Request) {
     }
 
     const timestamp = Math.floor(Date.now() / 1000);
-    const params = new URLSearchParams();
-    params.append('public_id', body.publicId);
-    params.append('api_key', cloudinaryConfig().apiKey);
-    params.append('timestamp', String(timestamp));
-
-    const signature = generateDestroySignature(params.toString());
+    const paramPairs = [
+      `api_key=${cfg.apiKey}`,
+      `public_id=${body.publicId}`,
+      `timestamp=${timestamp}`,
+    ];
+    const signature = generateDestroySignature(paramPairs, cfg.apiSecret);
 
     const formData = new FormData();
     formData.append('public_id', body.publicId);
-    formData.append('api_key', cloudinaryConfig().apiKey);
+    formData.append('api_key', cfg.apiKey);
     formData.append('timestamp', String(timestamp));
     formData.append('signature', signature);
 
     const destroyRes = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudinaryConfig().cloudName}/image/destroy`,
+      `https://api.cloudinary.com/v1_1/${cfg.cloudName}/image/destroy`,
       { method: 'POST', body: formData },
     );
 
@@ -84,12 +90,8 @@ export async function POST(request: Request) {
   }
 }
 
-function generateDestroySignature(params: string): string {
-  const sortedParams = params
-    .split('&')
-    .filter(Boolean)
-    .sort()
-    .join('&');
-  const stringToSign = `${sortedParams}${cloudinaryConfig().apiSecret}`;
+function generateDestroySignature(params: string[], apiSecret: string): string {
+  const sortedParams = params.sort().join('&');
+  const stringToSign = `${sortedParams}${apiSecret}`;
   return createHash('sha1').update(stringToSign).digest('hex');
 }
