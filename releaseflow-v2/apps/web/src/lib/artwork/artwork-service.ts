@@ -26,13 +26,26 @@ export async function uploadArtwork(
       organizationId,
     });
 
-    const artworkId = await createArtwork({
+    console.log('[BUILD-035] About to create Firestore artwork', {
       organizationId,
       releaseId,
       publicId: result.publicId,
       secureUrl: result.secureUrl,
-      createdBy: userId,
     });
+    let artworkId: string;
+    try {
+      artworkId = await createArtwork({
+        organizationId,
+        releaseId,
+        publicId: result.publicId,
+        secureUrl: result.secureUrl,
+        createdBy: userId,
+      });
+    } catch (error) {
+      console.error('[BUILD-035] createArtwork failed', error);
+      throw error;
+    }
+    console.log('[BUILD-035] Firestore artwork created', { artworkId });
 
     return { artworkId };
   } catch (err) {

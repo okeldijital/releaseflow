@@ -35,11 +35,26 @@ export async function createArtwork(
   if (!db) throw new Error('Firestore not initialized');
   if (!fields.organizationId) throw new Error('organizationId required');
   const now = Timestamp.now();
-  const ref = await addDoc(artworksCol(db, fields.organizationId), {
-    ...fields,
-    createdAt: now,
-    updatedAt: now,
+  const collectionPath = `organizations/${fields.organizationId}/${SUBCOLLECTION}`;
+  console.log('[BUILD-035] About to addDoc', {
+    organizationId: fields.organizationId,
+    collectionPath,
+    releaseId: fields.releaseId,
+    publicId: fields.publicId,
+    secureUrl: fields.secureUrl,
   });
+  let ref;
+  try {
+    ref = await addDoc(artworksCol(db, fields.organizationId), {
+      ...fields,
+      createdAt: now,
+      updatedAt: now,
+    });
+  } catch (error) {
+    console.error('[BUILD-035] addDoc failed', error);
+    throw error;
+  }
+  console.log('[BUILD-035] addDoc succeeded', { id: ref.id, collectionPath });
   return ref.id;
 }
 
