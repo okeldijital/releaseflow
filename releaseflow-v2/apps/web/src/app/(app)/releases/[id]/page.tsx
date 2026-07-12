@@ -234,7 +234,8 @@ export default function ReleaseWorkspacePage() {
   const [artistsUnavailable, setArtistsUnavailable] = useState(false);
   const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
   const [artwork, setArtwork] = useState<Artwork | null>(null);
-  const [, setArtworkUploading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [tab, setTab] = useState<TabId>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(`rf-tab-release-${releaseId}`);
@@ -266,11 +267,8 @@ export default function ReleaseWorkspacePage() {
 
       let rel: Awaited<ReturnType<typeof fetchRelease>> | null;
       try {
-        console.time('[Workspace] loadRelease');
         rel = await fetchRelease(releaseId);
-        console.timeEnd('[Workspace] loadRelease');
       } catch (error) {
-        console.timeEnd('[Workspace] loadRelease');
         console.error('[Workspace] Release load failed', error);
         if (!cancelled) setLoadError(true);
         return;
@@ -288,42 +286,41 @@ export default function ReleaseWorkspacePage() {
 
       if (!cancelled) setRelease(rel as unknown as Release);
 
-      let del: Deliverable[] = [];
-      try {
-        console.time('[Workspace] loadDeliverables');
-        del = await getDeliverablesByRelease(releaseId);
-        console.timeEnd('[Workspace] loadDeliverables');
-      } catch (error) {
-        console.timeEnd('[Workspace] loadDeliverables');
-        console.error('[Workspace] Deliverables load failed', error);
-      }
-
-      let trk: (ReleaseTrackRecord & { track: TrackRecord | null })[] = [];
-      try {
-        console.time('[Workspace] loadTracks');
-        trk = await getTracksByRelease(releaseId);
-        console.timeEnd('[Workspace] loadTracks');
-      } catch (error) {
-        console.timeEnd('[Workspace] loadTracks');
-        console.error('[Workspace] Track load failed', error);
-      }
-
-      let tsk: Task[] = [];
-      try {
-        console.time('[Workspace] loadAssignments');
-        tsk = await getTasksByEntity('release', releaseId);
-        console.timeEnd('[Workspace] loadAssignments');
-      } catch (error) {
-        console.timeEnd('[Workspace] loadAssignments');
-        console.error('[Workspace] Assignment load failed', error);
-      }
-
-      let art: Artwork | null = null;
-      try {
-        if (activeOrgId) art = await getArtworkByRelease(activeOrgId, releaseId);
-      } catch (error) {
-        console.error('[Workspace] Artwork load failed', error);
-      }
+      const [del, trk, tsk, art] = await Promise.all([
+        (async () => {
+          try {
+            return await getDeliverablesByRelease(releaseId);
+          } catch (error) {
+            console.error('[Workspace] Deliverables load failed', error);
+            return [] as Deliverable[];
+          }
+        })(),
+        (async () => {
+          try {
+            return await getTracksByRelease(releaseId);
+          } catch (error) {
+            console.error('[Workspace] Track load failed', error);
+            return [] as (ReleaseTrackRecord & { track: TrackRecord | null })[];
+          }
+        })(),
+        (async () => {
+          try {
+            return await getTasksByEntity('release', releaseId);
+          } catch (error) {
+            console.error('[Workspace] Assignment load failed', error);
+            return [] as Task[];
+          }
+        })(),
+        (async () => {
+          try {
+            if (activeOrgId) return await getArtworkByRelease(activeOrgId, releaseId);
+            return null;
+          } catch (error) {
+            console.error('[Workspace] Artwork load failed', error);
+            return null;
+          }
+        })(),
+      ]);
 
       if (!cancelled) {
         setDeliverables(del);
@@ -359,7 +356,6 @@ export default function ReleaseWorkspacePage() {
       const meta: Record<string, { original?: string; remixer?: string }> = {};
       let anyArtistFailed = false;
 
-      console.time('[Workspace] loadArtists');
       for (const rt of tracks) {
         const t = rt.track;
         if (!t || resolveRecordingType(t.recordingType) !== 'remix') continue;
@@ -398,7 +394,6 @@ export default function ReleaseWorkspacePage() {
           remixer: remixerNames.join(', '),
         };
       }
-      console.timeEnd('[Workspace] loadArtists');
 
       if (!cancelled) {
         setTrackArtistMeta(meta);
@@ -426,12 +421,9 @@ export default function ReleaseWorkspacePage() {
         return;
       }
       try {
-        console.time('[Workspace] loadActivity');
         const data = await getActivityByEntity(activeOrgId, 'release', releaseId);
-        console.timeEnd('[Workspace] loadActivity');
         if (!cancelled) setActivities(data);
       } catch (error) {
-        console.timeEnd('[Workspace] loadActivity');
         console.error('[Workspace] Activity load failed', error);
         if (!cancelled) setActivities([]);
       } finally {
@@ -454,11 +446,13 @@ export default function ReleaseWorkspacePage() {
       toast.error('Cannot upload artwork', 'You must be signed in to an organisation.');
       return;
     }
-    setArtworkUploading(true);
+    const prevArtwork = artwork;
+    setIsUploading(true);
     try {
       if (artwork) {
         const result = await replaceArtwork(artwork.id, file, activeOrgId, user.uid);
         if ('error' in result) {
+          setArtwork(prevArtwork);
           toast.error('Artwork replace failed', result.error);
         } else {
           toast.success('Artwork replaced successfully.');
@@ -474,9 +468,10 @@ export default function ReleaseWorkspacePage() {
         }
       }
     } catch {
+      setArtwork(prevArtwork);
       toast.error('Artwork operation failed', 'Please try again.');
     } finally {
-      setArtworkUploading(false);
+      setIsUploading(false);
     }
   }, [user, activeOrgId, releaseId, artwork]);
 
@@ -485,16 +480,23 @@ export default function ReleaseWorkspacePage() {
       toast.error('Cannot delete artwork', 'You must be signed in to an organisation with an existing artwork.');
       return;
     }
+    const prevArtwork = artwork;
+    setIsRemoving(true);
+    setArtwork(null);
     try {
-      const result = await removeArtwork(artwork.id, activeOrgId, user.uid);
+      const result = await removeArtwork(prevArtwork.id, activeOrgId, user.uid);
       if ('error' in result) {
+        setArtwork(prevArtwork);
         toast.error('Artwork delete failed', result.error);
       } else {
         toast.success('Artwork deleted successfully.');
         setWorkspaceReloadToken((t) => t + 1);
       }
     } catch {
+      setArtwork(prevArtwork);
       toast.error('Artwork delete failed', 'Please try again.');
+    } finally {
+      setIsRemoving(false);
     }
   }, [user, activeOrgId, artwork]);
 
@@ -698,10 +700,12 @@ export default function ReleaseWorkspacePage() {
               title={release.title}
               artworkUrl={artworkUrl}
               status={artworkStatus as 'approved' | 'pending' | 'missing' | undefined}
-              onReplace={() => undefined}
+              onReplace={() => {}}
               onRemove={artwork ? handleArtworkRemove : undefined}
               onUpload={handleArtworkUpload}
               size="lg"
+              isUploading={isUploading}
+              isRemoving={isRemoving}
             />
           </div>
 

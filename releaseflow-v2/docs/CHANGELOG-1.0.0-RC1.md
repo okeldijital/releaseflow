@@ -1,7 +1,7 @@
 # Changelog — ReleaseFlow 1.0.0-RC1
 
 **Date:** 2026-06-28
-**Status:** Release Candidate
+**Status:** Release Candidate (Artwork Module Complete)
 
 ---
 
@@ -63,3 +63,5 @@
 | Pages recovered | 14/21 (67%) |
 | P0/P1 defects | 0 |
 | P2 defects | 10 |
+| Artwork module | Cloudinary source of truth, Firestore metadata persisted, end-to-end upload verified |
+| Firestore Security Rules | Artwork subcollections deployed with mediaGuard tenant isolation |

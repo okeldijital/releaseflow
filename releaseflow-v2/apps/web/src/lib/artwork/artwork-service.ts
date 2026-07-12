@@ -1,4 +1,5 @@
 import { hasPermission } from '@/lib/auth/authorization-service';
+import { getAuthInstance } from '@/lib/firebase';
 import { uploadArtworkFile } from './artwork-upload';
 import {
   createArtwork,
@@ -26,26 +27,13 @@ export async function uploadArtwork(
       organizationId,
     });
 
-    console.log('[BUILD-035] About to create Firestore artwork', {
+    const artworkId = await createArtwork({
       organizationId,
       releaseId,
       publicId: result.publicId,
       secureUrl: result.secureUrl,
+      createdBy: userId,
     });
-    let artworkId: string;
-    try {
-      artworkId = await createArtwork({
-        organizationId,
-        releaseId,
-        publicId: result.publicId,
-        secureUrl: result.secureUrl,
-        createdBy: userId,
-      });
-    } catch (error) {
-      console.error('[BUILD-035] createArtwork failed', error);
-      throw error;
-    }
-    console.log('[BUILD-035] Firestore artwork created', { artworkId });
 
     return { artworkId };
   } catch (err) {
@@ -97,10 +85,14 @@ export async function removeArtwork(
     const existing = await getArtwork(organizationId, artworkId);
     if (!existing) return { error: 'Artwork not found' };
 
+    const currentUser = getAuthInstance()?.currentUser;
+    if (!currentUser) return { error: 'You must be signed in to delete artwork.' };
+    const idToken = await currentUser.getIdToken();
     const destroyRes = await fetch('/api/artwork/destroy', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
       },
       body: JSON.stringify({
         publicId: existing.publicId,

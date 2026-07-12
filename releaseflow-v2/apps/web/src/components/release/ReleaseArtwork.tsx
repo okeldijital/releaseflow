@@ -12,6 +12,8 @@ interface ReleaseArtworkProps {
   onUpload?: (file: File) => void;
   className?: string;
   size?: 'sm' | 'md' | 'lg';
+  isUploading?: boolean;
+  isRemoving?: boolean;
 }
 
 const ARTWORK_COLORS = [
@@ -41,6 +43,8 @@ export function ReleaseArtwork({
   onUpload,
   className = '',
   size = 'md',
+  isUploading = false,
+  isRemoving = false,
 }: ReleaseArtworkProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -163,21 +167,21 @@ export function ReleaseArtwork({
       {hasArtwork && (onReplace || onRemove) && (
         <div className="flex gap-2 mt-3">
           {onReplace && (
-            <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={handleUploadClick}>
-              Replace
+            <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={handleUploadClick} disabled={isUploading || isRemoving}>
+              {isUploading ? 'Uploading...' : 'Replace'}
             </Button>
           )}
           {onRemove && (
-            <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={onRemove}>
-              Remove
+            <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={onRemove} disabled={isUploading || isRemoving}>
+              {isRemoving ? 'Removing...' : 'Remove'}
             </Button>
           )}
         </div>
       )}
       {!hasArtwork && onUpload && (
         <div className="mt-3">
-          <Button size="sm" variant="primary" className="w-full text-xs" onClick={handleUploadClick}>
-            Upload Artwork
+          <Button size="sm" variant="primary" className="w-full text-xs" onClick={handleUploadClick} disabled={isUploading || isRemoving}>
+            {isUploading ? 'Uploading...' : 'Upload Artwork'}
           </Button>
         </div>
       )}
