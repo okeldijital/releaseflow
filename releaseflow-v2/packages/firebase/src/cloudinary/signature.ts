@@ -32,12 +32,12 @@ export function signUpload(options: {
     folder: options.folder,
     publicId: options.publicId,
     signature,
-    apiKey: cloudinaryConfig.apiKey,
+    apiKey: cloudinaryConfig().apiKey,
   };
 }
 
 function generateSignature(params: string): string {
-  const secret = cloudinaryConfig.apiSecret;
+  const secret = cloudinaryConfig().apiSecret;
   const sortedParams = params
     .split('&')
     .filter(Boolean)

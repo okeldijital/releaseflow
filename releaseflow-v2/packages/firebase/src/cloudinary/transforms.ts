@@ -2,7 +2,7 @@ import { cloudinaryConfig } from './config';
 import type { TransformationOptions } from './types';
 
 export function getAssetUrl(publicId: string): string {
-  return `https://res.cloudinary.com/${cloudinaryConfig.cloudName}/image/upload/${publicId}`;
+  return `https://res.cloudinary.com/${cloudinaryConfig().cloudName}/image/upload/${publicId}`;
 }
 
 export function transformImage(
@@ -20,5 +20,5 @@ export function transformImage(
 
   const transformString = transformations.join(',');
 
-  return `https://res.cloudinary.com/${cloudinaryConfig.cloudName}/image/upload/${transformString}/${publicId}`;
+  return `https://res.cloudinary.com/${cloudinaryConfig().cloudName}/image/upload/${transformString}/${publicId}`;
 }

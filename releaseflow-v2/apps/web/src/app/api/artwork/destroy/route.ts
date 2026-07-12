@@ -24,7 +24,7 @@ const serverMembershipResolver: MembershipResolver = async (organizationId, uid)
 
 export async function POST(request: Request) {
   try {
-    if (!cloudinaryConfig.cloudName || !cloudinaryConfig.apiKey || !cloudinaryConfig.apiSecret) {
+    if (!cloudinaryConfig().cloudName || !cloudinaryConfig().apiKey || !cloudinaryConfig().apiSecret) {
       return NextResponse.json({ error: 'Cloudinary configuration is incomplete.' }, { status: 500 });
     }
 
@@ -56,19 +56,19 @@ export async function POST(request: Request) {
     const timestamp = Math.floor(Date.now() / 1000);
     const params = new URLSearchParams();
     params.append('public_id', body.publicId);
-    params.append('api_key', cloudinaryConfig.apiKey);
+    params.append('api_key', cloudinaryConfig().apiKey);
     params.append('timestamp', String(timestamp));
 
     const signature = generateDestroySignature(params.toString());
 
     const formData = new FormData();
     formData.append('public_id', body.publicId);
-    formData.append('api_key', cloudinaryConfig.apiKey);
+    formData.append('api_key', cloudinaryConfig().apiKey);
     formData.append('timestamp', String(timestamp));
     formData.append('signature', signature);
 
     const destroyRes = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/destroy`,
+      `https://api.cloudinary.com/v1_1/${cloudinaryConfig().cloudName}/image/destroy`,
       { method: 'POST', body: formData },
     );
 
@@ -90,6 +90,6 @@ function generateDestroySignature(params: string): string {
     .filter(Boolean)
     .sort()
     .join('&');
-  const stringToSign = `${sortedParams}${cloudinaryConfig.apiSecret}`;
+  const stringToSign = `${sortedParams}${cloudinaryConfig().apiSecret}`;
   return createHash('sha1').update(stringToSign).digest('hex');
 }

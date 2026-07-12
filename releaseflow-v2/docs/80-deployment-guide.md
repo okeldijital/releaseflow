@@ -31,8 +31,8 @@
 #### Cloudinary
 | Variable | Description | Secret? |
 |---|---|---|
-| `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name | No |
-| `NEXT_PUBLIC_CLOUDINARY_API_KEY` | Cloudinary API key | No |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name | No |
+| `CLOUDINARY_API_KEY` | Cloudinary API key | No |
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret | Yes |
 | `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` | Upload preset name | No |
 

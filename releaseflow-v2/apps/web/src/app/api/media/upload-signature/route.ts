@@ -19,7 +19,7 @@ const ENTITY_SUBFOLDER: Record<string, string> = {
 };
 
 function configIncomplete(): boolean {
-  return !cloudinaryConfig.cloudName || !cloudinaryConfig.apiKey || !cloudinaryConfig.apiSecret;
+  return !cloudinaryConfig().cloudName || !cloudinaryConfig().apiKey || !cloudinaryConfig().apiSecret;
 }
 
 // Membership resolution via the Admin SDK. The role → permission decision is
@@ -42,9 +42,9 @@ export async function POST(request: Request) {
   try {
     if (configIncomplete()) {
       console.error('Cloudinary config incomplete:', {
-        cloudName: cloudinaryConfig.cloudName,
-        apiKey: cloudinaryConfig.apiKey,
-        apiSecret: cloudinaryConfig.apiSecret ? '[redacted]' : undefined,
+        cloudName: cloudinaryConfig().cloudName,
+        apiKey: cloudinaryConfig().apiKey,
+        apiSecret: cloudinaryConfig().apiSecret ? '[redacted]' : undefined,
       });
       return NextResponse.json({ error: 'Cloudinary configuration is incomplete.' }, { status: 500 });
     }
@@ -84,8 +84,8 @@ export async function POST(request: Request) {
     const signed = signUpload({ folder, timestamp });
 
     return NextResponse.json({
-      cloudName: cloudinaryConfig.cloudName,
-      apiKey: cloudinaryConfig.apiKey,
+      cloudName: cloudinaryConfig().cloudName,
+      apiKey: cloudinaryConfig().apiKey,
       timestamp: signed.timestamp,
       signature: signed.signature,
       folder: signed.folder,
