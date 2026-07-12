@@ -41,6 +41,11 @@ const serverMembershipResolver: MembershipResolver = async (organizationId, uid)
 export async function POST(request: Request) {
   try {
     if (configIncomplete()) {
+      console.error('Cloudinary config incomplete:', {
+        cloudName: cloudinaryConfig.cloudName,
+        apiKey: cloudinaryConfig.apiKey,
+        apiSecret: cloudinaryConfig.apiSecret ? '[redacted]' : undefined,
+      });
       return NextResponse.json({ error: 'Cloudinary configuration is incomplete.' }, { status: 500 });
     }
 
