@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { PersonAssigner } from '@/components/person-assigner';
 import { fetchRelease, removeRelease, editRelease } from '@/lib/release-service';
-import { uploadArtwork, replaceArtwork, removeArtwork, getArtworkByRelease } from '@/lib/artwork/artwork-service';
+import { uploadArtwork, getArtworkByRelease } from '@/lib/artwork/artwork-service';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { toast } from '@/stores/toast-store';
 import { getDeliverablesByRelease } from '@/lib/deliverable-service';
@@ -17,7 +17,7 @@ import { getTasksByEntity } from '@/lib/task-service';
 import { getActivityByEntity } from '@/lib/activity-service';
 import { fmtDate } from '@/lib/utils';
 import { Button, Badge, StatusBadge, Skeleton, EmptyState, LoadingState, Tabs, ConfirmationDialog } from '@releaseflow/ui';
-import { ReleaseArtwork } from '@/components/release/ReleaseArtwork';
+import { ReleaseArtwork, type UploadState } from '@/components/release/ReleaseArtwork';
 import type { Release, Deliverable, Task } from '../../types';
 import type { ReleaseTrackRecord } from '@/lib/release-track-repository';
 import type { TrackRecord } from '@/lib/track-repository';
@@ -234,8 +234,7 @@ export default function ReleaseWorkspacePage() {
   const [artistsUnavailable, setArtistsUnavailable] = useState(false);
   const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
   const [artwork, setArtwork] = useState<Artwork | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isRemoving, setIsRemoving] = useState(false);
+  const [uploadState, setUploadState] = useState<UploadState>('idle');
   const [tab, setTab] = useState<TabId>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(`rf-tab-release-${releaseId}`);
@@ -444,61 +443,20 @@ export default function ReleaseWorkspacePage() {
   const handleArtworkUpload = useCallback(async (file: File) => {
     if (!user || !activeOrgId) {
       toast.error('Cannot upload artwork', 'You must be signed in to an organisation.');
+      setUploadState('idle');
       return;
     }
-    const prevArtwork = artwork;
-    setIsUploading(true);
+    setUploadState('uploading');
     try {
-      if (artwork) {
-        const result = await replaceArtwork(artwork.id, file, activeOrgId, user.uid);
-        if ('error' in result) {
-          setArtwork(prevArtwork);
-          toast.error('Artwork replace failed', result.error);
-        } else {
-          toast.success('Artwork replaced successfully.');
-          setWorkspaceReloadToken((t) => t + 1);
-        }
-      } else {
-        const result = await uploadArtwork(file, releaseId, activeOrgId, user.uid);
-        if ('error' in result) {
-          toast.error('Artwork upload failed', result.error);
-        } else {
-          toast.success('Artwork uploaded successfully.');
-          setWorkspaceReloadToken((t) => t + 1);
-        }
-      }
-    } catch {
-      setArtwork(prevArtwork);
-      toast.error('Artwork operation failed', 'Please try again.');
-    } finally {
-      setIsUploading(false);
+      const result = await uploadArtwork(file, releaseId, activeOrgId, user.uid);
+      setArtwork(result);
+      setUploadState('complete');
+      toast.success('Artwork uploaded successfully.');
+    } catch (err) {
+      setUploadState('idle');
+      toast.error('Artwork upload failed', err instanceof Error ? err.message : 'Please try again.');
     }
-  }, [user, activeOrgId, releaseId, artwork]);
-
-  const handleArtworkRemove = useCallback(async () => {
-    if (!user || !activeOrgId || !artwork) {
-      toast.error('Cannot delete artwork', 'You must be signed in to an organisation with an existing artwork.');
-      return;
-    }
-    const prevArtwork = artwork;
-    setIsRemoving(true);
-    setArtwork(null);
-    try {
-      const result = await removeArtwork(prevArtwork.id, activeOrgId, user.uid);
-      if ('error' in result) {
-        setArtwork(prevArtwork);
-        toast.error('Artwork delete failed', result.error);
-      } else {
-        toast.success('Artwork deleted successfully.');
-        setWorkspaceReloadToken((t) => t + 1);
-      }
-    } catch {
-      setArtwork(prevArtwork);
-      toast.error('Artwork delete failed', 'Please try again.');
-    } finally {
-      setIsRemoving(false);
-    }
-  }, [user, activeOrgId, artwork]);
+  }, [user, activeOrgId, releaseId]);
 
   useEffect(() => {
     if (!visibleTabs.some((t) => t.id === tab)) setTab('overview');
@@ -622,8 +580,6 @@ export default function ReleaseWorkspacePage() {
     );
   }
   /* ─── Artwork ──────────────────────────────────────────────────────────── */
-  const artworkUrl = artwork?.secureUrl;
-  const artworkStatus = artwork ? 'approved' : 'missing';
   const artistName = fieldValue(release, ['artistName', 'artist', 'primaryArtist']) ?? 'Artist not linked';
   const companyName = release.label ?? fieldValue(release, ['company', 'companyName']) ?? 'Company not set';
   const meaningfulActivities = activities.filter((ev) => humaniseActivity(ev) !== null);
@@ -697,15 +653,10 @@ export default function ReleaseWorkspacePage() {
           {/* Artwork */}
           <div className="w-full lg:w-64 shrink-0">
             <ReleaseArtwork
-              title={release.title}
-              artworkUrl={artworkUrl}
-              status={artworkStatus as 'approved' | 'pending' | 'missing' | undefined}
-              onReplace={() => {}}
-              onRemove={artwork ? handleArtworkRemove : undefined}
+              hasArtwork={!!artwork}
+              uploadState={uploadState}
               onUpload={handleArtworkUpload}
-              size="lg"
-              isUploading={isUploading}
-              isRemoving={isRemoving}
+              onUploadStateChange={setUploadState}
             />
           </div>
 

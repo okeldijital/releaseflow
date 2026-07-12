@@ -15,29 +15,55 @@ export async function uploadArtwork(
   releaseId: string,
   organizationId: string,
   userId: string,
-): Promise<{ artworkId: string } | { error: string }> {
+): Promise<Artwork> {
+  if (!(await hasPermission(organizationId, userId, 'artwork.upload'))) {
+    throw new Error('You do not have permission to upload artwork for this organization.');
+  }
+
+  const uploadResult = await uploadArtworkFile(file, {
+    entityType: 'artwork',
+    entityId: releaseId,
+    organizationId,
+  });
+
+  let artwork: Artwork;
   try {
-    if (!(await hasPermission(organizationId, userId, 'artwork.upload'))) {
-      return { error: 'You do not have permission to upload artwork for this organization.' };
-    }
-
-    const result = await uploadArtworkFile(file, {
-      entityType: 'artwork',
-      entityId: releaseId,
-      organizationId,
-    });
-
-    const artworkId = await createArtwork({
+    artwork = await createArtwork({
       organizationId,
       releaseId,
-      publicId: result.publicId,
-      secureUrl: result.secureUrl,
-      createdBy: userId,
+      publicId: uploadResult.publicId,
+      secureUrl: uploadResult.secureUrl,
+      width: uploadResult.width,
+      height: uploadResult.height,
+      format: uploadResult.format,
     });
-
-    return { artworkId };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : 'Upload failed' };
+    // Firestore write failed — clean up the Cloudinary image
+    await attemptDestroyCloudinaryImage(uploadResult.publicId, organizationId);
+    throw new Error(
+      err instanceof Error ? err.message : 'Failed to persist artwork metadata',
+      err instanceof Error ? { cause: err } : undefined,
+    );
+  }
+
+  return artwork;
+}
+
+async function attemptDestroyCloudinaryImage(publicId: string, organizationId: string): Promise<void> {
+  try {
+    const currentUser = getAuthInstance()?.currentUser;
+    if (!currentUser) return;
+    const idToken = await currentUser.getIdToken();
+    await fetch('/api/artwork/destroy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ publicId, organizationId }),
+    });
+  } catch {
+    // Best-effort cleanup — do not throw
   }
 }
 

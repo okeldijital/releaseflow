@@ -22,7 +22,9 @@ function toArtwork(id: string, data: Record<string, unknown>): Artwork {
     releaseId: data.releaseId as string,
     publicId: data.publicId as string,
     secureUrl: data.secureUrl as string,
-    createdBy: data.createdBy as string,
+    width: data.width as number,
+    height: data.height as number,
+    format: data.format as string,
     createdAt: data.createdAt as Timestamp,
     updatedAt: data.updatedAt as Timestamp,
   };
@@ -30,18 +32,24 @@ function toArtwork(id: string, data: Record<string, unknown>): Artwork {
 
 export async function createArtwork(
   fields: Omit<Artwork, 'id' | 'createdAt' | 'updatedAt'>,
-): Promise<string> {
+): Promise<Artwork> {
   const db = getDb();
   if (!db) throw new Error('Firestore not initialized');
   if (!fields.organizationId) throw new Error('organizationId required');
   const now = Timestamp.now();
 
-  const ref = await addDoc(artworksCol(db, fields.organizationId), {
+  const docRef = await addDoc(artworksCol(db, fields.organizationId), {
     ...fields,
     createdAt: now,
     updatedAt: now,
   });
-  return ref.id;
+
+  return {
+    id: docRef.id,
+    ...fields,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 export async function updateArtwork(

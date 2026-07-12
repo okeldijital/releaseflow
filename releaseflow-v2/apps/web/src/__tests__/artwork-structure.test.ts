@@ -10,7 +10,9 @@ describe('Artwork types', () => {
       releaseId: 'release-1',
       publicId: 'releaseflow/org-1/releases/release-1/artwork',
       secureUrl: 'https://res.cloudinary.com/...',
-      createdBy: 'user-1',
+      width: 1400,
+      height: 1400,
+      format: 'jpg',
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
@@ -19,7 +21,9 @@ describe('Artwork types', () => {
     expect(artwork.releaseId).toBe('release-1');
     expect(artwork.publicId).toBe('releaseflow/org-1/releases/release-1/artwork');
     expect(artwork.secureUrl).toContain('https://');
-    expect(artwork.createdBy).toBe('user-1');
+    expect(artwork.width).toBe(1400);
+    expect(artwork.height).toBe(1400);
+    expect(artwork.format).toBe('jpg');
   });
 });
 

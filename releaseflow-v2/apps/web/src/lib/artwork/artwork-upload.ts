@@ -1,5 +1,12 @@
 import { getAuthInstance } from '@/lib/firebase';
-import type { UploadResult } from '@releaseflow/firebase/cloudinary';
+
+export interface ArtworkUploadResult {
+  publicId: string;
+  secureUrl: string;
+  width: number;
+  height: number;
+  format: string;
+}
 
 export interface ArtworkUploadOptions {
   entityType: string;
@@ -18,7 +25,7 @@ interface UploadSignature {
 export async function uploadArtworkFile(
   file: File,
   options: ArtworkUploadOptions,
-): Promise<UploadResult> {
+): Promise<ArtworkUploadResult> {
   const currentUser = getAuthInstance()?.currentUser;
   if (!currentUser) {
     throw new Error('You must be signed in to upload artwork.');
@@ -70,32 +77,10 @@ export async function uploadArtworkFile(
   }
 
   return {
-    publicId: data.public_id,
-    url: data.url,
-    secureUrl: data.secure_url,
-    format: data.format,
-    bytes: data.bytes,
-    createdAt: data.created_at,
+    publicId: data.public_id as string,
+    secureUrl: data.secure_url as string,
+    width: data.width as number,
+    height: data.height as number,
+    format: data.format as string,
   };
-}
-
-export function getImageDimensions(file: File): Promise<{ width: number; height: number } | null> {
-  return new Promise((resolve) => {
-    if (!file.type.startsWith('image/')) {
-      resolve(null);
-      return;
-    }
-
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(null);
-    };
-    img.src = url;
-  });
 }

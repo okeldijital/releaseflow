@@ -6,7 +6,9 @@ export interface Artwork {
   releaseId: string;
   publicId: string;
   secureUrl: string;
-  createdBy: string;
+  width: number;
+  height: number;
+  format: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
