@@ -113,6 +113,9 @@ service cloud.firestore {
     match /assets/{docId} {
       allow read,write: if isAuth();
     }
+    match /invitations/{docId} {
+      allow read,write: if isAuth();
+    }
 
     // Audit log: any auth user can read, only actor can create
     match /activity_events/{docId} {
