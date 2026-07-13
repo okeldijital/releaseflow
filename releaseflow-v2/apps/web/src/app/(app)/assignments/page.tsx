@@ -4,21 +4,9 @@ import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { useOrgStore } from '@/stores/org-store';
 import { useAssignments } from '@/hooks/useAssignment';
-import { completeUserAssignment, archiveUserAssignment, deleteUserAssignment } from '@/lib/assignment-service';
+import { completeUserAssignment, archiveUserAssignment } from '@/lib/assignment-service';
 import { Button, EmptyState, LoadingState, Input, Badge, StatusBadge, ConfirmationDialog } from '@releaseflow/ui';
 import { toast } from '@/stores/toast-store';
-
-const statusColors: Record<string, string> = {
-  draft: 'bg-surface-800 text-text-500',
-  assigned: 'bg-primary-500/10 text-primary-400',
-  accepted: 'bg-info-500/10 text-info-400',
-  in_progress: 'bg-warning-500/10 text-warning-600',
-  review: 'bg-accent-500/10 text-accent-400',
-  completed: 'bg-success-500/10 text-success-600',
-  declined: 'bg-danger-500/10 text-danger-600',
-  cancelled: 'bg-surface-800 text-text-500',
-  archived: 'bg-surface-800 text-text-500',
-};
 
 const priorityColors: Record<string, string> = {
   low: 'bg-surface-800 text-text-500',
@@ -75,21 +63,6 @@ export default function AssignmentsPage() {
       await refresh();
     } catch {
       toast.error('Failed to archive assignment');
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  async function handleDelete() {
-    if (!archiveId) return;
-    setActionLoading(true);
-    try {
-      await deleteUserAssignment(archiveId, 'current-user');
-      toast.success('Assignment removed');
-      setArchiveId(null);
-      await refresh();
-    } catch {
-      toast.error('Failed to remove assignment');
     } finally {
       setActionLoading(false);
     }

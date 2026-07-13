@@ -7,7 +7,7 @@ import { Button, EmptyState, LoadingState, Input, ConfirmationDialog } from '@re
 import { toast } from '@/stores/toast-store';
 
 export default function InvitationsPage() {
-  const { invitations, pendingInvitations, loading, refresh } = useInvitations();
+  const { invitations, loading, refresh } = useInvitations();
   const { invite, saving } = useInvitePerson();
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('contributor');

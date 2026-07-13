@@ -11,7 +11,6 @@ import {
 } from './invitation-repository';
 import type { InvitationRecord, CreateInvitationFields } from './invitation-repository';
 import { recordActivity } from './activity-service';
-import { createNotification } from './notification-service';
 
 export type { InvitationRecord, CreateInvitationFields };
 

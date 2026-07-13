@@ -4,19 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { getAssignmentsByEntity } from '@/lib/assignment-repository';
 import type { AssignmentRecord } from '@/lib/assignment-repository';
-import { Button, EmptyState, LoadingState, Badge, StatusBadge } from '@releaseflow/ui';
-
-const statusColors: Record<string, string> = {
-  draft: 'bg-surface-800 text-text-500',
-  assigned: 'bg-primary-500/10 text-primary-400',
-  accepted: 'bg-info-500/10 text-info-400',
-  in_progress: 'bg-warning-500/10 text-warning-600',
-  review: 'bg-accent-500/10 text-accent-400',
-  completed: 'bg-success-500/10 text-success-600',
-  declined: 'bg-danger-500/10 text-danger-600',
-  cancelled: 'bg-surface-800 text-text-500',
-  archived: 'bg-surface-800 text-text-500',
-};
+import { EmptyState, LoadingState, Badge, StatusBadge } from '@releaseflow/ui';
 
 const priorityColors: Record<string, string> = {
   low: 'bg-surface-800 text-text-500',

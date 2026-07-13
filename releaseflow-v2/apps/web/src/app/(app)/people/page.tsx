@@ -7,7 +7,7 @@ import { useInvitations } from '@/hooks/useInvitation';
 import { useOrgStore } from '@/stores/org-store';
 import { searchPeople } from '@/lib/people-repository';
 import type { PersonRecord } from '@/lib/people-repository';
-import { Button, EmptyState, LoadingState, Input, StatusBadge, Badge } from '@releaseflow/ui';
+import { Button, EmptyState, LoadingState, Input, StatusBadge } from '@releaseflow/ui';
 
 export default function PeoplePage() {
   const { activeOrgId } = useOrgStore();

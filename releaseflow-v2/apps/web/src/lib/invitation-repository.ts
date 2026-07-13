@@ -1,4 +1,4 @@
-import { doc, getDocs, getDoc, addDoc, updateDoc, collection, query, where, orderBy, Timestamp, deleteDoc } from '@firebase/firestore';
+import { doc, getDocs, getDoc, addDoc, updateDoc, collection, query, where, orderBy, Timestamp } from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export interface InvitationRecord {

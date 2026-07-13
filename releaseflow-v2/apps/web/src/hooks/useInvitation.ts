@@ -5,10 +5,7 @@ import { useOrgStore } from '@/stores/org-store';
 import { useAuth } from '@/contexts/auth-context';
 import {
   invitePerson,
-  cancelInvitation,
-  resendPersonInvitation,
   expireStaleInvitations,
-  fetchPendingInvitations,
   fetchInvitationsByOrg,
 } from '@/lib/invitation-service';
 import type { InvitationRecord } from '@/lib/invitation-service';
