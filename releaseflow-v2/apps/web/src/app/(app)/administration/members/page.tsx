@@ -10,7 +10,7 @@ import {
   removeMembership,
 } from '@/lib/organization-repository';
 import type { MembershipRecord } from '@/lib/organization-repository';
-import { inviteUser } from '@/lib/invitation-service';
+import { invitePerson } from '@/lib/invitation-service';
 import { fetchPendingInvitations } from '@/lib/invitation-service';
 import type { InvitationRecord } from '@/lib/invitation-service';
 import { Button, EmptyState, LoadingState, Select, Badge, StatusBadge, Input } from '@releaseflow/ui';
@@ -71,14 +71,11 @@ function InviteDialog({ open, onClose, orgName }: { open: boolean; onClose: () =
     setSuccess('');
 
     try {
-      await inviteUser({
+      await invitePerson({
         organizationId: activeOrgId,
         email: email.trim(),
         inviterId: user.uid,
-        inviterName: user.displayName || user.email || 'A user',
         roleId: role,
-        orgName,
-        roleName: ROLE_OPTIONS.find((r) => r.value === role)?.label || role,
       });
       setSuccess(`Invitation sent to ${email.trim()}`);
       setEmail('');

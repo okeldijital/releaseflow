@@ -1,4 +1,4 @@
-import { doc, getDocs, addDoc, updateDoc, collection, query, where, Timestamp } from '@firebase/firestore';
+import { doc, getDocs, getDoc, addDoc, updateDoc, collection, query, where, orderBy, Timestamp, deleteDoc } from '@firebase/firestore';
 import { getDb } from './firebase';
 
 export interface InvitationRecord {
@@ -7,7 +7,7 @@ export interface InvitationRecord {
   email: string;
   inviterId: string;
   roleId: string;
-  status: 'draft' | 'sent' | 'accepted' | 'expired' | 'revoked';
+  status: 'pending' | 'accepted' | 'expired' | 'revoked';
   token: string;
   expiresAt: unknown;
   createdAt: unknown;
@@ -32,7 +32,7 @@ export async function createInvitation(fields: CreateInvitationFields): Promise<
     email: fields.email,
     inviterId: fields.inviterId,
     roleId: fields.roleId,
-    status: 'sent',
+    status: 'pending',
     token,
     expiresAt: Timestamp.fromDate(expiresAt),
     createdAt: now,
@@ -56,7 +56,7 @@ export async function acceptInvitation(token: string, userId: string): Promise<v
   if (!db) return;
   const invitation = await getInvitationByToken(token);
   if (!invitation) throw new Error('Invitation not found');
-  if (invitation.status !== 'sent') throw new Error('Invitation is no longer valid');
+  if (invitation.status !== 'pending') throw new Error('Invitation is no longer valid');
   const now = Timestamp.now();
   await updateDoc(doc(db, 'invitations', invitation.id), { status: 'accepted', updatedAt: now });
   await addDoc(collection(db, 'memberships'), {
@@ -75,11 +75,43 @@ export async function revokeInvitation(invitationId: string): Promise<void> {
   await updateDoc(doc(db, 'invitations', invitationId), { status: 'revoked', updatedAt: Timestamp.now() });
 }
 
+export async function resendInvitation(invitationId: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  const snap = await getDoc(doc(db, 'invitations', invitationId));
+  if (!snap.exists()) throw new Error('Invitation not found');
+  const now = Timestamp.now();
+  const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  await updateDoc(doc(db, 'invitations', invitationId), {
+    status: 'pending',
+    expiresAt: Timestamp.fromDate(newExpiresAt),
+    updatedAt: now,
+  });
+}
+
+export async function expireOldInvitations(orgId: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  const now = Timestamp.now();
+  const snap = await getDocs(
+    query(collection(db, 'invitations'), where('organizationId', '==', orgId), where('status', '==', 'pending')),
+  );
+  const batch = [];
+  for (const d of snap.docs) {
+    const data = d.data() as { expiresAt: unknown };
+    const expiresAt = data.expiresAt as { toDate?(): Date };
+    if (expiresAt && expiresAt.toDate && expiresAt.toDate() < new Date()) {
+      batch.push(updateDoc(doc(db, 'invitations', d.id), { status: 'expired', updatedAt: now }));
+    }
+  }
+  await Promise.all(batch);
+}
+
 export async function getPendingInvitations(orgId: string): Promise<InvitationRecord[]> {
   const db = getDb();
   if (!db) return [];
   const snap = await getDocs(
-    query(collection(db, 'invitations'), where('organizationId', '==', orgId), where('status', '==', 'sent')),
+    query(collection(db, 'invitations'), where('organizationId', '==', orgId), where('status', '==', 'pending')),
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as InvitationRecord);
 }
@@ -88,5 +120,14 @@ export async function getInvitationsByEmail(email: string): Promise<InvitationRe
   const db = getDb();
   if (!db) return [];
   const snap = await getDocs(query(collection(db, 'invitations'), where('email', '==', email)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as InvitationRecord);
+}
+
+export async function getInvitationsByOrg(orgId: string): Promise<InvitationRecord[]> {
+  const db = getDb();
+  if (!db) return [];
+  const snap = await getDocs(
+    query(collection(db, 'invitations'), where('organizationId', '==', orgId), orderBy('createdAt', 'desc')),
+  );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as InvitationRecord);
 }

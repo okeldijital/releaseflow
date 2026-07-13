@@ -51,8 +51,8 @@ export async function addReply(
   return comment.id;
 }
 
-export async function editComment(commentId: string, content: string): Promise<void> {
-  await updateComment(commentId, { content });
+export async function editComment(commentId: string, content: string, editorId: string): Promise<void> {
+  await updateComment(commentId, { content }, editorId);
 }
 
 export async function removeComment(commentId: string): Promise<void> {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { resolveInvitation } from '@/lib/invitation-service';
+import { fetchInvitationByToken, acceptPersonInvitation } from '@/lib/invitation-service';
 
 interface InviteState {
   status: 'loading' | 'valid' | 'invalid' | 'expired' | 'accepted' | 'error';
@@ -25,9 +25,14 @@ export default function InvitePage() {
 
     async function verify() {
       try {
-        const { isValid, reason } = await resolveInvitation(token);
-        if (!isValid) {
-          setState({ status: reason === 'Invitation has expired' ? 'expired' : 'invalid', message: reason || 'Invalid invitation.' });
+        const invitation = await fetchInvitationByToken(token);
+        if (!invitation) {
+          setState({ status: 'invalid', message: 'Invalid invitation.' });
+          return;
+        }
+        if (invitation.status !== 'pending') {
+          const reason = invitation.status === 'expired' ? 'Invitation has expired' : 'Invitation is no longer valid';
+          setState({ status: invitation.status === 'expired' ? 'expired' : 'invalid', message: reason });
           return;
         }
         setState({ status: 'valid', message: 'Invitation verified.' });
@@ -42,15 +47,11 @@ export default function InvitePage() {
     if (state.status !== 'valid' || !user || !token) return;
 
     async function accept() {
+      if (!user) return;
       try {
-        const { acceptUserInvitation } = await import('@/lib/invitation-service');
-        const result = await acceptUserInvitation(token, user!.uid);
-        if (result.success && result.organizationId) {
-          setState({ status: 'accepted', message: 'You have joined the organization!' });
-          setTimeout(() => router.push('/auth/resolve'), 2000);
-        } else {
-          setState({ status: 'error', message: result.error || 'Failed to accept invitation.' });
-        }
+        await acceptPersonInvitation(token, user.uid);
+        setState({ status: 'accepted', message: 'You have joined the organization!' });
+        setTimeout(() => router.push('/auth/resolve'), 2000);
       } catch {
         setState({ status: 'error', message: 'Something went wrong. Please try again.' });
       }

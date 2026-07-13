@@ -16,6 +16,8 @@ export interface EntityCommentRecord {
   attachments?: string[] | null;
   createdAt: unknown;
   updatedAt: unknown;
+  editedAt?: unknown | null;
+  editedBy?: string | null;
 }
 
 export interface CreateCommentFields {
@@ -48,6 +50,8 @@ export async function createComment(fields: CreateCommentFields): Promise<Entity
     attachments: fields.attachments ?? null,
     createdAt: now,
     updatedAt: now,
+    editedAt: null,
+    editedBy: null,
   };
   const ref = await addDoc(collection(db, 'entity_comments'), data);
   return {
@@ -62,15 +66,20 @@ export async function createComment(fields: CreateCommentFields): Promise<Entity
     attachments: data.attachments,
     createdAt: now,
     updatedAt: now,
+    editedAt: null,
+    editedBy: null,
   };
 }
 
-export async function updateComment(commentId: string, fields: UpdateCommentFields): Promise<void> {
+export async function updateComment(commentId: string, fields: UpdateCommentFields, editorId: string): Promise<void> {
   const db = getDb();
   if (!db) return;
+  const now = Timestamp.now();
   await updateDoc(doc(db, 'entity_comments', commentId), {
     ...fields,
-    updatedAt: Timestamp.now(),
+    updatedAt: now,
+    editedAt: now,
+    editedBy: editorId,
   });
 }
 

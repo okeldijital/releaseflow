@@ -17,15 +17,19 @@ import { fetchArtist } from '@/lib/artist-service';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { Button, Badge, LoadingState, Tabs } from '@releaseflow/ui';
+import { CommentSection } from '@/components/comments/comment-section';
+import { AssignmentsSection } from '@/components/assignments-section';
 
-const TAB_IDS = ['overview', 'publishing', 'credits', 'settings'] as const;
+const TAB_IDS = ['overview', 'publishing', 'credits', 'comments', 'assignments', 'settings'] as const;
 type TabId = typeof TAB_IDS[number];
 
 const TAB_LABELS: Record<TabId, string> = {
   overview: 'Overview',
   publishing: 'Publishing',
   credits: 'Credits',
-  settings: 'Edit',
+  comments: 'Comments',
+  assignments: 'Assignments',
+  settings: 'Settings',
 };
 
 async function resolveArtistNames(orgId: string | null, artistIds: string[]): Promise<string[]> {
@@ -258,6 +262,14 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
           credits={credits}
           onSave={handleSaveCredits}
         />
+      )}
+
+      {tab === 'comments' && (
+        <CommentSection entityType="track" entityId={trackId} title="Comments" />
+      )}
+
+      {tab === 'assignments' && (
+        <AssignmentsSection entityType="track" entityId={trackId} />
       )}
 
       {tab === 'settings' && (

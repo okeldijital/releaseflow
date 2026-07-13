@@ -24,6 +24,8 @@ import type { TrackRecord } from '@/lib/track-repository';
 import type { ActivityEventRecord } from '@/lib/activity-service';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import type { Artwork } from '@/lib/artwork/artwork-types';
+import { CommentSection } from '@/components/comments/comment-section';
+import { AssignmentsSection } from '@/components/assignments-section';
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
 
@@ -181,10 +183,11 @@ const EXPECTED_ASSETS = [
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 
-type TabId = 'overview' | 'workflow' | 'campaign' | 'rights' | 'budget' | 'settings';
+type TabId = 'overview' | 'assignments' | 'workflow' | 'campaign' | 'rights' | 'budget' | 'settings';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview',  label: 'Overview'  },
+  { id: 'assignments',  label: 'Assignments'  },
   { id: 'workflow',  label: 'Workflow'  },
   { id: 'campaign',  label: 'Campaign'  },
   { id: 'rights',    label: 'Rights'    },
@@ -936,6 +939,11 @@ export default function ReleaseWorkspacePage() {
             )}
           </section>
 
+          {/* § Comments */}
+          <section aria-label="Comments">
+            <CommentSection entityType="release" entityId={releaseId} title="Comments" />
+          </section>
+
       </div>
 
       {/* ── Workspace Tabs ─────────────────────────────────────────────── */}
@@ -970,6 +978,12 @@ export default function ReleaseWorkspacePage() {
       {tab === 'budget' && (
         <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-8 text-center">
           <EmptyState title="No budget entries" description="Budget and cost information will appear here once entries are added." />
+        </div>
+      )}
+
+      {tab === 'assignments' && (
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-6">
+          <AssignmentsSection entityType="release" entityId={releaseId} />
         </div>
       )}
 

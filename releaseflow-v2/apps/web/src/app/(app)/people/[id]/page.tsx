@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, FormEvent, useCallback, useRef } from 'react';
+import { useState, useEffect, FormEvent, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { usePerson } from '@/hooks/usePerson';
 import { useOrgStore } from '@/stores/org-store';
@@ -10,9 +10,11 @@ import {
   editPerson, archivePerson as serviceArchive, restorePerson as serviceRestore,
 } from '@/lib/person-service';
 import { uploadPersonImage, removePersonImage } from '@/lib/person-media-service';
+import { getAssignmentsByAssignee, getAssignmentsByEntity } from '@/lib/assignment-repository';
+import type { AssignmentRecord } from '@/lib/assignment-repository';
 import {
   Avatar, Badge, Button, Card, EmptyState, Input, StatusBadge, TextArea, Select, Tabs,
-  WorkspaceLayout, Skeleton, ConfirmationDialog,
+  WorkspaceLayout, Skeleton, ConfirmationDialog, LoadingState,
 } from '@releaseflow/ui';
 import {
   OperationalSummary, ReadinessStack, ContextRail, HealthRing,
@@ -35,6 +37,7 @@ const invitationStatusLabels: Record<string, { label: string; variant: 'pending'
   accepted: { label: 'Accepted', variant: 'active' },
   declined: { label: 'Declined', variant: 'archived' },
   expired: { label: 'Expired', variant: 'warning' },
+  revoked: { label: 'Revoked', variant: 'archived' },
 };
 
 const SKILL_OPTIONS = [
@@ -58,6 +61,25 @@ function formatDate(value: unknown): string {
   }
 }
 
+const statusColors: Record<string, string> = {
+  draft: 'bg-surface-800 text-text-500',
+  assigned: 'bg-primary-500/10 text-primary-400',
+  accepted: 'bg-info-500/10 text-info-400',
+  in_progress: 'bg-warning-500/10 text-warning-600',
+  review: 'bg-accent-500/10 text-accent-400',
+  completed: 'bg-success-500/10 text-success-600',
+  declined: 'bg-danger-500/10 text-danger-600',
+  cancelled: 'bg-surface-800 text-text-500',
+  archived: 'bg-surface-800 text-text-500',
+};
+
+const priorityColors: Record<string, string> = {
+  low: 'bg-surface-800 text-text-500',
+  medium: 'bg-primary-500/10 text-primary-400',
+  high: 'bg-warning-500/10 text-warning-600',
+  urgent: 'bg-danger-500/10 text-danger-600',
+};
+
 export default function PersonDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -67,6 +89,12 @@ export default function PersonDetailPage() {
   const {
     person, memberships, activities, readiness, assignmentSummary, loading, refresh,
   } = usePerson(id);
+
+  const [personAssignments, setPersonAssignments] = useState<AssignmentRecord[]>([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(true);
+  const [assignedReleases, setAssignedReleases] = useState<{ id: string; title: string }[]>([]);
+  const [assignedTracks, setAssignedTracks] = useState<{ id: string; title: string }[]>([]);
+  const [loadingWorkload, setLoadingWorkload] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -109,6 +137,53 @@ export default function PersonDetailPage() {
       setEditLanguages((person.languages ?? []).join(', '));
     }
   }, [person]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAssignments() {
+      if (!id) return;
+      setLoadingAssignments(true);
+      try {
+        const data = await getAssignmentsByAssignee(id, activeOrgId ?? undefined);
+        if (!cancelled) setPersonAssignments(data);
+      } catch {
+        if (!cancelled) setPersonAssignments([]);
+      } finally {
+        if (!cancelled) setLoadingAssignments(false);
+      }
+    }
+    void loadAssignments();
+    return () => { cancelled = true; };
+  }, [id, activeOrgId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadWorkload() {
+      if (!id || !activeOrgId) return;
+      setLoadingWorkload(true);
+      try {
+        const [relAssigns, trkAssigns] = await Promise.all([
+          getAssignmentsByEntity('release', id),
+          getAssignmentsByEntity('track', id),
+        ]);
+        if (!cancelled) {
+          const uniqueReleaseIds = [...new Set(relAssigns.map((a) => a.entityId))];
+          const uniqueTrackIds = [...new Set(trkAssigns.map((a) => a.entityId))];
+          setAssignedReleases(uniqueReleaseIds.map((rid) => ({ id: rid, title: rid })));
+          setAssignedTracks(uniqueTrackIds.map((tid) => ({ id: tid, title: tid })));
+        }
+      } catch {
+        if (!cancelled) {
+          setAssignedReleases([]);
+          setAssignedTracks([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingWorkload(false);
+      }
+    }
+    void loadWorkload();
+    return () => { cancelled = true; };
+  }, [id, activeOrgId]);
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
@@ -276,6 +351,9 @@ export default function PersonDetailPage() {
     { id: 'permissions', label: 'Permissions' },
   ];
 
+  const activeAssignments = useMemo(() => personAssignments.filter((a) => !['completed', 'archived', 'cancelled', 'declined'].includes(a.status)), [personAssignments]);
+  const completedAssignments = useMemo(() => personAssignments.filter((a) => a.status === 'completed'), [personAssignments]);
+
   return (
     <WorkspaceLayout contextRail={contextRailContent}>
       <div className="px-6 py-6">
@@ -364,7 +442,7 @@ export default function PersonDetailPage() {
                   {healthPct >= 80 ? 'Complete' : healthPct >= 50 ? 'In Progress' : 'Needs Work'} &middot; {healthPct}%
                 </span>
                 <span className="text-xs text-text-500">
-                  {(person.skills?.length ?? 0)} skills &middot; {memberships.length} organizations
+                  {memberships.length} organizations
                 </span>
               </div>
               {person.bio && (
@@ -487,6 +565,44 @@ export default function PersonDetailPage() {
                 </Card>
               )}
             </section>
+
+            {/* ===== Assigned Releases ===== */}
+            <section>
+              <h2 className="text-base font-semibold text-primary-400 mb-4">Assigned Releases</h2>
+              {loadingWorkload ? (
+                <Card><Skeleton className="h-12 w-full" /></Card>
+              ) : assignedReleases.length === 0 ? (
+                <Card><p className="text-sm text-text-500">No releases assigned to this person.</p></Card>
+              ) : (
+                <div className="space-y-2">
+                  {assignedReleases.map((r) => (
+                    <Link key={r.id} href={`/releases/${r.id}`} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3 hover:border-primary-200 transition-colors">
+                      <span className="text-sm font-medium text-primary-400">{r.title}</span>
+                      <span className="text-xs text-text-500">Release</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* ===== Assigned Tracks ===== */}
+            <section>
+              <h2 className="text-base font-semibold text-primary-400 mb-4">Assigned Tracks</h2>
+              {loadingWorkload ? (
+                <Card><Skeleton className="h-12 w-full" /></Card>
+              ) : assignedTracks.length === 0 ? (
+                <Card><p className="text-sm text-text-500">No tracks assigned to this person.</p></Card>
+              ) : (
+                <div className="space-y-2">
+                  {assignedTracks.map((t) => (
+                    <Link key={t.id} href={`/tracks/${t.id}`} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3 hover:border-primary-200 transition-colors">
+                      <span className="text-sm font-medium text-primary-400">{t.title}</span>
+                      <span className="text-xs text-text-500">Track</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
         )}
 
@@ -518,12 +634,55 @@ export default function PersonDetailPage() {
                 <p className="text-sm text-text-500">Loading assignment data...</p>
               </Card>
             )}
-            <Card>
-              <EmptyState
-                title="Assignment details coming soon"
-                description="Full assignment management with due dates, priority, and status will be available in BUILD-024."
-              />
-            </Card>
+
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-sm font-semibold text-primary-400 mb-3">Current Assignments</h3>
+                {loadingAssignments ? (
+                  <LoadingState />
+                ) : activeAssignments.length === 0 ? (
+                  <EmptyState title="No active assignments" description="This person has no active assignments." />
+                ) : (
+                  <div className="space-y-2">
+                    {activeAssignments.map((a) => (
+                      <Link key={a.id} href={`/assignments/${a.id}`} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3 hover:border-primary-200 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-primary-400 truncate">{a.title}</p>
+                          <p className="text-xs text-text-500 capitalize">{a.entityType} &middot; {a.role}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${priorityColors[a.priority] ?? ''}`}>{a.priority}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[a.status] ?? ''}`}>{a.status.replace(/_/g, ' ')}</span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-primary-400 mb-3">Assignment History</h3>
+                {loadingAssignments ? (
+                  <LoadingState />
+                ) : completedAssignments.length === 0 ? (
+                  <EmptyState title="No completed assignments" description="Completed assignments will appear here." />
+                ) : (
+                  <div className="space-y-2">
+                    {completedAssignments.slice(0, 20).map((a) => (
+                      <div key={a.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3 opacity-75">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-primary-400 truncate">{a.title}</p>
+                          <p className="text-xs text-text-500 capitalize">{a.entityType} &middot; {a.role}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-xs px-2 py-0.5 rounded-full bg-success-500/10 text-success-600`}>Completed</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </section>
         )}
 

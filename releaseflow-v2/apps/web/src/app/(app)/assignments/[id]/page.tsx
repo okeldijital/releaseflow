@@ -16,6 +16,7 @@ import {
 import { OperationalSummary } from '@releaseflow/domain-ui';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { toast } from '@/stores/toast-store';
+import { CommentSection } from '@/components/comments/comment-section';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-surface-800 text-text-500',
@@ -216,6 +217,7 @@ export default function AssignmentDetailPage() {
   const tabs = [
     { id: 'overview', label: 'Overview' },
     { id: 'activity', label: 'Activity', count: activities.length },
+    { id: 'comments', label: 'Comments' },
   ];
 
   return (
@@ -317,6 +319,12 @@ export default function AssignmentDetailPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'comments' && (
+          <div className="mt-6">
+            <CommentSection entityType="task" entityId={id} title="Comments" />
           </div>
         )}
       </div>
