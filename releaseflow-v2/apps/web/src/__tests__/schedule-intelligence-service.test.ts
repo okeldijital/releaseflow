@@ -9,6 +9,7 @@ const mkRelease = (overrides: Partial<ReleaseRecord>): ReleaseRecord => ({
   estimatedReleaseDate: new Date('2026-06-15'),
   upc: '123456789012', label: 'Test Label', genre: 'Pop',
   copyright: '2026 Test', createdAt: new Date(),
+  artwork: null,
   ...overrides,
 });
 

@@ -29,7 +29,7 @@ export interface ReleaseRecord {
   explicit?: boolean;
   createdAt: unknown;
   updatedAt?: unknown;
-  artwork?: Artwork | null;
+  artwork: Artwork | null;
 }
 
 export interface CreateReleaseFields {
@@ -68,7 +68,7 @@ export async function getRelease(releaseId: string): Promise<ReleaseRecord | nul
   if (!db) return null;
   const snap = await getDoc(doc(db, 'releases', releaseId));
   if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() } as ReleaseRecord;
+  return { id: snap.id, ...snap.data(), artwork: null } as ReleaseRecord;
 }
 
 export async function getReleasesByOrganization(orgId: string): Promise<ReleaseRecord[]> {
@@ -80,7 +80,7 @@ export async function getReleasesByOrganization(orgId: string): Promise<ReleaseR
     orderBy('createdAt', 'desc'),
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ReleaseRecord);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
 }
 
 export async function getReleasesByArtist(artistId: string): Promise<ReleaseRecord[]> {
@@ -94,7 +94,7 @@ export async function getReleasesByArtist(artistId: string): Promise<ReleaseReco
   const releases: ReleaseRecord[] = [];
   for (const rid of releaseIds) {
     const snap = await getDoc(doc(db, 'releases', rid));
-    if (snap.exists()) releases.push({ id: snap.id, ...snap.data() } as ReleaseRecord);
+    if (snap.exists()) releases.push({ id: snap.id, ...snap.data(), artwork: null } as ReleaseRecord);
   }
   return releases;
 }
@@ -113,7 +113,7 @@ export async function getReleasesByStatus(
       where('status', '==', statuses[0]),
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ReleaseRecord);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
   }
   const all = await getReleasesByOrganization(orgId);
   return all.filter((r) => statuses.includes(r.status));
