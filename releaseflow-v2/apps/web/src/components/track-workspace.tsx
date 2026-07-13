@@ -30,7 +30,7 @@ const TAB_LABELS: Record<TabId, string> = {
   overview: 'Overview',
   publishing: 'Publishing',
   credits: 'Credits',
-  settings: 'Settings',
+  settings: 'Edit',
 };
 
 const READINESS_CATS = ['Metadata', 'Rights', 'Credits'] as const;
@@ -242,7 +242,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
       <section className="grid grid-cols-1 lg:grid-cols-[240px_1fr_260px] gap-6 mb-8" aria-label="Track overview">
         <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 flex flex-col items-center gap-2 min-h-[200px]">
           <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Artwork</p>
-          {releaseId ? (
+          {releaseArtwork ? (
             <ArtworkDisplay
               artwork={releaseArtwork}
               releaseTitle={releaseName ?? track.title}
@@ -250,7 +250,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
               className="max-w-[200px]"
             />
           ) : (
-            <p className="text-sm text-text-400 text-center">Artwork is managed from the Release Workspace.</p>
+            <p className="text-sm text-text-500 text-center">Artwork is managed from the Release Workspace.</p>
           )}
         </div>
 
@@ -261,23 +261,23 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <Badge
                 label={recordingTypeLabel(recordingType, true)}
-                color={recordingType === 'remix' ? 'bg-purple-500/15 text-purple-600' : 'bg-surface-100 text-text-600'}
+                color={recordingType === 'remix' ? 'bg-workflow-mixing/15 text-workflow-mixing' : 'bg-surface-100 text-text-600'}
               />
               <StatusBadge status={track.status} />
             </div>
           </div>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-            <dt className="text-text-400">Recording Type</dt>
+            <dt className="text-text-500">Recording Type</dt>
             <dd className="text-text-800">{recordingTypeLabel(recordingType)}</dd>
-            <dt className="text-text-400">Release</dt>
+            <dt className="text-text-500">Release</dt>
             <dd className="text-text-800 truncate">
               {releaseId && releaseName ? (
                 <Link href={`/releases/${releaseId}`} className="text-primary-600 hover:text-primary-700">{releaseName}</Link>
               ) : 'Not linked'}
             </dd>
-            <dt className="text-text-400">{recordingType === 'remix' ? 'Original · Remix Artists' : 'Artists'}</dt>
+            <dt className="text-text-500">{recordingType === 'remix' ? 'Original · Remix Artists' : 'Artists'}</dt>
             <dd className="text-text-800 truncate">{artistSummary}</dd>
-            <dt className="text-text-400">Status</dt>
+            <dt className="text-text-500">Status</dt>
             <dd><StatusBadge status={track.status} /></dd>
           </dl>
         </div>
@@ -376,7 +376,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 function MetaField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-text-400 uppercase tracking-wider">{label}</p>
+      <p className="text-xs text-text-500 uppercase tracking-wider">{label}</p>
       <p className="text-sm font-medium text-text-900 mt-0.5">{value}</p>
     </div>
   );
@@ -399,7 +399,7 @@ function CreditsTable({
 }) {
   return (
     <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
-      <div className="hidden sm:grid grid-cols-[1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-surface-100 bg-surface-50 text-caption font-semibold text-text-400 uppercase tracking-wider">
+      <div className="hidden sm:grid grid-cols-[1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-surface-100 bg-surface-50 text-caption font-semibold text-text-500 uppercase tracking-wider">
         <span>Role</span><span>Person</span><span />
       </div>
       {CREDIT_TYPES.map((type) => {
@@ -409,7 +409,7 @@ function CreditsTable({
             <p className="text-xs font-semibold text-text-500 uppercase tracking-wider sm:hidden">{type}</p>
             {typeCredits.length === 0 ? (
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm text-text-400 hidden sm:inline w-28 shrink-0">{type}</span>
+                <span className="text-sm text-text-500 hidden sm:inline w-28 shrink-0">{type}</span>
                 <select
                   value={creditPicker[type] ?? ''}
                   onChange={(e) => {

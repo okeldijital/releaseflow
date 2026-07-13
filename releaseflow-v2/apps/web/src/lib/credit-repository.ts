@@ -1,6 +1,6 @@
 import {
   doc, getDocs, addDoc, updateDoc, deleteDoc,
-  collection, query, where, orderBy, Timestamp,
+  collection, query, where, Timestamp,
 } from '@firebase/firestore';
 import { getDb } from './firebase';
 
@@ -92,7 +92,6 @@ export async function getCreditsByTrack(trackId: string): Promise<CreditRecord[]
     query(
       collection(db, 'credits'),
       where('trackId', '==', trackId),
-      orderBy('displayOrder', 'asc'),
     ),
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as CreditRecord);
