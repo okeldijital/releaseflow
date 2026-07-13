@@ -84,6 +84,7 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.trackId != null && request.resource.data.organizationId != null;
       allow update, delete: if isAuth();
     }
+    match /credits/{docId}          { allow read,write: if isAuth(); }
     match /contributors/{docId}     { allow read,write: if isAuth(); }
     match /tasks/{docId}            { allow read,write: if isAuth(); }
     match /comments/{docId}         { allow read: if isAuth(); allow create: if isAuth(); allow update,delete: if isAuth(); }
