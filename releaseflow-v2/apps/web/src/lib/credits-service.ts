@@ -1,10 +1,8 @@
 import type { TrackCredit } from '@/app/(app)/types';
 import {
   getCreditsByTrack,
-  setTrackCredits,
   addTrackCredit,
   removeTrackCredit,
-  updateTrackCredit,
 } from './credit-repository';
 
 export type { TrackCredit };
