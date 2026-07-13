@@ -17,7 +17,6 @@ import { getArtistsByRole } from '@/lib/track-artist-repository';
 import { toast } from '@/stores/toast-store';
 import { fetchRelease } from '@/lib/release-service';
 import { getReleasesByTrack } from '@/lib/release-track-repository';
-import { getArtworkByRelease } from '@/lib/artwork/artwork-service';
 import type { Artwork } from '@/lib/artwork/artwork-types';
 import { getAssignmentsByEntity, deleteAssignment } from '@/lib/assignment-repository';
 import { getPeopleByTrack, removePersonFromTrack } from '@/lib/track-person-repository';
@@ -258,8 +257,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
         setReleaseId(releaseIds[0]);
         const rel = await fetchRelease(releaseIds[0]);
         setReleaseName(rel?.title ?? null);
-        const art = await getArtworkByRelease(activeOrgId, releaseIds[0]);
-        setReleaseArtwork(art);
+        setReleaseArtwork(rel?.artwork ?? null);
       } else {
         setReleaseId(null);
         setReleaseName(null);
