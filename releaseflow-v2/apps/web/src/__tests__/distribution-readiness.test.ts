@@ -33,7 +33,7 @@ function checkDistributionReadiness(release: Release, delCount: number, approved
 const baseRelease: Release = {
   id: 'r1', title: 'Test', releaseType: 'album', status: 'in_production', organizationId: 'o1', createdBy: 'u1',
   upc: '123456789012', catalogNumber: 'CAT001', label: 'Test Label', copyright: '(c) 2025', pLine: '(p) 2025', cLine: '(c) 2025',
-  genre: 'Rock', subgenre: 'Alt', language: 'en', explicit: false, createdAt: new Date(),
+  genre: 'Rock', subgenre: 'Alt', language: 'en', explicit: false, createdAt: new Date(), artwork: null,
 };
 
 describe('DistributionReadiness', () => {

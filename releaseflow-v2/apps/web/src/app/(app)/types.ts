@@ -1,3 +1,5 @@
+import type { Artwork } from '@/lib/artwork/artwork-types';
+
 export interface Organization {
   id: string;
   name: string;
@@ -34,6 +36,7 @@ export interface Release {
   explicit?: boolean;
   createdAt: unknown;
   updatedAt?: unknown;
+  artwork: Artwork | null;
 }
 
 export type WorkflowStatus = 'not_started' | 'in_progress' | 'blocked' | 'review' | 'approved' | 'completed';

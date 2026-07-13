@@ -17,10 +17,9 @@ interface ReleaseCardProps {
   release: Release;
   trackCount?: number;
   view?: 'grid' | 'list';
-  artworkUrl?: string;
 }
 
-export function ReleaseCard({ release, trackCount, view = 'grid', artworkUrl }: ReleaseCardProps) {
+export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardProps) {
   const router = useRouter();
   const { user } = useAuth();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -63,7 +62,7 @@ export function ReleaseCard({ release, trackCount, view = 'grid', artworkUrl }: 
       <>
         <div className="flex items-center gap-4 px-4 py-3 hover:bg-surface-50/80 dark:hover:bg-surface-800/40 transition-colors group border-b border-surface-100 dark:border-surface-800 last:border-b-0">
           <Link href={`/releases/${release.id}`} className="flex items-center gap-4 flex-1 min-w-0">
-            <ArtworkDisplay src={artworkUrl} releaseTitle={release.title} size="sm" />
+            <ArtworkDisplay artwork={release.artwork} releaseTitle={release.title} size="sm" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-semibold text-primary-400 truncate">{release.title}</span>
@@ -111,7 +110,7 @@ export function ReleaseCard({ release, trackCount, view = 'grid', artworkUrl }: 
       <div className="group relative rounded-xl border border-surface-200 dark:border-surface-700/80 bg-layer-2 dark:bg-surface-900 shadow-card hover:shadow-card-hover transition-all duration-200 overflow-hidden">
         <Link href={`/releases/${release.id}`} className="block">
           <div className="relative overflow-hidden">
-            <ArtworkDisplay src={artworkUrl} releaseTitle={release.title} size="lg" />
+            <ArtworkDisplay artwork={release.artwork} releaseTitle={release.title} size="lg" />
             {statusMeta && (
               <div className="absolute top-3 right-3">
                 <StatusBadge status={release.status} />
