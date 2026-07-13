@@ -22,12 +22,15 @@ export async function processMentions(
   const people = await getPeopleByOrg(orgId);
   const nameLower = names.map((n) => n.toLowerCase());
 
-  const matchedIds: string[] = [];
+  // Mention targets are collaborators, so they are identified by personId.
+  const mentionedPersonIds: string[] = [];
 
   for (const person of people) {
     if (nameLower.includes(person.displayName.toLowerCase()) && person.userId) {
       const preview = content.length > 80 ? content.slice(0, 77) + '...' : content;
 
+      // Notification delivery/routing still resolves through the linked
+      // authentication identity (userId); only the mention target is a personId.
       await createNotification({
         userId: person.userId,
         type: 'mention',
@@ -37,9 +40,9 @@ export async function processMentions(
         referenceType: entityType,
       });
 
-      matchedIds.push(person.userId);
+      mentionedPersonIds.push(person.id);
     }
   }
 
-  return matchedIds;
+  return mentionedPersonIds;
 }
