@@ -5,18 +5,17 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import type { TrackRecord } from '@/lib/track-repository';
-import type { CreditRecord } from '@/lib/credit-repository';
 import type { TrackRightRecord } from '@/lib/rights-repository';
 import { editTrack, removeTrack, archiveTrackById, duplicateTrack } from '@/lib/track-service';
 import { getArtistsByRole } from '@/lib/track-artist-repository';
 import { toast } from '@/stores/toast-store';
 import { fetchRelease } from '@/lib/release-service';
 import { getReleasesByTrack } from '@/lib/release-track-repository';
-import { getCreditsByTrack, createCredit, deleteCredit } from '@/lib/credit-repository';
+import { getCreditsByTrack, setTrackCredits } from '@/lib/credit-repository';
 import { getRightsByTrack } from '@/lib/rights-repository';
+import type { TrackCredit } from '@/app/(app)/types';
 
 import { fetchArtist } from '@/lib/artist-service';
-import { getPerson } from '@/lib/people-repository';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { Button, Badge, StatusBadge, LoadingState, Tabs } from '@releaseflow/ui';
@@ -59,13 +58,11 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   const { user } = useAuth();
   const [tab, setTab] = useState<TabId>('overview');
   const [loading, setLoading] = useState(true);
-  const [credits, setCredits] = useState<(CreditRecord & { personName: string })[]>([]);
+  const [credits, setCredits] = useState<TrackCredit[]>([]);
   const [rights, setRights] = useState<TrackRightRecord[]>([]);
   const [releaseName, setReleaseName] = useState<string | null>(null);
   const [releaseId, setReleaseId] = useState<string | null>(null);
   const [artistSummary, setArtistSummary] = useState<string>('—');
-  const [orgPeople, setOrgPeople] = useState<{ id: string; displayName: string }[]>([]);
-  const [creditPicker, setCreditPicker] = useState<Record<string, string>>({});
 
   const recordingType = resolveRecordingType(track.recordingType);
 
@@ -84,14 +81,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
       ]);
 
       setRights(rightsData);
-
-      const creditsResolved = await Promise.all(
-        creditData.map(async (c) => {
-          const person = await getPerson(c.personId);
-          return { ...c, personName: person?.displayName ?? c.personId };
-        }),
-      );
-      setCredits(creditsResolved);
+      setCredits(creditData);
 
       if (releaseIds[0]) {
         setReleaseId(releaseIds[0]);
@@ -139,9 +129,6 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
         );
         setArtistSummary([primary?.name, ...featured.filter(Boolean)].filter(Boolean).join(' · ') || '—');
       }
-
-      const { getPeopleByOrg } = await import('@/lib/people-repository');
-      setOrgPeople(await getPeopleByOrg(activeOrgId));
     } catch {
       /* safe defaults */
     } finally {
@@ -166,9 +153,8 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
     (READINESS_CATS.filter((c) => readinessMap[c]).length / READINESS_CATS.length) * 100,
   );
 
-  async function handleAddCredit(type: string, personId: string) {
-    if (!activeOrgId || !personId) return;
-    await createCredit({ trackId, organizationId: activeOrgId, personId, creditType: type });
+  async function handleSaveCredits(newCredits: TrackCredit[]) {
+    await setTrackCredits(trackId, newCredits);
     await load();
   }
 
@@ -203,8 +189,8 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
   function getCreditsByType(type: string): string[] {
     return credits
-      .filter((c) => c.creditType.toLowerCase() === type.toLowerCase())
-      .map((c) => c.personName);
+      .filter((c) => c.role.toLowerCase() === type.toLowerCase())
+      .map((c) => c.name);
   }
 
   if (loading) {
@@ -336,11 +322,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
       {tab === 'credits' && (
         <CreditsTable
           credits={credits}
-          people={orgPeople}
-          creditPicker={creditPicker}
-          setCreditPicker={setCreditPicker}
-          onAdd={handleAddCredit}
-          onRemove={async (id) => { await deleteCredit(id); await load(); }}
+          onSave={handleSaveCredits}
         />
       )}
 
@@ -365,54 +347,95 @@ function MetaField({ label, value }: { label: string; value: string }) {
 
 function CreditsTable({
   credits,
-  people,
-  creditPicker,
-  setCreditPicker,
-  onAdd,
-  onRemove,
+  onSave,
 }: {
-  credits: (CreditRecord & { personName: string })[];
-  people: { id: string; displayName: string }[];
-  creditPicker: Record<string, string>;
-  setCreditPicker: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  onAdd: (type: string, personId: string) => void;
-  onRemove: (id: string) => void;
+  credits: TrackCredit[];
+  onSave: (credits: TrackCredit[]) => void;
 }) {
+  const [localCredits, setLocalCredits] = useState<TrackCredit[]>(credits);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setLocalCredits(credits);
+  }, [credits]);
+
+  function getCreditsForRole(role: string) {
+    return localCredits
+      .map((c, i) => ({ ...c, index: i }))
+      .filter((c) => c.role.toLowerCase() === role.toLowerCase());
+  }
+
+  function addEntry(role: string) {
+    setLocalCredits((prev) => [...prev, { role, name: '' }]);
+  }
+
+  function removeEntry(index: number) {
+    setLocalCredits((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateEntry(index: number, name: string) {
+    setLocalCredits((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, name } : c)),
+    );
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    await onSave(localCredits.filter((c) => c.name.trim()));
+    setSaving(false);
+  }
+
   return (
-    <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
-      <div className="hidden sm:grid grid-cols-[1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-surface-100 bg-surface-50 text-caption font-semibold text-text-500 uppercase tracking-wider">
-        <span>Role</span><span>Person</span><span />
-      </div>
-      {CREDIT_TYPES.map((type) => {
-        const typeCredits = credits.filter((c) => c.creditType.toLowerCase() === type.toLowerCase());
+    <div className="space-y-8">
+      {CREDIT_TYPES.map((role) => {
+        const entries = getCreditsForRole(role);
         return (
-          <div key={type} className="border-t border-surface-100 first:border-t-0 px-4 py-3 space-y-2">
-            <p className="text-xs font-semibold text-text-500 uppercase tracking-wider sm:hidden">{type}</p>
-            {typeCredits.length === 0 ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm text-text-500 hidden sm:inline w-28 shrink-0">{type}</span>
-                <select
-                  value={creditPicker[type] ?? ''}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v) { onAdd(type, v); setCreditPicker((p) => ({ ...p, [type]: '' })); }
-                  }}
-                  className="flex-1 h-9 rounded-lg border border-surface-200 px-3 text-sm text-text-700"
-                >
-                  <option value="">Add {type.toLowerCase()}...</option>
-                  {people.map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
-                </select>
-              </div>
-            ) : typeCredits.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 sm:grid sm:grid-cols-[1fr_1fr_auto]">
-                <span className="text-sm text-text-600 hidden sm:block">{type}</span>
-                <span className="text-sm font-medium text-text-900">{c.personName}</span>
-                <button type="button" onClick={() => onRemove(c.id)} className="text-xs text-danger-500 hover:text-danger-600">Remove</button>
-              </div>
-            ))}
+          <div key={role}>
+            <p className="text-sm font-semibold text-text-700 mb-2">{role}</p>
+            <div className="space-y-2">
+              {entries.length === 0 ? (
+                <p className="text-sm text-text-400 italic">No {role.toLowerCase()} credits yet.</p>
+              ) : (
+                entries.map((entry) => (
+                  <div key={entry.index} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={entry.name}
+                      onChange={(e) => updateEntry(entry.index, e.target.value)}
+                      placeholder={`Enter ${role.toLowerCase()} name...`}
+                      className="block flex-1 h-9 rounded-lg border border-surface-200 px-3 text-sm text-text-900 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeEntry(entry.index)}
+                      className="text-xs text-danger-500 hover:text-danger-600 font-medium shrink-0"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))
+              )}
+              <button
+                type="button"
+                onClick={() => addEntry(role)}
+                className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+              >
+                + Add {role.toLowerCase()}
+              </button>
+            </div>
           </div>
         );
       })}
+      <div className="pt-4 border-t border-surface-200">
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saving ? 'Saving...' : 'Save Credits'}
+        </Button>
+      </div>
     </div>
   );
 }

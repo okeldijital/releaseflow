@@ -1,5 +1,4 @@
-import type { Task } from '@/app/(app)/types';
-import type { CreditRecord } from './credit-repository';
+import type { Task, TrackCredit } from '@/app/(app)/types';
 import type { TrackRightRecord } from './rights-repository';
 import type { DistributionChannelRecord } from './distribution-channel-repository';
 import type { DistributionScheduleRecord } from './distribution-schedule-repository';
@@ -201,42 +200,31 @@ async function generateAssetsReport(
 async function generateCreditsReport(
   config: ReportConfig,
 ): Promise<Record<string, unknown>[]> {
-  const { getDb } = await import('./firebase');
-  const { collection, query, where, getDocs } = await import('@firebase/firestore');
-  const db = getDb();
-  if (!db) return [];
-
-  const snap = await getDocs(
-    query(
-      collection(db, 'credits'),
-      where('organizationId', '==', config.orgId),
-    ),
-  );
-  let credits = snap.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  }) as CreditRecord);
+  const { getTracksByOrg } = await import('./track-repository');
+  let tracks = await getTracksByOrg(config.orgId);
 
   if (config.filters?.releaseId) {
     const { getTracksByRelease } = await import('./release-track-repository');
     const releaseTracks = await getTracksByRelease(config.filters.releaseId);
-    const trackIds = new Set(
-      releaseTracks.map((rt) => rt.trackId),
-    );
-    credits = credits.filter((c) => trackIds.has(c.trackId));
+    const trackIds = new Set(releaseTracks.map((rt) => rt.trackId));
+    tracks = tracks.filter((t) => trackIds.has(t.id));
   }
 
-  return credits.map((c) => ({
-    id: c.id,
-    trackId: c.trackId,
-    personId: c.personId,
-    creditType: c.creditType,
-    creditName: c.creditName,
-    displayOrder: c.displayOrder,
-    visible: c.visible,
-    verified: c.verified,
-    createdAt: c.createdAt,
-  }));
+  const rows: Record<string, unknown>[] = [];
+  for (const track of tracks) {
+    const trackCredits: TrackCredit[] = track.credits ?? [];
+    for (let i = 0; i < trackCredits.length; i++) {
+      const c = trackCredits[i]!;
+      rows.push({
+        trackId: track.id,
+        trackTitle: track.title,
+        role: c.role,
+        name: c.name,
+        creditIndex: i,
+      });
+    }
+  }
+  return rows;
 }
 
 async function generateRightsReport(

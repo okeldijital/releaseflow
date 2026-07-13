@@ -147,10 +147,8 @@ export interface ReleaseArtist {
 export type CreditRole = 'producer' | 'composer' | 'lyricist' | 'arranger' | 'mix_engineer' | 'mastering_engineer' | 'remixer' | 'featured_artist';
 
 export interface TrackCredit {
-  id: string;
-  trackId: string;
-  artistId: string;
-  role: CreditRole;
+  role: string;
+  name: string;
 }
 
 export interface Membership {

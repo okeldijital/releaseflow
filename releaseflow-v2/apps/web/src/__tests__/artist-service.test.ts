@@ -209,11 +209,11 @@ describe('Track credits', () => {
 
   it('creates track credit', () => {
     const credit: TrackCredit = {
-      id: 'tc1', trackId: 't1', artistId: 'a1',
-      role: 'producer' as CreditRole,
+      role: 'Producer',
+      name: 'Test Artist',
     };
-    expect(credit.trackId).toBe('t1');
-    expect(credit.role).toBe('producer');
+    expect(credit.role).toBe('Producer');
+    expect(credit.name).toBe('Test Artist');
   });
 });
 

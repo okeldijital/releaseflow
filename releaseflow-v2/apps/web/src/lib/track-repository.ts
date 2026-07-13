@@ -3,7 +3,7 @@ import {
   collection, query, where, orderBy, Timestamp,
 } from '@firebase/firestore';
 import { getDb } from './firebase';
-import type { RecordingType, TrackStatus } from '@/app/(app)/types';
+import type { RecordingType, TrackCredit, TrackStatus } from '@/app/(app)/types';
 import { resolveRecordingType } from '@/lib/recording-type';
 
 export class TrackCreationError extends Error {
@@ -36,6 +36,7 @@ export interface TrackRecord {
   featuredArtistIds?: string[] | null;
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
+  credits?: TrackCredit[];
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -64,6 +65,7 @@ export interface CreateTrackFields {
   featuredArtistIds?: string[] | null;
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
+  credits?: TrackCredit[];
   position?: number;
 }
 
@@ -88,6 +90,7 @@ export interface UpdateTrackFields {
   featuredArtistIds?: string[] | null;
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
+  credits?: TrackCredit[];
 }
 
 export async function createTrack(fields: CreateTrackFields): Promise<TrackRecord> {
@@ -128,6 +131,7 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     featuredArtistIds: fields.featuredArtistIds ?? null,
     displayTitle: fields.displayTitle ?? null,
     displayTitleEdited: fields.displayTitleEdited ?? false,
+    credits: fields.credits ?? null,
     status: 'draft' satisfies TrackStatus,
     createdBy: fields.createdBy,
     createdAt: now,
@@ -166,6 +170,7 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     featuredArtistIds: fields.featuredArtistIds,
     displayTitle: fields.displayTitle,
     displayTitleEdited: fields.displayTitleEdited,
+    credits: fields.credits,
     status: 'draft',
     createdBy: fields.createdBy,
     createdAt: now,
@@ -197,6 +202,7 @@ export async function updateTrack(trackId: string, fields: UpdateTrackFields): P
   if (fields.featuredArtistIds !== undefined) update.featuredArtistIds = fields.featuredArtistIds;
   if (fields.displayTitle !== undefined) update.displayTitle = fields.displayTitle;
   if (fields.displayTitleEdited !== undefined) update.displayTitleEdited = fields.displayTitleEdited;
+  if (fields.credits !== undefined) update.credits = fields.credits;
   await updateDoc(doc(db, 'tracks', trackId), update);
 }
 

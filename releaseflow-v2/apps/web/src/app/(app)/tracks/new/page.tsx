@@ -5,11 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { getPeopleByOrg } from '@/lib/people-repository';
-import { createNewTrack } from '@/lib/track-service';
+import { createNewTrack, editTrack } from '@/lib/track-service';
 import { fetchRelease } from '@/lib/release-service';
 import { addArtistToTrack } from '@/lib/track-artist-repository';
 import { createAssignment } from '@/lib/assignment-repository';
-import { addCreditToTrack } from '@/lib/credits-service';
 import {
   createRequestedAsset,
   assignAsset,
@@ -45,8 +44,7 @@ type EngineerAssignment = {
 
 type ContributorEntry = {
   id: string;
-  personId: string;
-  comment: string;
+  name: string;
 };
 
 type CreditRoleKey = 'producer' | 'composer' | 'lyricist' | 'songwriter' | 'publisher' | 'performer';
@@ -289,18 +287,11 @@ export default function NewTrackPage() {
     return !errors.originalArtists && !errors.remixArtists;
   }
 
-  function addCredit(role: CreditRoleKey, personId: string) {
-    if (!personId) return;
+  function addCredit(role: CreditRoleKey, name: string) {
+    if (!name.trim()) return;
     setCredits((p) => ({
       ...p,
-      [role]: [...p[role], { id: uid(), personId, comment: '' }],
-    }));
-  }
-
-  function updateCredit(role: CreditRoleKey, id: string, field: 'comment', value: string) {
-    setCredits((p) => ({
-      ...p,
-      [role]: p[role].map((c) => (c.id === id ? { ...c, [field]: value } : c)),
+      [role]: [...p[role], { id: uid(), name: name.trim() }],
     }));
   }
 
@@ -444,10 +435,13 @@ export default function NewTrackPage() {
         });
       }
 
-      for (const role of CREDIT_ROLES) {
-        for (const entry of credits[role.key]) {
-          await addCreditToTrack(trackId, activeOrgId, entry.personId, role.label, undefined, entry.comment || undefined);
-        }
+      const allCredits = CREDIT_ROLES.flatMap((role) =>
+        credits[role.key]
+          .filter((e) => e.name.trim())
+          .map((e) => ({ role: role.label, name: e.name.trim() })),
+      );
+      if (allCredits.length > 0) {
+        await editTrack(trackId, { credits: allCredits });
       }
 
       for (const def of DELIVERABLE_DEFS) {
@@ -561,11 +555,8 @@ export default function NewTrackPage() {
       {currentStepKey === 'credits' && (
         <CreditsStep
           credits={credits}
-          people={people}
           addCredit={addCredit}
-          updateCredit={updateCredit}
           removeCredit={removeCredit}
-          openAssigner={openAssigner}
           back={back}
           next={next}
           onLater={() => later('credits')}
@@ -1031,19 +1022,16 @@ function ProductionStep({
 }
 
 function CreditsStep({
-  credits, people, addCredit, updateCredit, removeCredit, openAssigner, back, next, onLater,
+  credits, addCredit, removeCredit, back, next, onLater,
 }: {
   credits: Record<CreditRoleKey, ContributorEntry[]>;
-  people: PersonOption[];
-  addCredit: (role: CreditRoleKey, personId: string) => void;
-  updateCredit: (role: CreditRoleKey, id: string, field: 'comment', value: string) => void;
+  addCredit: (role: CreditRoleKey, name: string) => void;
   removeCredit: (role: CreditRoleKey, id: string) => void;
-  openAssigner: (label: string, role: string, cb: (r: { personId?: string }) => void) => void;
   back: () => void;
   next: () => void;
   onLater: () => void;
 }) {
-  const [picker, setPicker] = useState<Record<CreditRoleKey, string>>({
+  const [nameInputs, setNameInputs] = useState<Record<CreditRoleKey, string>>({
     producer: '', composer: '', lyricist: '', songwriter: '', publisher: '', performer: '',
   });
 
@@ -1054,31 +1042,32 @@ function CreditsStep({
           <div key={role.key} className="rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-3">
             <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">{role.label}</p>
             {credits[role.key].map((entry) => (
-              <div key={entry.id} className="space-y-2 rounded-xl border border-surface-700 bg-surface-950 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-surface-100">{people.find((p) => p.id === entry.personId)?.displayName ?? entry.personId}</span>
-                  <button type="button" onClick={() => removeCredit(role.key, entry.id)} className="text-xs text-danger-400">Remove</button>
-                </div>
-                <input
-                  type="text"
-                  value={entry.comment}
-                  onChange={(e) => updateCredit(role.key, entry.id, 'comment', e.target.value)}
-                  placeholder="Comment (optional)"
-                  className="block w-full h-9 rounded-xl border border-surface-700 bg-surface-900 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
-                />
+              <div key={entry.id} className="flex items-center justify-between rounded-xl border border-surface-700 bg-surface-950 px-3 py-2">
+                <span className="text-sm text-surface-100">{entry.name}</span>
+                <button type="button" onClick={() => removeCredit(role.key, entry.id)} className="text-xs text-danger-400">Remove</button>
               </div>
             ))}
-            <PersonSelect
-              value={picker[role.key]}
-              onChange={(v) => {
-                addCredit(role.key, v);
-                setPicker((p) => ({ ...p, [role.key]: '' }));
-              }}
-              people={people}
-              onInvite={() => openAssigner(role.label, role.label, (r) => {
-                if (r.personId) addCredit(role.key, r.personId);
-              })}
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={nameInputs[role.key]}
+                onChange={(e) => setNameInputs((p) => ({ ...p, [role.key]: e.target.value }))}
+                placeholder={`Enter ${role.label.toLowerCase()} name...`}
+                className="block flex-1 h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (nameInputs[role.key]?.trim()) {
+                    addCredit(role.key, nameInputs[role.key]);
+                    setNameInputs((p) => ({ ...p, [role.key]: '' }));
+                  }
+                }}
+                className="h-10 px-4 rounded-xl bg-primary-500/15 text-primary-400 text-sm font-medium hover:bg-primary-500/25 transition-colors"
+              >
+                Add
+              </button>
+            </div>
           </div>
         ))}
       </div>

@@ -66,6 +66,7 @@ export async function duplicateTrack(trackId: string, createdBy: string): Promis
     featuredArtistIds: original.featuredArtistIds,
     displayTitle: original.displayTitle,
     displayTitleEdited: original.displayTitleEdited,
+    credits: original.credits,
   });
   return track.id;
 }

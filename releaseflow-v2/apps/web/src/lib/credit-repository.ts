@@ -1,107 +1,64 @@
 import {
-  doc, getDocs, addDoc, updateDoc, deleteDoc,
-  collection, query, where, Timestamp,
+  doc, getDoc, updateDoc, Timestamp,
 } from '@firebase/firestore';
 import { getDb } from './firebase';
+import type { TrackCredit } from '@/app/(app)/types';
 
-export interface CreditRecord {
-  id: string;
-  trackId: string;
-  organizationId: string;
-  personId: string;
-  creditType: string;
-  creditName?: string;
-  displayOrder: number;
-  visible: boolean;
-  verified: boolean;
-  createdAt: unknown;
-  updatedAt: unknown;
+export type { TrackCredit };
+
+export async function getCreditsByTrack(trackId: string): Promise<TrackCredit[]> {
+  const db = getDb();
+  if (!db) return [];
+  const snap = await getDoc(doc(db, 'tracks', trackId));
+  if (!snap.exists()) return [];
+  const data = snap.data();
+  return (data.credits as TrackCredit[]) ?? [];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface _CreateCreditFields {
-  trackId: string;
-  organizationId: string;
-  personId: string;
-  creditType: string;
-  creditName?: string;
-  displayOrder?: number;
-  visible?: boolean;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface _UpdateCreditFields {
-  creditType?: string;
-  creditName?: string;
-  displayOrder?: number;
-  visible?: boolean;
-  verified?: boolean;
-}
-
-export async function createCredit(fields: _CreateCreditFields): Promise<CreditRecord> {
+export async function setTrackCredits(trackId: string, credits: TrackCredit[]): Promise<void> {
   const db = getDb();
   if (!db) throw new Error('Firestore not initialized');
-  const now = Timestamp.now();
-  const data = {
-    trackId: fields.trackId,
-    organizationId: fields.organizationId,
-    personId: fields.personId,
-    creditType: fields.creditType,
-    creditName: fields.creditName ?? null,
-    displayOrder: fields.displayOrder ?? 0,
-    visible: fields.visible ?? true,
-    verified: false,
-    createdAt: now,
-    updatedAt: now,
-  };
-  const ref = await addDoc(collection(db, 'credits'), data);
-  return {
-    id: ref.id,
-    trackId: data.trackId,
-    organizationId: data.organizationId,
-    personId: data.personId,
-    creditType: data.creditType,
-    creditName: data.creditName ?? undefined,
-    displayOrder: data.displayOrder,
-    visible: data.visible,
-    verified: data.verified,
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-export async function updateCredit(creditId: string, fields: _UpdateCreditFields): Promise<void> {
-  const db = getDb();
-  if (!db) return;
-  await updateDoc(doc(db, 'credits', creditId), {
-    ...fields,
+  await updateDoc(doc(db, 'tracks', trackId), {
+    credits,
     updatedAt: Timestamp.now(),
   });
 }
 
-export async function deleteCredit(creditId: string): Promise<void> {
+export async function addTrackCredit(trackId: string, credit: TrackCredit): Promise<void> {
   const db = getDb();
-  if (!db) return;
-  await deleteDoc(doc(db, 'credits', creditId));
+  if (!db) throw new Error('Firestore not initialized');
+  const snap = await getDoc(doc(db, 'tracks', trackId));
+  if (!snap.exists()) throw new Error('Track not found');
+  const existing: TrackCredit[] = snap.data().credits ?? [];
+  await updateDoc(doc(db, 'tracks', trackId), {
+    credits: [...existing, credit],
+    updatedAt: Timestamp.now(),
+  });
 }
 
-export async function getCreditsByTrack(trackId: string): Promise<CreditRecord[]> {
+export async function removeTrackCredit(trackId: string, index: number): Promise<void> {
   const db = getDb();
-  if (!db) return [];
-  const snap = await getDocs(
-    query(
-      collection(db, 'credits'),
-      where('trackId', '==', trackId),
-    ),
-  );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as CreditRecord);
+  if (!db) throw new Error('Firestore not initialized');
+  const snap = await getDoc(doc(db, 'tracks', trackId));
+  if (!snap.exists()) throw new Error('Track not found');
+  const existing: TrackCredit[] = snap.data().credits ?? [];
+  existing.splice(index, 1);
+  await updateDoc(doc(db, 'tracks', trackId), {
+    credits: existing,
+    updatedAt: Timestamp.now(),
+  });
 }
 
-export async function getCreditsByPerson(personId: string): Promise<CreditRecord[]> {
+export async function updateTrackCredit(trackId: string, index: number, credit: TrackCredit): Promise<void> {
   const db = getDb();
-  if (!db) return [];
-  const snap = await getDocs(
-    query(collection(db, 'credits'), where('personId', '==', personId)),
-  );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as CreditRecord);
+  if (!db) throw new Error('Firestore not initialized');
+  const snap = await getDoc(doc(db, 'tracks', trackId));
+  if (!snap.exists()) throw new Error('Track not found');
+  const existing: TrackCredit[] = snap.data().credits ?? [];
+  if (index < 0 || index >= existing.length) throw new Error('Credit index out of range');
+  existing[index] = credit;
+  await updateDoc(doc(db, 'tracks', trackId), {
+    credits: existing,
+    updatedAt: Timestamp.now(),
+  });
 }

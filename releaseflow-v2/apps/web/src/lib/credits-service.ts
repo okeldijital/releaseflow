@@ -1,65 +1,33 @@
+import type { TrackCredit } from '@/app/(app)/types';
 import {
-  createCredit,
-  updateCredit,
-  deleteCredit,
   getCreditsByTrack,
-  getCreditsByPerson,
-} from './credit-repository';
-import type {
-  CreditRecord,
+  setTrackCredits,
+  addTrackCredit,
+  removeTrackCredit,
+  updateTrackCredit,
 } from './credit-repository';
 
-export type { CreditRecord } from './credit-repository';
+export type { TrackCredit };
 
 export async function addCreditToTrack(
   trackId: string,
-  orgId: string,
-  personId: string,
-  creditType: string,
-  displayOrder?: number,
-  creditName?: string,
-): Promise<CreditRecord> {
+  _orgId: string,
+  name: string,
+  role: string,
+): Promise<void> {
   if (!trackId) throw new Error('Track ID is required');
-  if (!orgId) throw new Error('Organization ID is required');
-  if (!personId) throw new Error('Person ID is required');
-  if (!creditType.trim()) throw new Error('Credit type is required');
+  if (!role.trim()) throw new Error('Credit role is required');
+  if (!name.trim()) throw new Error('Credit name is required');
 
-  return createCredit({
-    trackId,
-    organizationId: orgId,
-    personId,
-    creditType: creditType.trim(),
-    displayOrder,
-    creditName: creditName?.trim() || undefined,
-    visible: true,
-  });
+  return addTrackCredit(trackId, { role: role.trim(), name: name.trim() });
 }
 
-export async function removeCredit(creditId: string): Promise<void> {
-  if (!creditId) throw new Error('Credit ID is required');
-  return deleteCredit(creditId);
-}
-
-export async function reorderCredits(trackId: string, creditIds: string[]): Promise<void> {
+export async function removeCredit(trackId: string, index: number): Promise<void> {
   if (!trackId) throw new Error('Track ID is required');
-  if (!creditIds || creditIds.length === 0) throw new Error('Credit IDs are required');
-
-  for (let i = 0; i < creditIds.length; i++) {
-    await updateCredit(creditIds[i]!, { displayOrder: i });
-  }
+  return removeTrackCredit(trackId, index);
 }
 
-export async function verifyCredit(creditId: string): Promise<void> {
-  if (!creditId) throw new Error('Credit ID is required');
-  return updateCredit(creditId, { verified: true });
-}
-
-export async function fetchCreditsByTrack(trackId: string): Promise<CreditRecord[]> {
+export async function fetchCreditsByTrack(trackId: string): Promise<TrackCredit[]> {
   if (!trackId) throw new Error('Track ID is required');
   return getCreditsByTrack(trackId);
-}
-
-export async function fetchCreditsByPerson(personId: string): Promise<CreditRecord[]> {
-  if (!personId) throw new Error('Person ID is required');
-  return getCreditsByPerson(personId);
 }
