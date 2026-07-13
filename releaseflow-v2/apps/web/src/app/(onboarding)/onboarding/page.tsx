@@ -68,7 +68,7 @@ export default function WelcomePage() {
         {saving ? 'Setting up...' : 'Continue'}
       </button>
 
-      <p className="mt-6 text-xs text-text-500">You can change these later in Settings.</p>
+      <p className="mt-6 text-xs text-text-500">You can change these later in Administration.</p>
 
       <div className="fixed top-0 left-0 right-0 flex items-center justify-between px-6 py-5 z-20">
         <div className="flex items-center gap-2.5">
