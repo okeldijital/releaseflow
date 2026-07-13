@@ -5,12 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import type { TrackRecord } from '@/lib/track-repository';
-import type { Task } from '@/app/(app)/types';
-import type { TrackAsset } from '@/lib/asset-lifecycle-service';
 import type { CreditRecord } from '@/lib/credit-repository';
-import type { ActivityEventRecord } from '@/lib/activity-service';
-import type { AssignmentRecord } from '@/lib/assignment-repository';
-import type { ProductionDeliverableRecord } from '@/lib/deliverable-management-repository';
 import type { TrackRightRecord } from '@/lib/rights-repository';
 import { editTrack, removeTrack, archiveTrackById, duplicateTrack } from '@/lib/track-service';
 import { getArtistsByRole } from '@/lib/track-artist-repository';
@@ -18,135 +13,30 @@ import { toast } from '@/stores/toast-store';
 import { fetchRelease } from '@/lib/release-service';
 import { getReleasesByTrack } from '@/lib/release-track-repository';
 import type { Artwork } from '@/lib/artwork/artwork-types';
-import { getAssignmentsByEntity, deleteAssignment } from '@/lib/assignment-repository';
-import { getPeopleByTrack, removePersonFromTrack } from '@/lib/track-person-repository';
-import { getTasksByEntity } from '@/lib/task-service';
-import {
-  getAssetsByTrack,
-  createRequestedAsset,
-  assignAsset,
-  deliverAsset,
-} from '@/lib/asset-lifecycle-service';
-import { getDeliverablesByTrack } from '@/lib/deliverable-management-repository';
 import { getCreditsByTrack, createCredit, deleteCredit } from '@/lib/credit-repository';
 import { getRightsByTrack } from '@/lib/rights-repository';
-import { getActivityByEntity } from '@/lib/activity-service';
 
 import { fetchArtist } from '@/lib/artist-service';
 import { getPerson } from '@/lib/people-repository';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
-import { PersonAssigner } from '@/components/person-assigner';
 import { ArtworkDisplay } from '@/components/release/artwork-display';
-import { Button, Badge, StatusBadge, EmptyState, LoadingState, Tabs } from '@releaseflow/ui';
+import { Button, Badge, StatusBadge, LoadingState, Tabs } from '@releaseflow/ui';
 
-const TAB_IDS = ['overview', 'production', 'deliverables', 'credits', 'rights', 'activity', 'settings'] as const;
+const TAB_IDS = ['overview', 'publishing', 'credits', 'settings'] as const;
 type TabId = typeof TAB_IDS[number];
 
 const TAB_LABELS: Record<TabId, string> = {
   overview: 'Overview',
-  production: 'Production',
-  deliverables: 'Deliverables',
+  publishing: 'Publishing',
   credits: 'Credits',
-  rights: 'Rights',
-  activity: 'Activity',
   settings: 'Settings',
 };
 
-const READINESS_CATS = ['Audio', 'Metadata', 'Rights', 'Credits', 'Deliverables'] as const;
-
-const EXPECTED_DELIVERABLES = [
-  { id: 'master-wav', label: 'Master WAV', pattern: /master/i },
-  { id: 'session-files', label: 'Session Files', pattern: /session/i },
-  { id: 'lyrics', label: 'Lyrics', pattern: /lyric/i },
-  { id: 'instrumental', label: 'Instrumental', pattern: /instrumental/i },
-  { id: 'clean-version', label: 'Clean Version', pattern: /clean/i },
-  { id: 'reference-mix', label: 'Reference Mix', pattern: /reference/i },
-] as const;
-
-const ROLE_GROUPS = [
-  { key: 'producer', label: 'Producer', roles: ['Producer', 'producer'] },
-  { key: 'mix', label: 'Mix Engineer', roles: ['Mix Engineer', 'Mixing Engineer'] },
-  { key: 'master', label: 'Mastering Engineer', roles: ['Mastering Engineer'] },
-  { key: 'artwork', label: 'Artwork', roles: ['Artwork', 'Graphic Designer', 'Designer'] },
-] as const;
+const READINESS_CATS = ['Metadata', 'Rights', 'Credits'] as const;
 
 const CREDIT_TYPES = ['Producer', 'Composer', 'Lyricist', 'Songwriter', 'Publisher', 'Performer'] as const;
 
-const TECHNICAL_ACTIONS = new Set(['entity.viewed', 'page.loaded', 'session.started']);
-
-
-function isAssetReceived(asset?: TrackAsset | null) {
-  if (!asset) return false;
-  return asset.lifecycleState === 'delivered' || asset.lifecycleState === 'approved' || asset.lifecycleState === 'attached';
-}
-
-function isProdReceived(d?: ProductionDeliverableRecord | null) {
-  if (!d) return false;
-  return d.status === 'approved' || d.status === 'submitted';
-}
-
-function timeAgo(ts: unknown): string {
-  if (!ts) return '';
-  let d: Date;
-  if (ts instanceof Date) d = ts;
-  else if (typeof ts === 'object' && ts !== null && 'seconds' in ts) d = new Date((ts as { seconds: number }).seconds * 1000);
-  else if (typeof ts === 'string') d = new Date(ts);
-  else return '';
-  const mins = Math.round((Date.now() - d.getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return hrs === 1 ? '1 hour ago' : `${hrs} hours ago`;
-  const days = Math.floor(hrs / 24);
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days} days ago`;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function relativeDue(ts: unknown): string {
-  if (!ts) return 'No due date';
-  let d: Date;
-  if (ts instanceof Date) d = ts;
-  else if (typeof ts === 'object' && ts !== null && 'seconds' in ts) d = new Date((ts as { seconds: number }).seconds * 1000);
-  else if (typeof ts === 'string') d = new Date(ts);
-  else return 'No due date';
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diff = Math.round((target.getTime() - today.getTime()) / 86400000);
-  if (diff < -1) return `${Math.abs(diff)} days overdue`;
-  if (diff === -1) return 'Yesterday';
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-  if (diff < 7) return `In ${diff} days`;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function humaniseTrackActivity(ev: ActivityEventRecord): string | null {
-  if (TECHNICAL_ACTIONS.has(ev.action)) return null;
-  const labels: Record<string, string> = {
-    'asset.uploaded': 'uploaded a file',
-    'asset.delivered': 'delivered a file',
-    'asset.approved': 'approved a deliverable',
-    'task.created': 'created a task',
-    'task.completed': 'completed a task',
-    'task.assigned': 'assigned a task',
-    'credit.added': 'added a credit',
-    'person.invited': 'invited a collaborator',
-    'engineer.invited': 'invited an engineer',
-    'mix.approved': 'approved the mix',
-    'master.uploaded': 'uploaded the master',
-    'master.approved': 'approved the master',
-    'deliverable.submitted': 'submitted a deliverable',
-    'deliverable.approved': 'approved a deliverable',
-  };
-  if (labels[ev.action]) return labels[ev.action]!;
-  if (ev.action.includes('upload')) return 'uploaded a file';
-  if (ev.action.includes('approv')) return 'approved work';
-  if (ev.action.includes('invit')) return 'invited a collaborator';
-  return null;
-}
 
 async function resolveArtistNames(orgId: string | null, artistIds: string[]): Promise<string[]> {
   if (!orgId || artistIds.length === 0) return [];
@@ -157,16 +47,6 @@ async function resolveArtistNames(orgId: string | null, artistIds: string[]): Pr
     }),
   );
   return names.filter(Boolean) as string[];
-}
-
-function inferProductionStage(assets: TrackAsset[]): string {
-  const master = assets.find((a) => /master/i.test(a.name) && isAssetReceived(a));
-  if (master) return 'Mastered';
-  const mix = assets.find((a) => /mix/i.test(a.name) && isAssetReceived(a));
-  if (mix) return 'Mixed';
-  const any = assets.find((a) => isAssetReceived(a));
-  if (any) return 'Editing';
-  return 'Planning';
 }
 
 interface TrackWorkspaceProps {
@@ -181,69 +61,32 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   const { user } = useAuth();
   const [tab, setTab] = useState<TabId>('overview');
   const [loading, setLoading] = useState(true);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [assets, setAssets] = useState<TrackAsset[]>([]);
-  const [prodDeliverables, setProdDeliverables] = useState<ProductionDeliverableRecord[]>([]);
-  const [assignments, setAssignments] = useState<AssignmentRecord[]>([]);
-  const [trackPeople, setTrackPeople] = useState<{ id: string; personId: string; primaryRole: string; name: string }[]>([]);
   const [credits, setCredits] = useState<(CreditRecord & { personName: string })[]>([]);
   const [rights, setRights] = useState<TrackRightRecord[]>([]);
-  const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [releaseName, setReleaseName] = useState<string | null>(null);
   const [releaseId, setReleaseId] = useState<string | null>(null);
   const [releaseArtwork, setReleaseArtwork] = useState<Artwork | null>(null);
   const [artistSummary, setArtistSummary] = useState<string>('—');
-  const [metadataOpen, setMetadataOpen] = useState(false);
-  const [assignerOpen, setAssignerOpen] = useState(false);
-  const [assignerLabel, setAssignerLabel] = useState('');
-  const [assignerRole, setAssignerRole] = useState('');
-  const [assignerCallback, setAssignerCallback] = useState<((r: { personId?: string }) => void) | null>(null);
   const [orgPeople, setOrgPeople] = useState<{ id: string; displayName: string }[]>([]);
   const [creditPicker, setCreditPicker] = useState<Record<string, string>>({});
 
   const recordingType = resolveRecordingType(track.recordingType);
-  const productionStage = inferProductionStage(assets);
 
   const load = useCallback(async () => {
     if (!activeOrgId) { setLoading(false); return; }
     setLoading(true);
     try {
       const [
-        taskData,
-        assetData,
-        prodData,
-        assignmentData,
-        peopleData,
         creditData,
         rightsData,
-        activityData,
         releaseIds,
       ] = await Promise.all([
-        getTasksByEntity('track', trackId),
-        getAssetsByTrack(trackId),
-        getDeliverablesByTrack(trackId),
-        getAssignmentsByEntity('track', trackId),
-        getPeopleByTrack(trackId),
         getCreditsByTrack(trackId),
         getRightsByTrack(trackId),
-        getActivityByEntity(activeOrgId, 'track', trackId),
         getReleasesByTrack(trackId),
       ]);
 
-      setTasks(taskData as Task[]);
-      setAssets(assetData);
-      setProdDeliverables(prodData);
-      setAssignments(assignmentData);
       setRights(rightsData);
-      setActivities(activityData);
-
-      const peopleResolved = await Promise.all(
-        peopleData.map(async (p) => {
-          const person = await getPerson(p.personId);
-          return { id: p.id, personId: p.personId, primaryRole: p.primaryRole, name: person?.displayName ?? p.personId };
-        }),
-      );
-      setTrackPeople(peopleResolved);
 
       const creditsResolved = await Promise.all(
         creditData.map(async (c) => {
@@ -313,71 +156,20 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
   useEffect(() => { load(); }, [load]);
 
-  const pendingTasks = useMemo(
-    () => tasks.filter((t) => t.status !== 'done').slice(0, 6),
-    [tasks],
-  );
-
-  const deliverableRows = useMemo(() => EXPECTED_DELIVERABLES.map((def) => {
-    const asset = assets.find((a) => def.pattern.test(a.name));
-    const prod = prodDeliverables.find((d) => def.pattern.test(d.deliverableType) || def.pattern.test(d.filename ?? ''));
-    const received = isAssetReceived(asset) || isProdReceived(prod);
-    return { ...def, asset, prod, received, previewUrl: asset?.url ?? prod?.fileUrl ?? null };
-  }), [assets, prodDeliverables]);
-
   const readinessMap = useMemo(() => {
-    const audio = deliverableRows.find((d) => d.id === 'master-wav')?.received ?? false;
     const metadata = !!(track.isrc?.trim() && track.genre?.trim() && track.language?.trim());
     const rightsOk = rights.length > 0;
     const creditsOk = credits.length > 0;
-    const deliverablesOk = deliverableRows.filter((d) => d.received).length >= 2;
     return {
-      Audio: audio,
       Metadata: metadata,
       Rights: rightsOk,
       Credits: creditsOk,
-      Deliverables: deliverablesOk,
     } satisfies Record<typeof READINESS_CATS[number], boolean>;
-  }, [deliverableRows, track, rights, credits]);
+  }, [track, rights, credits]);
 
   const readinessPct = Math.round(
     (READINESS_CATS.filter((c) => readinessMap[c]).length / READINESS_CATS.length) * 100,
   );
-
-  const meaningfulActivities = activities
-    .map((ev) => ({ ev, label: humaniseTrackActivity(ev) }))
-    .filter((x) => x.label !== null)
-    .slice(0, 12);
-
-  function openAssigner(label: string, role: string, cb: (r: { personId?: string }) => void) {
-    setAssignerLabel(label);
-    setAssignerRole(role);
-    setAssignerCallback(() => cb);
-    setAssignerOpen(true);
-  }
-
-  async function handleRequestAsset(name: string, type: 'audio' | 'document' = 'audio') {
-    if (!activeOrgId) return;
-    await createRequestedAsset(trackId, activeOrgId, name, type);
-    await load();
-  }
-
-  async function handleUploadAsset(name: string, file: File) {
-    if (!activeOrgId) return;
-    const assetId = await createRequestedAsset(trackId, activeOrgId, name, 'audio');
-    const url = URL.createObjectURL(file);
-    try {
-      const assignee = assignments[0]?.assigneeId ?? orgPeople[0]?.id;
-      if (assignee) await assignAsset(assetId, assignee);
-    } catch { /* best effort */ }
-    try {
-      const { startAssetWork } = await import('@/lib/asset-lifecycle-service');
-      await startAssetWork(assetId);
-      await deliverAsset(assetId, url, file.name, file.type, file.size);
-    } catch { /* lifecycle may need manual steps */ }
-    await load();
-    onRefresh();
-  }
 
   async function handleAddCredit(type: string, personId: string) {
     if (!activeOrgId || !personId) return;
@@ -397,23 +189,10 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   }
 
   async function handleDelete() {
-    console.log("1");
-
     if (!window.confirm("Delete this track permanently?")) return;
-
-    console.log("2");
-
     await removeTrack(trackId, activeOrgId ?? undefined, user?.uid);
-
-    console.log("3");
-
     toast.success("Track deleted.");
-
-    console.log("4");
-
     router.push(releaseId ? `/releases/${releaseId}` : '/tracks');
-
-    console.log("5");
   }
 
   async function handleDuplicate() {
@@ -422,21 +201,15 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
     router.push(`/tracks/${newId}`);
   }
 
-  const visibleTabs = TAB_IDS.filter((id) => {
-    if (id === 'rights') return rights.length > 0 || tab === 'rights';
-    if (id === 'activity') return meaningfulActivities.length > 0 || tab === 'activity';
-    return true;
-  });
+  function formatDuration(seconds?: number): string {
+    if (!seconds) return '—';
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  }
 
-  function resolveRoleAssignment(roleLabels: readonly string[]) {
-    const assignment = assignments.find((a) => roleLabels.some((r) => a.role.toLowerCase().includes(r.toLowerCase())));
-    const person = trackPeople.find((p) => roleLabels.some((r) => p.primaryRole.toLowerCase().includes(r.toLowerCase())));
-    if (assignment) {
-      const name = orgPeople.find((p) => p.id === assignment.assigneeId)?.displayName ?? assignment.assigneeId;
-      return { name, assignmentId: assignment.id, personLinkId: null as string | null };
-    }
-    if (person) return { name: person.name, assignmentId: null as string | null, personLinkId: person.id };
-    return { name: null as string | null, assignmentId: null as string | null, personLinkId: null as string | null };
+  function getCreditsByType(type: string): string[] {
+    return credits
+      .filter((c) => c.creditType.toLowerCase() === type.toLowerCase())
+      .map((c) => c.personName);
   }
 
   if (loading) {
@@ -453,7 +226,6 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
           Tracks
         </Link>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <Button size="sm" variant="outline" onClick={() => openAssigner('Invite Person', 'Contributor', () => {})}>Invite Person</Button>
           <Button size="sm" variant="primary" onClick={() => setTab('settings')}>Edit Track</Button>
           <EntityOverflowMenu
             aria-label="More track actions"
@@ -491,7 +263,6 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
                 label={recordingTypeLabel(recordingType, true)}
                 color={recordingType === 'remix' ? 'bg-purple-500/15 text-purple-600' : 'bg-surface-100 text-text-600'}
               />
-              <Badge label={productionStage} color="bg-info-50 text-info-600" />
               <StatusBadge status={track.status} />
             </div>
           </div>
@@ -506,8 +277,6 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
             </dd>
             <dt className="text-text-400">{recordingType === 'remix' ? 'Original · Remix Artists' : 'Artists'}</dt>
             <dd className="text-text-800 truncate">{artistSummary}</dd>
-            <dt className="text-text-400">Stage</dt>
-            <dd className="text-text-800">{productionStage}</dd>
             <dt className="text-text-400">Status</dt>
             <dd><StatusBadge status={track.status} /></dd>
           </dl>
@@ -532,9 +301,8 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
                 <button
                   type="button"
                   onClick={() => {
-                    if (cat === 'Deliverables') setTab('deliverables');
+                    if (cat === 'Metadata') setTab('publishing');
                     else if (cat === 'Credits') setTab('credits');
-                    else if (cat === 'Rights') setTab('rights');
                     else setTab('overview');
                   }}
                   className="flex items-center gap-2 text-xs w-full text-left hover:text-primary-600 transition-colors"
@@ -552,7 +320,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
       </section>
 
       <Tabs
-        tabs={visibleTabs.map((t) => ({ id: t, label: TAB_LABELS[t] }))}
+        tabs={TAB_IDS.map((t) => ({ id: t, label: TAB_LABELS[t] }))}
         activeTab={tab}
         onChange={(v) => setTab(v as TabId)}
         variant="underline"
@@ -560,207 +328,28 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
       />
 
       {tab === 'overview' && (
-        <div className="space-y-8">
-          <section aria-label="Pending Tasks">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider">Pending Tasks</h2>
-              {tasks.filter((t) => t.status !== 'done').length > 6 ? (
-                <button type="button" onClick={() => setTab('production')} className="text-xs text-primary-500 font-medium">View All</button>
-              ) : null}
-            </div>
-            {pendingTasks.length === 0 ? (
-              <EmptyState title="Everything is up to date." description="No pending work." />
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {pendingTasks.map((task) => (
-                  <div key={task.id} className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 flex flex-col gap-2">
-                    <p className="text-sm font-medium text-text-900">{task.title}</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <StatusBadge status={task.status} />
-                      <span className="text-xs text-text-500 capitalize">{task.priority ?? 'normal'}</span>
-                    </div>
-                    <p className="text-xs text-text-500">
-                      {task.assigneeId ? <>Assigned · <span className="text-text-700">{task.assigneeId}</span></> : 'Unassigned'}
-                    </p>
-                    <p className="text-xs text-text-500">{relativeDue(task.dueDate)}</p>
-                    <Button
-                      size="sm"
-                      variant={task.assigneeId ? 'outline' : 'primary'}
-                      className="self-start mt-1"
-                      onClick={() => openAssigner(task.title, 'Contributor', () => {})}
-                    >
-                      {task.assigneeId ? 'Open' : 'Assign'}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section aria-label="Production Deliverables">
-            <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-4">Production Deliverables</h2>
-            <DeliverablesList
-              rows={deliverableRows}
-              onUpload={(label) => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.onchange = () => {
-                  const f = input.files?.[0];
-                  if (f) handleUploadAsset(label, f);
-                };
-                input.click();
-              }}
-              onAssign={(label, role) => openAssigner(`Assign ${label}`, role, () => {})}
-              onInvite={(label) => openAssigner(`Invite for ${label}`, 'Contributor', () => {})}
-              onRequest={(label) => handleRequestAsset(label)}
-            />
-          </section>
-
-          <section aria-label="Assigned People">
-            <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-4">Assigned People</h2>
-            <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden divide-y divide-surface-100">
-              {ROLE_GROUPS.map((group) => {
-                const resolved = resolveRoleAssignment(group.roles);
-                return (
-                  <div key={group.key} className="flex items-center justify-between gap-3 px-4 py-3.5">
-                    <div className="min-w-0">
-                      <p className="text-xs text-text-400 uppercase tracking-wider">{group.label}</p>
-                      <p className="text-sm font-medium text-text-900">{resolved.name ?? '—'}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {resolved.name ? (
-                        <>
-                          <Button size="sm" variant="outline" className="text-xs" onClick={() => setTab('production')}>View</Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs"
-                            onClick={async () => {
-                              if (resolved.assignmentId) await deleteAssignment(resolved.assignmentId);
-                              if (resolved.personLinkId) await removePersonFromTrack(resolved.personLinkId);
-                              await load();
-                            }}
-                          >
-                            Unassign
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button size="sm" variant="outline" className="text-xs" onClick={() => openAssigner(group.label, group.label, () => load())}>Assign</Button>
-                          <Button size="sm" variant="primary" className="text-xs" onClick={() => openAssigner(group.label, group.label, () => load())}>Invite</Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          <section aria-label="Credits">
-            <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-4">Credits</h2>
-            <CreditsTable
-              credits={credits}
-              people={orgPeople}
-              creditPicker={creditPicker}
-              setCreditPicker={setCreditPicker}
-              onAdd={handleAddCredit}
-              onRemove={async (id) => { await deleteCredit(id); await load(); }}
-            />
-          </section>
-
-          <section aria-label="Metadata">
-            <button
-              type="button"
-              onClick={() => setMetadataOpen((v) => !v)}
-              className="flex items-center justify-between w-full text-left mb-4"
-            >
-              <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider">Metadata</h2>
-              <span className="text-xs text-text-500">{metadataOpen ? 'Collapse' : 'Expand'}</span>
-            </button>
-            {metadataOpen ? (
-              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 grid gap-3 sm:grid-cols-2 text-sm">
-                <MetaField label="ISRC" value={track.isrc ?? '—'} />
-                <MetaField label="Language" value={track.language ?? '—'} />
-                <MetaField label="Genre" value={track.genre ?? '—'} />
-                <MetaField label="Explicit" value={track.explicit ? 'Yes' : 'No'} />
-                <MetaField label="Recording Type" value={recordingTypeLabel(recordingType)} />
-                <MetaField label="Duration" value={track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : 'Derived from audio'} />
-              </div>
-            ) : null}
-          </section>
-
-          <section aria-label="Activity">
-            <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-4">Activity</h2>
-            {meaningfulActivities.length === 0 ? (
-              <EmptyState title="No activity yet." />
-            ) : (
-              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden divide-y divide-surface-100">
-                {meaningfulActivities.map(({ ev, label }) => (
-                  <div key={ev.id} className="flex items-start gap-3 px-4 py-3">
-                    <div className="h-7 w-7 rounded-full bg-primary-50 flex items-center justify-center shrink-0 text-caption font-semibold text-primary-700">
-                      {(ev.actorId ?? '?').charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm text-text-700"><span className="font-medium text-text-900">{label}</span></p>
-                      <p className="text-xs text-text-400 mt-0.5">{timeAgo(ev.createdAt)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 grid gap-4 sm:grid-cols-2 text-sm">
+          <MetaField label="Title" value={track.title} />
+          <MetaField label="Version" value={track.version ?? '—'} />
+          <MetaField label="Recording Type" value={recordingTypeLabel(recordingType)} />
+          <MetaField label="Release" value={releaseName ?? 'Not linked'} />
+          <MetaField label="Status" value={track.status} />
+          <MetaField label="Duration" value={formatDuration(track.duration)} />
         </div>
       )}
 
-      {tab === 'production' && (
-        <div className="space-y-6">
-          <section>
-            <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-4">Production Status</h2>
-            <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5">
-              <p className="text-sm text-text-700">Current stage: <span className="font-semibold text-text-900">{productionStage}</span></p>
-              <p className="text-xs text-text-500 mt-2">{pendingTasks.length} pending task{pendingTasks.length === 1 ? '' : 's'}</p>
-            </div>
-          </section>
-          <section aria-label="Pending Tasks">
-            <h2 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-4">All Pending Tasks</h2>
-            {tasks.filter((t) => t.status !== 'done').length === 0 ? (
-              <EmptyState title="No pending tasks." />
-            ) : (
-              <div className="space-y-2">
-                {tasks.filter((t) => t.status !== 'done').map((task) => (
-                  <div key={task.id} className="rounded-xl border border-surface-200 bg-layer-2 shadow-card px-4 py-3 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-text-900">{task.title}</p>
-                      <p className="text-xs text-text-500">{relativeDue(task.dueDate)}</p>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={() => openAssigner(task.title, 'Contributor', () => {})}>
-                      {task.assigneeId ? 'Open' : 'Assign'}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+      {tab === 'publishing' && (
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 grid gap-4 sm:grid-cols-2 text-sm">
+          <MetaField label="ISRC" value={track.isrc ?? '—'} />
+          <MetaField label="Explicit" value={track.explicit ? 'Yes' : 'No'} />
+          <MetaField label="Language" value={track.language ?? '—'} />
+          <MetaField label="Genre" value={track.genre ?? '—'} />
+          <MetaField label="Track Number" value={track.trackNumber?.toString() ?? '—'} />
+          <MetaField label="Disc Number" value={track.discNumber?.toString() ?? '—'} />
+          <MetaField label="Publisher" value={getCreditsByType('Publisher').join(', ') || '—'} />
+          <MetaField label="Writers" value={[...getCreditsByType('Writer'), ...getCreditsByType('Lyricist')].join(', ') || '—'} />
+          <MetaField label="Composers" value={getCreditsByType('Composer').join(', ') || '—'} />
         </div>
-      )}
-
-      {tab === 'deliverables' && (
-        <DeliverablesList
-          rows={deliverableRows}
-          onUpload={(label) => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.onchange = () => {
-              const f = input.files?.[0];
-              if (f) handleUploadAsset(label, f);
-            };
-            input.click();
-          }}
-          onAssign={(label, role) => openAssigner(`Assign ${label}`, role, () => {})}
-          onInvite={(label) => openAssigner(`Invite for ${label}`, 'Contributor', () => {})}
-          onRequest={(label) => handleRequestAsset(label)}
-        />
       )}
 
       {tab === 'credits' && (
@@ -774,52 +363,12 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
         />
       )}
 
-      {tab === 'rights' && (
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden divide-y divide-surface-100">
-          {rights.length === 0 ? (
-            <div className="p-6"><EmptyState title="No rights registered." description="Rights will appear here once added." /></div>
-          ) : rights.map((r) => (
-            <div key={r.id} className="px-4 py-3 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-900 capitalize">{r.rightType.replace(/_/g, ' ')}</p>
-                <p className="text-xs text-text-500">{r.territory ?? 'Worldwide'} · {r.status}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === 'activity' && (
-        meaningfulActivities.length === 0 ? (
-          <EmptyState title="No activity yet." />
-        ) : (
-          <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden divide-y divide-surface-100">
-            {meaningfulActivities.map(({ ev, label }) => (
-              <div key={ev.id} className="px-4 py-3">
-                <p className="text-sm text-text-700 font-medium">{label}</p>
-                <p className="text-xs text-text-400 mt-0.5">{timeAgo(ev.createdAt)}</p>
-              </div>
-            ))}
-          </div>
-        )
-      )}
-
       {tab === 'settings' && (
         <SettingsPanel
           track={track}
           onSaved={() => { onRefresh(); load(); }}
         />
       )}
-
-      <PersonAssigner
-        open={assignerOpen}
-        onClose={() => setAssignerOpen(false)}
-        onAssign={(r) => { assignerCallback?.(r); setAssignerOpen(false); }}
-        contextLabel={assignerLabel}
-        contextRole={assignerRole}
-        organizationId={activeOrgId}
-        currentUserId={user?.uid ?? ''}
-      />
     </div>
   );
 }
@@ -829,50 +378,6 @@ function MetaField({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-xs text-text-400 uppercase tracking-wider">{label}</p>
       <p className="text-sm font-medium text-text-900 mt-0.5">{value}</p>
-    </div>
-  );
-}
-
-function DeliverablesList({
-  rows,
-  onUpload,
-  onAssign,
-  onInvite,
-  onRequest,
-}: {
-  rows: { id: string; label: string; received: boolean; previewUrl?: string | null }[];
-  onUpload: (label: string) => void;
-  onAssign: (label: string, role: string) => void;
-  onInvite: (label: string) => void;
-  onRequest: (label: string) => void;
-}) {
-  return (
-    <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
-      {rows.map((row, i) => (
-        <div key={row.id} className={`flex items-center gap-3 px-4 py-3.5 ${i > 0 ? 'border-t border-surface-100' : ''}`}>
-          {row.received
-            ? <svg className="h-4 w-4 text-success-500 shrink-0" viewBox="0 0 16 16" fill="currentColor"><path fillRule="evenodd" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z" clipRule="evenodd" /></svg>
-            : <span className="h-4 w-4 rounded-full border-2 border-surface-300 shrink-0 inline-block" />}
-          <span className="flex-1 min-w-0">
-            <span className="text-sm font-medium text-text-900 block">{row.label}</span>
-            <span className="text-xs text-text-400">{row.received ? 'Received' : 'Outstanding'}</span>
-          </span>
-          {row.received ? (
-            <Button size="sm" variant="outline" className="text-xs shrink-0" disabled={!row.previewUrl} onClick={() => row.previewUrl && window.open(row.previewUrl, '_blank')}>
-              Preview
-            </Button>
-          ) : (
-            <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-              <Button size="sm" variant="primary" className="text-xs" onClick={() => onUpload(row.label)}>Upload</Button>
-              {row.label === 'Master WAV' ? (
-                <Button size="sm" variant="outline" className="text-xs" onClick={() => onAssign(row.label, 'Mixing Engineer')}>Assign</Button>
-              ) : null}
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => onInvite(row.label)}>Invite</Button>
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => onRequest(row.label)}>Request</Button>
-            </div>
-          )}
-        </div>
-      ))}
     </div>
   );
 }
