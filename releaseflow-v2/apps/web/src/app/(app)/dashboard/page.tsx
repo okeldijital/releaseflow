@@ -11,8 +11,6 @@ import { getRecentActivity, type ActivityEventRecord } from '@/lib/activity-serv
 import type { Task } from '@/app/(app)/types';
 import { EmptyState, LoadingState } from '@releaseflow/ui';
 import { ArtworkDisplay } from '@/components/release/artwork-display';
-import { getArtworksByReleaseIds } from '@/lib/artwork/artwork-repository';
-import type { Artwork } from '@/lib/artwork/artwork-types';
 
 function timeAgo(d: Date): string {
   const m = Math.floor((Date.now() - d.getTime()) / (1000 * 60));
@@ -48,7 +46,6 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [loadingExtras, setLoadingExtras] = useState(true);
-  const [artworkMap, setArtworkMap] = useState<Record<string, Artwork>>({});
 
   useEffect(() => {
     if (!user || !activeOrgId) { setLoadingExtras(false); return; }
@@ -57,23 +54,6 @@ export default function DashboardPage() {
       getRecentActivity(activeOrgId, 10),
     ]).then(([t, a]) => { setTasks(t); setActivities(a); }).finally(() => setLoadingExtras(false));
   }, [user, activeOrgId]);
-
-  useEffect(() => {
-    if (!activeOrgId || releases.length === 0) return;
-    const upcomingIds = releases
-      .filter((r) => r.status !== 'released' && r.status !== 'cancelled' && r.status !== 'archived')
-      .map((r) => r.id);
-    const ids = [releases[0]?.id, ...upcomingIds].filter(Boolean) as string[];
-    const uniqueIds = [...new Set(ids)];
-    if (uniqueIds.length === 0) return;
-    getArtworksByReleaseIds(activeOrgId, uniqueIds).then((artworks) => {
-      const map: Record<string, Artwork> = {};
-      for (const a of artworks) {
-        if (!map[a.releaseId]) map[a.releaseId] = a;
-      }
-      setArtworkMap(map);
-    });
-  }, [activeOrgId, releases]);
 
   const activeRelease = useMemo(() => {
     if (!releases.length) return null;
@@ -146,7 +126,7 @@ const language = (release as unknown as Record<string, unknown>).language as str
           <div className="flex flex-col sm:flex-row">
             <div className="sm:w-48 shrink-0 flex items-center justify-center p-8 bg-gradient-to-br from-primary-500/20 to-primary-500/5">
               <ArtworkDisplay
-                artwork={artworkMap[release.id] ?? null}
+                artwork={release.artwork ?? null}
                 releaseTitle={release.title}
                 size="lg"
                 className="h-32 w-32 shadow-lg"
@@ -234,7 +214,7 @@ const language = (release as unknown as Record<string, unknown>).language as str
                     className="flex items-center gap-3 rounded-xl border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-500/40 transition-all duration-150 group"
                   >
                     <ArtworkDisplay
-                      artwork={artworkMap[r.id] ?? null}
+                      artwork={r.artwork ?? null}
                       releaseTitle={r.title}
                       size="sm"
                     />

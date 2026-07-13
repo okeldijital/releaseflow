@@ -6,9 +6,11 @@ import {
   updateRelease,
   updateReleaseStatus,
 } from './release-repository';
+import { getArtworksByReleaseIds } from './artwork/artwork-repository';
 import type {
   ReleaseStatus,
 } from '@/app/(app)/types';
+import type { Artwork } from './artwork/artwork-types';
 import type { CreateReleaseFields, UpdateReleaseFields } from './release-repository';
 
 export type {
@@ -103,9 +105,20 @@ export async function removeRelease(
 }
 
 export async function fetchRelease(releaseId: string) {
-  return getRelease(releaseId);
+  const release = await getRelease(releaseId);
+  if (!release) return null;
+  const artworks = await getArtworksByReleaseIds(release.organizationId, [releaseId]);
+  return { ...release, artwork: artworks[0] ?? null };
 }
 
 export async function fetchReleasesByOrg(orgId: string) {
-  return getReleasesByOrganization(orgId);
+  const releases = await getReleasesByOrganization(orgId);
+  if (releases.length === 0) return releases;
+  const ids = releases.map((r) => r.id);
+  const artworks = await getArtworksByReleaseIds(orgId, ids);
+  const map = new Map<string, Artwork>();
+  for (const a of artworks) {
+    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
+  }
+  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
 }

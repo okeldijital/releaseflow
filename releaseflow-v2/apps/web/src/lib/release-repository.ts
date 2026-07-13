@@ -5,6 +5,7 @@ import {
 import { getDb } from './firebase';
 import { recordActivity } from './activity-service';
 import type { ReleaseStatus, ReleaseType } from '@/app/(app)/types';
+import type { Artwork } from '@/lib/artwork/artwork-types';
 
 export interface ReleaseRecord {
   id: string;
@@ -28,6 +29,7 @@ export interface ReleaseRecord {
   explicit?: boolean;
   createdAt: unknown;
   updatedAt?: unknown;
+  artwork?: Artwork | null;
 }
 
 export interface CreateReleaseFields {
