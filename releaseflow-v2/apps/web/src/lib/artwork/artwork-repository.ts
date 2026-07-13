@@ -2,6 +2,7 @@ import {
   doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, Timestamp,
 } from '@firebase/firestore';
+
 import { getDb } from '@/lib/firebase';
 import type { Artwork } from './artwork-types';
 
@@ -91,6 +92,23 @@ export async function getArtworksByRelease(
   const q = query(
     artworksCol(db, organizationId),
     where('releaseId', '==', releaseId),
+    orderBy('createdAt', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toArtwork(d.id, d.data() as Record<string, unknown>));
+}
+
+export async function getArtworksByReleaseIds(
+  organizationId: string,
+  releaseIds: string[],
+): Promise<Artwork[]> {
+  if (releaseIds.length === 0) return [];
+  const db = getDb();
+  if (!db) return [];
+  const ids = [...new Set(releaseIds)].slice(0, 10);
+  const q = query(
+    artworksCol(db, organizationId),
+    where('releaseId', 'in', ids),
     orderBy('createdAt', 'desc'),
   );
   const snap = await getDocs(q);

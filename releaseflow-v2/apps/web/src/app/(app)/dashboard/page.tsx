@@ -10,6 +10,9 @@ import { getTasksByAssignee } from '@/lib/task-service';
 import { getRecentActivity, type ActivityEventRecord } from '@/lib/activity-service';
 import type { Task } from '@/app/(app)/types';
 import { EmptyState, LoadingState } from '@releaseflow/ui';
+import { ArtworkDisplay } from '@/components/release/artwork-display';
+import { getArtworksByReleaseIds } from '@/lib/artwork/artwork-repository';
+import type { Artwork } from '@/lib/artwork/artwork-types';
 
 function timeAgo(d: Date): string {
   const m = Math.floor((Date.now() - d.getTime()) / (1000 * 60));
@@ -45,6 +48,7 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [loadingExtras, setLoadingExtras] = useState(true);
+  const [artworkMap, setArtworkMap] = useState<Record<string, Artwork>>({});
 
   useEffect(() => {
     if (!user || !activeOrgId) { setLoadingExtras(false); return; }
@@ -53,6 +57,23 @@ export default function DashboardPage() {
       getRecentActivity(activeOrgId, 10),
     ]).then(([t, a]) => { setTasks(t); setActivities(a); }).finally(() => setLoadingExtras(false));
   }, [user, activeOrgId]);
+
+  useEffect(() => {
+    if (!activeOrgId || releases.length === 0) return;
+    const upcomingIds = releases
+      .filter((r) => r.status !== 'released' && r.status !== 'cancelled' && r.status !== 'archived')
+      .map((r) => r.id);
+    const ids = [releases[0]?.id, ...upcomingIds].filter(Boolean) as string[];
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return;
+    getArtworksByReleaseIds(activeOrgId, uniqueIds).then((artworks) => {
+      const map: Record<string, Artwork> = {};
+      for (const a of artworks) {
+        if (!map[a.releaseId]) map[a.releaseId] = a;
+      }
+      setArtworkMap(map);
+    });
+  }, [activeOrgId, releases]);
 
   const activeRelease = useMemo(() => {
     if (!releases.length) return null;
@@ -114,7 +135,6 @@ const language = (release as unknown as Record<string, unknown>).language as str
   }).length;
   const completedThisMonth = releases.filter((r) => r.status === 'released').length;
 
-  const initial = release.title?.charAt(0)?.toUpperCase() || 'R';
   const priorityStyles: Record<string, string> = { low: 'bg-surface-800 text-text-400', medium: 'bg-info-500/15 text-info-400', high: 'bg-warning-500/15 text-warning-400', critical: 'bg-danger-500/15 text-danger-400' };
 
   return (
@@ -125,10 +145,12 @@ const language = (release as unknown as Record<string, unknown>).language as str
         <Link href={`/releases/${release.id}`} className="block rounded-2xl border border-surface-700/60 bg-surface-900 hover:border-surface-600 transition-all duration-200 overflow-hidden group">
           <div className="flex flex-col sm:flex-row">
             <div className="sm:w-48 shrink-0 flex items-center justify-center p-8 bg-gradient-to-br from-primary-500/20 to-primary-500/5">
-              {/* Placeholder artwork */}
-              <div className="h-32 w-32 rounded-xl bg-gradient-to-br from-primary-500 to-orange-600 flex items-center justify-center shadow-lg">
-                <span className="text-5xl font-bold text-surface-50/90">{initial}</span>
-              </div>
+              <ArtworkDisplay
+                artwork={artworkMap[release.id] ?? null}
+                releaseTitle={release.title}
+                size="lg"
+                className="h-32 w-32 shadow-lg"
+              />
             </div>
             <div className="flex-1 p-6 flex flex-col sm:flex-row gap-6">
               <div className="flex-1 min-w-0">
@@ -205,16 +227,17 @@ const language = (release as unknown as Record<string, unknown>).language as str
               .slice(0, 5)
               .map((r) => {
                 const date = toDate(r.estimatedReleaseDate || r.targetReleaseDate);
-                const initial = r.title?.charAt(0)?.toUpperCase() || 'R';
                 return (
                   <Link
                     key={r.id}
                     href={`/releases/${r.id}`}
                     className="flex items-center gap-3 rounded-xl border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-500/40 transition-all duration-150 group"
                   >
-                    <div className="h-10 w-10 shrink-0 rounded-lg bg-gradient-to-br from-primary-500 to-orange-600 flex items-center justify-center shadow">
-                      <span className="text-sm font-bold text-surface-50/90">{initial}</span>
-                    </div>
+                    <ArtworkDisplay
+                      artwork={artworkMap[r.id] ?? null}
+                      releaseTitle={r.title}
+                      size="sm"
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-primary-400 truncate">{r.title}</p>
                       <p className="text-xs text-text-500 mt-0.5 capitalize">{r.releaseType}</p>
