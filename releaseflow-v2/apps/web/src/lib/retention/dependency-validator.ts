@@ -2,6 +2,7 @@ import {
   getDocs, collection, collectionGroup, query, where, limit,
 } from '@firebase/firestore';
 import { getDb } from '@/lib/firebase';
+import { getPerson } from '../people-repository';
 import type { EntityType } from './retention-types';
 
 export interface DependencySummary {
@@ -90,13 +91,15 @@ export async function validateArtistDependencies(orgId: string, artistId: string
 }
 
 export async function validatePersonDependencies(personId: string): Promise<DependencySummary> {
+  const person = await getPerson(personId);
+  const userId = person?.userId;
   const [memberships, activities, assignments] = await Promise.all([
-    countWhere('person_memberships', 'personId', personId),
+    userId ? countWhere('memberships', 'userId', userId) : Promise.resolve(0),
     countWhere('activity_events', 'entityId', personId),
     countWhere('assignments', 'assigneeId', personId),
   ]);
   const dependencies = [
-    ...(memberships > 0 ? [{ collection: 'person_memberships', label: 'Organization Memberships', count: memberships }] : []),
+    ...(memberships > 0 ? [{ collection: 'memberships', label: 'Organization Memberships', count: memberships }] : []),
     ...(activities > 0 ? [{ collection: 'activity_events', label: 'Activities', count: activities }] : []),
     ...(assignments > 0 ? [{ collection: 'assignments', label: 'Assignments', count: assignments }] : []),
   ];

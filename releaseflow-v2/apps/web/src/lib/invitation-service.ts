@@ -18,7 +18,6 @@ import {
   getPersonByEmail,
   getPersonByUserId,
 } from './people-repository';
-import { addPersonToOrganization } from './person-membership-repository';
 
 export type { InvitationRecord, CreateInvitationFields };
 
@@ -66,33 +65,20 @@ export async function acceptPersonInvitation(
   const existingByUserId = existingByEmail?.userId ? null : await getPersonByUserId(user.uid);
   const person = existingByEmail || existingByUserId;
 
-  let personId: string;
   if (person) {
     await updatePerson(person.id, {
       invitationStatus: 'accepted',
       userId: user.uid,
       primaryRole: person.primaryRole || primaryRole,
     });
-    personId = person.id;
   } else {
-    const created = await createPerson({
+    await createPerson({
       organizationId: invitation.organizationId,
       userId: user.uid,
       email,
       displayName,
       primaryRole,
     });
-    personId = created.id;
-  }
-
-  try {
-    await addPersonToOrganization({
-      organizationId: invitation.organizationId,
-      personId,
-      role: primaryRole,
-    });
-  } catch {
-    // already a member of this organization — safe to ignore
   }
 
   await repoAccept(token, user.uid);

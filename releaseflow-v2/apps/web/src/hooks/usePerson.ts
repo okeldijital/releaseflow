@@ -7,8 +7,6 @@ import {
   checkPersonReadiness, fetchAssignmentSummary,
 } from '@/lib/person-service';
 import type { PersonRecord, PersonReadinessResult, AssignmentSummary } from '@/lib/person-service';
-import { getActiveMembershipsForPerson } from '@/lib/person-membership-repository';
-import type { PersonMembershipRecord } from '@/lib/person-membership-repository';
 import { getActivityByEntity } from '@/lib/activity-service';
 import type { ActivityEventRecord } from '@/lib/activity-service';
 import { toPersonOptions, type PersonOption } from '@/lib/person-field-picker-logic';
@@ -18,7 +16,6 @@ export type { PersonOption };
 export function usePerson(personId: string | undefined) {
   const { activeOrgId } = useOrgStore();
   const [person, setPerson] = useState<PersonRecord | null>(null);
-  const [memberships, setMemberships] = useState<PersonMembershipRecord[]>([]);
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [readiness, setReadiness] = useState<PersonReadinessResult | null>(null);
   const [assignmentSummary, setAssignmentSummary] = useState<AssignmentSummary | null>(null);
@@ -28,15 +25,13 @@ export function usePerson(personId: string | undefined) {
     if (!personId || !activeOrgId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const [p, mems, acts, r, asgn] = await Promise.all([
+      const [p, acts, r, asgn] = await Promise.all([
         fetchPerson(personId),
-        getActiveMembershipsForPerson(personId),
         getActivityByEntity(activeOrgId, 'release', personId),
         checkPersonReadiness(personId),
         fetchAssignmentSummary(personId),
       ]);
       setPerson(p);
-      setMemberships(mems);
       setReadiness(r);
       setAssignmentSummary(asgn);
 
@@ -52,7 +47,7 @@ export function usePerson(personId: string | undefined) {
   useEffect(() => { void load(); }, [load]);
 
   return {
-    person, memberships, activities, readiness, assignmentSummary,
+    person, activities, readiness, assignmentSummary,
     loading, refresh: load,
   };
 }
