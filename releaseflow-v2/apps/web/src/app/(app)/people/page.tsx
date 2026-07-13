@@ -55,7 +55,6 @@ export default function PeoplePage() {
 
   useEffect(() => {
     if (!activeOrgId) return;
-    setLoadingData(true);
     Promise.all([
       listAssignments(activeOrgId, { includeArchived: true }).catch(() => [] as AssignmentRecord[]),
       getReleasesByOrganization(activeOrgId).catch(() => [] as ReleaseRecord[]),

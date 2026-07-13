@@ -15,7 +15,7 @@ import type { AssignmentRecord } from '@/lib/assignment-repository';
 import { getRelease } from '@/lib/release-repository';
 import { resendPersonInvitation, cancelInvitation } from '@/lib/invitation-service';
 import {
-  Avatar, StatusBadge, EmptyState, LoadingState, Tabs, Skeleton,
+  Avatar, Card, EmptyState, LoadingState, Tabs, Skeleton, StatusBadge,
 } from '@releaseflow/ui';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 
@@ -127,57 +127,41 @@ export default function PersonDetailPage() {
 
   async function handleArchive() {
     if (!id) return;
-    setActionLoading(true);
     try {
       await serviceArchive(id);
       await refresh();
     } catch {
       // silent
-    } finally {
-      setActionLoading(false);
-      setMenuOpen(false);
     }
   }
 
   async function handleRestore() {
     if (!id) return;
-    setActionLoading(true);
     try {
       await serviceRestore(id);
       await refresh();
     } catch {
       // silent
-    } finally {
-      setActionLoading(false);
-      setMenuOpen(false);
     }
   }
 
   async function handleResend() {
     if (!id) return;
-    setActionLoading(true);
     try {
       await resendPersonInvitation(id, user?.uid ?? '', activeOrgId ?? '');
       await refresh();
     } catch {
       // silent
-    } finally {
-      setActionLoading(false);
-      setMenuOpen(false);
     }
   }
 
   async function handleCancel() {
     if (!id) return;
-    setActionLoading(true);
     try {
       await cancelInvitation(id, user?.uid ?? '', activeOrgId ?? '');
       await refresh();
     } catch {
       // silent
-    } finally {
-      setActionLoading(false);
-      setMenuOpen(false);
     }
   }
 
