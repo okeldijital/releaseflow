@@ -9,6 +9,7 @@ import {
   EmptyState, LoadingState, StatusBadge,
   SegmentedControl, Card, Search,
 } from '@releaseflow/ui';
+import { ArtworkDisplay } from '@/components/release/artwork-display';
 import type { ReleaseRecord } from '@/lib/release-repository';
 import { calculateReleaseReadiness, detectConflicts, getScheduleHealth, calculateCapacity } from '@/lib/schedule-intelligence-service';
 import { buildReleaseCalendarEvents, downloadIcsCalendar } from '@/lib/calendar-export';
@@ -59,7 +60,6 @@ function ReleaseCard({ release, onSelect, selected }: {
   onSelect?: (id: string) => void;
   selected?: boolean;
 }) {
-  const initial = release.title?.charAt(0)?.toUpperCase() || 'R';
   const date = toDate(release.estimatedReleaseDate) ?? toDate(release.targetReleaseDate);
   return (
     <button
@@ -70,9 +70,7 @@ function ReleaseCard({ release, onSelect, selected }: {
           : 'border-surface-700/60 bg-surface-900 hover:border-primary-500/40'
       }`}
     >
-      <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-primary-500 to-orange-600 flex items-center justify-center shadow-lg">
-        <span className="text-xl font-bold text-surface-50/90">{initial}</span>
-      </div>
+      <ArtworkDisplay releaseTitle={release.title} size="md" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2.5 flex-wrap">
           <p className="font-semibold text-primary-400 truncate">{release.title}</p>

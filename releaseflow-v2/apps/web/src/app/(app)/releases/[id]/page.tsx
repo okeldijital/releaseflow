@@ -653,7 +653,8 @@ export default function ReleaseWorkspacePage() {
           {/* Artwork */}
           <div className="w-full lg:w-64 shrink-0">
             <ReleaseArtwork
-              hasArtwork={!!artwork}
+              artwork={artwork}
+              releaseTitle={release.title}
               uploadState={uploadState}
               onUpload={handleArtworkUpload}
               onUploadStateChange={setUploadState}

@@ -17,6 +17,8 @@ import { getArtistsByRole } from '@/lib/track-artist-repository';
 import { toast } from '@/stores/toast-store';
 import { fetchRelease } from '@/lib/release-service';
 import { getReleasesByTrack } from '@/lib/release-track-repository';
+import { getArtworkByRelease } from '@/lib/artwork/artwork-service';
+import type { Artwork } from '@/lib/artwork/artwork-types';
 import { getAssignmentsByEntity, deleteAssignment } from '@/lib/assignment-repository';
 import { getPeopleByTrack, removePersonFromTrack } from '@/lib/track-person-repository';
 import { getTasksByEntity } from '@/lib/task-service';
@@ -36,6 +38,7 @@ import { getPerson } from '@/lib/people-repository';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { PersonAssigner } from '@/components/person-assigner';
+import { ArtworkDisplay } from '@/components/release/artwork-display';
 import { Button, Badge, StatusBadge, EmptyState, LoadingState, Tabs } from '@releaseflow/ui';
 
 const TAB_IDS = ['overview', 'production', 'deliverables', 'credits', 'rights', 'activity', 'settings'] as const;
@@ -189,6 +192,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [releaseName, setReleaseName] = useState<string | null>(null);
   const [releaseId, setReleaseId] = useState<string | null>(null);
+  const [releaseArtwork, setReleaseArtwork] = useState<Artwork | null>(null);
   const [artistSummary, setArtistSummary] = useState<string>('—');
   const [metadataOpen, setMetadataOpen] = useState(false);
   const [assignerOpen, setAssignerOpen] = useState(false);
@@ -254,9 +258,12 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
         setReleaseId(releaseIds[0]);
         const rel = await fetchRelease(releaseIds[0]);
         setReleaseName(rel?.title ?? null);
+        const art = await getArtworkByRelease(activeOrgId, releaseIds[0]);
+        setReleaseArtwork(art);
       } else {
         setReleaseId(null);
         setReleaseName(null);
+        setReleaseArtwork(null);
       }
 
       const originalArtists = await getArtistsByRole(trackId, 'ORIGINAL_ARTIST');
@@ -463,9 +470,18 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
       {/* Hero */}
       <section className="grid grid-cols-1 lg:grid-cols-[240px_1fr_260px] gap-6 mb-8" aria-label="Track overview">
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 flex flex-col items-center justify-center gap-2 min-h-[200px]">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 flex flex-col items-center gap-2 min-h-[200px]">
           <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Artwork</p>
-          <p className="text-sm text-text-400 text-center">Artwork is managed from the Release Workspace.</p>
+          {releaseId ? (
+            <ArtworkDisplay
+              artwork={releaseArtwork}
+              releaseTitle={releaseName ?? track.title}
+              size="lg"
+              className="max-w-[200px]"
+            />
+          ) : (
+            <p className="text-sm text-text-400 text-center">Artwork is managed from the Release Workspace.</p>
+          )}
         </div>
 
         <div className="flex flex-col gap-3 min-w-0">

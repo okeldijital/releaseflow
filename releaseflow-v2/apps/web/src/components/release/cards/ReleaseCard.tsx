@@ -9,6 +9,7 @@ import { toast } from '@/stores/toast-store';
 import { fmtDate } from '@/lib/utils';
 import { StatusBadge, Badge, ConfirmationDialog, ProgressBar } from '@releaseflow/ui';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
+import { ArtworkDisplay } from '@/components/release/artwork-display';
 import { RELEASE_STATUS_CONFIG, RELEASE_TYPE_LABELS } from '../status/release-status-config';
 import type { Release } from '@/app/(app)/types';
 
@@ -16,31 +17,16 @@ interface ReleaseCardProps {
   release: Release;
   trackCount?: number;
   view?: 'grid' | 'list';
+  artworkUrl?: string;
 }
 
-const artworkColors = [
-  'from-primary-600 to-primary-800',
-  'from-purple-600 to-purple-800',
-  'from-teal-600 to-teal-600/80',
-  'from-pink-600 to-pink-800',
-  'from-amber-600 to-amber-800',
-  'from-blue-600 to-blue-800',
-  'from-emerald-600 to-emerald-800',
-  'from-rose-600 to-rose-800',
-];
-
-function pickColor(title: string) {
-  return artworkColors[(title.charCodeAt(0) ?? 0) % artworkColors.length];
-}
-
-export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardProps) {
+export function ReleaseCard({ release, trackCount, view = 'grid', artworkUrl }: ReleaseCardProps) {
   const router = useRouter();
   const { user } = useAuth();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const statusMeta = RELEASE_STATUS_CONFIG[release.status];
-  const initial = release.title.charAt(0).toUpperCase();
 
   async function handleDelete() {
     if (!user) return;
@@ -77,9 +63,7 @@ export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardP
       <>
         <div className="flex items-center gap-4 px-4 py-3 hover:bg-surface-50/80 dark:hover:bg-surface-800/40 transition-colors group border-b border-surface-100 dark:border-surface-800 last:border-b-0">
           <Link href={`/releases/${release.id}`} className="flex items-center gap-4 flex-1 min-w-0">
-            <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${pickColor(release.title)} flex items-center justify-center shrink-0`}>
-              <span className="text-surface-50 text-sm font-bold">{initial}</span>
-            </div>
+            <ArtworkDisplay src={artworkUrl} releaseTitle={release.title} size="sm" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-semibold text-primary-400 truncate">{release.title}</span>
@@ -126,8 +110,8 @@ export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardP
     <>
       <div className="group relative rounded-xl border border-surface-200 dark:border-surface-700/80 bg-layer-2 dark:bg-surface-900 shadow-card hover:shadow-card-hover transition-all duration-200 overflow-hidden">
         <Link href={`/releases/${release.id}`} className="block">
-          <div className={`aspect-square bg-gradient-to-br ${pickColor(release.title)} flex items-center justify-center relative overflow-hidden`}>
-            <span className="text-surface-50 text-6xl font-bold select-none opacity-90">{initial}</span>
+          <div className="relative overflow-hidden">
+            <ArtworkDisplay src={artworkUrl} releaseTitle={release.title} size="lg" />
             {statusMeta && (
               <div className="absolute top-3 right-3">
                 <StatusBadge status={release.status} />

@@ -2,11 +2,14 @@
 
 import { useRef } from 'react';
 import { Button } from '@releaseflow/ui';
+import { ArtworkDisplay } from './artwork-display';
+import type { Artwork } from '@/lib/artwork/artwork-types';
 
 export type UploadState = 'idle' | 'selecting' | 'uploading' | 'complete';
 
 interface ReleaseArtworkProps {
-  hasArtwork: boolean;
+  artwork?: Artwork | null;
+  releaseTitle: string;
   uploadState: UploadState;
   onUpload: (file: File) => void;
   onUploadStateChange: (state: UploadState) => void;
@@ -14,17 +17,14 @@ interface ReleaseArtworkProps {
 }
 
 export function ReleaseArtwork({
-  hasArtwork,
+  artwork,
+  releaseTitle,
   uploadState,
   onUpload,
   onUploadStateChange,
   className = '',
 }: ReleaseArtworkProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-
-  if (hasArtwork) {
-    return null;
-  }
 
   function handleClick() {
     onUploadStateChange('selecting');
@@ -37,6 +37,12 @@ export function ReleaseArtwork({
     if (file) {
       onUpload(file);
     }
+  }
+
+  if (artwork) {
+    return (
+      <ArtworkDisplay artwork={artwork} releaseTitle={releaseTitle} size="lg" className={className} />
+    );
   }
 
   return (
