@@ -1,4 +1,4 @@
-import { doc, getDocs, getDoc, addDoc, updateDoc, collection, query, where, orderBy, Timestamp } from '@firebase/firestore';
+import { doc, getDocs, getDoc, addDoc, updateDoc, collection, query, where, orderBy, limit, Timestamp } from '@firebase/firestore';
 import { getDb } from './firebase';
 import { getSystemRoleForDiscipline } from './disciplines';
 
@@ -63,15 +63,26 @@ export async function acceptInvitation(token: string, userId: string): Promise<v
   if (!invitation) throw new Error('Invitation not found');
   if (invitation.status !== 'pending') throw new Error('Invitation is no longer valid');
   const now = Timestamp.now();
+  const existing = await getDocs(
+    query(
+      collection(db, 'memberships'),
+      where('userId', '==', userId),
+      where('organizationId', '==', invitation.organizationId),
+      where('status', '==', 'active'),
+      limit(1),
+    ),
+  );
+  if (existing.empty) {
+    await addDoc(collection(db, 'memberships'), {
+      organizationId: invitation.organizationId,
+      userId,
+      roleId: invitation.roleId,
+      status: 'active',
+      invitedBy: invitation.inviterId,
+      createdAt: now,
+    });
+  }
   await updateDoc(doc(db, 'invitations', invitation.id), { status: 'accepted', updatedAt: now });
-  await addDoc(collection(db, 'memberships'), {
-    organizationId: invitation.organizationId,
-    userId,
-    roleId: invitation.roleId,
-    status: 'active',
-    invitedBy: invitation.inviterId,
-    createdAt: now,
-  });
 }
 
 export async function revokeInvitation(invitationId: string): Promise<void> {

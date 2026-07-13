@@ -52,6 +52,7 @@ export interface CreatePersonFields {
 }
 
 export interface UpdatePersonFields {
+  userId?: string;
   displayName?: string;
   legalName?: string | null;
   preferredName?: string | null;
@@ -127,6 +128,24 @@ export async function getPerson(personId: string): Promise<PersonRecord | null> 
   const snap = await getDoc(doc(db, 'people', personId));
   if (!snap.exists()) return null;
   return toRecord(snap.id, snap.data() as Record<string, unknown>);
+}
+
+export async function getPersonByEmail(orgId: string, email: string): Promise<PersonRecord | null> {
+  const db = getDb();
+  if (!db) return null;
+  const snap = await getDocs(query(collection(db, 'people'), where('email', '==', email)));
+  const match = snap.docs.find((d) => (d.data() as Record<string, unknown>).organizationId === orgId);
+  if (!match) return null;
+  return toRecord(match.id, match.data() as Record<string, unknown>);
+}
+
+export async function getPersonByUserId(userId: string): Promise<PersonRecord | null> {
+  const db = getDb();
+  if (!db) return null;
+  const snap = await getDocs(query(collection(db, 'people'), where('userId', '==', userId)));
+  if (snap.empty) return null;
+  const docData = snap.docs[0]!;
+  return toRecord(docData.id, docData.data() as Record<string, unknown>);
 }
 
 export async function getPeopleByOrg(orgId: string): Promise<PersonRecord[]> {

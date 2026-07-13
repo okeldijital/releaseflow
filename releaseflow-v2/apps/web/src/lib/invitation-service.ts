@@ -12,6 +12,13 @@ import {
 import type { InvitationRecord, CreateInvitationFields } from './invitation-repository';
 import { recordActivity } from './activity-service';
 import { getSystemRoleForDiscipline } from './disciplines';
+import {
+  createPerson,
+  updatePerson,
+  getPersonByEmail,
+  getPersonByUserId,
+} from './people-repository';
+import { addPersonToOrganization } from './person-membership-repository';
 
 export type { InvitationRecord, CreateInvitationFields };
 
@@ -43,20 +50,60 @@ export async function fetchInvitationByToken(token: string): Promise<InvitationR
   return repoGetByToken(token);
 }
 
-export async function acceptPersonInvitation(token: string, userId: string): Promise<void> {
+export async function acceptPersonInvitation(
+  token: string,
+  user: { uid: string; email: string; displayName?: string | null }
+): Promise<void> {
   const invitation = await repoGetByToken(token);
   if (!invitation) throw new Error('Invitation not found');
   if (invitation.status !== 'pending') throw new Error('Invitation is no longer valid');
 
-  await repoAccept(token, userId);
+  const email = user.email?.trim() || invitation.email;
+  const displayName = user.displayName?.trim() || email;
+  const primaryRole = invitation.discipline || invitation.roleId;
+
+  const existingByEmail = await getPersonByEmail(invitation.organizationId, email);
+  const existingByUserId = existingByEmail?.userId ? null : await getPersonByUserId(user.uid);
+  const person = existingByEmail || existingByUserId;
+
+  let personId: string;
+  if (person) {
+    await updatePerson(person.id, {
+      invitationStatus: 'accepted',
+      userId: user.uid,
+      primaryRole: person.primaryRole || primaryRole,
+    });
+    personId = person.id;
+  } else {
+    const created = await createPerson({
+      organizationId: invitation.organizationId,
+      userId: user.uid,
+      email,
+      displayName,
+      primaryRole,
+    });
+    personId = created.id;
+  }
+
+  try {
+    await addPersonToOrganization({
+      organizationId: invitation.organizationId,
+      personId,
+      role: primaryRole,
+    });
+  } catch {
+    // already a member of this organization — safe to ignore
+  }
+
+  await repoAccept(token, user.uid);
 
   await recordActivity({
     entityType: 'release',
     entityId: invitation.id,
     organizationId: invitation.organizationId,
-    actorId: userId,
+    actorId: user.uid,
     action: 'invitation.accepted',
-    details: `Invitation accepted by ${userId}`,
+    details: `Invitation accepted by ${user.uid}`,
   });
 }
 

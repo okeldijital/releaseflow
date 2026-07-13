@@ -49,7 +49,11 @@ export default function InvitePage() {
     async function accept() {
       if (!user) return;
       try {
-        await acceptPersonInvitation(token, user.uid);
+        await acceptPersonInvitation(token, {
+          uid: user.uid,
+          email: user.email || '',
+          displayName: user.displayName,
+        });
         setState({ status: 'accepted', message: 'You have joined the organization!' });
         setTimeout(() => router.push('/auth/resolve'), 2000);
       } catch {
