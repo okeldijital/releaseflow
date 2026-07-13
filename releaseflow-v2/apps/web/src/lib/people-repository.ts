@@ -102,6 +102,19 @@ function toRecord(id: string, data: Record<string, unknown>): PersonRecord {
   };
 }
 
+/**
+ * Persists a new Person document.
+ *
+ * ARCHITECTURE — restricted creation path.
+ * Persons may only be created by:
+ *   1. Organization owner provisioning (person-service.ensureOwnerPerson)
+ *   2. Invitation acceptance (invitation-service.acceptPersonInvitation)
+ * plus the service-mediated "Add Person" roster flow (person-service.createNewPerson).
+ *
+ * Do NOT call this method for general application workflows and never call it
+ * directly from UI components — always go through the service layer so that
+ * identity rules (one Person per organizationId + userId) are enforced.
+ */
 export async function createPerson(fields: CreatePersonFields): Promise<PersonRecord> {
   const db = getDb();
   if (!db) throw new Error('Firestore unavailable');
@@ -130,6 +143,15 @@ export async function getPerson(personId: string): Promise<PersonRecord | null> 
   return toRecord(snap.id, snap.data() as Record<string, unknown>);
 }
 
+/**
+ * Resolves a Person by organizationId + email.
+ *
+ * ARCHITECTURE — invitation reconciliation ONLY.
+ * Email is not a permanent identity. This method exists solely to reconnect an
+ * invitation-created Person that has not yet been linked to a Firebase account.
+ * It must NOT be used for authenticated lookups — once a Person has a userId,
+ * always resolve via getPersonByOrganizationAndUserId instead.
+ */
 export async function getPersonByEmail(orgId: string, email: string): Promise<PersonRecord | null> {
   const db = getDb();
   if (!db) return null;
@@ -139,12 +161,28 @@ export async function getPersonByEmail(orgId: string, email: string): Promise<Pe
   return toRecord(match.id, match.data() as Record<string, unknown>);
 }
 
-export async function getPersonByUserId(userId: string): Promise<PersonRecord | null> {
+/**
+ * Canonical identity lookup for an authenticated collaborator.
+ *
+ * Resolves a Person by organizationId + userId. This is the stable, canonical
+ * identity for a collaborator once their Person has been linked to a Firebase
+ * account, and MUST be preferred over email-based lookups after authentication.
+ */
+export async function getPersonByOrganizationAndUserId(
+  organizationId: string,
+  userId: string,
+): Promise<PersonRecord | null> {
   const db = getDb();
   if (!db) return null;
-  const snap = await getDocs(query(collection(db, 'people'), where('userId', '==', userId)));
-  if (snap.empty) return null;
-  const docData = snap.docs[0]!;
+  const snap = await getDocs(
+    query(
+      collection(db, 'people'),
+      where('organizationId', '==', organizationId),
+      where('userId', '==', userId),
+    ),
+  );
+  const docData = snap.docs[0];
+  if (!docData) return null;
   return toRecord(docData.id, docData.data() as Record<string, unknown>);
 }
 

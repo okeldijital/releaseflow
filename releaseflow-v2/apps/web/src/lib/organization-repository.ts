@@ -1,5 +1,6 @@
 import { collection, query, where, getDocs, getDoc, doc, addDoc, updateDoc, deleteDoc, Timestamp } from '@firebase/firestore';
 import { getDb } from './firebase';
+import { ensureOwnerPerson } from './person-service';
 
 export interface OrganizationRecord {
   id: string;
@@ -66,6 +67,10 @@ export async function createOrganization(
     invitedBy: ownerId,
     createdAt: Timestamp.now(),
   });
+  // Provision the owner's collaboration identity (Person) in the same
+  // workflow so every authenticated member has a Person, exactly like
+  // invited collaborators. Business logic lives in person-service.
+  await ensureOwnerPerson(orgRef.id, ownerId);
   const snap = await getDoc(doc(db, 'organizations', orgRef.id));
   if (!snap.exists()) throw new Error('Created organization not found');
   return { id: snap.id, ...snap.data() } as OrganizationRecord;

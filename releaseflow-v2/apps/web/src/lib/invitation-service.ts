@@ -16,8 +16,9 @@ import {
   createPerson,
   updatePerson,
   getPersonByEmail,
-  getPersonByUserId,
+  getPersonByOrganizationAndUserId,
 } from './people-repository';
+import type { UpdatePersonFields } from './people-repository';
 
 export type { InvitationRecord, CreateInvitationFields };
 
@@ -61,16 +62,22 @@ export async function acceptPersonInvitation(
   const displayName = user.displayName?.trim() || email;
   const primaryRole = invitation.discipline || invitation.roleId;
 
-  const existingByEmail = await getPersonByEmail(invitation.organizationId, email);
-  const existingByUserId = existingByEmail?.userId ? null : await getPersonByUserId(user.uid);
-  const person = existingByEmail || existingByUserId;
+  // Stage 2 — canonical identity: organizationId + userId. Once a Person is
+  // linked to a Firebase account this is the stable, email-independent key.
+  let person = await getPersonByOrganizationAndUserId(invitation.organizationId, user.uid);
+
+  // Stage 3 — reconnection only: an invitation-created Person may still be
+  // keyed by email because it has never been linked to a Firebase account.
+  if (!person) {
+    person = await getPersonByEmail(invitation.organizationId, email);
+  }
 
   if (person) {
-    await updatePerson(person.id, {
-      invitationStatus: 'accepted',
-      userId: user.uid,
-      primaryRole: person.primaryRole || primaryRole,
-    });
+    // Update missing identity fields only; never overwrite existing profile data.
+    const patch: UpdatePersonFields = { invitationStatus: 'accepted' };
+    if (!person.userId) patch.userId = user.uid; // permanently link the Firebase identity
+    if (!person.primaryRole) patch.primaryRole = primaryRole;
+    await updatePerson(person.id, patch);
   } else {
     await createPerson({
       organizationId: invitation.organizationId,
