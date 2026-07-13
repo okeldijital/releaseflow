@@ -1,24 +1,22 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import type { TrackRecord } from '@/lib/track-repository';
-import type { TrackRightRecord } from '@/lib/rights-repository';
 import { editTrack, removeTrack, archiveTrackById, duplicateTrack } from '@/lib/track-service';
 import { getArtistsByRole } from '@/lib/track-artist-repository';
 import { toast } from '@/stores/toast-store';
 import { fetchRelease } from '@/lib/release-service';
 import { getReleasesByTrack } from '@/lib/release-track-repository';
 import { getCreditsByTrack, setTrackCredits } from '@/lib/credit-repository';
-import { getRightsByTrack } from '@/lib/rights-repository';
 import type { TrackCredit } from '@/app/(app)/types';
 
 import { fetchArtist } from '@/lib/artist-service';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
-import { Button, Badge, StatusBadge, LoadingState, Tabs } from '@releaseflow/ui';
+import { Button, Badge, LoadingState, Tabs } from '@releaseflow/ui';
 
 const TAB_IDS = ['overview', 'publishing', 'credits', 'settings'] as const;
 type TabId = typeof TAB_IDS[number];
@@ -29,8 +27,6 @@ const TAB_LABELS: Record<TabId, string> = {
   credits: 'Credits',
   settings: 'Edit',
 };
-
-const READINESS_CATS = ['Metadata', 'Rights', 'Credits'] as const;
 
 const CREDIT_TYPES = ['Producer', 'Composer', 'Lyricist', 'Songwriter', 'Publisher', 'Performer'] as const;
 
@@ -59,7 +55,6 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   const [tab, setTab] = useState<TabId>('overview');
   const [loading, setLoading] = useState(true);
   const [credits, setCredits] = useState<TrackCredit[]>([]);
-  const [rights, setRights] = useState<TrackRightRecord[]>([]);
   const [releaseName, setReleaseName] = useState<string | null>(null);
   const [releaseId, setReleaseId] = useState<string | null>(null);
   const [artistSummary, setArtistSummary] = useState<string>('—');
@@ -72,15 +67,12 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
     try {
       const [
         creditData,
-        rightsData,
         releaseIds,
       ] = await Promise.all([
         getCreditsByTrack(trackId),
-        getRightsByTrack(trackId),
         getReleasesByTrack(trackId),
       ]);
 
-      setRights(rightsData);
       setCredits(creditData);
 
       if (releaseIds[0]) {
@@ -137,21 +129,6 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   }, [activeOrgId, trackId, recordingType, track]);
 
   useEffect(() => { load(); }, [load]);
-
-  const readinessMap = useMemo(() => {
-    const metadata = !!(track.isrc?.trim() && track.genre?.trim() && track.language?.trim());
-    const rightsOk = rights.length > 0;
-    const creditsOk = credits.length > 0;
-    return {
-      Metadata: metadata,
-      Rights: rightsOk,
-      Credits: creditsOk,
-    } satisfies Record<typeof READINESS_CATS[number], boolean>;
-  }, [track, rights, credits]);
-
-  const readinessPct = Math.round(
-    (READINESS_CATS.filter((c) => readinessMap[c]).length / READINESS_CATS.length) * 100,
-  );
 
   async function handleSaveCredits(newCredits: TrackCredit[]) {
     await setTrackCredits(trackId, newCredits);
@@ -220,7 +197,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
       </div>
 
       {/* Hero */}
-      <section className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 mb-8" aria-label="Track overview">
+      <section className="mb-8" aria-label="Track overview">
         <div className="flex flex-col gap-3 min-w-0">
           <div>
             <h1 className="text-2xl font-semibold text-primary-400 tracking-tight leading-tight">{track.title}</h1>
@@ -230,7 +207,6 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
                 label={recordingTypeLabel(recordingType, true)}
                 color={recordingType === 'remix' ? 'bg-workflow-mixing/15 text-workflow-mixing' : 'bg-surface-100 text-text-600'}
               />
-              <StatusBadge status={track.status} />
             </div>
           </div>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
@@ -240,49 +216,11 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
             <dd className="text-text-800 truncate">
               {releaseId && releaseName ? (
                 <Link href={`/releases/${releaseId}`} className="text-primary-600 hover:text-primary-700">{releaseName}</Link>
-              ) : 'Not linked'}
+              ) : 'No release linked'}
             </dd>
             <dt className="text-text-500">{recordingType === 'remix' ? 'Original · Remix Artists' : 'Artists'}</dt>
             <dd className="text-text-800 truncate">{artistSummary}</dd>
-            <dt className="text-text-500">Status</dt>
-            <dd><StatusBadge status={track.status} /></dd>
           </dl>
-        </div>
-
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Track Readiness</p>
-            <span className={`text-2xl font-semibold tabular-nums ${readinessPct >= 80 ? 'text-success-600' : readinessPct >= 50 ? 'text-warning-600' : 'text-danger-600'}`}>
-              {readinessPct}%
-            </span>
-          </div>
-          <div className="h-1.5 w-full bg-surface-200 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${readinessPct >= 80 ? 'bg-success-500' : readinessPct >= 50 ? 'bg-warning-500' : 'bg-danger-500'}`}
-              style={{ width: `${readinessPct}%` }}
-            />
-          </div>
-          <ul className="space-y-1.5">
-            {READINESS_CATS.map((cat) => (
-              <li key={cat}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (cat === 'Metadata') setTab('publishing');
-                    else if (cat === 'Credits') setTab('credits');
-                    else setTab('overview');
-                  }}
-                  className="flex items-center gap-2 text-xs w-full text-left hover:text-primary-600 transition-colors"
-                >
-                  {readinessMap[cat]
-                    ? <svg className="h-3.5 w-3.5 text-success-500 shrink-0" viewBox="0 0 16 16" fill="currentColor"><path fillRule="evenodd" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z" clipRule="evenodd" /></svg>
-                    : <span className="h-3.5 w-3.5 rounded-full border-2 border-surface-300 shrink-0 inline-block" />}
-                  <span className={readinessMap[cat] ? 'text-text-700' : 'text-text-400'}>{cat}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <p className="text-xs text-text-500 mt-auto">{readinessPct >= 80 ? 'Ready' : readinessPct >= 50 ? 'In Progress' : 'Needs Work'}</p>
         </div>
       </section>
 
@@ -299,8 +237,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
           <MetaField label="Title" value={track.title} />
           <MetaField label="Version" value={track.version ?? '—'} />
           <MetaField label="Recording Type" value={recordingTypeLabel(recordingType)} />
-          <MetaField label="Release" value={releaseName ?? 'Not linked'} />
-          <MetaField label="Status" value={track.status} />
+          <MetaField label="Release" value={releaseName ?? 'No release linked'} />
           <MetaField label="Duration" value={formatDuration(track.duration)} />
         </div>
       )}
@@ -329,6 +266,8 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
       {tab === 'settings' && (
         <SettingsPanel
           track={track}
+          releaseName={releaseName}
+          releaseId={releaseId}
           onSaved={() => { onRefresh(); load(); }}
         />
       )}
@@ -340,7 +279,7 @@ function MetaField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs text-text-500 uppercase tracking-wider">{label}</p>
-      <p className="text-sm font-medium text-text-900 mt-0.5">{value}</p>
+      <p className="text-sm font-medium text-text-800 mt-0.5">{value}</p>
     </div>
   );
 }
@@ -403,7 +342,7 @@ function CreditsTable({
                       value={entry.name}
                       onChange={(e) => updateEntry(entry.index, e.target.value)}
                       placeholder={`Enter ${role.toLowerCase()} name...`}
-                      className="block flex-1 h-9 rounded-lg border border-surface-200 px-3 text-sm text-text-900 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+                      className="block flex-1 h-9 rounded-lg border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
                     />
                     <button
                       type="button"
@@ -442,26 +381,40 @@ function CreditsTable({
 
 function SettingsPanel({
   track,
+  releaseName,
+  releaseId,
   onSaved,
 }: {
   track: TrackRecord;
+  releaseName: string | null;
+  releaseId: string | null;
   onSaved: () => void;
 }) {
   const [title, setTitle] = useState(track.title);
   const [version, setVersion] = useState(track.version ?? '');
-  const [isrc, setIsrc] = useState(track.isrc ?? '');
+  const [subtitle, setSubtitle] = useState(track.subtitle ?? '');
+  const [recordingType, setRecordingType] = useState<string>(track.recordingType ?? 'original');
   const [genre, setGenre] = useState(track.genre ?? '');
   const [language, setLanguage] = useState(track.language ?? '');
   const [explicit, setExplicit] = useState(track.explicit ? 'true' : 'false');
+  const [isrc, setIsrc] = useState(track.isrc ?? '');
+  const [trackNumber, setTrackNumber] = useState(track.trackNumber?.toString() ?? '');
+  const [discNumber, setDiscNumber] = useState(track.discNumber?.toString() ?? '');
+  const [duration, setDuration] = useState(track.duration?.toString() ?? '');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setTitle(track.title);
     setVersion(track.version ?? '');
-    setIsrc(track.isrc ?? '');
+    setSubtitle(track.subtitle ?? '');
+    setRecordingType(track.recordingType ?? 'original');
     setGenre(track.genre ?? '');
     setLanguage(track.language ?? '');
     setExplicit(track.explicit ? 'true' : 'false');
+    setIsrc(track.isrc ?? '');
+    setTrackNumber(track.trackNumber?.toString() ?? '');
+    setDiscNumber(track.discNumber?.toString() ?? '');
+    setDuration(track.duration?.toString() ?? '');
   }, [track]);
 
   async function handleSave() {
@@ -469,31 +422,134 @@ function SettingsPanel({
     setSaving(true);
     await editTrack(track.id, {
       title: title.trim(),
-      version: version.trim() || undefined,
-      isrc: isrc.trim() || undefined,
-      genre: genre.trim() || undefined,
-      language: language.trim() || undefined,
+      version: version.trim() || null,
+      subtitle: subtitle.trim() || null,
+      recordingType: recordingType as 'original' | 'remix',
+      genre: genre.trim() || null,
+      language: language.trim() || null,
       explicit: explicit === 'true',
+      isrc: isrc.trim() || null,
+      trackNumber: trackNumber ? parseInt(trackNumber, 10) : null,
+      discNumber: discNumber ? parseInt(discNumber, 10) : null,
+      duration: duration ? parseInt(duration, 10) : null,
     });
     setSaving(false);
     onSaved();
   }
 
   return (
-    <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 space-y-4 max-w-lg">
-      <p className="text-sm font-semibold text-text-900">Edit Track</p>
-      <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm" />
-      <input type="text" value={version} onChange={(e) => setVersion(e.target.value)} placeholder="Version" className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm" />
-      <input type="text" value={isrc} onChange={(e) => setIsrc(e.target.value)} placeholder="ISRC" className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm" />
-      <input type="text" value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Genre" className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm" />
-      <input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="Language" className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm" />
-      <select value={explicit} onChange={(e) => setExplicit(e.target.value)} className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm">
-        <option value="false">Not Explicit</option>
-        <option value="true">Explicit</option>
-      </select>
-      <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || !title.trim()}>
-        {saving ? 'Saving...' : 'Save Changes'}
-      </Button>
+    <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-6 space-y-6">
+      <p className="text-sm font-semibold text-text-800">Edit Track</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+        {/* Left column */}
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-text-400 uppercase tracking-wider">Identity</p>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Title"
+              className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+            />
+            <input
+              type="text"
+              value={version}
+              onChange={(e) => setVersion(e.target.value)}
+              placeholder="Version"
+              className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+            />
+            <input
+              type="text"
+              value={subtitle}
+              onChange={(e) => setSubtitle(e.target.value)}
+              placeholder="Subtitle"
+              className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-text-400 uppercase tracking-wider">Recording</p>
+            <select
+              value={recordingType}
+              onChange={(e) => setRecordingType(e.target.value)}
+              className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-text-800 focus:border-primary-500 focus:outline-none"
+            >
+              <option value="original">Original</option>
+              <option value="remix">Remix</option>
+            </select>
+            <input
+              type="text"
+              value={genre}
+              onChange={(e) => setGenre(e.target.value)}
+              placeholder="Genre"
+              className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+            />
+            <input
+              type="text"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              placeholder="Language"
+              className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-text-400 uppercase tracking-wider">Publishing</p>
+            <input
+              type="text"
+              value={isrc}
+              onChange={(e) => setIsrc(e.target.value)}
+              placeholder="ISRC"
+              className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+            />
+            <input
+              type="number"
+              value={trackNumber}
+              onChange={(e) => setTrackNumber(e.target.value)}
+              placeholder="Track Number"
+              className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+            />
+            <input
+              type="number"
+              value={discNumber}
+              onChange={(e) => setDiscNumber(e.target.value)}
+              placeholder="Disc Number"
+              className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+            />
+            <input
+              type="number"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              placeholder="Duration (seconds)"
+              className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+            />
+            <select
+              value={explicit}
+              onChange={(e) => setExplicit(e.target.value)}
+              className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-text-800 focus:border-primary-500 focus:outline-none"
+            >
+              <option value="false">Not Explicit</option>
+              <option value="true">Explicit</option>
+            </select>
+            <div className="flex items-center h-10 rounded-xl border border-surface-200 px-3 text-sm text-text-500 bg-surface-50">
+              {releaseId && releaseName ? (
+                <Link href={`/releases/${releaseId}`} className="text-primary-600 hover:text-primary-700">{releaseName}</Link>
+              ) : 'No release linked'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-surface-200">
+        <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || !title.trim()}>
+          {saving ? 'Saving...' : 'Save Changes'}
+        </Button>
+      </div>
     </div>
   );
 }
