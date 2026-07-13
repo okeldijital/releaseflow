@@ -1,5 +1,6 @@
 import { doc, getDocs, getDoc, addDoc, updateDoc, collection, query, where, orderBy, Timestamp } from '@firebase/firestore';
 import { getDb } from './firebase';
+import { getSystemRoleForDiscipline } from './disciplines';
 
 export interface InvitationRecord {
   id: string;
@@ -7,6 +8,7 @@ export interface InvitationRecord {
   email: string;
   inviterId: string;
   roleId: string;
+  discipline?: string;
   status: 'pending' | 'accepted' | 'expired' | 'revoked';
   token: string;
   expiresAt: unknown;
@@ -18,7 +20,8 @@ export interface CreateInvitationFields {
   organizationId: string;
   email: string;
   inviterId: string;
-  roleId: string;
+  roleId?: string;
+  discipline?: string;
 }
 
 export async function createInvitation(fields: CreateInvitationFields): Promise<InvitationRecord> {
@@ -27,11 +30,13 @@ export async function createInvitation(fields: CreateInvitationFields): Promise<
   const now = Timestamp.now();
   const token = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const roleId = fields.roleId || (fields.discipline ? getSystemRoleForDiscipline(fields.discipline) : 'contributor');
   const record: Omit<InvitationRecord, 'id'> = {
     organizationId: fields.organizationId,
     email: fields.email,
     inviterId: fields.inviterId,
-    roleId: fields.roleId,
+    roleId,
+    discipline: fields.discipline,
     status: 'pending',
     token,
     expiresAt: Timestamp.fromDate(expiresAt),

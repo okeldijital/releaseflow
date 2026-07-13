@@ -50,7 +50,7 @@ export function useInvitePerson() {
   const { activeOrgId } = useOrgStore();
   const { user } = useAuth();
 
-  const invite = useCallback(async (email: string, roleId: string) => {
+  const invite = useCallback(async (email: string, discipline: string) => {
     if (!activeOrgId || !user?.uid) return null;
     setSaving(true);
     try {
@@ -58,7 +58,7 @@ export function useInvitePerson() {
         organizationId: activeOrgId,
         email: email.trim(),
         inviterId: user.uid,
-        roleId: roleId.trim() || 'contributor',
+        discipline: discipline.trim() || undefined,
       });
       return result;
     } finally {

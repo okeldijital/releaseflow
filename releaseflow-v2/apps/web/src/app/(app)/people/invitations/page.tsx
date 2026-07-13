@@ -1,26 +1,33 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useInvitations, useInvitePerson } from '@/hooks/useInvitation';
 import { cancelInvitation, resendPersonInvitation } from '@/lib/invitation-service';
-import { Button, EmptyState, LoadingState, Input, ConfirmationDialog } from '@releaseflow/ui';
+import { Button, EmptyState, LoadingState, Input, ConfirmationDialog, Avatar } from '@releaseflow/ui';
+import { DISCIPLINE_OPTIONS } from '@/lib/disciplines';
 import { toast } from '@/stores/toast-store';
 
 export default function InvitationsPage() {
   const { invitations, loading, refresh } = useInvitations();
   const { invite, saving } = useInvitePerson();
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('contributor');
+  const [inviteDiscipline, setInviteDiscipline] = useState('');
+  const [customDiscipline, setCustomDiscipline] = useState('');
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  const effectiveDiscipline = inviteDiscipline === 'custom' ? customDiscipline.trim() : inviteDiscipline;
+
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
-    if (!inviteEmail.trim()) return;
-    const result = await invite(inviteEmail, inviteRole);
+    if (!inviteEmail.trim() || !effectiveDiscipline) return;
+    const result = await invite(inviteEmail, effectiveDiscipline);
     if (result) {
       toast.success(`Invitation sent to ${inviteEmail}`);
       setInviteEmail('');
+      setInviteDiscipline('');
+      setCustomDiscipline('');
       await refresh();
     }
   }
@@ -73,11 +80,24 @@ export default function InvitationsPage() {
     }
   };
 
+  const formatDate = (value: unknown) => {
+    if (typeof value === 'object' && value && 'toDate' in value) {
+      return (value as { toDate: () => Date }).toDate().toLocaleDateString();
+    }
+    if (value instanceof Date) return value.toLocaleDateString();
+    return '';
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
-      <div className="mb-8">
-        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Invitations</p>
-        <p className="mt-1 text-sm text-text-400">Manage collaborator invitations.</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Invite Collaborator</p>
+          <p className="mt-1 text-sm text-text-400">Invite collaborators to work on your releases.</p>
+        </div>
+        <Link href="/people">
+          <Button variant="secondary" size="sm">← Back</Button>
+        </Link>
       </div>
 
       <form onSubmit={handleInvite} className="mb-8 rounded-xl border border-surface-200/80 bg-layer-2 p-4">
@@ -92,35 +112,55 @@ export default function InvitationsPage() {
               placeholder="collaborator@example.com"
             />
           </div>
-          <div className="w-40">
-            <label className="block text-xs font-medium text-text-400 mb-1">Role</label>
+          <div className="w-48">
+            <label className="block text-xs font-medium text-text-400 mb-1">Discipline</label>
             <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value)}
+              value={inviteDiscipline}
+              onChange={(e) => setInviteDiscipline(e.target.value)}
               className="h-9 w-full rounded-md border border-surface-700/60 bg-surface-900 px-3 text-sm text-surface-100"
             >
-              <option value="contributor">Contributor</option>
-              <option value="release_manager">Release Manager</option>
-              <option value="admin">Admin</option>
+              <option value="">Select discipline...</option>
+              {DISCIPLINE_OPTIONS.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+              <option value="custom">Custom...</option>
             </select>
           </div>
-          <Button type="submit" size="sm" loading={saving} disabled={!inviteEmail.trim()}>
+          <Button type="submit" size="sm" loading={saving} disabled={!inviteEmail.trim() || !effectiveDiscipline}>
             Send Invitation
           </Button>
         </div>
+        {inviteDiscipline === 'custom' && (
+          <div className="mt-3">
+            <Input
+              label="Custom Discipline"
+              type="text"
+              value={customDiscipline}
+              onChange={(e) => setCustomDiscipline(e.target.value)}
+              placeholder="e.g. Foley Artist"
+            />
+          </div>
+        )}
       </form>
 
       {loading ? (
         <LoadingState />
       ) : invitations.length === 0 ? (
-        <EmptyState title="No invitations" description="Invitations will appear here once sent." />
+        <EmptyState title="No pending invitations" description="Invite collaborators to begin assigning work." />
       ) : (
         <div className="space-y-2">
           {invitations.map((inv) => (
             <div key={inv.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-primary-400 truncate">{inv.email}</p>
-                <p className="text-xs text-text-500">{inv.roleId} &middot; Sent {typeof inv.createdAt === 'object' && inv.createdAt && 'toDate' in inv.createdAt ? (inv.createdAt as { toDate: () => Date }).toDate().toLocaleDateString() : ''}</p>
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="shrink-0">
+                  <Avatar name={inv.email} size="sm" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-primary-400 truncate">{inv.email}</p>
+                  <p className="text-xs text-text-500">
+                    {inv.discipline || '—'} &middot; Sent {formatDate(inv.createdAt)}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor(inv.status)}`}>

@@ -11,6 +11,7 @@ import {
 } from './invitation-repository';
 import type { InvitationRecord, CreateInvitationFields } from './invitation-repository';
 import { recordActivity } from './activity-service';
+import { getSystemRoleForDiscipline } from './disciplines';
 
 export type { InvitationRecord, CreateInvitationFields };
 
@@ -19,7 +20,12 @@ export async function invitePerson(fields: CreateInvitationFields): Promise<Invi
   if (!fields.organizationId) throw new Error('Organization ID is required');
   if (!fields.inviterId) throw new Error('Inviter ID is required');
 
-  const invitation = await repoCreate(fields);
+  const roleId = fields.discipline ? getSystemRoleForDiscipline(fields.discipline) : fields.roleId;
+
+  const invitation = await repoCreate({
+    ...fields,
+    roleId,
+  });
 
   await recordActivity({
     entityType: 'release',
