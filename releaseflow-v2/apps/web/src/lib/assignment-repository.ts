@@ -20,7 +20,6 @@ export type AssignmentPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type AssignmentEntityType =
   | 'release'
   | 'track'
-  | 'work'
   | 'media_asset'
   | 'artist'
   | 'label'

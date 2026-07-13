@@ -10,7 +10,6 @@ import { toast } from '@/stores/toast-store';
 const entityTypeOptions = [
   { value: 'release', label: 'Release' },
   { value: 'track', label: 'Track' },
-  { value: 'work', label: 'Work' },
   { value: 'media_asset', label: 'Media' },
   { value: 'artist', label: 'Artist' },
   { value: 'label', label: 'Label' },
@@ -51,7 +50,7 @@ export default function NewAssignmentPage() {
         organizationId: activeOrgId,
         title: title.trim(),
         description: description.trim() || null,
-        entityType: entityType as 'release' | 'track' | 'work' | 'media_asset' | 'artist' | 'label' | 'person',
+        entityType: entityType as 'release' | 'track' | 'media_asset' | 'artist' | 'label' | 'person',
         entityId: entityId.trim(),
         assigneeId: assigneeId.trim(),
         assignerId: assigneeId.trim(),

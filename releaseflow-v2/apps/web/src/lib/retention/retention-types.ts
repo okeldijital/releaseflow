@@ -23,8 +23,7 @@ export type EntityType =
   | 'label'
   | 'person'
   | 'media_asset'
-  | 'assignment'
-  | 'work';
+  | 'assignment';
 
 export interface DependencyCheck {
   entityType: EntityType;
@@ -46,7 +45,6 @@ export const RETENTION_POLICIES: RetentionPolicy[] = [
   { entityType: 'person', label: 'People', retentionDays: null },
   { entityType: 'media_asset', label: 'Media', retentionDays: null },
   { entityType: 'assignment', label: 'Assignments', retentionDays: null },
-  { entityType: 'work', label: 'Works', retentionDays: null },
 ];
 
 export const ENTITY_DISPLAY_NAMES: Record<EntityType, string> = {
@@ -57,7 +55,6 @@ export const ENTITY_DISPLAY_NAMES: Record<EntityType, string> = {
   person: 'Person',
   media_asset: 'Media Asset',
   assignment: 'Assignment',
-  work: 'Work',
 };
 
 export const DELETED_STATUS_PREFIX = 'deleted';

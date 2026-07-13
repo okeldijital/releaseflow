@@ -28,9 +28,6 @@ const TAB_LABELS: Record<TabId, string> = {
   settings: 'Edit',
 };
 
-const CREDIT_TYPES = ['Producer', 'Composer', 'Lyricist', 'Songwriter', 'Publisher', 'Performer'] as const;
-
-
 async function resolveArtistNames(orgId: string | null, artistIds: string[]): Promise<string[]> {
   if (!orgId || artistIds.length === 0) return [];
   const names = await Promise.all(

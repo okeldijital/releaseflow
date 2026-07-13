@@ -108,27 +108,6 @@ export async function validatePersonDependencies(personId: string): Promise<Depe
   };
 }
 
-export async function validateWorkDependencies(workId: string): Promise<DependencySummary> {
-  const [splits, publishers, tracks, activities] = await Promise.all([
-    countWhere('work_splits', 'workId', workId),
-    countWhere('work_publishers', 'workId', workId),
-    countWhere('work_tracks', 'workId', workId),
-    countWhere('activity_events', 'entityId', workId),
-  ]);
-  const dependencies = [
-    ...(splits > 0 ? [{ collection: 'work_splits', label: 'Writer Splits', count: splits }] : []),
-    ...(publishers > 0 ? [{ collection: 'work_publishers', label: 'Publishers', count: publishers }] : []),
-    ...(tracks > 0 ? [{ collection: 'work_tracks', label: 'Linked Tracks', count: tracks }] : []),
-    ...(activities > 0 ? [{ collection: 'activity_events', label: 'Activities', count: activities }] : []),
-  ];
-  return {
-    entityType: 'work',
-    entityId: workId,
-    dependencies,
-    canPurge: dependencies.length === 0,
-  };
-}
-
 export async function validateAssignmentDependencies(assignmentId: string): Promise<DependencySummary> {
   const [activities] = await Promise.all([
     countWhere('activity_events', 'entityId', assignmentId),
@@ -149,6 +128,5 @@ export const ENTITY_DEPENDENCY_VALIDATORS: Record<string, (id: string, orgId?: s
   track: (id: string) => validateTrackDependencies(id),
   artist: (id: string, orgId?: string) => validateArtistDependencies(orgId ?? '', id),
   person: (id: string) => validatePersonDependencies(id),
-  work: (id: string) => validateWorkDependencies(id),
   assignment: (id: string) => validateAssignmentDependencies(id),
 };

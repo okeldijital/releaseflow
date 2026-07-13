@@ -75,10 +75,6 @@ export async function getDeletedAssignments(orgId: string, maxCount = 100): Prom
   return queryDeleted('assignments', 'title', maxCount);
 }
 
-export async function getDeletedWorks(orgId: string, maxCount = 100): Promise<RestorableEntity[]> {
-  return queryDeleted('works', 'title', maxCount);
-}
-
 export async function getAllDeleted(orgId: string, maxCount = 50): Promise<RestorableEntity[]> {
   const results = await Promise.allSettled([
     getDeletedReleases(orgId, maxCount),
@@ -88,7 +84,6 @@ export async function getAllDeleted(orgId: string, maxCount = 50): Promise<Resto
     getDeletedPeople(orgId, maxCount),
     getDeletedMediaAssets(orgId, maxCount),
     getDeletedAssignments(orgId, maxCount),
-    getDeletedWorks(orgId, maxCount),
   ]);
 
   return results
