@@ -16,7 +16,7 @@ import {
   deliverAsset,
   type AssetType,
 } from '@/lib/asset-lifecycle-service';
-import { createInvitation } from '@/lib/invitation-repository';
+import { invitePerson } from '@/lib/invitation-service';
 import { PersonAssigner } from '@/components/person-assigner';
 import { ArtistFieldPicker, FeaturedArtistsPicker, RepeatableArtistPicker, type ArtistOption, type RepeatableArtistEntry } from '@/components/artist-field-picker';
 import { useArtists } from '@/hooks/useArtist';
@@ -351,7 +351,7 @@ export default function NewTrackPage() {
       }
     }
     if (item.status === 'invited' && item.inviteEmail && user) {
-      await createInvitation({
+      await invitePerson({
         organizationId: activeOrgId,
         inviterId: user.uid,
         email: item.inviteEmail,

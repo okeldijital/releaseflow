@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getPeopleByOrg } from '@/lib/people-repository';
 import { createAssignment } from '@/lib/assignment-repository';
-import { createInvitation } from '@/lib/invitation-repository';
+import { invitePerson } from '@/lib/invitation-service';
 
 export interface PersonAssignerResult {
   personId?: string;
@@ -77,7 +77,7 @@ export function PersonAssigner({
     if (!inviteName.trim() || !inviteEmail.trim() || !organizationId) return;
     setSaving(true);
     try {
-      await createInvitation({
+      await invitePerson({
         organizationId,
         inviterId: currentUserId,
         email: inviteEmail.trim(),

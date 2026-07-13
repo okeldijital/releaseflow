@@ -147,3 +147,11 @@ export async function getInvitationsByOrg(orgId: string): Promise<InvitationReco
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as InvitationRecord);
 }
+
+export async function getInvitationById(invitationId: string): Promise<InvitationRecord | null> {
+  const db = getDb();
+  if (!db) return null;
+  const snap = await getDoc(doc(db, 'invitations', invitationId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as InvitationRecord;
+}

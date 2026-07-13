@@ -4,7 +4,7 @@ export class ResendProvider implements EmailProvider {
   private apiKey: string;
   private defaultFrom: string;
 
-  constructor(apiKey: string, defaultFrom = 'noreply@releaseflow.app') {
+  constructor(apiKey: string, defaultFrom: string) {
     this.apiKey = apiKey;
     this.defaultFrom = defaultFrom;
   }

@@ -1,6 +1,7 @@
 import {
   createInvitation as repoCreate,
   getInvitationByToken as repoGetByToken,
+  getInvitationById as repoGetById,
   acceptInvitation as repoAccept,
   revokeInvitation as repoRevoke,
   resendInvitation as repoResend,
@@ -12,6 +13,10 @@ import {
 import type { InvitationRecord, CreateInvitationFields } from './invitation-repository';
 import { recordActivity } from './activity-service';
 import { getSystemRoleForDiscipline } from './disciplines';
+import { sendEmail, buildEmailParams } from './email/email-service';
+import { renderInvitationEmail } from './email/templates/InvitationEmail';
+import { getOrganization } from './organization-repository';
+import { getUserProfile } from './user-profile-repository';
 import {
   createPerson,
   updatePerson,
@@ -21,6 +26,50 @@ import {
 import type { UpdatePersonFields } from './people-repository';
 
 export type { InvitationRecord, CreateInvitationFields };
+
+function buildInvitationUrl(token: string): string {
+  const base = process.env.APP_URL;
+  if (!base) {
+    console.warn('[invitation-service] Missing APP_URL environment variable.');
+    return '';
+  }
+  return `${base}/invite/${token}`;
+}
+
+async function sendInvitationEmail(invitation: InvitationRecord): Promise<void> {
+  const [org, inviter] = await Promise.all([
+    getOrganization(invitation.organizationId),
+    getUserProfile(invitation.inviterId),
+  ]);
+
+  if (!org) {
+    console.warn(`[invitation-service] Organization not found for ${invitation.organizationId}`);
+    return;
+  }
+
+  const inviterName = inviter?.displayName?.trim() || 'Someone';
+  const roleName = invitation.discipline || invitation.roleId;
+  const acceptUrl = buildInvitationUrl(invitation.token);
+  if (!acceptUrl) return;
+
+  const html = renderInvitationEmail({
+    orgName: org.name,
+    inviterName,
+    roleName,
+    acceptUrl,
+    expiresInDays: 7,
+  });
+
+  try {
+    await sendEmail(buildEmailParams(
+      invitation.email,
+      `You're invited to join ${org.name}`,
+      html,
+    ));
+  } catch (err) {
+    console.error('[invitation-service] Failed to send invitation email:', err);
+  }
+}
 
 export async function invitePerson(fields: CreateInvitationFields): Promise<InvitationRecord> {
   if (!fields.email.trim()) throw new Error('Email is required');
@@ -33,6 +82,8 @@ export async function invitePerson(fields: CreateInvitationFields): Promise<Invi
     ...fields,
     roleId,
   });
+
+  await sendInvitationEmail(invitation);
 
   await recordActivity({
     entityType: 'release',
@@ -119,6 +170,11 @@ export async function cancelInvitation(invitationId: string, actorId: string, or
 
 export async function resendPersonInvitation(invitationId: string, actorId: string, orgId: string): Promise<void> {
   await repoResend(invitationId);
+
+  const invitation = await repoGetById(invitationId);
+  if (invitation) {
+    await sendInvitationEmail(invitation);
+  }
 
   await recordActivity({
     entityType: 'release',

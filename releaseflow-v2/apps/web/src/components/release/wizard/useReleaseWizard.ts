@@ -11,6 +11,7 @@ import { createNewTrack } from '@/lib/track-service';
 import { getStageTemplatesForReleaseType } from '@/lib/workflow-templates';
 import { getRequirementNamesForReleaseType } from '@/lib/requirement-templates';
 import { getLabelsByOrganization } from '@/lib/label-repository';
+import { invitePerson } from '@/lib/invitation-service';
 import { suggestRemixDisplayTitle } from '@/lib/recording-type';
 import type { LabelOption } from '@/components/label-field-picker';
 import type { ReleaseRecord } from '@/lib/release-repository';
@@ -224,8 +225,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
 
   async function handleInvite() {
     if (!activeOrgId || !inviteName.trim() || !inviteEmail.trim()) return;
-    const { createInvitation } = await import('@/lib/invitation-repository');
-    await createInvitation({ organizationId: activeOrgId, inviterId: user!.uid, email: inviteEmail.trim(), roleId: inviteRole || 'contributor' });
+    await invitePerson({ organizationId: activeOrgId, inviterId: user!.uid, email: inviteEmail.trim(), roleId: inviteRole || 'contributor' });
     if (inviteTarget?.key) setAssetDesigners((p) => ({ ...p, [inviteTarget!.key!]: inviteEmail }));
     setShowInviteForm(false); setInviteName(''); setInviteEmail(''); setInviteRole(''); setInviteTarget(null);
   }
