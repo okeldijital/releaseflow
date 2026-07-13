@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
@@ -293,29 +293,77 @@ function CreditsTable({
 }) {
   const [localCredits, setLocalCredits] = useState<TrackCredit[]>(credits);
   const [saving, setSaving] = useState(false);
+  const [addingRole, setAddingRole] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
 
   useEffect(() => {
     setLocalCredits(credits);
   }, [credits]);
 
-  function getCreditsForRole(role: string) {
+  const hasChanges = useMemo(() => {
+    const a = localCredits.filter((c) => c.name.trim());
+    const b = credits.filter((c) => c.name.trim());
+    if (a.length !== b.length) return true;
+    return a.some((c, i) => c.name !== b[i]?.name || c.role !== b[i]?.role);
+  }, [localCredits, credits]);
+
+  function getEntries(role: string) {
     return localCredits
       .map((c, i) => ({ ...c, index: i }))
       .filter((c) => c.role.toLowerCase() === role.toLowerCase());
   }
 
-  function addEntry(role: string) {
-    setLocalCredits((prev) => [...prev, { role, name: '' }]);
+  function startAdd(role: string) {
+    setEditingIndex(null);
+    setEditName('');
+    setAddingRole(role);
+    setNewName('');
+  }
+
+  function cancelAdd() {
+    setAddingRole(null);
+    setNewName('');
+  }
+
+  function confirmAdd() {
+    if (!newName.trim() || !addingRole) return;
+    setLocalCredits((prev) => [...prev, { role: addingRole, name: newName.trim() }]);
+    setAddingRole(null);
+    setNewName('');
+  }
+
+  function startEdit(index: number, currentName: string) {
+    setAddingRole(null);
+    setNewName('');
+    setEditingIndex(index);
+    setEditName(currentName);
+  }
+
+  function cancelEdit() {
+    setEditingIndex(null);
+    setEditName('');
+  }
+
+  function confirmEdit() {
+    if (editingIndex === null) return;
+    const trimmed = editName.trim();
+    if (trimmed) {
+      setLocalCredits((prev) =>
+        prev.map((c, i) => (i === editingIndex ? { ...c, name: trimmed } : c)),
+      );
+    }
+    setEditingIndex(null);
+    setEditName('');
   }
 
   function removeEntry(index: number) {
+    if (editingIndex === index) {
+      setEditingIndex(null);
+      setEditName('');
+    }
     setLocalCredits((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function updateEntry(index: number, name: string) {
-    setLocalCredits((prev) =>
-      prev.map((c, i) => (i === index ? { ...c, name } : c)),
-    );
   }
 
   async function handleSave() {
@@ -324,57 +372,104 @@ function CreditsTable({
     setSaving(false);
   }
 
-  return (
-    <div className="space-y-8">
-      {CREDIT_TYPES.map((role) => {
-        const entries = getCreditsForRole(role);
-        return (
-          <div key={role}>
-            <p className="text-sm font-semibold text-text-700 mb-2">{role}</p>
-            <div className="space-y-2">
-              {entries.length === 0 ? (
-                <p className="text-sm text-text-400 italic">No {role.toLowerCase()} credits yet.</p>
-              ) : (
-                entries.map((entry) => (
-                  <div key={entry.index} className="flex items-center gap-2">
+  const ROLE_PAIRS: [string, string][] = [
+    ['Producer', 'Composer'],
+    ['Lyricist', 'Songwriter'],
+    ['Publisher', 'Performer'],
+  ];
+
+  function renderRoleCard(role: string) {
+    const entries = getEntries(role);
+    return (
+      <div key={role} className="rounded-lg border border-surface-200 bg-layer-2 shadow-sm p-4 flex flex-col">
+        <h3 className="text-base font-bold text-text-800">{role}</h3>
+        <hr className="border-surface-200 my-3" />
+
+        <div className="flex-1">
+          {entries.length === 0 && addingRole !== role ? (
+            <p className="text-sm text-text-500 mb-3">No contributors</p>
+          ) : (
+            <div className="space-y-1 mb-3">
+              {entries.map((entry) => (
+                <div key={entry.index} className="flex items-center justify-between py-1 min-h-8 gap-2">
+                  {editingIndex === entry.index ? (
                     <input
                       type="text"
-                      value={entry.name}
-                      onChange={(e) => updateEntry(entry.index, e.target.value)}
-                      placeholder={`Enter ${role.toLowerCase()} name...`}
-                      className="block flex-1 h-9 rounded-lg border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') confirmEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                      className="block flex-1 h-8 rounded-lg border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+                      autoFocus
                     />
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => removeEntry(entry.index)}
-                      className="text-xs text-danger-500 hover:text-danger-600 font-medium shrink-0"
+                      onClick={() => startEdit(entry.index, entry.name)}
+                      className="text-sm text-text-800 hover:text-primary-600 transition-colors text-left truncate"
+                      title="Click to edit"
                     >
-                      Remove
+                      {entry.name}
                     </button>
-                  </div>
-                ))
-              )}
-              <button
-                type="button"
-                onClick={() => addEntry(role)}
-                className="text-xs text-primary-600 hover:text-primary-700 font-medium"
-              >
-                + Add {role.toLowerCase()}
-              </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeEntry(entry.index)}
+                    className="text-text-500 hover:text-danger-500 transition-colors text-sm leading-none px-1 py-0.5 shrink-0"
+                    aria-label={`Remove ${entry.name}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
+          )}
+        </div>
+
+        {addingRole === role ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmAdd(); if (e.key === 'Escape') cancelAdd(); }}
+              placeholder={`Enter ${role.toLowerCase()} name...`}
+              className="block flex-1 h-9 rounded-lg border border-surface-200 px-3 text-sm text-text-800 placeholder:text-text-400 focus:border-primary-500 focus:outline-none"
+              autoFocus
+            />
+            <Button variant="primary" size="sm" onClick={confirmAdd} disabled={!newName.trim()}>
+              Save
+            </Button>
+            <button
+              type="button"
+              onClick={cancelAdd}
+              className="text-sm text-text-500 hover:text-text-700 transition-colors shrink-0"
+            >
+              Cancel
+            </button>
           </div>
-        );
-      })}
-      <div className="pt-4 border-t border-surface-200">
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? 'Saving...' : 'Save Credits'}
-        </Button>
+        ) : (
+          <Button variant="primary" size="sm" onClick={() => startAdd(role)}>
+            + Add {role}
+          </Button>
+        )}
       </div>
+    );
+  }
+
+  return (
+    <div className="pb-20">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {ROLE_PAIRS.flatMap(([left, right]) => [renderRoleCard(left), renderRoleCard(right)])}
+      </div>
+
+      {hasChanges && (
+        <div className="fixed bottom-0 left-0 right-0 bg-layer-2 border-t border-surface-200 px-5 sm:px-8 py-3 flex items-center justify-between z-40 shadow-lg">
+          <span className="text-sm text-text-500">Unsaved changes</span>
+          <Button variant="primary" size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
