@@ -7,6 +7,10 @@ export class ResendProvider implements EmailProvider {
   constructor(apiKey: string, defaultFrom: string) {
     this.apiKey = apiKey;
     this.defaultFrom = defaultFrom;
+    console.log({
+      constructorDefaultFrom: this.defaultFrom,
+      constructorJson: JSON.stringify(this.defaultFrom),
+    });
   }
 
   getName(): string {
@@ -30,20 +34,35 @@ export class ResendProvider implements EmailProvider {
     try {
       console.log('[Resend] Sending request');
       const tResendStart = Date.now();
+
+      const resolvedFrom = message.from || this.defaultFrom;
+
+      console.log({
+        resolvedFrom,
+        type: typeof resolvedFrom,
+        json: JSON.stringify(resolvedFrom),
+      });
+      console.log({
+        defaultFrom: this.defaultFrom,
+        defaultFromJson: JSON.stringify(this.defaultFrom),
+      });
+
+      const payload = {
+        from: resolvedFrom,
+        to: to,
+        subject: message.subject,
+        html: message.html,
+      };
+
+      console.log(JSON.stringify({ ...payload, html: 'HTML REDACTED' }, null, 2));
+
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          from: message.from || this.defaultFrom,
-          to,
-          subject: message.subject,
-          html: message.html,
-          text: message.text || '',
-          reply_to: message.replyTo,
-        }),
+        body: JSON.stringify(payload),
       });
       const resendApiMs = Date.now() - tResendStart;
 
@@ -53,6 +72,9 @@ export class ResendProvider implements EmailProvider {
         statusCode: response.status,
       });
       console.log('[Timing] Resend API call', { ms: resendApiMs });
+
+      console.log(response.status);
+      console.log(await response.text());
 
       if (!response.ok) {
         const body = await response.text();
