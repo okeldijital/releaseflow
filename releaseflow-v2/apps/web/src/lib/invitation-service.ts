@@ -13,10 +13,7 @@ import {
 import type { InvitationRecord, CreateInvitationFields } from './invitation-repository';
 import { recordActivity } from './activity-service';
 import { getSystemRoleForDiscipline } from './disciplines';
-import { sendEmail, buildEmailParams } from './email/email-service';
-import { renderInvitationEmail } from './email/templates/InvitationEmail';
-import { getOrganization } from './organization-repository';
-import { getUserProfile } from './user-profile-repository';
+import { getAuthInstance } from './firebase';
 import {
   createPerson,
   updatePerson,
@@ -27,63 +24,58 @@ import type { UpdatePersonFields } from './people-repository';
 
 export type { InvitationRecord, CreateInvitationFields };
 
-function buildInvitationUrl(token: string): string {
-  const base = process.env.APP_URL;
-  if (!base) {
-    console.warn('[invitation-service] Missing APP_URL environment variable.');
-    return '';
-  }
-  return `${base}/invite/${token}`;
-}
-
-async function sendInvitationEmail(invitation: InvitationRecord): Promise<void> {
-  const [org, inviter] = await Promise.all([
-    getOrganization(invitation.organizationId),
-    getUserProfile(invitation.inviterId),
-  ]);
-
-  if (!org) {
-    console.warn(`[invitation-service] Organization not found for ${invitation.organizationId}`);
-    return;
-  }
-
-  const inviterName = inviter?.displayName?.trim() || 'Someone';
-  const roleName = invitation.discipline || invitation.roleId;
-  const acceptUrl = buildInvitationUrl(invitation.token);
-  if (!acceptUrl) return;
-
-  const html = renderInvitationEmail({
-    orgName: org.name,
-    inviterName,
-    roleName,
-    acceptUrl,
-    expiresInDays: 7,
-  });
-
+async function requestInvitationEmailDelivery(invitationId: string): Promise<void> {
   try {
-    await sendEmail(buildEmailParams(
-      invitation.email,
-      `You're invited to join ${org.name}`,
-      html,
-    ));
+    const auth = getAuthInstance();
+    const user = auth?.currentUser;
+    if (!user) {
+      console.warn('[invitation-service] No authenticated user; skipping invitation email request.');
+      return;
+    }
+
+    const idToken = await user.getIdToken();
+    const res = await fetch(`/api/invitations/${invitationId}/send-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+    });
+
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      console.error('[invitation-service] Invitation email delivery failed:', body.error ?? res.statusText);
+    }
   } catch (err) {
-    console.error('[invitation-service] Failed to send invitation email:', err);
+    console.error('[invitation-service] Failed to request invitation email delivery:', err);
   }
 }
 
 export async function invitePerson(fields: CreateInvitationFields): Promise<InvitationRecord> {
+  const tInviteStart = Date.now();
   if (!fields.email.trim()) throw new Error('Email is required');
   if (!fields.organizationId) throw new Error('Organization ID is required');
   if (!fields.inviterId) throw new Error('Inviter ID is required');
 
   const roleId = fields.discipline ? getSystemRoleForDiscipline(fields.discipline) : fields.roleId;
 
+  const tFirestoreStart = Date.now();
   const invitation = await repoCreate({
     ...fields,
     roleId,
   });
+  const firestoreCreateMs = Date.now() - tFirestoreStart;
 
-  await sendInvitationEmail(invitation);
+  console.log('[Invitation] Firestore invitation created', {
+    invitationId: invitation.id,
+    organizationId: invitation.organizationId,
+    email: invitation.email,
+  });
+  console.log('[Timing] Firestore create', { ms: firestoreCreateMs });
+
+  console.log('[Invitation] Requesting server email delivery');
+
+  await requestInvitationEmailDelivery(invitation.id);
 
   await recordActivity({
     entityType: 'release',
@@ -93,6 +85,9 @@ export async function invitePerson(fields: CreateInvitationFields): Promise<Invi
     action: 'invitation.created',
     details: `Invitation sent to ${fields.email}`,
   });
+
+  const totalInviteMs = Date.now() - tInviteStart;
+  console.log('[Timing] Total invitePerson', { ms: totalInviteMs });
 
   return invitation;
 }
@@ -173,7 +168,7 @@ export async function resendPersonInvitation(invitationId: string, actorId: stri
 
   const invitation = await repoGetById(invitationId);
   if (invitation) {
-    await sendInvitationEmail(invitation);
+    await requestInvitationEmailDelivery(invitation.id);
   }
 
   await recordActivity({

@@ -21,7 +21,15 @@ export class ResendProvider implements EmailProvider {
 
     const to = Array.isArray(message.to) ? message.to : [message.to];
 
+    console.log('[Resend] Preparing API request', {
+      recipient: to,
+      sender: message.from || this.defaultFrom,
+      subject: message.subject,
+    });
+
     try {
+      console.log('[Resend] Sending request');
+      const tResendStart = Date.now();
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -37,12 +45,21 @@ export class ResendProvider implements EmailProvider {
           reply_to: message.replyTo,
         }),
       });
+      const resendApiMs = Date.now() - tResendStart;
+
+      console.log('[Resend] Response received', {
+        success: response.ok,
+        messageId: response.headers.get('x-request-id') || null,
+        statusCode: response.status,
+      });
+      console.log('[Timing] Resend API call', { ms: resendApiMs });
 
       if (!response.ok) {
         const body = await response.text();
         throw new Error(`Resend API error ${response.status}: ${body}`);
       }
     } catch (err) {
+      console.error('[Resend] Exception', err);
       console.error('[ResendProvider] Failed to send email:', err);
       throw err;
     }
