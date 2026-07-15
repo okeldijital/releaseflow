@@ -39,12 +39,6 @@ export function ReleaseArtwork({
     }
   }
 
-  if (artwork) {
-    return (
-      <ArtworkDisplay artwork={artwork} releaseTitle={releaseTitle} size="lg" className={className} />
-    );
-  }
-
   return (
     <div className={className}>
       <input
@@ -54,25 +48,39 @@ export function ReleaseArtwork({
         className="sr-only"
         onChange={handleFileChange}
       />
-      {uploadState === 'idle' && (
-        <Button size="sm" variant="primary" className="w-full text-xs" onClick={handleClick}>
-          Upload Artwork
-        </Button>
-      )}
-      {uploadState === 'selecting' && (
-        <Button size="sm" variant="primary" className="w-full text-xs" disabled>
-          Selecting…
-        </Button>
-      )}
-      {uploadState === 'uploading' && (
-        <Button size="sm" variant="primary" className="w-full text-xs" disabled>
-          Uploading…
-        </Button>
-      )}
-      {uploadState === 'complete' && (
-        <Button size="sm" variant="primary" className="w-full text-xs" disabled>
-          Uploaded
-        </Button>
+      {artwork ? (
+        <>
+          <ArtworkDisplay artwork={artwork} releaseTitle={releaseTitle} size="lg" />
+          <div className="mt-3 text-center">
+            <span className="text-xs text-success-600 font-medium">Artwork ✓ Uploaded</span>
+          </div>
+          <Button size="sm" variant="outline" className="w-full text-xs mt-2" onClick={handleClick}>
+            Replace Artwork
+          </Button>
+        </>
+      ) : (
+        <>
+          {uploadState === 'idle' && (
+            <Button size="sm" variant="primary" className="w-full text-xs" onClick={handleClick}>
+              Upload Artwork
+            </Button>
+          )}
+          {uploadState === 'selecting' && (
+            <Button size="sm" variant="primary" className="w-full text-xs" disabled>
+              Selecting…
+            </Button>
+          )}
+          {uploadState === 'uploading' && (
+            <Button size="sm" variant="primary" className="w-full text-xs" disabled>
+              Uploading…
+            </Button>
+          )}
+          {uploadState === 'complete' && (
+            <Button size="sm" variant="primary" className="w-full text-xs" disabled>
+              Uploaded
+            </Button>
+          )}
+        </>
       )}
     </div>
   );
