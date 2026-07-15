@@ -101,7 +101,7 @@ export async function removeRelease(
     await removeTrack(record.trackId, organizationId, actorId);
   }
 
-  return deleteRelease(releaseId, organizationId, actorId);
+  return deleteRelease(releaseId);
 }
 
 export async function fetchRelease(releaseId: string) {
