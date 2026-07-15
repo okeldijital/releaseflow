@@ -1,13 +1,10 @@
 'use client';
 
-import { VERSION_TEMPLATES } from './release-wizard-types';
 import { Nav } from './wizard-ui';
 
-export function DetailsStep({ releaseTitle, setReleaseTitle, version, setVersion, releaseNotes, setReleaseNotes, estimatedReleaseDate, setEstimatedReleaseDate, back, next }: {
+export function DetailsStep({ releaseTitle, setReleaseTitle, releaseNotes, setReleaseNotes, estimatedReleaseDate, setEstimatedReleaseDate, back, next }: {
   releaseTitle: string;
   setReleaseTitle: (v: string) => void;
-  version: string;
-  setVersion: (v: string) => void;
   releaseNotes: string;
   setReleaseNotes: (v: string) => void;
   estimatedReleaseDate: string;
@@ -15,7 +12,7 @@ export function DetailsStep({ releaseTitle, setReleaseTitle, version, setVersion
   back: () => void;
   next: () => void;
 }) {
-  const displayTitle = [releaseTitle.trim(), version.trim()].filter(Boolean).join(' · ');
+  const displayTitle = releaseTitle.trim();
 
   return (
     <>
@@ -24,25 +21,6 @@ export function DetailsStep({ releaseTitle, setReleaseTitle, version, setVersion
       {displayTitle ? (
         <p className="mt-2 text-xs text-text-400 text-center">Display: <span className="text-primary-400 font-medium">{displayTitle}</span></p>
       ) : null}
-
-      <div className="mt-3">
-        <input type="text" value={version} onChange={(e) => setVersion(e.target.value)} placeholder="Version (optional)"
-          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-5 text-sm text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none" />
-        {version.trim() ? null : (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {VERSION_TEMPLATES.map((vt) => (
-              <button
-                key={vt}
-                type="button"
-                onClick={() => setVersion(vt)}
-                className="px-2.5 py-1 rounded-md border border-surface-700 bg-surface-950 text-caption text-text-400 hover:text-surface-100 hover:border-primary-500/40 transition-colors"
-              >
-                {vt}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
 
       <div className="mt-3">
         <p className="text-xs font-semibold text-text-500 uppercase tracking-wider mb-2">Estimated Release Date *</p>

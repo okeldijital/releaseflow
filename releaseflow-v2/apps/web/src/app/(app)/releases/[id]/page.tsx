@@ -697,6 +697,24 @@ export default function ReleaseWorkspacePage() {
               {release.upc ? <div className="flex justify-between"><dt className="text-text-400">UPC</dt><dd className="text-text-800 dark:text-text-200 font-medium">{release.upc}</dd></div> : null}
               {release.catalogNumber ? <div className="flex justify-between"><dt className="text-text-400">Catalogue Number</dt><dd className="text-text-800 dark:text-text-200">{release.catalogNumber}</dd></div> : null}
               {release.explicit ? <div className="flex justify-between"><dt className="text-text-400">Explicit</dt><dd className="text-text-800 dark:text-text-200">Yes</dd></div> : null}
+              {release.releaseLink ? (
+                <div className="flex items-center justify-between gap-2">
+                  <dt className="text-text-400">Release Link</dt>
+                  <dd>
+                    <a
+                      href={release.releaseLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-primary-400 hover:text-primary-300 font-medium"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5h5v5m0-5L10 14M9 5H5v14h14v-4" />
+                      </svg>
+                      Open Release
+                    </a>
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           </div>
 

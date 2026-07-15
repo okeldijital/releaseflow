@@ -2,13 +2,16 @@
 
 import type { LabelOption } from '@/components/label-field-picker';
 import { LabelFieldPicker } from '@/components/label-field-picker';
+import { isValidReleaseLink } from '@/lib/release-service';
 import { Nav } from './wizard-ui';
 
-export function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtists, setFeaturedArtists, recordLabel, setRecordLabel, catalogueNumber, setCatalogueNumber, upc, setUpc, primaryGenre, setPrimaryGenre, secondaryGenre, setSecondaryGenre, language, setLanguage, copyrightOwner, setCopyrightOwner, copyrightYear, setCopyrightYear, releaseOwner, setReleaseOwner, labelOptions, activeOrgId, orgName, onLabelCreated, back, next }: {
+export function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtists, setFeaturedArtists, releaseLink, setReleaseLink, recordLabel, setRecordLabel, catalogueNumber, setCatalogueNumber, upc, setUpc, primaryGenre, setPrimaryGenre, secondaryGenre, setSecondaryGenre, language, setLanguage, copyrightOwner, setCopyrightOwner, copyrightYear, setCopyrightYear, releaseOwner, setReleaseOwner, labelOptions, activeOrgId, orgName, onLabelCreated, back, next }: {
   primaryArtist: string;
   setPrimaryArtist: (v: string) => void;
   featuredArtists: string[];
   setFeaturedArtists: (v: string[]) => void;
+  releaseLink: string;
+  setReleaseLink: (v: string) => void;
   recordLabel: string;
   setRecordLabel: (v: string) => void;
   catalogueNumber: string;
@@ -34,6 +37,8 @@ export function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtis
   back: () => void;
   next: () => void;
 }) {
+  const releaseLinkError = releaseLink.trim() && !isValidReleaseLink(releaseLink) ? 'Enter a valid URL (http:// or https://)' : '';
+
   return (
     <>
       <p className="mt-2 text-sm text-text-400 text-center">Tell streaming services and stores how this release should appear.</p>
@@ -42,6 +47,12 @@ export function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtis
         {/* Release section */}
         <div className="rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-3">
           <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Release</p>
+          <div>
+            <input type="url" value={releaseLink} onChange={(e) => setReleaseLink(e.target.value)} placeholder="https://"
+              className={`block w-full h-12 rounded-xl border bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none ${releaseLinkError ? 'border-danger-500' : 'border-surface-700'}`} />
+            <p className="mt-1.5 text-xs text-text-500">Optional. Add the public link once your release is available.</p>
+            {releaseLinkError ? <p className="mt-1 text-xs text-danger-400">{releaseLinkError}</p> : null}
+          </div>
           <input type="text" value={primaryArtist} onChange={(e) => setPrimaryArtist(e.target.value)} placeholder="Primary Artist"
             className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
           <input type="text" value={featuredArtists.join(', ')} onChange={(e) => setFeaturedArtists(e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}

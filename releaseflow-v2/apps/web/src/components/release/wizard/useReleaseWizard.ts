@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { useArtists } from '@/hooks/useArtist';
 import { getPeopleByOrg } from '@/lib/people-repository';
-import { createReleaseWithFullWorkflow, fetchRelease, editRelease } from '@/lib/release-service';
+import { createReleaseWithFullWorkflow, fetchRelease, editRelease, validateReleaseLink } from '@/lib/release-service';
 import { createNewTrack } from '@/lib/track-service';
 import { getStageTemplatesForReleaseType } from '@/lib/workflow-templates';
 import { getRequirementNamesForReleaseType } from '@/lib/requirement-templates';
@@ -31,7 +31,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
 
   const [releaseType, setReleaseType] = useState<ReleaseTypeVal>('single');
   const [releaseTitle, setReleaseTitle] = useState('');
-  const [version, setVersion] = useState('');
+  const [releaseLink, setReleaseLink] = useState('');
   const [releaseNotes, setReleaseNotes] = useState('');
   const [estimatedReleaseDate, setEstimatedReleaseDate] = useState('');
   const [labelOptions, setLabelOptions] = useState<LabelOption[]>([]);
@@ -125,6 +125,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
       }
       setReleaseTitle(data.title ?? '');
       setReleaseType((data.releaseType as ReleaseTypeVal) ?? 'single');
+      setReleaseLink(data.releaseLink ?? '');
       if (data.estimatedReleaseDate) {
         const d = (data.estimatedReleaseDate as { toDate?: () => Date; seconds?: number }).toDate
           ? (data.estimatedReleaseDate as { toDate: () => Date }).toDate()
@@ -233,7 +234,11 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
   async function handleLaunch() {
     if (!user || !activeOrgId || !releaseTitle.trim()) return;
     if (!validateRemixTracks()) return;
+    const linkError = validateReleaseLink(releaseLink);
+    if (linkError) { setError(linkError); return; }
     setLaunching(true); setError('');
+
+    const trimmedReleaseLink = releaseLink.trim() || null;
 
     if (mode === 'edit' && editReleaseId) {
       // Edit mode
@@ -249,6 +254,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
           genre: primaryGenre || null,
           subgenre: secondaryGenre || null,
           language: language || null,
+          releaseLink: trimmedReleaseLink,
         }, user.uid);
         router.push(`/releases/${editReleaseId}`);
       } catch (err) {
@@ -263,7 +269,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
       const rt = releaseType as 'single' | 'ep' | 'album';
       const labelValue = recordLabel === '__org__' ? (orgName || undefined) : (recordLabel ? (labelOptions.find((l) => l.id === recordLabel)?.name || recordLabel) : undefined);
       const { releaseId } = await createReleaseWithFullWorkflow(
-        { title: releaseTitle, releaseType: rt, status: 'planning', organizationId: activeOrgId, createdBy: user.uid, targetReleaseDate: null, estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null, label: labelValue },
+        { title: releaseTitle, releaseType: rt, status: 'planning', organizationId: activeOrgId, createdBy: user.uid, targetReleaseDate: null, estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null, label: labelValue, releaseLink: trimmedReleaseLink },
         getStageTemplatesForReleaseType(rt), getRequirementNamesForReleaseType(rt), user.uid,
       );
       const validTracks = tracks.filter((t) => t.title.trim());
@@ -319,7 +325,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
   const stepProps = {
     releaseType, setReleaseType,
     releaseTitle, setReleaseTitle,
-    version, setVersion,
+    releaseLink, setReleaseLink,
     releaseNotes, setReleaseNotes,
     estimatedReleaseDate, setEstimatedReleaseDate,
     hasArtwork, setHasArtwork,

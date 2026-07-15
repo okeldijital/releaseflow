@@ -18,6 +18,24 @@ export type {
   UpdateReleaseFields,
 } from './release-repository';
 
+const RELEASE_LINK_PROTOCOLS = ['http:', 'https:'];
+
+export function isValidReleaseLink(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  try {
+    const url = new URL(trimmed);
+    return RELEASE_LINK_PROTOCOLS.includes(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
+export function validateReleaseLink(value: string): string | null {
+  if (!isValidReleaseLink(value)) return 'Enter a valid URL starting with http:// or https://';
+  return null;
+}
+
 export async function createReleaseWithFullWorkflow(
   fields: CreateReleaseFields,
   stageTemplates: { name: string; order: number; assignedRole?: string }[],

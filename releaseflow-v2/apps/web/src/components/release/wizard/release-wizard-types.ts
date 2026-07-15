@@ -17,11 +17,6 @@ export const PROMO_ASSETS = [
 
 export const SOCIAL_PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'X', 'LinkedIn', 'Website'] as const;
 
-export const VERSION_TEMPLATES = [
-  'Original Mix', 'Extended Mix', 'Radio Edit', 'Instrumental',
-  'Acoustic', 'Clean', 'Explicit', 'Demo', 'Live', 'Remix', 'VIP Mix',
-];
-
 export type ReleaseTypeVal = typeof RELEASE_TYPES[number]['value'];
 
 export type WizardTrack = {

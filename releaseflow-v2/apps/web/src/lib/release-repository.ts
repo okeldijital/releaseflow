@@ -27,6 +27,7 @@ export interface ReleaseRecord {
   subgenre?: string;
   language?: string;
   explicit?: boolean;
+  releaseLink?: string | null;
   createdAt: unknown;
   updatedAt?: unknown;
   artwork: Artwork | null;
@@ -43,6 +44,7 @@ export interface CreateReleaseFields {
   upc?: string;
   label?: string;
   genre?: string;
+  releaseLink?: string | null;
 }
 
 export interface UpdateReleaseFields {
@@ -61,6 +63,7 @@ export interface UpdateReleaseFields {
   subgenre?: string | null;
   language?: string | null;
   explicit?: boolean | null;
+  releaseLink?: string | null;
 }
 
 export async function getRelease(releaseId: string): Promise<ReleaseRecord | null> {
@@ -161,6 +164,7 @@ export async function createReleaseWithWorkflow(
   const releaseRef = doc(collection(db, 'releases'));
   batch.set(releaseRef, {
     ...fields,
+    releaseLink: fields.releaseLink ?? null,
     targetReleaseDate: fields.targetReleaseDate
       ? Timestamp.fromDate(fields.targetReleaseDate)
       : null,
@@ -273,6 +277,7 @@ export async function updateRelease(
   if (fields.subgenre !== undefined) updateData.subgenre = fields.subgenre;
   if (fields.language !== undefined) updateData.language = fields.language;
   if (fields.explicit !== undefined) updateData.explicit = fields.explicit;
+  if (fields.releaseLink !== undefined) updateData.releaseLink = fields.releaseLink;
   await updateDoc(doc(db, 'releases', releaseId), updateData);
   const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
   const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined ?? '';

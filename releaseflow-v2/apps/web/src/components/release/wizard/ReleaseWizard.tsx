@@ -10,12 +10,16 @@ import { ReleaseInfoStep } from './ReleaseInfoStep';
 import { PromoStep } from './PromoStep';
 import { EmailStep } from './EmailStep';
 import { ReviewStep } from './ReviewStep';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useReleaseWizard } from './useReleaseWizard';
 import { PersonAssigner } from '@/components/person-assigner';
-import { LoadingState, EmptyState } from '@releaseflow/ui';
+import { LoadingState, EmptyState, ConfirmationDialog } from '@releaseflow/ui';
 
 export function ReleaseWizard({ mode = 'create', releaseId }: { mode?: 'create' | 'edit'; releaseId?: string }) {
   const wizard = useReleaseWizard({ mode, releaseId });
+  const router = useRouter();
+  const [cancelOpen, setCancelOpen] = useState(false);
   const { user, activeOrgId, step, STEPS, currentStepKey, stepProps, handlers, labelOptions, assignerOpen, setAssignerOpen, assignerLabel, assignerRole, assignerTrackId, assignerField, assignerCallback, loadingEdit, editForbidden } = wizard;
 
   if (!user) return null;
@@ -42,6 +46,17 @@ export function ReleaseWizard({ mode = 'create', releaseId }: { mode?: 'create' 
 
   return (
     <div className="mx-auto max-w-lg px-5 sm:px-7 py-12 page-transition">
+      <button
+        type="button"
+        onClick={() => setCancelOpen(true)}
+        className="flex items-center gap-1 text-sm text-text-400 hover:text-text-200 mb-8 transition-colors"
+      >
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Cancel
+      </button>
+
       <div className="flex items-center justify-center gap-2 mb-10">
         {STEPS.map((_, i) => (
           <span key={i} className={`block rounded-full transition-all duration-300 ${i < step ? 'h-2 w-2 bg-primary-500/40' : i === step ? 'h-2.5 w-2.5 bg-primary-500 shadow-[0_0_6px_rgba(204,85,0,0.4)]' : 'h-1.5 w-1.5 bg-surface-700'}`} />
@@ -55,8 +70,6 @@ export function ReleaseWizard({ mode = 'create', releaseId }: { mode?: 'create' 
         <DetailsStep
           releaseTitle={stepProps.releaseTitle}
           setReleaseTitle={stepProps.setReleaseTitle}
-          version={stepProps.version}
-          setVersion={stepProps.setVersion}
           releaseNotes={stepProps.releaseNotes}
           setReleaseNotes={stepProps.setReleaseNotes}
           estimatedReleaseDate={stepProps.estimatedReleaseDate}
@@ -113,6 +126,8 @@ export function ReleaseWizard({ mode = 'create', releaseId }: { mode?: 'create' 
           setPrimaryArtist={stepProps.setPrimaryArtist}
           featuredArtists={stepProps.featuredArtists}
           setFeaturedArtists={stepProps.setFeaturedArtists}
+          releaseLink={stepProps.releaseLink}
+          setReleaseLink={stepProps.setReleaseLink}
           recordLabel={stepProps.recordLabel}
           setRecordLabel={stepProps.setRecordLabel}
           catalogueNumber={stepProps.catalogueNumber}
@@ -222,6 +237,17 @@ export function ReleaseWizard({ mode = 'create', releaseId }: { mode?: 'create' 
         contextRole={assignerRole}
         organizationId={activeOrgId}
         currentUserId={user?.uid ?? ''}
+      />
+
+      <ConfirmationDialog
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={() => router.push('/releases')}
+        title="Discard Release?"
+        message="Your progress has not been saved. Are you sure you want to cancel creating this release?"
+        confirmLabel="Discard Release"
+        cancelLabel="Continue Editing"
+        variant="danger"
       />
     </div>
   );

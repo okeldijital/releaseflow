@@ -17,7 +17,6 @@ export interface Release {
   id: string;
   title: string;
   displayTitle?: string;
-  version?: string;
   releaseType: ReleaseType;
   status: ReleaseStatus;
   organizationId: string;
@@ -34,6 +33,7 @@ export interface Release {
   subgenre?: string;
   language?: string;
   explicit?: boolean;
+  releaseLink?: string | null;
   createdAt: unknown;
   updatedAt?: unknown;
   artwork: Artwork | null;

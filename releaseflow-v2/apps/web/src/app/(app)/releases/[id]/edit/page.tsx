@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
-import { fetchRelease, editRelease } from '@/lib/release-service';
+import { fetchRelease, editRelease, validateReleaseLink } from '@/lib/release-service';
 import { toast } from '@/stores/toast-store';
 import { Card, Button, Input, Select, Switch, LoadingState, EmptyState } from '@releaseflow/ui';
 import { ArtworkDisplay } from '@/components/release/artwork-display';
@@ -47,6 +47,7 @@ export default function EditReleasePage() {
   const [catalogNumber, setCatalogNumber] = useState('');
   const [pLine, setPLine] = useState('');
   const [cLine, setCLine] = useState('');
+  const [releaseLink, setReleaseLink] = useState('');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -84,6 +85,7 @@ export default function EditReleasePage() {
       setCatalogNumber(data.catalogNumber ?? '');
       setPLine(data.pLine ?? '');
       setCLine(data.cLine ?? '');
+      setReleaseLink(data.releaseLink ?? '');
       setLoading(false);
     }
     load();
@@ -94,6 +96,8 @@ export default function EditReleasePage() {
 
     const newErrors: Record<string, string> = {};
     if (!title.trim()) newErrors.title = 'Title is required';
+    const linkError = validateReleaseLink(releaseLink);
+    if (linkError) newErrors.releaseLink = linkError;
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 
@@ -113,6 +117,7 @@ export default function EditReleasePage() {
         subgenre: subgenre || null,
         language: language || null,
         explicit,
+        releaseLink: releaseLink.trim() || null,
       }, user.uid);
       toast.success('Release updated');
     } catch (err) {
@@ -217,6 +222,15 @@ export default function EditReleasePage() {
                 options={releaseTypeOptions}
                 value={releaseType}
                 onChange={(v) => setReleaseType(v as ReleaseType)}
+              />
+              <Input
+                label="Release Link"
+                type="url"
+                value={releaseLink}
+                onChange={(e) => setReleaseLink(e.target.value)}
+                error={errors.releaseLink}
+                placeholder="https://"
+                hint="Optional. Add the public link once your release is available."
               />
             </div>
           </Card>
