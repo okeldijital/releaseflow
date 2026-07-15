@@ -136,6 +136,34 @@ export async function createAssignment(fields: CreateAssignmentFields): Promise<
   return toRecord(ref.id, { ...fields, id: ref.id, status: fields.status ?? 'assigned', priority: fields.priority ?? 'medium', createdAt: now, updatedAt: now });
 }
 
+export async function findDuplicateAssignment(
+  organizationId: string,
+  entityType: AssignmentEntityType,
+  entityId: string,
+  assigneeId: string,
+  role: string,
+): Promise<AssignmentRecord | null> {
+  const db = getDb();
+  if (!db) return null;
+  const snap = await getDocs(
+    query(
+      collection(db, 'assignments'),
+      where('organizationId', '==', organizationId),
+    ),
+  );
+  const match = snap.docs.find((d) => {
+    const data = d.data();
+    return (
+      data.entityType === entityType &&
+      data.entityId === entityId &&
+      data.assigneeId === assigneeId &&
+      data.role === role &&
+      data.status !== 'archived'
+    );
+  });
+  return match ? toRecord(match.id, match.data() as Record<string, unknown>) : null;
+}
+
 export async function getAssignment(assignmentId: string): Promise<AssignmentRecord | null> {
   const db = getDb();
   if (!db) return null;

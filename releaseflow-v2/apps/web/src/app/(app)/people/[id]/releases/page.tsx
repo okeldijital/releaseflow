@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { usePerson } from '@/hooks/usePerson';
 import { useOrgStore } from '@/stores/org-store';
-import { getAssignmentsByEntity } from '@/lib/assignment-repository';
+import { fetchAssignmentsByEntity } from '@/lib/assignment-service';
 import { getRelease } from '@/lib/release-repository';
 import { Container, LoadingState, EmptyState } from '@releaseflow/ui';
 
@@ -27,7 +27,7 @@ export default function PersonReleasesPage() {
   useEffect(() => {
     if (!id || !activeOrgId) return;
     setLoadingReleases(true);
-    getAssignmentsByEntity('release', id).then(async (assignments) => {
+    fetchAssignmentsByEntity('release', id).then(async (assignments) => {
       const uniqueIds = [...new Set(assignments.map(a => a.entityId))];
       const details = await Promise.all(
         uniqueIds.map(async (rid) => {

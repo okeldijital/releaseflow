@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useOrgStore } from '@/stores/org-store';
-import { getAssignmentsByAssignee, getAssignmentStats } from '@/lib/assignment-repository';
-import type { AssignmentRecord } from '@/lib/assignment-repository';
+import { fetchAssignmentsByAssignee, fetchAssignmentStats } from '@/lib/assignment-service';
+import type { AssignmentRecord } from '@/lib/assignment-service';
 import { EmptyState, LoadingState, Badge } from '@releaseflow/ui';
 
 const statusColors: Record<string, string> = {
@@ -58,8 +58,8 @@ export default function MyWorkPage() {
     if (!id) { setLoading(false); return; }
     setLoading(true);
     Promise.all([
-      getAssignmentsByAssignee(id, activeOrgId),
-      getAssignmentStats(id, activeOrgId),
+      fetchAssignmentsByAssignee(id, activeOrgId),
+      fetchAssignmentStats(id, activeOrgId),
     ]).then(([data, s]) => {
       setAssignments(data);
       setStats(s);

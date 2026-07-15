@@ -6,9 +6,9 @@ import { usePeople } from '@/hooks/usePerson';
 import { useOrgStore } from '@/stores/org-store';
 import { searchPeople } from '@/lib/people-repository';
 import type { PersonRecord } from '@/lib/people-repository';
-import { listAssignments } from '@/lib/assignment-repository';
+import { fetchAssignments } from '@/lib/assignment-service';
+import type { AssignmentRecord } from '@/lib/assignment-service';
 import { getReleasesByOrganization } from '@/lib/release-repository';
-import type { AssignmentRecord } from '@/lib/assignment-repository';
 import type { ReleaseRecord } from '@/lib/release-repository';
 import {
   Button, Container, EmptyState, LoadingState, Select, Avatar, StatusBadge,
@@ -56,7 +56,7 @@ export default function PeoplePage() {
   useEffect(() => {
     if (!activeOrgId) return;
     Promise.all([
-      listAssignments(activeOrgId, { includeArchived: true }).catch(() => [] as AssignmentRecord[]),
+      fetchAssignments(activeOrgId, { includeArchived: true }).catch(() => [] as AssignmentRecord[]),
       getReleasesByOrganization(activeOrgId).catch(() => [] as ReleaseRecord[]),
     ]).then(([a, r]) => {
       setAssignments(a);

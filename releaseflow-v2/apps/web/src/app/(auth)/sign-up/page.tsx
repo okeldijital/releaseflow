@@ -16,8 +16,17 @@ export default function SignUpPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const getReturnTo = () => {
+    if (typeof window === 'undefined') return null;
+    const fromUrl = new URLSearchParams(window.location.search).get('return');
+    if (fromUrl) return fromUrl;
+    const fromSession = sessionStorage.getItem('auth_return_to');
+    sessionStorage.removeItem('auth_return_to');
+    return fromSession;
+  };
+
   useEffect(() => {
-    if (!loading && user) router.push('/auth/resolve');
+    if (!loading && user) router.push(getReturnTo() || '/auth/resolve');
   }, [user, loading, router]);
 
   if (loading || user) return null;
@@ -28,7 +37,7 @@ export default function SignUpPage() {
       const auth = getAuthInstance();
       if (!auth) throw new Error('Auth not initialized');
       await signInWithPopup(auth, new GoogleAuthProvider());
-      router.push('/auth/resolve');
+      router.push(getReturnTo() || '/auth/resolve');
     } catch {
       setError('Could not sign up with Google. Please try again.');
     }
@@ -43,7 +52,7 @@ export default function SignUpPage() {
       const auth = getAuthInstance();
       if (!auth) throw new Error('Auth not initialized');
       await createUserWithEmailAndPassword(auth, email, password);
-      router.push('/auth/resolve');
+      router.push(getReturnTo() || '/auth/resolve');
     } catch {
       setError('Could not create account. The email may already be in use.');
     } finally {

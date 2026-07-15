@@ -10,8 +10,8 @@ import { useAuth } from '@/contexts/auth-context';
 import {
   archivePerson as serviceArchive, restorePerson as serviceRestore,
 } from '@/lib/person-service';
-import { getAssignmentsByAssignee, getAssignmentsByEntity } from '@/lib/assignment-repository';
-import type { AssignmentRecord } from '@/lib/assignment-repository';
+import { fetchAssignmentsByAssignee, fetchAssignmentsByEntity } from '@/lib/assignment-service';
+import type { AssignmentRecord } from '@/lib/assignment-service';
 import { getRelease } from '@/lib/release-repository';
 import { resendPersonInvitation, cancelInvitation } from '@/lib/invitation-service';
 import {
@@ -69,7 +69,7 @@ export default function PersonDetailPage() {
       if (!id) return;
       setLoadingAssignments(true);
       try {
-        const data = await getAssignmentsByAssignee(id, activeOrgId ?? undefined);
+        const data = await fetchAssignmentsByAssignee(id, activeOrgId ?? undefined);
         if (!cancelled) setPersonAssignments(data);
       } catch {
         if (!cancelled) setPersonAssignments([]);
@@ -87,7 +87,7 @@ export default function PersonDetailPage() {
       if (!id || !activeOrgId) return;
       setLoadingWorkload(true);
       try {
-        const relAssigns = await getAssignmentsByEntity('release', id);
+        const relAssigns = await fetchAssignmentsByEntity('release', id);
         if (!cancelled) {
           const uniqueReleaseIds = [...new Set(relAssigns.map((a) => a.entityId))];
           const releaseDetails = await Promise.all(

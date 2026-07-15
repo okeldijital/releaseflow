@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getPeopleByOrg } from '@/lib/people-repository';
-import { createAssignment } from '@/lib/assignment-repository';
+import { createNewAssignment } from '@/lib/assignment-service';
 import { invitePerson } from '@/lib/invitation-service';
 
 export interface PersonAssignerResult {
@@ -58,7 +58,7 @@ export function PersonAssigner({
     if (!selectedPerson || !organizationId) return;
     setSaving(true);
     try {
-      await createAssignment({
+      await createNewAssignment({
         organizationId,
         title: contextLabel,
         entityType: 'track',

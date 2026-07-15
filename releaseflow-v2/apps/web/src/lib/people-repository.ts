@@ -250,13 +250,24 @@ export async function getAssignmentSummary(personId: string): Promise<{
     ),
   );
   let current = 0, completed = 0, overdue = 0, upcoming = 0;
+  const now = new Date();
   snap.docs.forEach((d) => {
     const data = d.data();
     const status = data.status as string;
-    if (status === 'completed') completed++;
-    else if (status === 'overdue') overdue++;
-    else if (status === 'upcoming') upcoming++;
-    else current++;
+    const dueDate = data.dueDate as Timestamp | undefined;
+    if (status === 'completed') {
+      completed++;
+    } else if (status === 'archived' || status === 'cancelled') {
+      current++;
+    } else if (dueDate) {
+      if (dueDate.toDate().getTime() < now.getTime()) {
+        overdue++;
+      } else {
+        upcoming++;
+      }
+    } else {
+      current++;
+    }
   });
   return { current, completed, overdue, upcoming };
 }

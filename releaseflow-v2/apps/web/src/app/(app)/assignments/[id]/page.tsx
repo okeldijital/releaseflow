@@ -17,6 +17,7 @@ import { OperationalSummary } from '@releaseflow/domain-ui';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { toast } from '@/stores/toast-store';
 import { CommentSection } from '@/components/comments/comment-section';
+import { useAuth } from '@/contexts/auth-context';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-surface-800 text-text-500',
@@ -63,6 +64,7 @@ export default function AssignmentDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { assignment, activities, loading, refresh } = useAssignment(id);
+  const { user } = useAuth();
 
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -99,7 +101,7 @@ export default function AssignmentDetailPage() {
         role: editRole,
         priority: editPriority,
         status: editStatus,
-      });
+      }, user?.uid ?? '');
       toast.success('Assignment updated');
       setEditing(false);
       await refresh();
@@ -108,13 +110,13 @@ export default function AssignmentDetailPage() {
     } finally {
       setActionLoading(false);
     }
-  }, [assignment, editTitle, editDesc, editRole, editPriority, editStatus, refresh]);
+  }, [assignment, editTitle, editDesc, editRole, editPriority, editStatus, user, refresh]);
 
   const handleArchive = useCallback(async () => {
     if (!assignment) return;
     setActionLoading(true);
     try {
-      await archiveUserAssignment(assignment.id, assignment.assigneeId);
+      await archiveUserAssignment(assignment.id, user?.uid ?? '');
       setArchiveDialog(false);
       await refresh();
       toast.success('Assignment archived');
@@ -123,13 +125,13 @@ export default function AssignmentDetailPage() {
     } finally {
       setActionLoading(false);
     }
-  }, [assignment, refresh]);
+  }, [assignment, user, refresh]);
 
   const handleDelete = useCallback(async () => {
     if (!assignment) return;
     setActionLoading(true);
     try {
-      await archiveUserAssignment(assignment.id, assignment.assigneeId);
+      await archiveUserAssignment(assignment.id, user?.uid ?? '');
       setDeleteDialog(false);
       toast.success('Assignment archived');
     } catch (err) {
@@ -137,7 +139,7 @@ export default function AssignmentDetailPage() {
     } finally {
       setActionLoading(false);
     }
-  }, [assignment, refresh]);
+  }, [assignment, user, refresh]);
 
   if (loading) {
     return (
@@ -158,7 +160,7 @@ export default function AssignmentDetailPage() {
   const overflowMenuItems = [
     { id: 'edit', label: 'Edit', onClick: () => setEditing(true) },
     ...(assignment.status === 'archived'
-      ? [{ id: 'restore', label: 'Restore', onClick: () => restoreUserAssignment(assignment.id, assignment.assigneeId).then(refresh).catch((e) => toast.error(e.message)) }]
+      ? [{ id: 'restore', label: 'Restore', onClick: () => restoreUserAssignment(assignment.id, user?.uid ?? '').then(refresh).catch((e) => toast.error(e.message)) }]
       : [{ id: 'archive', label: 'Archive', onClick: () => setArchiveDialog(true) }]
     ),
     { id: 'delete', label: 'Archive', variant: 'danger' as const, onClick: () => setDeleteDialog(true), separatorBefore: true },
@@ -177,11 +179,11 @@ export default function AssignmentDetailPage() {
         </div>
         <div>
           <p className="text-xs text-text-400 uppercase tracking-wider mb-1">Assignee</p>
-          <p className="text-sm text-surface-100">{assignment.assigneeId}</p>
+          <p className="text-sm text-surface-100">{assignment.assigneeName ?? 'Unknown Person'}</p>
         </div>
         <div>
           <p className="text-xs text-text-400 uppercase tracking-wider mb-1">Assigned By</p>
-          <p className="text-sm text-surface-100">{assignment.assignerId}</p>
+          <p className="text-sm text-surface-100">{assignment.assignerName ?? 'Unknown Person'}</p>
         </div>
         <div>
           <p className="text-xs text-text-400 uppercase tracking-wider mb-1">Role</p>
@@ -274,15 +276,15 @@ export default function AssignmentDetailPage() {
               <div className="flex flex-wrap gap-2">
                 {assignment.status === 'assigned' && (
                   <>
-                    <Button size="sm" onClick={async () => { try { await acceptUserAssignment(assignment.id, assignment.assigneeId); await refresh(); toast.success('Accepted'); } catch (e) { toast.error((e as Error).message); } }}>Accept</Button>
-                    <Button size="sm" variant="ghost" onClick={async () => { try { await declineUserAssignment(assignment.id, assignment.assigneeId); await refresh(); toast.success('Declined'); } catch (e) { toast.error((e as Error).message); } }}>Decline</Button>
+                    <Button size="sm" onClick={async () => { try { await acceptUserAssignment(assignment.id, user?.uid ?? ''); await refresh(); toast.success('Accepted'); } catch (e) { toast.error((e as Error).message); } }}>Accept</Button>
+                    <Button size="sm" variant="ghost" onClick={async () => { try { await declineUserAssignment(assignment.id, user?.uid ?? ''); await refresh(); toast.success('Declined'); } catch (e) { toast.error((e as Error).message); } }}>Decline</Button>
                   </>
                 )}
                 {['accepted', 'in_progress'].includes(assignment.status) && (
-                  <Button size="sm" onClick={async () => { try { await completeUserAssignment(assignment.id, assignment.assigneeId); await refresh(); toast.success('Completed!'); } catch (e) { toast.error((e as Error).message); } }}>Mark Complete</Button>
+                  <Button size="sm" onClick={async () => { try { await completeUserAssignment(assignment.id, user?.uid ?? ''); await refresh(); toast.success('Completed!'); } catch (e) { toast.error((e as Error).message); } }}>Mark Complete</Button>
                 )}
                 {assignment.status === 'completed' && (
-                  <Button size="sm" variant="ghost" onClick={async () => { try { await reopenUserAssignment(assignment.id, assignment.assigneeId); await refresh(); toast.success('Reopened'); } catch (e) { toast.error((e as Error).message); } }}>Reopen</Button>
+                  <Button size="sm" variant="ghost" onClick={async () => { try { await reopenUserAssignment(assignment.id, user?.uid ?? ''); await refresh(); toast.success('Reopened'); } catch (e) { toast.error((e as Error).message); } }}>Reopen</Button>
                 )}
               </div>
             </WorkspaceCard>
@@ -290,8 +292,8 @@ export default function AssignmentDetailPage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div><p className="text-text-400">Entity Type</p><p className="text-surface-100 capitalize">{assignment.entityType}</p></div>
                 <div><p className="text-text-400">Entity ID</p><p className="text-surface-100">{assignment.entityId}</p></div>
-                <div><p className="text-text-400">Assignee</p><p className="text-surface-100">{assignment.assigneeId}</p></div>
-                <div><p className="text-text-400">Assigner</p><p className="text-surface-100">{assignment.assignerId}</p></div>
+                <div><p className="text-text-400">Assignee</p><p className="text-surface-100">{assignment.assigneeName ?? 'Unknown Person'}</p></div>
+                <div><p className="text-text-400">Assigner</p><p className="text-surface-100">{assignment.assignerName ?? 'Unknown Person'}</p></div>
                 <div><p className="text-text-400">Role</p><p className="text-surface-100">{assignment.role}</p></div>
                 <div><p className="text-text-400">Priority</p><p className="text-surface-100 capitalize">{assignment.priority}</p></div>
                 {assignment.dueDate ? <div><p className="text-text-400">Due Date</p><p className="text-surface-100">{formatDate(assignment.dueDate)}</p></div> : null}

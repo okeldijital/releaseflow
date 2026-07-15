@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { createNewAssignment } from '@/lib/assignment-service';
 import { Button, Input, TextArea, Select, Card } from '@releaseflow/ui';
@@ -25,6 +26,7 @@ const priorityOptions = [
 
 export default function NewAssignmentPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { activeOrgId } = useOrgStore();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -39,6 +41,7 @@ export default function NewAssignmentPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!user) { toast.error('Authentication required'); return; }
     if (!activeOrgId) { toast.error('No organization selected'); return; }
     if (!title.trim()) { toast.error('Title is required'); return; }
     if (!assigneeId.trim()) { toast.error('Assignee is required'); return; }
@@ -53,7 +56,7 @@ export default function NewAssignmentPage() {
         entityType: entityType as 'release' | 'track' | 'media_asset' | 'artist' | 'label' | 'person',
         entityId: entityId.trim(),
         assigneeId: assigneeId.trim(),
-        assignerId: assigneeId.trim(),
+        assignerId: user.uid,
         role: role.trim() || 'contributor',
         priority: priority as 'low' | 'medium' | 'high' | 'urgent',
         dueDate: dueDate ? new Date(dueDate) : null,

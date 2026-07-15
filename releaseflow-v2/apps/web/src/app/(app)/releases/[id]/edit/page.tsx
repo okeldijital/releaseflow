@@ -8,7 +8,7 @@ import { fetchRelease, editRelease } from '@/lib/release-service';
 import { toast } from '@/stores/toast-store';
 import { Card, Button, Input, Select, Switch, LoadingState, EmptyState } from '@releaseflow/ui';
 import { ArtworkDisplay } from '@/components/release/artwork-display';
-import { RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-config';
+import { RELEASE_TYPE_LABELS, RELEASE_STATUS_CONFIG } from '@/components/release/status/release-status-config';
 import type { Release, ReleaseType } from '@/app/(app)/types';
 
 function tsToDateString(ts: unknown): string {
@@ -126,11 +126,15 @@ export default function EditReleasePage() {
     router.push(`/releases/${id}`);
   }
 
+  function handleBack() {
+    router.push(`/releases/${id}`);
+  }
+
   if (!user) return null;
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-2xl px-5 sm:px-7 py-12">
+      <div className="mx-auto max-w-5xl px-5 sm:px-7 py-12">
         <div className="flex items-center justify-center py-20"><LoadingState /></div>
       </div>
     );
@@ -138,7 +142,7 @@ export default function EditReleasePage() {
 
   if (notFound) {
     return (
-      <div className="mx-auto max-w-2xl px-5 sm:px-7 py-12">
+      <div className="mx-auto max-w-5xl px-5 sm:px-7 py-12">
         <EmptyState title="Release not found" description="This release does not exist or has been removed." />
       </div>
     );
@@ -146,7 +150,7 @@ export default function EditReleasePage() {
 
   if (forbidden) {
     return (
-      <div className="mx-auto max-w-2xl px-5 sm:px-7 py-12">
+      <div className="mx-auto max-w-5xl px-5 sm:px-7 py-12">
         <EmptyState
           title="Access Denied"
           description="You do not have permission to edit this release."
@@ -156,84 +160,104 @@ export default function EditReleasePage() {
     );
   }
 
+  const statusMeta = release?.status ? RELEASE_STATUS_CONFIG[release.status] : null;
+
   return (
-    <div className="mx-auto max-w-2xl px-5 sm:px-7 py-12 page-transition">
-      <h1 className="text-2xl font-semibold text-content-primary mb-8">Release Details</h1>
-
-      <Card padding="md" elevation="card" className="mb-6">
-        <div className="flex items-center gap-4">
-          <ArtworkDisplay artwork={release?.artwork} releaseTitle={title} size="lg" className="w-24 h-24" />
-          <div>
-            <p className="font-semibold text-content-primary">{title || 'Untitled Release'}</p>
-            <p className="text-sm text-content-label mt-0.5">{RELEASE_TYPE_LABELS[releaseType] ?? releaseType}</p>
-            <p className="text-xs text-content-label capitalize mt-0.5">{release?.status?.replace(/_/g, ' ')}</p>
-          </div>
+    <div className="mx-auto max-w-5xl px-5 sm:px-7 py-8 page-transition">
+      <div className="flex items-start justify-between gap-4 mb-8">
+        <div>
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-1 text-sm text-content-label hover:text-content-primary transition-colors mb-2"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Back
+          </button>
+          <h1 className="text-2xl font-semibold text-content-primary">Edit Release</h1>
+          <p className="text-sm text-content-label mt-1">Update release information and metadata.</p>
         </div>
-      </Card>
-
-      <Card padding="md" elevation="card" className="mb-6">
-        <h2 className="text-sm font-semibold text-content-label uppercase tracking-wider mb-4">General Information</h2>
-        <div className="space-y-4">
-          <Input
-            label="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            error={errors.title}
-            placeholder="Release title"
-          />
-          <Select
-            label="Release Type"
-            options={releaseTypeOptions}
-            value={releaseType}
-            onChange={(v) => setReleaseType(v as ReleaseType)}
-          />
+        <div className="flex items-center gap-3 shrink-0 pt-6">
+          <Button variant="tertiary" onClick={handleCancel}>Cancel</Button>
+          <Button variant="primary" onClick={handleSave} loading={saving}>Save Changes</Button>
         </div>
-      </Card>
+      </div>
 
-      <Card padding="md" elevation="card" className="mb-6">
-        <h2 className="text-sm font-semibold text-content-label uppercase tracking-wider mb-4">Classification</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <Input label="Genre" value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="e.g. Electronic" />
-          <Input label="Subgenre" value={subgenre} onChange={(e) => setSubgenre(e.target.value)} placeholder="e.g. House" />
-          <Input label="Language" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="e.g. English" />
-          <div className="flex items-end pb-2">
-            <Switch label="Explicit" checked={explicit} onChange={setExplicit} />
-          </div>
+      <div className="flex flex-col lg:flex-row gap-8">
+        <div className="w-full lg:w-[340px] shrink-0 lg:sticky lg:top-24 self-start">
+          <ArtworkDisplay artwork={release?.artwork} releaseTitle={title} size="lg" />
+
+          <p className="text-lg font-semibold text-content-primary leading-snug mt-5">{title || 'Untitled Release'}</p>
+
+          <p className="text-sm font-medium text-content-label mt-1">
+            {RELEASE_TYPE_LABELS[releaseType] ?? releaseType}
+          </p>
+
+          {statusMeta && (
+            <span className={`inline-block text-xs font-medium capitalize rounded-full px-2.5 py-0.5 mt-2 ${statusMeta.color} ${statusMeta.darkColor}`}>
+              {statusMeta.label}
+            </span>
+          )}
         </div>
-      </Card>
 
-      <Card padding="md" elevation="card" className="mb-6">
-        <h2 className="text-sm font-semibold text-content-label uppercase tracking-wider mb-4">Release Dates</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <Input label="Original Release Date" type="date" value={targetReleaseDate} onChange={(e) => setTargetReleaseDate(e.target.value)} />
-          <Input label="Digital Release Date" type="date" value={estimatedReleaseDate} onChange={(e) => setEstimatedReleaseDate(e.target.value)} />
+        <div className="flex-1 min-w-0 space-y-6">
+          <Card padding="md" elevation="card">
+            <h2 className="text-sm font-semibold text-content-label uppercase tracking-wider mb-4">General Information</h2>
+            <div className="space-y-4">
+              <Input
+                label="Title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                error={errors.title}
+                placeholder="Release title"
+              />
+              <Select
+                label="Release Type"
+                options={releaseTypeOptions}
+                value={releaseType}
+                onChange={(v) => setReleaseType(v as ReleaseType)}
+              />
+            </div>
+          </Card>
+
+          <Card padding="md" elevation="card">
+            <h2 className="text-sm font-semibold text-content-label uppercase tracking-wider mb-4">Classification</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Genre" value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="e.g. Electronic" />
+              <Input label="Subgenre" value={subgenre} onChange={(e) => setSubgenre(e.target.value)} placeholder="e.g. House" />
+              <Input label="Language" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="e.g. English" />
+              <div className="flex items-end pb-2">
+                <Switch label="Explicit" checked={explicit} onChange={setExplicit} />
+              </div>
+            </div>
+          </Card>
+
+          <Card padding="md" elevation="card">
+            <h2 className="text-sm font-semibold text-content-label uppercase tracking-wider mb-4">Release Dates</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Original Release Date" type="date" value={targetReleaseDate} onChange={(e) => setTargetReleaseDate(e.target.value)} />
+              <Input label="Digital Release Date" type="date" value={estimatedReleaseDate} onChange={(e) => setEstimatedReleaseDate(e.target.value)} />
+            </div>
+          </Card>
+
+          <Card padding="md" elevation="card">
+            <h2 className="text-sm font-semibold text-content-label uppercase tracking-wider mb-4">Commercial</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Record label" />
+              <Input label="UPC" value={upc} onChange={(e) => setUpc(e.target.value)} placeholder="UPC code" />
+              <Input label="Catalogue Number" value={catalogNumber} onChange={(e) => setCatalogNumber(e.target.value)} placeholder="Catalogue number" />
+            </div>
+          </Card>
+
+          <Card padding="md" elevation="card">
+            <h2 className="text-sm font-semibold text-content-label uppercase tracking-wider mb-4">Rights</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="&#x2117; Copyright" value={pLine} onChange={(e) => setPLine(e.target.value)} placeholder="&#x2117; 2024 Label Name" />
+              <Input label="&copy; Copyright" value={cLine} onChange={(e) => setCLine(e.target.value)} placeholder="&copy; 2024 Label Name" />
+            </div>
+          </Card>
         </div>
-      </Card>
-
-      <Card padding="md" elevation="card" className="mb-6">
-        <h2 className="text-sm font-semibold text-content-label uppercase tracking-wider mb-4">Commercial</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <Input label="Label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Record label" />
-          <Input label="UPC" value={upc} onChange={(e) => setUpc(e.target.value)} placeholder="UPC code" />
-          <Input label="Catalogue Number" value={catalogNumber} onChange={(e) => setCatalogNumber(e.target.value)} placeholder="Catalogue number" />
-        </div>
-      </Card>
-
-      <Card padding="md" elevation="card" className="mb-6">
-        <h2 className="text-sm font-semibold text-content-label uppercase tracking-wider mb-4">Rights</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <Input label="&#x2117; Copyright" value={pLine} onChange={(e) => setPLine(e.target.value)} placeholder="&#x2117; 2024 Label Name" />
-          <Input label="&copy; Copyright" value={cLine} onChange={(e) => setCLine(e.target.value)} placeholder="&copy; 2024 Label Name" />
-        </div>
-      </Card>
-
-      <div className="flex items-center gap-3">
-        <Button variant="primary" onClick={handleSave} loading={saving}>
-          Save Changes
-        </Button>
-        <Button variant="tertiary" onClick={handleCancel}>
-          Cancel
-        </Button>
       </div>
     </div>
   );

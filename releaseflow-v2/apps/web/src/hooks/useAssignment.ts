@@ -6,10 +6,16 @@ import { fetchAssignment, fetchAssignmentsByEntity } from '@/lib/assignment-serv
 import type { AssignmentRecord } from '@/lib/assignment-service';
 import { getActivityByEntity } from '@/lib/activity-service';
 import type { ActivityEventRecord } from '@/lib/activity-service';
+import { resolvePersonNames } from '@/lib/resolve-person-names';
+
+export interface AssignmentDisplayRecord extends AssignmentRecord {
+  assigneeName: string | null;
+  assignerName: string | null;
+}
 
 export function useAssignment(assignmentId: string | undefined) {
   const { activeOrgId } = useOrgStore();
-  const [assignment, setAssignment] = useState<AssignmentRecord | null>(null);
+  const [assignment, setAssignment] = useState<AssignmentDisplayRecord | null>(null);
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,7 +27,16 @@ export function useAssignment(assignmentId: string | undefined) {
         fetchAssignment(assignmentId),
         getActivityByEntity(activeOrgId, 'task', assignmentId),
       ]);
-      setAssignment(a);
+      if (a) {
+        const map = await resolvePersonNames([a.assigneeId, a.assignerId]);
+        setAssignment({
+          ...a,
+          assigneeName: map.get(a.assigneeId) ?? 'Unknown Person',
+          assignerName: map.get(a.assignerId) ?? 'Unknown Person',
+        });
+      } else {
+        setAssignment(null);
+      }
       setActivities(acts);
     } catch {
       setAssignment(null);
@@ -36,7 +51,7 @@ export function useAssignment(assignmentId: string | undefined) {
 }
 
 export function useAssignments(entityType?: string, entityId?: string) {
-  const [assignments, setAssignments] = useState<AssignmentRecord[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentDisplayRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const { activeOrgId } = useOrgStore();
 
@@ -48,14 +63,28 @@ export function useAssignments(entityType?: string, entityId?: string) {
     }
     setLoading(true);
     try {
+      let data: AssignmentRecord[];
       if (entityType && entityId) {
-        const data = await fetchAssignmentsByEntity(entityType, entityId);
-        setAssignments(data);
+        data = await fetchAssignmentsByEntity(entityType, entityId);
       } else {
         const mod = await import('@/lib/assignment-service');
-        const data = await mod.fetchAssignments(activeOrgId);
-        setAssignments(data);
+        data = await mod.fetchAssignments(activeOrgId);
       }
+
+      const allIds: string[] = [];
+      for (const a of data) {
+        if (a.assigneeId) allIds.push(a.assigneeId);
+        if (a.assignerId) allIds.push(a.assignerId);
+      }
+      const nameMap = await resolvePersonNames(allIds);
+
+      setAssignments(
+        data.map((a) => ({
+          ...a,
+          assigneeName: nameMap.get(a.assigneeId) ?? 'Unknown Person',
+          assignerName: nameMap.get(a.assignerId) ?? 'Unknown Person',
+        })),
+      );
     } catch {
       setAssignments([]);
     } finally {

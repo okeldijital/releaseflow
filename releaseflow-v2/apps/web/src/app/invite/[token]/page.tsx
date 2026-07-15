@@ -101,13 +101,19 @@ export default function InvitePage() {
               {state.status === 'accepted' && (
                 <p className="mt-2 text-xs text-text-500">Redirecting to dashboard...</p>
               )}
-              {state.status === 'valid' && !user && (
+                  {state.status === 'valid' && !user && (
                 <div className="mt-6 space-y-3">
                   <p className="text-xs text-text-500">Sign in or create an account to accept this invitation.</p>
-                  <button onClick={() => router.push('/sign-in')} className="w-full rounded-lg bg-primary-500 py-2.5 text-sm font-medium text-white hover:bg-primary-600 transition-colors">
+                  <button onClick={() => {
+                    sessionStorage.setItem('auth_return_to', '/invite/' + token);
+                    router.push(`/sign-in?return=${encodeURIComponent('/invite/' + token)}`);
+                  }} className="w-full rounded-lg bg-primary-500 py-2.5 text-sm font-medium text-white hover:bg-primary-600 transition-colors">
                     Sign In
                   </button>
-                  <button onClick={() => router.push('/sign-up')} className="w-full rounded-lg border border-surface-700 bg-surface-800 py-2.5 text-sm font-medium text-text-300 hover:bg-surface-700 transition-colors">
+                  <button onClick={() => {
+                    sessionStorage.setItem('auth_return_to', '/invite/' + token);
+                    router.push(`/sign-up?return=${encodeURIComponent('/invite/' + token)}`);
+                  }} className="w-full rounded-lg border border-surface-700 bg-surface-800 py-2.5 text-sm font-medium text-text-300 hover:bg-surface-700 transition-colors">
                     Create Account
                   </button>
                 </div>

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { getAssignmentsByEntity } from '@/lib/assignment-repository';
-import type { AssignmentRecord } from '@/lib/assignment-repository';
+import { fetchAssignmentsByEntity } from '@/lib/assignment-service';
+import type { AssignmentRecord } from '@/lib/assignment-service';
 import { EmptyState, LoadingState, Badge, StatusBadge } from '@releaseflow/ui';
 
 const priorityColors: Record<string, string> = {
@@ -31,7 +31,7 @@ export function AssignmentsSection({ entityType, entityId }: AssignmentsSectionP
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getAssignmentsByEntity(entityType, entityId);
+      const data = await fetchAssignmentsByEntity(entityType, entityId);
       setAssignments(data.filter((a) => !['archived', 'cancelled', 'declined'].includes(a.status)));
     } catch {
       setAssignments([]);

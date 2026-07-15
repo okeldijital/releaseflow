@@ -8,7 +8,7 @@ import { getPeopleByOrg } from '@/lib/people-repository';
 import { createNewTrack, editTrack } from '@/lib/track-service';
 import { fetchRelease } from '@/lib/release-service';
 import { addArtistToTrack } from '@/lib/track-artist-repository';
-import { createAssignment } from '@/lib/assignment-repository';
+import { createNewAssignment } from '@/lib/assignment-service';
 import {
   createRequestedAsset,
   assignAsset,
@@ -411,7 +411,7 @@ export default function NewTrackPage() {
       }
 
       if (needsMixing(productionStage) && mixingEngineer.personId) {
-        await createAssignment({
+        await createNewAssignment({
           organizationId: activeOrgId ?? '',
           title: `Mix - ${title}`,
           entityType: 'track',
@@ -423,7 +423,7 @@ export default function NewTrackPage() {
         });
       }
       if (needsMastering(productionStage) && masteringEngineer.personId) {
-        await createAssignment({
+        await createNewAssignment({
           organizationId: activeOrgId ?? '',
           title: `Master - ${title}`,
           entityType: 'track',

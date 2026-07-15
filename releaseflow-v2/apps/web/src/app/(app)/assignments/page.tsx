@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react';
 import { useOrgStore } from '@/stores/org-store';
 import { useAssignments } from '@/hooks/useAssignment';
 import { completeUserAssignment, archiveUserAssignment } from '@/lib/assignment-service';
+import { useAuth } from '@/contexts/auth-context';
 import { Button, EmptyState, LoadingState, Input, Badge, StatusBadge, ConfirmationDialog } from '@releaseflow/ui';
 import { toast } from '@/stores/toast-store';
 
@@ -24,6 +25,7 @@ function formatDate(d: unknown): string {
 export default function AssignmentsPage() {
   const { activeOrgId } = useOrgStore();
   const { assignments, loading, refresh } = useAssignments();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -43,7 +45,7 @@ export default function AssignmentsPage() {
   async function handleComplete(id: string) {
     setActionLoading(true);
     try {
-      await completeUserAssignment(id, 'current-user');
+      await completeUserAssignment(id, user?.uid ?? '');
       toast.success('Assignment completed');
       await refresh();
     } catch {
@@ -57,7 +59,7 @@ export default function AssignmentsPage() {
     if (!archiveId) return;
     setActionLoading(true);
     try {
-      await archiveUserAssignment(archiveId, 'current-user');
+      await archiveUserAssignment(archiveId, user?.uid ?? '');
       toast.success('Assignment archived');
       setArchiveId(null);
       await refresh();
