@@ -105,6 +105,11 @@ service cloud.firestore {
     match /resource_assignments/{docId} { allow read,write: if isAuth(); }
     match /dependencies/{docId}     { allow read,write: if isAuth(); }
     match /operational_alerts/{docId} { allow read,write: if isAuth(); }
+    match /release_milestones/{docId} {
+      allow read, list: if isAuth() && orgMatch(resource.data.organizationId);
+      allow create: if isAuth() && orgCreateMatch(resource.data.organizationId);
+      allow update, delete: if isAuth() && orgMatch(resource.data.organizationId);
+    }
 
     // New entities — org scoped from creation
     match /people/{docId} {
