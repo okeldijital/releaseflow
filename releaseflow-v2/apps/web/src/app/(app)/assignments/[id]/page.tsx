@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useAssignment } from '@/hooks/useAssignment';
 import {
   acceptUserAssignment, declineUserAssignment, markAsStarted,
@@ -78,8 +78,9 @@ function fmtDate(d: unknown): string {
   return String(d);
 }
 
-export default function AssignmentDetailPage() {
+function AssignmentDetailPageInner() {
   const params = useParams();
+  const searchParams = useSearchParams();
   // BUG-002 — route param is the Firestore assignment document id only
   const rawId = params.id;
   const id = Array.isArray(rawId) ? (rawId[0] ?? '') : String(rawId ?? '');
@@ -97,7 +98,16 @@ export default function AssignmentDetailPage() {
   const { activeOrgId } = useOrgStore();
   const { role } = useRoleStore();
 
-  const [activeTab, setActiveTab] = useState('workspace');
+  const tabFromQuery = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(
+    tabFromQuery === 'comments' || tabFromQuery === 'activity' ? tabFromQuery : 'workspace',
+  );
+
+  useEffect(() => {
+    if (tabFromQuery === 'comments' || tabFromQuery === 'activity' || tabFromQuery === 'workspace') {
+      setActiveTab(tabFromQuery);
+    }
+  }, [tabFromQuery]);
   const [actionLoading, setActionLoading] = useState(false);
   const [showDeclineModal, setShowDeclineModal] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
@@ -778,5 +788,22 @@ export default function AssignmentDetailPage() {
         loading={actionLoading}
       />
     </>
+  );
+}
+
+export default function AssignmentDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <WorkspaceLayout>
+          <div className="px-6 py-6">
+            <Skeleton className="h-8 w-64 mb-4" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </WorkspaceLayout>
+      }
+    >
+      <AssignmentDetailPageInner />
+    </Suspense>
   );
 }

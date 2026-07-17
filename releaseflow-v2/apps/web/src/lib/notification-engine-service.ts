@@ -70,6 +70,20 @@ export async function markAllNotificationsAsRead(
 }
 
 export function notificationHref(n: UserNotificationRecord): string {
-  if (n.assignmentId) return `/assignments/${n.assignmentId}`;
+  // MUX-002.6 — open context, not a generic dead-end
+  if (n.assignmentId) {
+    const isComment =
+      typeof n.type === 'string'
+      && (n.type.includes('comment') || n.type.includes('mention'));
+    return isComment
+      ? `/assignments/${n.assignmentId}?tab=comments`
+      : `/assignments/${n.assignmentId}`;
+  }
+  if (n.entityType === 'assignment' && n.entityId) {
+    return `/assignments/${n.entityId}`;
+  }
+  if (n.entityType === 'release' && n.entityId) {
+    return `/releases/${n.entityId}`;
+  }
   return resolveDeepLink(n.type, n.entityType, n.entityId);
 }

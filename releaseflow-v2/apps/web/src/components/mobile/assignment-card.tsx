@@ -19,6 +19,9 @@ export interface AssignmentCardModel {
   releaseTitle?: string | null;
   releaseArtwork?: { secureUrl?: string | null } | null;
   entityType?: string | null;
+  /** MUX-002 — unread comment count for this assignment */
+  unreadComments?: number;
+  updatedAt?: unknown;
 }
 
 function toDate(value: unknown): Date | null {
@@ -133,6 +136,11 @@ export function AssignmentCard({
             {due ? (
               <span className={`text-[11px] ${due.getTime() < Date.now() ? 'text-danger-400' : 'text-text-500'}`}>
                 {formatDue(due)}
+              </span>
+            ) : null}
+            {assignment.unreadComments && assignment.unreadComments > 0 ? (
+              <span className="text-[11px] font-medium text-primary-400">
+                {assignment.unreadComments} unread
               </span>
             ) : null}
           </div>

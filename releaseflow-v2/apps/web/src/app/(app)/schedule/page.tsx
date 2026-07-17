@@ -77,6 +77,9 @@ export default function SchedulePage() {
   const canDrag = canReschedule(role);
   const isCollab = AuthorizationService.isCollaboratorWorkspace();
 
+  // MUX-002.4 — domain tabs: Assignments | Releases
+  const [domain, setDomain] = useState<'assignments' | 'releases'>('assignments');
+
   // Collaborators default personal agenda; managers may use week on desktop.
   const [view, setView] = useState<CalendarViewMode>('agenda');
   const [prefs, setPrefs] = useState<CalendarPreferencesRecord | null>(null);
@@ -275,12 +278,23 @@ export default function SchedulePage() {
     ? items.find((i) => i.assignment.id === pendingDrop.assignmentId)?.assignment.title
     : '';
 
+  // MUX-002 — release milestones for Releases calendar tab
+  const releaseMilestones = useMemo(() => {
+    return milestones
+      .filter((m) => m.dueDate)
+      .sort((a, b) => (a.dueDate?.getTime() ?? 0) - (b.dueDate?.getTime() ?? 0));
+  }, [milestones]);
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 py-6 page-transition">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Schedule</h1>
-          <p className="text-sm text-text-400 mt-0.5">What work needs to happen, when, and by whom.</p>
+          <p className="text-sm text-text-400 mt-0.5">
+            {domain === 'releases'
+              ? 'Release milestones and dates across the label.'
+              : 'What work needs to happen, when, and by whom.'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="ghost" onClick={() => setAnchor(startOfDay(new Date()))}>Today</Button>
@@ -290,6 +304,52 @@ export default function SchedulePage() {
         </div>
       </div>
 
+      <div className="mb-4">
+        <Tabs
+          tabs={[
+            { id: 'assignments', label: 'Assignments' },
+            { id: 'releases', label: 'Releases' },
+          ]}
+          activeTab={domain}
+          onChange={(id) => setDomain(id as 'assignments' | 'releases')}
+        />
+      </div>
+
+      {domain === 'releases' ? (
+        <div className="rounded-2xl border border-surface-700/50 bg-surface-900/40 overflow-hidden">
+          {loading ? (
+            <div className="py-16"><LoadingState /></div>
+          ) : releaseMilestones.length === 0 ? (
+            <p className="text-sm text-text-500 px-5 py-10 text-center">
+              No release milestones in this range. Navigate months to explore.
+            </p>
+          ) : (
+            <ul className="divide-y divide-surface-700/40" aria-label="Release milestones">
+              {releaseMilestones.map((m) => (
+                <li key={m.milestone.id} className="flex items-start gap-4 px-4 sm:px-5 py-3.5">
+                  <div className="shrink-0 w-16 text-center">
+                    <p className="text-xs font-semibold text-primary-400">
+                      {m.dueDate?.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-content-primary">
+                      {m.milestone.title || 'Milestone'}
+                    </p>
+                    {m.releaseTitle ? (
+                      <p className="text-xs text-content-secondary mt-0.5 truncate">{m.releaseTitle}</p>
+                    ) : null}
+                    <p className="text-[11px] text-content-label mt-1 uppercase tracking-wide">
+                      Release milestone
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : (
+      <>
       <div className="mb-4">
         <ScheduleWorkload summary={workload} teamMode={isManager && scope === 'team'} />
       </div>
@@ -466,6 +526,8 @@ export default function SchedulePage() {
         confirmLabel="Reschedule"
         loading={rescheduleLoading}
       />
+      </>
+      )}
     </div>
   );
 }

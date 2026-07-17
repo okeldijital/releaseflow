@@ -10,6 +10,7 @@ import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
 import { RELEASE_STATUS_CONFIG, RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-config';
 import type { Release } from '@/app/(app)/types';
 import { useDebounce } from '@/hooks/useDebounce';
+import { AuthorizationService } from '@/lib/auth/authorization-service';
 
 type ViewMode = 'grid' | 'list';
 type SortKey = 'newest' | 'oldest' | 'releaseDate' | 'alpha' | 'status';
@@ -91,6 +92,8 @@ export default function ReleasesPage() {
   const { activeOrgId } = useOrgStore();
   const router = useRouter();
   const { releases, loading, error, refresh } = useReleases();
+  const canCreate = AuthorizationService.canCreateRelease();
+  const isCollab = AuthorizationService.isCollaboratorWorkspace();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [view, setView] = useState<ViewMode>(() => {
@@ -144,11 +147,13 @@ export default function ReleasesPage() {
           <p className="mt-1 text-sm text-text-400">
             {releases.length > 0
               ? `${filtered.length} of ${releases.length} release${releases.length !== 1 ? 's' : ''}`
-              : 'Manage every release from planning to distribution.'}
+              : isCollab
+                ? 'Browse every release across your label.'
+                : 'Manage every release from planning to distribution.'}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {activeOrgId && (
+          {activeOrgId && canCreate && (
             <Link href="/releases/new">
               <Button variant="primary" size="md" className="rounded-xl">
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -172,8 +177,16 @@ export default function ReleasesPage() {
       ) : releases.length === 0 ? (
         <EmptyState
           title="Your catalogue is empty"
-          description="Create your first release to begin managing production, legal, distribution and collaboration."
-          action={{ label: 'Create Release', onClick: () => router.push('/releases/new') }}
+          description={
+            canCreate
+              ? 'Create your first release to begin managing production, legal, distribution and collaboration.'
+              : 'No releases have been published to your organisation yet.'
+          }
+          action={
+            canCreate
+              ? { label: 'Create Release', onClick: () => router.push('/releases/new') }
+              : undefined
+          }
           className="py-20"
         />
       ) : (

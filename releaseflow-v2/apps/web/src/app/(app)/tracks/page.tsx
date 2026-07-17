@@ -21,6 +21,7 @@ import { TrackRow } from '@/components/shared/track-row';
 import {
   Button, EmptyState, LoadingState, Input, StatusBadge, Badge, Select,
 } from '@releaseflow/ui';
+import { AuthorizationService } from '@/lib/auth/authorization-service';
 
 function formatDuration(seconds?: number): string {
   if (!seconds || seconds <= 0) return '—';
@@ -195,8 +196,10 @@ export default function TracksPage() {
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickerReleases, setPickerReleases] = useState<ReleaseRecord[]>([]);
   const { user } = useAuth();
+  const canWriteTracks = AuthorizationService.can('artist.write');
 
   function getTrackMenuItems(track: TrackRecord) {
+    if (!canWriteTracks) return [];
     const items: EntityOverflowMenuItem[] = [
       {
         id: 'edit',
