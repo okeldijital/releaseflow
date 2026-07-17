@@ -2,7 +2,7 @@
  * UAT-006 / UAT-006A — Password recovery helpers.
  */
 
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   normalizeEmail,
   isValidEmailFormat,
@@ -30,22 +30,13 @@ describe('UAT-006 password recovery helpers', () => {
 });
 
 describe('UAT-006A diagnostics helpers', () => {
-  const originalWindow = globalThis.window;
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    // restore location if we overwrote window
-    if (originalWindow) {
-      // no-op in jsdom — location is set per-test via stub
-    }
-  });
-
   it('buildActionCodeSettings uses origin + /auth/action', () => {
     // jsdom location is typically http://localhost:3000
     const settings = buildActionCodeSettings();
     expect(settings).not.toBeNull();
-    expect(settings!.url).toMatch(/\/auth\/action$/);
-    expect(settings!.handleCodeInApp).toBe(false);
+    if (!settings) return;
+    expect(settings.url).toMatch(/\/auth\/action$/);
+    expect(settings.handleCodeInApp).toBe(false);
   });
 
   it('userFacingPasswordError surfaces Unauthorized Continue URL with firebase code', () => {
