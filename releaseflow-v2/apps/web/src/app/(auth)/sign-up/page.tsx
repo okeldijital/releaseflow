@@ -6,7 +6,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, updateProfile } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
-import { consumeAuthReturn, storeAuthReturn, hasPendingInvitation, getInvitationContext } from '@/lib/auth-return';
+import { consumeAuthReturn, storeAuthReturn, hasPendingInvitation, getStoredInvitationToken } from '@/lib/auth-return';
+import { fetchInvitationByToken } from '@/lib/invitation-service';
 
 const FLOW_LOG = '[Invitation Flow]';
 
@@ -23,15 +24,22 @@ export default function SignUpPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const fromUrl = new URLSearchParams(window.location.search).get('return');
+    let token: string | undefined;
     if (fromUrl) {
       const tokenMatch = fromUrl.match(/^\/invite\/([^/?#]+)/);
-      storeAuthReturn(fromUrl, tokenMatch?.[1] ? decodeURIComponent(tokenMatch[1]) : undefined);
+      token = tokenMatch?.[1] ? decodeURIComponent(tokenMatch[1]) : undefined;
+      storeAuthReturn(fromUrl, token);
       console.log(FLOW_LOG, '✓ Sign-up page captured return URL', { fromUrl });
     }
-    // Pre-fill email from invitation context when available.
-    const ctx = getInvitationContext();
-    if (ctx?.invitedEmail) {
-      setEmail(ctx.invitedEmail);
+    // ARCH-001: pre-fill email from Firestore (never from session business cache).
+    const inviteToken = token || getStoredInvitationToken();
+    if (inviteToken) {
+      void fetchInvitationByToken(inviteToken).then((inv) => {
+        if (inv?.inviteeEmail) {
+          setEmail(inv.inviteeEmail);
+          console.log(FLOW_LOG, '✓ Invitee email prefilled from Firestore');
+        }
+      }).catch(() => { /* non-blocking UI helper */ });
     }
   }, []);
 

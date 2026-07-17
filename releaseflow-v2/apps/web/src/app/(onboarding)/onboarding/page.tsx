@@ -6,25 +6,29 @@ import { useAuth } from '@/contexts/auth-context';
 import { createUserProfile } from '@/lib/user-profile-repository';
 import {
   hasPendingInvitation,
-  getInvitationContext,
+  getInvitationNavigationState,
   getStoredInvitationToken,
 } from '@/lib/auth-return';
 
 const FLOW_LOG = '[Invitation Flow]';
+
+function inviteResumePath(): string {
+  const nav = getInvitationNavigationState();
+  const token = nav?.token || getStoredInvitationToken();
+  return nav?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve');
+}
 
 export default function WelcomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
 
-  // UAT-005: never run generic onboarding when invitation context exists.
+  // UAT-005 / ARCH-001: never run generic onboarding when invitation token is pending.
   useEffect(() => {
     if (loading || !user) return;
     if (!hasPendingInvitation()) return;
-    const ctx = getInvitationContext();
-    const token = ctx?.token || getStoredInvitationToken();
-    const dest = ctx?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve');
-    console.log(FLOW_LOG, '· Blocked welcome/onboarding — invitation context present', {
+    const dest = inviteResumePath();
+    console.log(FLOW_LOG, '· Blocked welcome/onboarding — invitation token present', {
       reason: 'pending_invitation_takes_precedence',
       dest,
     });
@@ -43,9 +47,7 @@ export default function WelcomePage() {
 
   async function handleContinue() {
     if (hasPendingInvitation()) {
-      const ctx = getInvitationContext();
-      const token = ctx?.token || getStoredInvitationToken();
-      router.replace(ctx?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve'));
+      router.replace(inviteResumePath());
       return;
     }
     setSaving(true);

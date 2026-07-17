@@ -8,7 +8,6 @@ import { acceptInvitationAtomically } from '@/lib/invitation-service';
 import { useOrgStore } from '@/stores/org-store';
 import {
   getStoredInvitationToken,
-  getInvitationContext,
   hasPendingInvitation,
   clearInvitationContext,
   consumeAuthReturn,
@@ -19,22 +18,17 @@ import { generateNotificationEvent } from '@/lib/notification-event-service';
 const FLOW_LOG = '[Invitation Flow]';
 
 /**
- * CE-002 / UAT-005 — Authentication resolver.
+ * CE-002 / UAT-005 / ARCH-001 — Authentication resolver.
  *
- * Invitation-aware routing ALWAYS takes precedence over generic onboarding:
+ * Invitation-aware routing ALWAYS takes precedence over generic onboarding.
+ * Only the invitation token is restored from the browser; org/roles come from
+ * Firestore via acceptInvitationAtomically (single source of truth).
  *
- *   if (pendingInvitation) {
- *     completeInvitationFlow()  // never company selection
+ *   if (pendingInvitationToken) {
+ *     completeInvitationFlow()  // fetch + validate + accept from Firestore
  *   } else {
  *     continueStandardOnboarding()
  *   }
- *
- * Decision matrix:
- *   pending invitation (any membership count) → accept → collaborator workspace
- *   invite return URL                         → /invite/[token]
- *   0 memberships + no invitation             → /onboarding (admin only)
- *   1 membership                              → /dashboard
- *   >1 memberships                            → /select-organization
  */
 export default function AuthResolvePage() {
   const { user, loading } = useAuth();
@@ -52,28 +46,23 @@ export default function AuthResolvePage() {
     let cancelled = false;
 
     async function resolve() {
-      // ── UAT-005: invitation flow always wins ──────────────────────────
+      // Prefer returning to invite page so acceptance happens with full UI context.
       const returnTo = consumeAuthReturn();
       if (returnTo && returnTo.startsWith('/invite/')) {
-        console.log(FLOW_LOG, '✓ Invitation context restored → invite URL', { returnTo });
+        console.log(FLOW_LOG, '✓ Token restored → invite URL', { returnTo });
         router.replace(returnTo);
         return;
       }
 
-      const pendingToken = getStoredInvitationToken();
-      if (pendingToken || hasPendingInvitation()) {
-        const token = pendingToken || getInvitationContext()?.token;
+      const token = getStoredInvitationToken();
+      if (token || hasPendingInvitation()) {
         if (!token) {
           console.log(FLOW_LOG, '· Pending flag without token — continuing standard routing');
         } else {
-          const ctx = getInvitationContext();
-          console.log(FLOW_LOG, '✓ Invitation context restored', {
-            tokenPrefix: token.slice(0, 8),
-            organizationId: ctx?.organizationId,
-            platformRole: ctx?.platformRole,
-          });
+          console.log(FLOW_LOG, '✓ Token restored', { tokenPrefix: token.slice(0, 8) });
           console.log(FLOW_LOG, '✓ User authenticated', { uid: user!.uid, email: user!.email });
 
+          // ARCH-001: accept reloads invitation from Firestore (not session).
           const result = await acceptInvitationAtomically(token, {
             uid: user!.uid,
             email: user!.email ?? '',
@@ -83,14 +72,12 @@ export default function AuthResolvePage() {
 
           if (result.ok) {
             console.log(FLOW_LOG, '✓ Membership created');
-            console.log(FLOW_LOG, '✓ Platform role assigned', {
+            console.log(FLOW_LOG, '✓ Roles assigned', {
               platformRole: result.invitation.platformRole,
-            });
-            console.log(FLOW_LOG, '✓ Professional role assigned', {
               professionalRole: result.invitation.professionalRole,
+              source: 'firestore',
             });
             console.log(FLOW_LOG, '✓ Invitation accepted');
-            console.log(FLOW_LOG, '✓ User profile created');
 
             try {
               await generateNotificationEvent({
@@ -124,13 +111,11 @@ export default function AuthResolvePage() {
             reason: result.reason,
             message: result.message,
           });
-          // Return to invite page so the user sees the real error / can retry.
           router.replace(`/invite/${token}`);
           return;
         }
       }
 
-      // ── Standard routing (no invitation context) ──────────────────────
       const orgs = await getOrganizationsByUser(uid);
       if (cancelled) return;
 

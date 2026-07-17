@@ -367,11 +367,16 @@ export async function acceptInvitationAtomically(
   // These queries run BEFORE the transaction to obtain the doc IDs / refs
   // that we need inside the transaction (which only accepts get(docRef)).
 
+  // ARCH-001: invitation document is the sole authority for org/roles/email.
   const invitationRecord = await getInvitationByToken(normalizedToken);
   if (!invitationRecord) {
     console.error(ACCEPT_LOG, '✗ Invitation lookup returned null before transaction');
     return { ok: false, reason: 'not_found', message: 'This invitation link is invalid.' };
   }
+  console.log('[Invitation Flow]', '✓ Invitation fetched', {
+    id: invitationRecord.id,
+    source: 'firestore',
+  });
   console.log(ACCEPT_LOG, '✓ Invitation loaded for accept', {
     id: invitationRecord.id,
     status: invitationRecord.status,
@@ -445,7 +450,7 @@ export async function acceptInvitationAtomically(
         return { ok: false, reason: 'expired', message: 'This invitation has expired.' };
       }
 
-      // Validate invitee email matches authenticated user.
+      // Validate invitee email matches authenticated user (from Firestore invitation doc).
       const userEmail = (user.email ?? '').trim().toLowerCase();
       const inviteeEmail = invitation.inviteeEmail.trim().toLowerCase();
       if (userEmail && inviteeEmail && userEmail !== inviteeEmail) {
@@ -461,6 +466,13 @@ export async function acceptInvitationAtomically(
       if (!orgSnap.exists()) {
         return { ok: false, reason: 'org_not_found', message: 'The organization for this invitation no longer exists.' };
       }
+
+      console.log('[Invitation Flow]', '✓ Invitation validated', {
+        status: invitation.status,
+        organizationId: invitation.organizationId,
+        platformRole: invitation.platformRole,
+        source: 'firestore',
+      });
 
       // Re-read user profile inside transaction.
       const userProfileSnap = await transaction.get(userProfileRef);
@@ -563,9 +575,12 @@ export async function acceptInvitationAtomically(
       });
 
       console.log('[Invitation Flow]', '✓ Membership created');
-      console.log('[Invitation Flow]', '✓ Platform role assigned', { platformRole, systemRole });
-      console.log('[Invitation Flow]', '✓ Professional role assigned', { professionalRole: personProfessionalRole });
-      console.log('[Invitation Flow]', '✓ User profile created/updated');
+      console.log('[Invitation Flow]', '✓ Roles assigned', {
+        platformRole,
+        systemRole,
+        professionalRole: personProfessionalRole,
+        source: 'firestore',
+      });
       console.log('[Invitation Flow]', '✓ Invitation accepted');
       console.log(ACCEPT_LOG, '✓ Transaction writes staged (membership, person, profile, accepted)');
       return {

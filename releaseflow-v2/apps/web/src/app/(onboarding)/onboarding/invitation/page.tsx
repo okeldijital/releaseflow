@@ -4,37 +4,35 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   hasPendingInvitation,
-  getInvitationContext,
+  getInvitationNavigationState,
   getStoredInvitationToken,
 } from '@/lib/auth-return';
 
 const FLOW_LOG = '[Invitation Flow]';
 
 /**
- * UAT-005 — Legacy invitation profile step.
- *
- * Profile creation now happens inside acceptInvitationAtomically.
- * This route must never re-enter generic onboarding; bounce invitees
- * back to the invitation accept path or auth resolve.
+ * UAT-005 / ARCH-001 — Legacy invitation profile step.
+ * Profile is created during accept from Firestore invitation data.
+ * Resume via token only — never business fields from sessionStorage.
  */
 export default function InvitationOnboardingPage() {
   const router = useRouter();
 
   useEffect(() => {
     if (hasPendingInvitation()) {
-      const ctx = getInvitationContext();
-      const token = ctx?.token || getStoredInvitationToken();
-      const dest = ctx?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve');
-      console.log(FLOW_LOG, '· Blocked /onboarding/invitation — completing invite flow instead', {
+      const nav = getInvitationNavigationState();
+      const token = nav?.token || getStoredInvitationToken();
+      const dest = nav?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve');
+      console.log(FLOW_LOG, '· Blocked /onboarding/invitation — resume via token', {
         reason: 'profile_created_during_accept',
         dest,
+        tokenPrefix: token?.slice(0, 8),
       });
       router.replace(dest);
       return;
     }
 
-    // No invite context: send to resolve rather than company wizard.
-    console.log(FLOW_LOG, '· /onboarding/invitation without invite context → /auth/resolve');
+    console.log(FLOW_LOG, '· /onboarding/invitation without invite token → /auth/resolve');
     router.replace('/auth/resolve');
   }, [router]);
 

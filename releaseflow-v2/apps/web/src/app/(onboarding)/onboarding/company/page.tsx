@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { getOrganizationsByUser, createOrganization } from '@/lib/organization-repository';
 import {
   hasPendingInvitation,
-  getInvitationContext,
+  getInvitationNavigationState,
   getStoredInvitationToken,
 } from '@/lib/auth-return';
 
@@ -24,15 +24,15 @@ export default function CompanyPage() {
 
   useEffect(() => {
     if (!loading && !user) { router.push('/sign-in'); return; }
-    // UAT-005: invitation already defines organization — never show company selection.
+    // UAT-005 / ARCH-001: invitation token pending → resume invite (org from Firestore, not session).
     if (user && hasPendingInvitation()) {
-      const ctx = getInvitationContext();
-      const token = ctx?.token || getStoredInvitationToken();
-      const dest = ctx?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve');
-      console.log(FLOW_LOG, '· Blocked company selection — invitation context present', {
+      const nav = getInvitationNavigationState();
+      const token = nav?.token || getStoredInvitationToken();
+      const dest = nav?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve');
+      console.log(FLOW_LOG, '· Blocked company selection — invitation token present', {
         reason: 'invitation_already_defines_organization',
         dest,
-        organizationId: ctx?.organizationId,
+        tokenPrefix: token?.slice(0, 8),
       });
       router.replace(dest);
       return;

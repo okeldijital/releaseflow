@@ -5,16 +5,16 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import {
   hasPendingInvitation,
-  getInvitationContext,
   getStoredInvitationToken,
+  getInvitationNavigationState,
 } from '@/lib/auth-return';
 
 const FLOW_LOG = '[Invitation Flow]';
 
 /**
- * UAT-005 — Onboarding layout.
- * When an invitation context exists, never show generic onboarding
- * (company selection / create company). Redirect back into the invitation flow.
+ * UAT-005 / ARCH-001 — Onboarding layout.
+ * When an invitation token is pending, never show generic onboarding.
+ * Business data is not read from session — only the token for navigation.
  */
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -29,13 +29,13 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
     if (loading || !user) return;
 
     if (hasPendingInvitation()) {
-      const ctx = getInvitationContext();
-      const token = ctx?.token || getStoredInvitationToken();
-      const invitePath = ctx?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve');
-      console.log(FLOW_LOG, '· Blocked generic onboarding — invitation context present', {
+      const nav = getInvitationNavigationState();
+      const token = nav?.token || getStoredInvitationToken();
+      const invitePath = nav?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve');
+      console.log(FLOW_LOG, '· Blocked generic onboarding — invitation token present', {
         reason: 'pending_invitation_takes_precedence',
         invitePath,
-        organizationId: ctx?.organizationId,
+        tokenPrefix: token?.slice(0, 8),
       });
       router.replace(invitePath);
     }
@@ -51,7 +51,6 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
 
   if (!user) return null;
 
-  // While redirecting away from onboarding for invitees, show a spinner.
   if (hasPendingInvitation()) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface-950">

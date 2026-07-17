@@ -7,7 +7,7 @@ import { validateInvitation, acceptInvitationAtomically } from '@/lib/invitation
 import { PLATFORM_ROLE_LABELS } from '@/lib/platform-roles';
 import type { AtomicAcceptError, InvitationRecord } from '@/lib/invitation-service';
 import {
-  storeInvitationContext,
+  storeInvitationToken,
   clearInvitationContext,
   collaboratorWorkspacePath,
 } from '@/lib/auth-return';
@@ -90,22 +90,18 @@ export default function InvitePage() {
         }
 
         const inv = result.invitation;
-        console.log(FLOW_LOG, '✓ Invitation verified', {
+        console.log(FLOW_LOG, '✓ Invitation fetched', {
           invitationId: inv.id,
+          source: 'firestore',
+        });
+        console.log(FLOW_LOG, '✓ Invitation validated', {
+          status: inv.status,
           organizationId: inv.organizationId,
           platformRole: inv.platformRole,
-          professionalRole: inv.professionalRole,
         });
 
-        // Persist full context so it survives sign-up / sign-in / refreshes.
-        storeInvitationContext({
-          token: parsedToken,
-          organizationId: inv.organizationId,
-          invitedEmail: inv.inviteeEmail,
-          platformRole: inv.platformRole,
-          professionalRole: inv.professionalRole,
-          returnUrl: `/invite/${parsedToken}`,
-        });
+        // ARCH-001: store token only — business data stays in Firestore.
+        storeInvitationToken(parsedToken, `/invite/${parsedToken}`);
 
         setState({ status: 'valid', message: '' });
         setInvitation(inv);
@@ -137,13 +133,15 @@ export default function InvitePage() {
 
     setAccepting(true);
     setState({ status: 'accepting', message: 'Joining...' });
+    console.log(FLOW_LOG, '✓ Token restored', { tokenPrefix: parsedToken.slice(0, 8) });
     console.log(FLOW_LOG, '✓ User authenticated', {
       uid: user.uid,
       email: user.email,
-      tokenPrefix: parsedToken.slice(0, 8),
     });
 
     try {
+      // ARCH-001: re-fetch + validate from Firestore inside acceptInvitationAtomically.
+      // Do not use any business data from sessionStorage.
       const result = await acceptInvitationAtomically(parsedToken, {
         uid: user.uid,
         email: user.email || '',
@@ -164,17 +162,17 @@ export default function InvitePage() {
         return;
       }
 
+      // Roles / org from Firestore result only (never sessionStorage).
       console.log(FLOW_LOG, '✓ Membership created');
-      console.log(FLOW_LOG, '✓ Platform role assigned', {
+      console.log(FLOW_LOG, '✓ Roles assigned', {
         platformRole: result.invitation.platformRole,
-      });
-      console.log(FLOW_LOG, '✓ Professional role assigned', {
         professionalRole: result.invitation.professionalRole,
+        source: 'firestore',
       });
       console.log(FLOW_LOG, '✓ Invitation accepted', {
         organizationId: result.invitation.organizationId,
+        source: 'firestore',
       });
-      console.log(FLOW_LOG, '✓ User profile created');
 
       // Best-effort notification event for the inviter (outside transaction).
       try {
@@ -228,33 +226,20 @@ export default function InvitePage() {
   }, [authLoading, user, state.status, accepting, accept]);
 
   function handleCreateAccount() {
-    if (!token || !invitation) return;
+    if (!token) return;
     const parsedToken = parseInviteToken(token);
     const returnPath = `/invite/${parsedToken}`;
-    storeInvitationContext({
-      token: parsedToken,
-      organizationId: invitation.organizationId,
-      invitedEmail: invitation.inviteeEmail,
-      platformRole: invitation.platformRole,
-      professionalRole: invitation.professionalRole,
-      returnUrl: returnPath,
-    });
+    // ARCH-001: navigation token only — not org/roles/email.
+    storeInvitationToken(parsedToken, returnPath);
     console.log(FLOW_LOG, '· Redirecting to sign-up (primary CTA)', { returnPath });
     router.push(`/sign-up?return=${encodeURIComponent(returnPath)}`);
   }
 
   function handleSignIn() {
-    if (!token || !invitation) return;
+    if (!token) return;
     const parsedToken = parseInviteToken(token);
     const returnPath = `/invite/${parsedToken}`;
-    storeInvitationContext({
-      token: parsedToken,
-      organizationId: invitation.organizationId,
-      invitedEmail: invitation.inviteeEmail,
-      platformRole: invitation.platformRole,
-      professionalRole: invitation.professionalRole,
-      returnUrl: returnPath,
-    });
+    storeInvitationToken(parsedToken, returnPath);
     console.log(FLOW_LOG, '· Redirecting to sign-in (secondary CTA)', { returnPath });
     router.push(`/sign-in?return=${encodeURIComponent(returnPath)}`);
   }
