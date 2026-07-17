@@ -1,7 +1,11 @@
 /**
- * UAT-006 — Password recovery & identity helpers.
+ * UAT-006 / UAT-006A — Password recovery & identity helpers.
  *
- * Uses Firebase Auth email/password reset APIs. Never trusts raw email strings.
+ * UAT-006A: expose real Firebase / Identity Toolkit errors (no masking),
+ * log runtime continue-URL config, and retry without ActionCodeSettings
+ * only for continue-URI authorization failures.
+ *
+ * Scope: password reset only. Do not change invitation / RBAC / sign-in flows.
  */
 
 import {
@@ -16,6 +20,7 @@ import { getAuthInstance } from '@/lib/firebase';
 import { getAppBaseUrl } from '@/lib/invitation-token';
 
 const LOG = '[Password Recovery]';
+const CONFIG_LOG = 'Password Recovery Configuration';
 
 export type PasswordResetErrorCode =
   | 'auth_unavailable'
@@ -27,12 +32,19 @@ export type PasswordResetErrorCode =
   | 'invalid_code'
   | 'weak_password'
   | 'network'
+  | 'invalid_continue_uri'
+  | 'unauthorized_continue_uri'
+  | 'operation_not_allowed'
+  | 'invalid_api_key'
   | 'unknown';
 
 export class PasswordResetError extends Error {
   constructor(
     public readonly code: PasswordResetErrorCode,
     message: string,
+    /** Raw Firebase Auth error code, e.g. auth/unauthorized-continue-uri */
+    public readonly firebaseCode?: string,
+    public readonly firebaseMessage?: string,
   ) {
     super(message);
     this.name = 'PasswordResetError';
@@ -45,64 +57,326 @@ export function normalizeEmail(email: string): string {
 }
 
 export function isValidEmailFormat(email: string): boolean {
-  // Practical validation — not RFC-perfect.
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(email));
 }
 
+function getAuthRuntimeDomainAndProject(auth?: Auth | null): {
+  authDomain: string | undefined;
+  projectId: string | undefined;
+} {
+  const options = auth?.app?.options as
+    | { authDomain?: string; projectId?: string }
+    | undefined;
+  return {
+    authDomain:
+      options?.authDomain ?? process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId:
+      options?.projectId ?? process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  };
+}
+
+/**
+ * Safe public Firebase env snapshot (no secrets beyond public client config).
+ * Used by the forgot-password page and requestPasswordReset logging.
+ */
+export function getPublicAuthRuntimeConfig(): {
+  origin: string | undefined;
+  nextPublicAppUrl: string;
+  continueUrl: string;
+  authDomain: string | undefined;
+  projectId: string | undefined;
+  apiKeyPresent: boolean;
+  appUrl: string;
+  originDiffersFromAppUrl: boolean;
+} {
+  const origin =
+    typeof window !== 'undefined' ? window.location.origin : undefined;
+  const settings = buildActionCodeSettings();
+  const auth = typeof window !== 'undefined' ? getAuthInstance() : undefined;
+  const { authDomain, projectId } = getAuthRuntimeDomainAndProject(auth);
+  const nextPublicAppUrl = process.env.NEXT_PUBLIC_APP_URL || '(empty)';
+  const appUrl = getAppBaseUrl() || '(empty)';
+  const continueUrl = settings?.url ?? '(none)';
+
+  return {
+    origin,
+    nextPublicAppUrl,
+    continueUrl,
+    authDomain,
+    projectId,
+    apiKeyPresent: Boolean(process.env.NEXT_PUBLIC_FIREBASE_API_KEY),
+    appUrl,
+    originDiffersFromAppUrl: Boolean(
+      origin && appUrl && appUrl !== '(empty)' && origin !== appUrl,
+    ),
+  };
+}
+
+/**
+ * UAT-006A §2 — log runtime configuration in a fixed, greppable format
+ * visible in the production browser console.
+ */
+export function logPasswordRecoveryConfiguration(auth?: Auth | null): void {
+  const origin =
+    typeof window !== 'undefined' ? window.location.origin : undefined;
+  const nextPublicAppUrl = process.env.NEXT_PUBLIC_APP_URL || '(empty)';
+  const settings = buildActionCodeSettings();
+  const continueUrl = settings?.url ?? '(none)';
+  const { authDomain, projectId } = getAuthRuntimeDomainAndProject(auth);
+
+  // Multi-line block so DevTools search for "Password Recovery Configuration" works.
+  console.log(
+    [
+      CONFIG_LOG,
+      `origin: ${origin ?? '(ssr/unavailable)'}`,
+      `NEXT_PUBLIC_APP_URL: ${nextPublicAppUrl}`,
+      `continueUrl: ${continueUrl}`,
+      `authDomain: ${authDomain ?? '(unset)'}`,
+      `projectId: ${projectId ?? '(unset)'}`,
+    ].join('\n'),
+  );
+
+  if (origin && nextPublicAppUrl !== '(empty)' && origin !== nextPublicAppUrl.replace(/\/$/, '')) {
+    console.warn(LOG, '· NEXT_PUBLIC_APP_URL differs from window.location.origin', {
+      origin,
+      NEXT_PUBLIC_APP_URL: nextPublicAppUrl,
+    });
+  }
+
+  // UAT-006A §4 — flag unexpected continue hosts (localhost / firebaseapp).
+  if (continueUrl !== '(none)') {
+    try {
+      const host = new URL(continueUrl).hostname;
+      if (
+        host === 'localhost'
+        || host.endsWith('.firebaseapp.com')
+        || host.endsWith('.web.app')
+      ) {
+        console.warn(LOG, '· Continue URL host may be wrong for production', {
+          continueUrl,
+          host,
+          expectedProduction: 'https://flow.okeldijital.africa/auth/action',
+        });
+      }
+    } catch {
+      console.warn(LOG, '· Continue URL is not a valid absolute URL', { continueUrl });
+    }
+  }
+}
+
+/**
+ * UAT-006A §1 — structured Firebase error log (no masking).
+ * Matches the required shape: code, message, customData, stack.
+ */
+function logFirebaseError(err: unknown): void {
+  const anyErr = err as {
+    code?: string;
+    message?: string;
+    customData?: unknown;
+    stack?: string;
+  };
+
+  console.error({
+    code: anyErr?.code,
+    message: anyErr?.message ?? String(err),
+    customData: anyErr?.customData,
+    stack: anyErr?.stack,
+  });
+
+  // Also log under the recovery prefix for console filtering.
+  console.error(LOG, '✗ Firebase error', {
+    code: anyErr?.code ?? '(no code)',
+    message: anyErr?.message ?? String(err),
+    customData: anyErr?.customData ?? null,
+    stack: anyErr?.stack,
+  });
+}
+
+/**
+ * UAT-006A §3 — temporarily intercept fetch to capture Identity Toolkit
+ * error bodies (HTTP status, error.message, error.errors[], full JSON).
+ * Scoped only around password-reset Auth calls; restored in finally.
+ */
+async function withIdentityToolkitCapture<T>(fn: () => Promise<T>): Promise<T> {
+  if (typeof window === 'undefined' || typeof window.fetch !== 'function') {
+    return fn();
+  }
+
+  const originalFetch = window.fetch.bind(window);
+
+  window.fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const response = await originalFetch(input, init);
+    const url =
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+    if (url.includes('identitytoolkit.googleapis.com')) {
+      const clone = response.clone();
+      let body: unknown = null;
+      try {
+        body = await clone.json();
+      } catch {
+        try {
+          body = await clone.text();
+        } catch {
+          body = '(unreadable body)';
+        }
+      }
+
+      const errorObj =
+        body && typeof body === 'object' && body !== null && 'error' in body
+          ? (body as { error?: { message?: string; errors?: unknown[] } }).error
+          : undefined;
+
+      if (!response.ok) {
+        console.error(LOG, '✗ Identity Toolkit response', {
+          url,
+          httpStatus: response.status,
+          statusText: response.statusText,
+          errorMessage: errorObj?.message ?? null,
+          errors: errorObj?.errors ?? null,
+          responseJSON: body,
+        });
+
+        // Explicit visibility for the two most common production misconfigs.
+        const msg = String(errorObj?.message ?? '');
+        if (msg.includes('UNAUTHORIZED_CONTINUE_URI') || msg === 'UNAUTHORIZED_CONTINUE_URI') {
+          console.error(LOG, '✗ Identity Toolkit: UNAUTHORIZED_CONTINUE_URI');
+        }
+        if (msg.includes('OPERATION_NOT_ALLOWED') || msg === 'OPERATION_NOT_ALLOWED') {
+          console.error(LOG, '✗ Identity Toolkit: OPERATION_NOT_ALLOWED');
+        }
+      } else {
+        console.log(LOG, '· Identity Toolkit OK', {
+          url,
+          httpStatus: response.status,
+        });
+      }
+    }
+
+    return response;
+  };
+
+  try {
+    return await fn();
+  } finally {
+    window.fetch = originalFetch;
+  }
+}
+
 function mapFirebaseError(err: unknown): PasswordResetError {
+  logFirebaseError(err);
+
   const code = (err as { code?: string })?.code ?? '';
   const message = err instanceof Error ? err.message : String(err);
 
   if (code === 'auth/invalid-email') {
-    return new PasswordResetError('invalid_email', 'Please enter a valid email address.');
+    return new PasswordResetError(
+      'invalid_email',
+      'Please enter a valid email address.',
+      code,
+      message,
+    );
   }
   if (code === 'auth/user-not-found') {
     return new PasswordResetError(
       'user_not_found',
       'No account was found with this email address.',
+      code,
+      message,
     );
   }
   if (code === 'auth/too-many-requests') {
     return new PasswordResetError(
       'too_many_requests',
       'Too many attempts. Please wait a few minutes and try again.',
+      code,
+      message,
     );
   }
   if (code === 'auth/expired-action-code') {
     return new PasswordResetError(
       'expired_code',
       'This password reset link has expired. Please request a new one.',
+      code,
+      message,
     );
   }
   if (code === 'auth/invalid-action-code') {
     return new PasswordResetError(
       'invalid_code',
       'This password reset link is invalid or has already been used. Please request a new one.',
+      code,
+      message,
     );
   }
   if (code === 'auth/weak-password') {
     return new PasswordResetError(
       'weak_password',
       'Password is too weak. Use at least 8 characters with a mix of letters and numbers.',
+      code,
+      message,
     );
   }
   if (code === 'auth/network-request-failed' || /network/i.test(message)) {
     return new PasswordResetError(
       'network',
       'Network error. Check your connection and try again.',
+      code,
+      message,
     );
   }
-  if (code === 'auth/missing-continue-uri' || code === 'auth/invalid-continue-uri') {
+  // UAT-006A §1 — specific UI copy (do not generic-mask).
+  if (code === 'auth/invalid-continue-uri' || code === 'auth/missing-continue-uri') {
     return new PasswordResetError(
-      'unknown',
-      'Password reset is misconfigured. Please contact support.',
+      'invalid_continue_uri',
+      'Invalid Continue URL',
+      code,
+      message,
+    );
+  }
+  if (code === 'auth/unauthorized-continue-uri') {
+    return new PasswordResetError(
+      'unauthorized_continue_uri',
+      'Unauthorized Continue URL',
+      code,
+      message,
+    );
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return new PasswordResetError(
+      'operation_not_allowed',
+      'Email/Password authentication is disabled.',
+      code,
+      message,
+    );
+  }
+  if (
+    code === 'auth/invalid-api-key'
+    || code === 'auth/api-key-not-valid.-please-pass-a-valid-api-key.'
+  ) {
+    return new PasswordResetError(
+      'invalid_api_key',
+      'Firebase API key is invalid for this project. Check NEXT_PUBLIC_FIREBASE_API_KEY.',
+      code,
+      message,
     );
   }
 
-  console.error(LOG, '✗ Unmapped Firebase error', { code, message });
+  // Never hide the real Firebase code/message behind a single generic string.
   return new PasswordResetError(
     'unknown',
-    'Could not complete password recovery. Please try again.',
+    code
+      ? `${code}: ${message}`
+      : message || 'Password recovery failed with an unknown error.',
+    code || undefined,
+    message,
   );
 }
 
@@ -133,7 +407,9 @@ export async function getSignInMethodsForEmail(email: string): Promise<SignInMet
   }
   const auth = requireAuth();
   try {
-    const methods = await fetchSignInMethodsForEmail(auth, normalized);
+    const methods = await withIdentityToolkitCapture(() =>
+      fetchSignInMethodsForEmail(auth, normalized),
+    );
     const hasPassword = methods.includes('password');
     const hasGoogle = methods.includes('google.com');
     return {
@@ -148,14 +424,43 @@ export async function getSignInMethodsForEmail(email: string): Promise<SignInMet
   }
 }
 
-function buildActionCodeSettings(): ActionCodeSettings {
-  const base = getAppBaseUrl() || (typeof window !== 'undefined' ? window.location.origin : '');
-  // After Firebase (or our handler) completes, continue to sign-in.
-  const continueUrl = `${base.replace(/\/$/, '')}/sign-in`;
+/**
+ * Prefer the live page origin so continue URL matches the domain the user is on
+ * (must be in Firebase Authorized Domains). Fall back to env base URL.
+ *
+ * Continue path is `/auth/action` (UAT-006A §4 / production checklist).
+ * Returns null when no valid absolute URL can be built — caller omits
+ * ActionCodeSettings (Firebase default handler).
+ */
+export function buildActionCodeSettings(): ActionCodeSettings | null {
+  const origin =
+    (typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : '')
+    || getAppBaseUrl();
+
+  if (!origin || !/^https?:\/\//i.test(origin)) {
+    console.warn(LOG, '· No absolute continue URL available — will send without ActionCodeSettings', {
+      origin,
+      envAppUrl: process.env.NEXT_PUBLIC_APP_URL,
+    });
+    return null;
+  }
+
+  // Production expected: https://flow.okeldijital.africa/auth/action
+  const continueUrl = `${origin.replace(/\/$/, '')}/auth/action`;
+
   return {
     url: continueUrl,
     handleCodeInApp: false,
   };
+}
+
+function isContinueUriError(code: string): boolean {
+  return (
+    code === 'auth/unauthorized-continue-uri'
+    || code === 'auth/invalid-continue-uri'
+  );
 }
 
 /**
@@ -170,16 +475,27 @@ export async function requestPasswordReset(email: string): Promise<{ email: stri
 
   const auth = requireAuth();
 
+  // UAT-006A §2 — always log config before send.
+  logPasswordRecoveryConfiguration(auth);
+
   // Identity audit — do not offer password reset for Google-only accounts.
-  let identity: SignInMethodInfo;
+  let identity: SignInMethodInfo | null = null;
   try {
     identity = await getSignInMethodsForEmail(normalized);
+    console.log(LOG, '· Sign-in methods', {
+      email: normalized,
+      methods: identity.methods,
+      hasPassword: identity.hasPassword,
+      hasGoogle: identity.hasGoogle,
+      isGoogleOnly: identity.isGoogleOnly,
+    });
   } catch (err) {
-    if (err instanceof PasswordResetError) throw err;
-    throw mapFirebaseError(err);
+    if (err instanceof PasswordResetError && err.code === 'invalid_email') throw err;
+    logFirebaseError(err);
+    console.warn(LOG, '· fetchSignInMethodsForEmail failed — continuing to send attempt');
   }
 
-  if (identity.isGoogleOnly) {
+  if (identity?.isGoogleOnly) {
     console.log(LOG, '· Google-only account — password reset blocked', {
       email: normalized,
     });
@@ -189,31 +505,55 @@ export async function requestPasswordReset(email: string): Promise<{ email: stri
     );
   }
 
-  // Provider list non-empty but no password (e.g. only phone / other IdP).
-  if (identity.exists && !identity.hasPassword) {
+  if (identity?.exists && !identity.hasPassword) {
     throw new PasswordResetError(
       'google_only',
       'This account does not use an email password. Please sign in with the original provider (e.g. Google).',
     );
   }
 
-  // identity.exists === false can mean either "no user" OR Firebase Email
-  // Enumeration Protection is enabled (methods always empty). Still attempt
-  // sendPasswordResetEmail; Firebase may return user-not-found or silently
-  // succeed. UI success copy stays non-leaky when needed.
+  const settings = buildActionCodeSettings();
+  console.log(LOG, '✓ ActionCodeSettings for sendPasswordResetEmail', settings);
 
   try {
-    const settings = buildActionCodeSettings();
     console.log(LOG, '✓ Sending password reset email', {
       email: normalized,
-      continueUrl: settings.url,
-      methodsKnown: identity.exists,
-      hasPassword: identity.hasPassword,
+      withSettings: Boolean(settings),
+      continueUrl: settings?.url ?? null,
     });
-    await sendPasswordResetEmail(auth, normalized, settings);
-    console.log(LOG, '✓ Password reset email requested');
+
+    await withIdentityToolkitCapture(async () => {
+      if (settings) {
+        await sendPasswordResetEmail(auth, normalized, settings);
+      } else {
+        await sendPasswordResetEmail(auth, normalized);
+      }
+    });
+
+    console.log(LOG, '✓ Password reset email requested successfully');
     return { email: normalized };
   } catch (err) {
+    logFirebaseError(err);
+    const code = (err as { code?: string })?.code ?? '';
+
+    // UAT-006A §5 — retry once WITHOUT ActionCodeSettings only for continue-URI errors.
+    if (settings && isContinueUriError(code)) {
+      console.warn(LOG, '· Retrying sendPasswordResetEmail WITHOUT ActionCodeSettings', {
+        previousContinueUrl: settings.url,
+        firebaseCode: code,
+      });
+      try {
+        await withIdentityToolkitCapture(() =>
+          sendPasswordResetEmail(auth, normalized),
+        );
+        console.log(LOG, '✓ Password reset email requested (fallback without continue URL)');
+        return { email: normalized };
+      } catch (retryErr) {
+        logFirebaseError(retryErr);
+        throw mapFirebaseError(retryErr);
+      }
+    }
+
     throw mapFirebaseError(err);
   }
 }
@@ -225,7 +565,9 @@ export async function verifyResetCode(oobCode: string): Promise<string> {
   }
   const auth = requireAuth();
   try {
-    const email = await verifyPasswordResetCode(auth, oobCode.trim());
+    const email = await withIdentityToolkitCapture(() =>
+      verifyPasswordResetCode(auth, oobCode.trim()),
+    );
     console.log(LOG, '✓ Reset code verified', { email: normalizeEmail(email) });
     return email;
   } catch (err) {
@@ -250,7 +592,9 @@ export async function completePasswordReset(
 
   const auth = requireAuth();
   try {
-    await confirmPasswordReset(auth, oobCode.trim(), newPassword);
+    await withIdentityToolkitCapture(() =>
+      confirmPasswordReset(auth, oobCode.trim(), newPassword),
+    );
     console.log(LOG, '✓ Password updated via reset code');
   } catch (err) {
     throw mapFirebaseError(err);
@@ -258,6 +602,12 @@ export async function completePasswordReset(
 }
 
 export function userFacingPasswordError(err: unknown): string {
-  if (err instanceof PasswordResetError) return err.message;
+  if (err instanceof PasswordResetError) {
+    // Always include Firebase code when present for diagnostics (UAT-006A).
+    if (err.firebaseCode && !err.message.includes(err.firebaseCode)) {
+      return `${err.message} [${err.firebaseCode}]`;
+    }
+    return err.message;
+  }
   return mapFirebaseError(err).message;
 }

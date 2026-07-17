@@ -1,29 +1,44 @@
 'use client';
 
 /**
- * UAT-006 — Request password reset for email/password accounts.
+ * UAT-006 / UAT-006A — Request password reset.
+ * Surfaces real Firebase error codes during recovery debugging.
+ * Does not redesign the recovery flow — diagnostics only.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   requestPasswordReset,
   userFacingPasswordError,
   PasswordResetError,
   normalizeEmail,
+  getPublicAuthRuntimeConfig,
+  logPasswordRecoveryConfiguration,
 } from '@/lib/auth/password-reset-service';
+
+const LOG = '[Password Recovery]';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [sentTo, setSentTo] = useState('');
   const [error, setError] = useState('');
+  const [debugDetail, setDebugDetail] = useState('');
   const [googleOnly, setGoogleOnly] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // UAT-006A: log public runtime Firebase config once (no secrets).
+  useEffect(() => {
+    const cfg = getPublicAuthRuntimeConfig();
+    logPasswordRecoveryConfiguration();
+    console.log(LOG, '· Page mount — public auth runtime config object', cfg);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setDebugDetail('');
     setGoogleOnly(false);
     setSubmitting(true);
     try {
@@ -31,11 +46,47 @@ export default function ForgotPasswordPage() {
       setSentTo(result.email);
       setSent(true);
     } catch (err) {
-      if (err instanceof PasswordResetError && err.code === 'google_only') {
-        setGoogleOnly(true);
-        setError(err.message);
+      const mapped = err instanceof PasswordResetError ? err : null;
+      const message = userFacingPasswordError(err);
+      setError(message);
+
+      if (mapped) {
+        setGoogleOnly(mapped.code === 'google_only');
+        setDebugDetail(
+          [
+            mapped.firebaseCode ? `Firebase code: ${mapped.firebaseCode}` : null,
+            mapped.firebaseMessage ? `Firebase message: ${mapped.firebaseMessage}` : null,
+            `App code: ${mapped.code}`,
+          ]
+            .filter(Boolean)
+            .join('\n'),
+        );
+        console.error({
+          code: mapped.firebaseCode ?? mapped.code,
+          message: mapped.firebaseMessage ?? mapped.message,
+          customData: undefined,
+          stack: mapped.stack,
+        });
+        console.error(LOG, '✗ UI received PasswordResetError', {
+          code: mapped.code,
+          message: mapped.message,
+          firebaseCode: mapped.firebaseCode,
+          firebaseMessage: mapped.firebaseMessage,
+        });
       } else {
-        setError(userFacingPasswordError(err));
+        const anyErr = err as {
+          code?: string;
+          message?: string;
+          customData?: unknown;
+          stack?: string;
+        };
+        console.error({
+          code: anyErr?.code,
+          message: anyErr?.message ?? String(err),
+          customData: anyErr?.customData,
+          stack: anyErr?.stack,
+        });
+        console.error(LOG, '✗ UI received non-PasswordResetError', err);
       }
     } finally {
       setSubmitting(false);
@@ -71,7 +122,12 @@ export default function ForgotPasswordPage() {
                   : 'text-danger-400 bg-danger-500/10'
               }`}
             >
-              <p>{error}</p>
+              <p className="whitespace-pre-wrap break-words">{error}</p>
+              {debugDetail ? (
+                <pre className="mt-2 text-left text-[11px] opacity-80 whitespace-pre-wrap break-all font-mono">
+                  {debugDetail}
+                </pre>
+              ) : null}
               {googleOnly ? (
                 <Link
                   href="/sign-in"
