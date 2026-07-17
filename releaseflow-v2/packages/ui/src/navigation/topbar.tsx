@@ -1,4 +1,9 @@
-import { type ReactNode, useState, useEffect, useRef } from 'react';
+import { type ReactNode, useState, useEffect, useRef, useCallback } from 'react';
+import {
+  OverflowMenuPanel,
+  type OverflowMenuItem,
+  type OverflowMenuPosition,
+} from '../components/overflow-menu';
 
 interface TopbarProps {
   collapsed: boolean;
@@ -27,40 +32,84 @@ export function Topbar({
 }: TopbarProps) {
   const [searchValue, setSearchValue] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
+  const [userMenuActive, setUserMenuActive] = useState(-1);
+  const [userMenuPos, setUserMenuPos] = useState<OverflowMenuPosition | null>(null);
+  const userMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const userMenuItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   function handleSearch(v: string) {
     setSearchValue(v);
     onSearch?.(v);
   }
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
-        setUserMenuOpen(false);
-      }
-    }
-    if (userMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [userMenuOpen]);
+  const closeUserMenu = useCallback((focusTrigger = true) => {
+    setUserMenuOpen(false);
+    setUserMenuActive(-1);
+    if (focusTrigger) userMenuTriggerRef.current?.focus();
+  }, []);
+
+  const openUserMenu = useCallback(() => {
+    if (!userMenuTriggerRef.current) return;
+    const rect = userMenuTriggerRef.current.getBoundingClientRect();
+    setUserMenuPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    setUserMenuOpen(true);
+    setUserMenuActive(0);
+  }, []);
+
+  const userMenuItems: OverflowMenuItem[] = [
+    {
+      id: 'administration',
+      label: 'Administration',
+      variant: 'secondary',
+      icon: (
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        </svg>
+      ),
+      onClick: () => {
+        onNavigate?.('/administration');
+      },
+    },
+    {
+      id: 'signout',
+      label: 'Sign out',
+      variant: 'danger',
+      separatorBefore: true,
+      icon: (
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+      ),
+      onClick: () => {
+        onSignOut?.();
+      },
+    },
+  ];
 
   useEffect(() => {
-    function handleEscape(e: KeyboardEvent) {
+    if (!userMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setUserMenuOpen(false);
+        e.preventDefault();
+        closeUserMenu();
+        return;
       }
-    }
-    if (userMenuOpen) {
-      document.addEventListener('keydown', handleEscape);
-    }
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const next = e.key === 'ArrowDown'
+          ? (userMenuActive + 1) % userMenuItems.length
+          : (userMenuActive - 1 + userMenuItems.length) % userMenuItems.length;
+        setUserMenuActive(next);
+        userMenuItemRefs.current[next]?.focus();
+        return;
+      }
+      if (e.key === 'Tab') {
+        closeUserMenu(false);
+      }
     };
-  }, [userMenuOpen]);
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [userMenuOpen, userMenuActive, closeUserMenu]);
 
   const initials = userEmail?.charAt(0).toUpperCase() ?? '?';
 
@@ -146,58 +195,37 @@ export function Topbar({
 
           {/* User Menu Dropdown */}
           {userEmail && (
-            <div className="relative" ref={userMenuRef}>
+            <div className="relative">
               <button
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                ref={userMenuTriggerRef}
+                onClick={() => (userMenuOpen ? closeUserMenu(false) : openUserMenu())}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-primary-700 font-semibold text-xs border border-surface-200 shadow-sm hover:ring-2 hover:ring-primary-500/20 active:scale-95 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                 aria-label="User account menu"
                 aria-expanded={userMenuOpen}
-                aria-haspopup="true"
+                aria-haspopup="menu"
               >
                 {initials}
               </button>
 
-              {userMenuOpen && (
-                <div
-                  className="absolute right-0 mt-2 w-56 rounded-xl border border-surface-200 bg-layer-2 p-1.5 shadow-modal z-50 animate-fade-in focus:outline-none"
-                  role="menu"
-                  aria-orientation="vertical"
-                >
-                  <div className="px-3 py-2 border-b border-surface-100 mb-1.5">
-                    <p className="text-caption font-bold uppercase tracking-wider text-content-label">Signed in as</p>
-                    <p className="text-sm font-medium text-content-primary truncate mt-0.5">{userEmail}</p>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setUserMenuOpen(false);
-                      onNavigate?.('/administration');
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm rounded-lg text-content-primary hover:bg-surface-50 transition-colors duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-                    role="menuitem"
-                  >
-                <svg className="h-4 w-4 text-content-label" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    </svg>
-                    <span>Administration</span>
-                  </button>
-
-                  {onSignOut && (
-                    <button
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        onSignOut();
-                      }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm rounded-lg text-danger-500 hover:bg-danger-50 transition-colors duration-150 text-left mt-1 border-t border-surface-100 pt-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500/40"
-                      role="menuitem"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                      <span>Sign out</span>
-                    </button>
-                  )}
-                </div>
+              {userMenuOpen && userMenuPos && (
+                <OverflowMenuPanel
+                  items={userMenuItems}
+                  position={userMenuPos}
+                  activeIndex={userMenuActive}
+                  itemRefs={userMenuItemRefs}
+                  ariaLabel="Account"
+                  header={
+                    <div className="px-3 py-2 border-b border-border-default mb-1.5">
+                      <p className="text-caption font-bold uppercase tracking-wider text-content-label">Signed in as</p>
+                      <p className="text-sm font-medium text-content-primary truncate mt-0.5">{userEmail}</p>
+                    </div>
+                  }
+                  onSelect={(item) => {
+                    closeUserMenu();
+                    item.onClick?.();
+                  }}
+                  onClose={() => closeUserMenu(false)}
+                />
               )}
             </div>
           )}

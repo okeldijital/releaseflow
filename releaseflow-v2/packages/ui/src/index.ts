@@ -10,6 +10,12 @@ export { Container } from './components/container';
 export { Stack } from './components/stack';
 export { Grid } from './components/grid';
 export { Overlay, Modal, Drawer } from './components/overlay';
+export {
+  OverflowMenuPanel,
+  OverflowMenuPortal,
+  type OverflowMenuItem,
+  type OverflowMenuPosition,
+} from './components/overflow-menu';
 export { Tooltip } from './components/tooltip';
 export { Tag } from './components/tag';
 export { Icon } from './components/icon';

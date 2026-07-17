@@ -1,17 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Portal } from '@/components/portal';
+import {
+  OverflowMenuPanel,
+  type OverflowMenuItem,
+  type OverflowMenuPosition,
+} from '@releaseflow/ui';
 
-export interface EntityOverflowMenuItem {
-  id: string;
-  label: string;
-  onClick?: () => void;
-  disabled?: boolean;
-  secondaryLabel?: string;
-  variant?: 'default' | 'secondary' | 'danger';
-  separatorBefore?: boolean;
-}
+export type EntityOverflowMenuItem = OverflowMenuItem;
 
 interface EntityOverflowMenuProps {
   items: EntityOverflowMenuItem[];
@@ -26,8 +22,7 @@ export function EntityOverflowMenu({
 }: EntityOverflowMenuProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
-  const [position, setPosition] = useState<{ top: number; left?: number; right?: number } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<OverflowMenuPosition | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -67,11 +62,6 @@ export function EntityOverflowMenu({
   useEffect(() => {
     if (!open) return;
 
-    const onPointerDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        closeMenu(false);
-      }
-    };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -106,13 +96,11 @@ export function EntityOverflowMenu({
     const onScroll = () => closeMenu(false);
     const onResize = () => updatePosition();
 
-    document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onResize);
 
     return () => {
-      document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onResize);
@@ -136,67 +124,19 @@ export function EntityOverflowMenu({
       </button>
 
       {open && position && (
-        <Portal>
-          <div
-            ref={menuRef}
-            className="fixed w-56 rounded-xl border border-border-default bg-layer-2 p-1.5 shadow-modal z-modal animate-fade-in"
-            style={
-              position.left !== undefined
-                ? { top: position.top, left: position.left }
-                : { top: position.top, right: position.right }
-            }
-            role="menu"
-            aria-orientation="vertical"
-            aria-label={ariaLabel}
-          >
-            {items.map((item, index) => {
-              const isActive = index === activeIndex;
-
-              const textColor = item.disabled
-                ? 'text-content-label opacity-50 cursor-not-allowed'
-                : item.variant === 'danger'
-                  ? `text-danger-500 ${isActive ? 'bg-danger-500/10 border-primary-500' : 'hover:bg-danger-500/10'}`
-                  : item.variant === 'secondary'
-                    ? `text-content-secondary ${isActive ? 'bg-primary-700/20 border-primary-500' : 'hover:bg-primary-700/20 hover:border-primary-500'}`
-                    : `text-content-primary ${isActive ? 'bg-primary-700/20 border-primary-500 text-primary-400' : 'hover:bg-layer-3'}`;
-
-              return (
-                <div key={item.id}>
-                  {item.separatorBefore ? (
-                    <div className="my-1 border-t border-border-default" role="separator" />
-                  ) : null}
-                  <button
-                    ref={(el) => {
-                      itemRefs.current[index] = el;
-                    }}
-                    type="button"
-                    role="menuitem"
-                    disabled={item.disabled}
-                    tabIndex={isActive ? 0 : -1}
-                    aria-disabled={item.disabled || undefined}
-                    onClick={() => {
-                      if (item.disabled || !item.onClick) return;
-                      closeMenu();
-                      item.onClick();
-                    }}
-                    className={`
-                      flex w-full items-center justify-between gap-3 px-3 py-2 text-sm rounded-lg text-left transition-colors duration-150
-                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40
-                      border border-transparent
-                      ${item.disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
-                      ${textColor}
-                    `.trim()}
-                  >
-                    <span>{item.label}</span>
-                    {item.secondaryLabel ? (
-                      <span className="text-xs text-content-label shrink-0 opacity-80">{item.secondaryLabel}</span>
-                    ) : null}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </Portal>
+        <OverflowMenuPanel
+          items={items}
+          position={position}
+          activeIndex={activeIndex}
+          itemRefs={itemRefs}
+          ariaLabel={ariaLabel}
+          onSelect={(item) => {
+            if (item.disabled || !item.onClick) return;
+            closeMenu();
+            item.onClick();
+          }}
+          onClose={() => closeMenu(false)}
+        />
       )}
     </div>
   );

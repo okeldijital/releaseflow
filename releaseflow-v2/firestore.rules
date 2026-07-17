@@ -135,5 +135,10 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 
+    // User preferences — doc id is the user id; only the owner can access.
+    match /user_preferences/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+
   }
 }
