@@ -71,7 +71,7 @@ export function PersonFieldPicker({
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-surface-100 truncate">{p.name}</p>
                     <p className="text-xs text-text-500 truncate">
-                      {p.primaryRole}{p.department ? ` · ${p.department}` : ''}
+                      {p.email}{p.department ? ` · ${p.department}` : ''}
                     </p>
                   </div>
                   {p.status === 'archived' && (

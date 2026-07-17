@@ -55,7 +55,7 @@ export function MentionPicker({
           <Avatar name={s.displayName} src={s.avatarUrl ?? undefined} size="sm" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-surface-100 truncate">{s.displayName}</p>
-            <p className="text-xs text-text-500 truncate">{s.primaryRole || 'Collaborator'}</p>
+            <p className="text-xs text-text-500 truncate">{s.primaryRole || s.displayName}</p>
           </div>
         </button>
       ))}

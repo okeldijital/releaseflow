@@ -518,13 +518,17 @@ export async function acceptInvitationAtomically(
       }, { merge: true });
 
       // Step 3: Create/update Person record.
-      // professionalRole is the craft role (e.g. Mixer); platformRole maps to membership.roleId.
-      const personProfessionalRole = professionalRole || platformRole;
+      // DOM-001: Person is identity only. Platform role is on membership.
+      // primaryRole is deprecated (legacy craft role) — do not copy platformRole onto Person.
+      // Contribution roles live exclusively on assignments.
       if (existingPersonId) {
         const patch: Record<string, unknown> = { updatedAt: now };
         if (!existingPersonData?.userId) patch.userId = user.uid;
         if (!existingPersonData?.displayName && displayName) patch.displayName = displayName;
-        if (!existingPersonData?.primaryRole) patch.primaryRole = personProfessionalRole;
+        // Do not overwrite primaryRole with platform security role.
+        if (!existingPersonData?.primaryRole && professionalRole) {
+          patch.primaryRole = professionalRole; // legacy only if invitation still has it
+        }
         patch.invitationStatus = 'accepted';
         transaction.update(doc(db, 'people', existingPersonId), patch);
       } else {
@@ -534,7 +538,8 @@ export async function acceptInvitationAtomically(
           userId: user.uid,
           email,
           displayName,
-          primaryRole: personProfessionalRole,
+          // Deprecated: empty unless legacy invitation still carries professionalRole.
+          primaryRole: professionalRole || '',
           status: 'active',
           invitationStatus: 'accepted',
           createdAt: now,
@@ -594,7 +599,7 @@ export async function acceptInvitationAtomically(
       console.log('[Invitation Flow]', '✓ Roles assigned', {
         platformRole,
         systemRole,
-        professionalRole: personProfessionalRole,
+        professionalRole: professionalRole || '(none — contribution roles via assignments)',
         source: 'firestore',
       });
       console.log('[Invitation Flow]', '✓ Invitation accepted');

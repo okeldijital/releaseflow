@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { fetchPeople } from '@/lib/person-service';
 import { invitePerson } from '@/lib/invitation-service';
 import type { PlatformRole } from '@/lib/invitation-service';
-import { systemRoleToPlatformRole } from '@/lib/platform-roles';
 import { getOrganization } from '@/lib/organization-repository';
 import { createNewAssignment } from '@/lib/assignment-service';
 import { toPersonOptions, filterPeopleForSearch, type PersonOption } from '@/lib/person-field-picker-logic';
@@ -119,8 +118,9 @@ export function PersonPickerDialog({
         organizationName: org?.name ?? '',
         inviteeName: inviteName.trim(),
         inviteeEmail: inviteEmail.trim(),
-        platformRole: systemRoleToPlatformRole(selectedRole || contextRole) as PlatformRole,
-        professionalRole: selectedRole || contextRole,
+        // DOM-001: platform role for security; contribution role chosen at assignment time.
+        platformRole: 'collaborator' as PlatformRole,
+        professionalRole: '',
         invitedByUserId: currentUserId,
         invitedByName: 'Administrator',
       });
@@ -218,7 +218,7 @@ export function PersonPickerDialog({
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-surface-100 truncate">{p.name}</p>
                           <p className="text-xs text-text-500 truncate">
-                            {p.primaryRole}{p.department ? ` · ${p.department}` : ''}
+                            {p.email}{p.department ? ` · ${p.department}` : ''}
                           </p>
                         </div>
                       </div>

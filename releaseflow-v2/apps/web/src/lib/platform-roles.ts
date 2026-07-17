@@ -41,11 +41,14 @@ export function systemRoleToPlatformRole(roleId: string | null | undefined): Pla
   }
 }
 
-/** Human-readable labels for the invitation UI. */
+/**
+ * Human-readable labels for platform (security) roles.
+ * DOM-001: Manager / Contributor (not creative contribution roles).
+ */
 export const PLATFORM_ROLE_LABELS: Record<PlatformRole, string> = {
   administrator: 'Administrator',
-  release_manager: 'Release Manager',
-  collaborator: 'Collaborator',
+  release_manager: 'Manager',
+  collaborator: 'Contributor',
 };
 
 export const PLATFORM_ROLE_OPTIONS: PlatformRole[] = ['administrator', 'release_manager', 'collaborator'];

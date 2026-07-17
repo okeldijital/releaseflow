@@ -238,8 +238,9 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
       organizationName: orgName,
       inviteeName: inviteName.trim(),
       inviteeEmail: inviteEmail.trim(),
-      platformRole: (inviteRole || 'contributor') as 'collaborator',
-      professionalRole: inviteRole || 'Contributor',
+      // DOM-001: invite with platform security role only.
+      platformRole: 'collaborator',
+      professionalRole: '',
       invitedByUserId: user!.uid,
       invitedByName: user!.displayName || user!.email?.split('@')[0] || 'Administrator',
     });

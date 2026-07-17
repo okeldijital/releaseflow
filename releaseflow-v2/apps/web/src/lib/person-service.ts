@@ -75,7 +75,7 @@ export async function ensureOwnerPerson(organizationId: string, userId: string):
     if (!existing.userId) patch.userId = userId;
     if (!existing.invitationStatus) patch.invitationStatus = 'accepted';
     if (!existing.status) patch.status = 'active';
-    if (!existing.primaryRole) patch.primaryRole = 'Owner';
+    // DOM-001: do not force platform labels onto primaryRole
     if (Object.keys(patch).length > 0) {
       await repoUpdate(existing.id, patch);
     }
@@ -91,7 +91,8 @@ export async function ensureOwnerPerson(organizationId: string, userId: string):
     userId,
     email,
     displayName,
-    primaryRole: 'Owner',
+    // DOM-001: primaryRole deprecated; platform role lives on membership (owner).
+    primaryRole: '',
   });
   // createPerson persists status = 'active'; mark the owner as an accepted
   // member so the record is indistinguishable from an accepted collaborator.
@@ -136,12 +137,12 @@ export async function checkPersonReadiness(personId: string): Promise<PersonRead
   const person = await repoGet(personId);
   if (!person) return { ready: false, percentage: 0, missing: ['Person not found'] };
 
+  // DOM-001: readiness no longer requires primaryRole (contribution roles on assignments).
   const checks: [boolean, string][] = [
     [!person.displayName, 'Display Name'],
     [!person.email, 'Email'],
     [!person.avatarUrl, 'Profile Photo'],
     [!person.department, 'Department'],
-    [!person.primaryRole || person.primaryRole === '—', 'Role'],
     [!person.skills || person.skills.length === 0, 'Skills'],
   ];
 

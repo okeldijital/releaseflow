@@ -339,7 +339,9 @@ function InvitationCard({
         <p className="text-sm text-text-400">Accepting invitation...</p>
         {invitation && (
           <p className="text-xs text-text-500">
-            Joining {invitation.organizationName} as {invitation.professionalRole || invitation.platformRole}
+            Joining {invitation.organizationName} as{' '}
+            {PLATFORM_ROLE_LABELS[invitation.platformRole as keyof typeof PLATFORM_ROLE_LABELS]
+              ?? invitation.platformRole}
           </p>
         )}
       </div>
@@ -360,9 +362,8 @@ function InvitationCard({
       <dl className="space-y-3 rounded-lg border border-surface-700/60 bg-surface-950/40 p-4 text-sm">
         <Row label="You've been invited by" value={invitation?.invitedByName || '—'} />
         <Row label="Organisation" value={invitation?.organizationName || '—'} />
-        <Row label="Professional Role" value={invitation?.professionalRole || '—'} />
         <Row
-          label="Platform Access"
+          label="Platform Role"
           value={
             invitation?.platformRole
               ? (PLATFORM_ROLE_LABELS[invitation.platformRole as keyof typeof PLATFORM_ROLE_LABELS]
@@ -371,6 +372,9 @@ function InvitationCard({
           }
         />
       </dl>
+      <p className="mt-3 text-center text-xs text-text-500">
+        Creative contribution roles (e.g. Lyricist, Producer) are assigned when work is assigned to you.
+      </p>
 
       <div className="mt-5 space-y-3">
         {/* UAT-005: Primary = Create Account (invite assumes new user) */}

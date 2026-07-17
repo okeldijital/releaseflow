@@ -152,7 +152,15 @@ export function AssignmentDialog({
           currentUserId={actorId}
         />
 
-        <Input label="Role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Producer, Engineer" />
+        <Input
+          label="Contribution Role"
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          placeholder="e.g. Lyricist, Composer, Producer"
+        />
+        <p className="text-xs text-text-500 -mt-2">
+          What this person contributes on this assignment only — not their organization security role.
+        </p>
 
         <div className="grid grid-cols-3 gap-4">
           <Select label="Priority" options={priorityOptions} value={priority} onChange={setPriority} />

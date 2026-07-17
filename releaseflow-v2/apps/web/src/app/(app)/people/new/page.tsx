@@ -25,7 +25,6 @@ export default function NewPersonPage() {
   const { activeOrgId } = useOrgStore();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
-  const [primaryRole, setPrimaryRole] = useState('');
   const [department, setDepartment] = useState('');
   const [position, setPosition] = useState('');
   const [employmentType, setEmploymentType] = useState('full_time');
@@ -45,7 +44,7 @@ export default function NewPersonPage() {
         organizationId: activeOrgId,
         displayName: displayName.trim(),
         email: email.trim(),
-        primaryRole: primaryRole.trim() || '—',
+        primaryRole: '', // DOM-001 deprecated — contribution roles live on assignments
         department: department.trim() || null,
         position: position.trim() || null,
         employmentType: employmentType,
@@ -80,9 +79,11 @@ export default function NewPersonPage() {
           <Input label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Input label="Primary Role" value={primaryRole} onChange={(e) => setPrimaryRole(e.target.value)} placeholder="e.g. Mastering Engineer" />
           <Select label="Employment Type" options={employmentTypeOptions} value={employmentType} onChange={(v) => setEmploymentType(v)} />
         </div>
+        <p className="text-xs text-text-500">
+          Platform access is set when this person is invited or joins. Creative contribution roles are assigned per release.
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label="Department" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Production" />
           <Input label="Position" value={position} onChange={(e) => setPosition(e.target.value)} placeholder="e.g. Senior Engineer" />

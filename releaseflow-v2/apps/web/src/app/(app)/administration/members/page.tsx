@@ -18,8 +18,8 @@ import { Button, EmptyState, LoadingState, Select, Badge, StatusBadge, Input } f
 
 const ROLE_OPTIONS = [
   { value: 'owner', label: 'Owner' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'release_manager', label: 'Release Manager' },
+  { value: 'admin', label: 'Administrator' },
+  { value: 'release_manager', label: 'Manager' },
   { value: 'contributor', label: 'Contributor' },
 ];
 
@@ -78,7 +78,7 @@ function InviteDialog({ open, onClose, orgName }: { open: boolean; onClose: () =
         inviteeName: '',
         inviteeEmail: email.trim(),
         platformRole: systemRoleToPlatformRole(role) as PlatformRole,
-        professionalRole: role,
+        professionalRole: '', // DOM-001: contribution roles assigned per release, not invite
         invitedByUserId: user.uid,
         invitedByName: user.displayName || user.email?.split('@')[0] || 'Administrator',
       });
@@ -106,8 +106,9 @@ function InviteDialog({ open, onClose, orgName }: { open: boolean; onClose: () =
             <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="colleague@example.com" type="email" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-500 mb-1">Role</label>
+            <label className="block text-xs font-medium text-text-500 mb-1">Platform Role</label>
             <Select options={ROLE_OPTIONS} value={role} onChange={setRole} />
+            <p className="mt-1 text-xs text-text-500">Security access only. Contribution roles are assigned per release.</p>
           </div>
           {error && <p className="text-xs text-danger-500">{error}</p>}
           {success && <p className="text-xs text-success-500">{success}</p>}

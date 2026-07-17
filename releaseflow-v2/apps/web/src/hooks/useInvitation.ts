@@ -51,7 +51,11 @@ export interface InvitePersonInput {
   email: string;
   name: string;
   platformRole: PlatformRole;
-  professionalRole: string;
+  /**
+   * @deprecated DOM-001 — contribution roles belong on assignments only.
+   * Kept optional for backward-compatible call sites; always stored as empty.
+   */
+  professionalRole?: string;
 }
 
 export function useInvitePerson() {
@@ -70,7 +74,8 @@ export function useInvitePerson() {
         inviteeName: input.name.trim(),
         inviteeEmail: input.email.trim(),
         platformRole: input.platformRole,
-        professionalRole: input.professionalRole.trim(),
+        // DOM-001: invitations collect platform role only.
+        professionalRole: '',
         invitedByUserId: user.uid,
         invitedByName: user.displayName || user.email?.split('@')[0] || 'Administrator',
       });

@@ -84,9 +84,6 @@ export default function ProfilePage() {
           className="shadow-lg"
         />
         <h1 className="text-xl font-semibold text-surface-50 mt-4">{displayName}</h1>
-        {person?.primaryRole && (
-          <p className="text-sm text-text-400 mt-1">{person.primaryRole}</p>
-        )}
       </div>
 
       <div className="rounded-xl border border-surface-700/60 bg-surface-900 divide-y divide-surface-700/40">
