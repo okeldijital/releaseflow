@@ -37,22 +37,29 @@ interface ReleaseSelectorProps {
   organizationId: string;
   value: ReleaseRecord | null;
   onChange: (release: ReleaseRecord | null) => void;
+  /** RW-001 — lock selection when opened from a release workspace. */
+  locked?: boolean;
 }
 
-export function ReleaseSelector({ organizationId, value, onChange }: ReleaseSelectorProps) {
+export function ReleaseSelector({
+  organizationId,
+  value,
+  onChange,
+  locked = false,
+}: ReleaseSelectorProps) {
   const [releases, setReleases] = useState<ReleaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
   useEffect(() => {
-    if (!organizationId) return;
+    if (!organizationId || locked) return;
     setLoading(true);
     fetchReleasesByOrg(organizationId)
       .then((list) => setReleases(list as ReleaseRecord[]))
       .catch(() => setReleases([]))
       .finally(() => setLoading(false));
-  }, [organizationId]);
+  }, [organizationId, locked]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -71,11 +78,24 @@ export function ReleaseSelector({ organizationId, value, onChange }: ReleaseSele
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-content-label">Release</label>
+      <label className="block text-sm font-medium text-content-label">
+        Release
+        {locked ? (
+          <span className="ml-2 text-xs font-normal text-text-500">(locked to this release)</span>
+        ) : null}
+      </label>
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        className="w-full min-h-[48px] flex items-center gap-3 px-3 py-2.5 rounded-xl border border-surface-700/60 bg-surface-900 text-left hover:border-primary-500/40 transition-colors"
+        onClick={() => {
+          if (!locked) setOpen(true);
+        }}
+        disabled={locked}
+        aria-disabled={locked}
+        className={`w-full min-h-[48px] flex items-center gap-3 px-3 py-2.5 rounded-xl border border-surface-700/60 bg-surface-900 text-left transition-colors ${
+          locked
+            ? 'cursor-default opacity-95'
+            : 'hover:border-primary-500/40'
+        }`}
       >
         {value ? (
           <>
@@ -92,18 +112,22 @@ export function ReleaseSelector({ organizationId, value, onChange }: ReleaseSele
             </div>
           </>
         ) : (
-          <span className="text-sm text-text-500">Select a release…</span>
+          <span className="text-sm text-text-500">
+            {locked ? 'Loading release…' : 'Select a release…'}
+          </span>
         )}
-        <svg className="h-4 w-4 text-text-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        {!locked ? (
+          <svg className="h-4 w-4 text-text-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        ) : null}
       </button>
 
       {value ? (
         <ReleaseContextCard release={value} />
       ) : null}
 
-      {open ? (
+      {open && !locked ? (
         <div className="fixed inset-0 z-[60] flex flex-col sm:items-center sm:justify-center sm:p-4">
           <button type="button" className="absolute inset-0 bg-surface-950/70 backdrop-blur-sm" aria-label="Close" onClick={() => setOpen(false)} />
           <div className="relative z-10 flex flex-col w-full h-full sm:h-auto sm:max-h-[80vh] sm:max-w-lg bg-surface-900 sm:rounded-2xl border-0 sm:border border-surface-700 shadow-modal">

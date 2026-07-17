@@ -1,10 +1,16 @@
 'use client';
 
+/**
+ * RW-001 — Release Workspace Consolidation
+ * Single vertically scrolling execution page (no Overview/Workflow/Settings tabs).
+ */
+
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
+import { usePermissions } from '@/hooks/usePermissions';
 import { PersonPickerDialog } from '@/components/person-picker-dialog';
 import { fetchRelease, removeRelease, editRelease } from '@/lib/release-service';
 import { uploadArtwork, getArtworkByRelease } from '@/lib/artwork/artwork-service';
@@ -18,7 +24,15 @@ import { getActivityByEntity } from '@/lib/activity-service';
 import { fmtDate } from '@/lib/utils';
 import { formatReleaseMetadata } from '@/lib/release-metadata';
 import { RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-config';
-import { Button, StatusBadge, Skeleton, EmptyState, LoadingState, Tabs, ConfirmationDialog } from '@releaseflow/ui';
+import {
+  Button,
+  StatusBadge,
+  Skeleton,
+  EmptyState,
+  LoadingState,
+  ConfirmationDialog,
+  Input,
+} from '@releaseflow/ui';
 import { ReleaseArtwork, type UploadState } from '@/components/release/ReleaseArtwork';
 import { ReadinessCard } from '@/components/release/workspace/ReadinessCard';
 import { SectionHeader } from '@/components/release/workspace/SectionHeader';
@@ -137,11 +151,20 @@ function taskActionLabel(task: Task): string {
   return 'Open Task';
 }
 
+function tsToDateString(ts: unknown): string {
+  if (!ts) return '';
+  if (typeof ts === 'string') return ts.slice(0, 10);
+  const obj = ts as { toDate?: () => Date; seconds?: number };
+  if (obj.toDate) return obj.toDate().toISOString().split('T')[0] ?? '';
+  if (typeof obj.seconds === 'number') return new Date(obj.seconds * 1000).toISOString().split('T')[0] ?? '';
+  return '';
+}
+
 /* ─── activity event label ───────────────────────────────────────────────── */
 
 const TECHNICAL_ACTIONS = new Set([
   'firestore.write', 'hook.refresh', 'system.sync', 'system.recalculate',
-  'workflow.generated', // internal
+  'workflow.generated',
 ]);
 
 function humaniseActivity(ev: ActivityEventRecord): string | null {
@@ -172,20 +195,6 @@ function humaniseActivity(ev: ActivityEventRecord): string | null {
 const READINESS_CATS = ['Audio', 'Artwork', 'Metadata', 'Rights', 'Distribution', 'Marketing'] as const;
 type ReadinessCat = typeof READINESS_CATS[number];
 
-/* ─── Main Page ──────────────────────────────────────────────────────────── */
-
-type TabId = 'overview' | 'assignments' | 'workflow' | 'campaign' | 'rights' | 'budget' | 'settings';
-
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'overview',  label: 'Overview'  },
-  { id: 'assignments',  label: 'Assignments'  },
-  { id: 'workflow',  label: 'Workflow'  },
-  { id: 'campaign',  label: 'Campaign'  },
-  { id: 'rights',    label: 'Rights'    },
-  { id: 'budget',    label: 'Budget'    },
-  { id: 'settings',  label: 'Settings'  },
-];
-
 const INVITE_ROLES = [
   'Mixing Engineer',
   'Mastering Engineer',
@@ -199,12 +208,15 @@ const INVITE_ROLES = [
   'Artist',
 ] as const;
 
+/* ─── Main Page ──────────────────────────────────────────────────────────── */
+
 export default function ReleaseWorkspacePage() {
   const { user } = useAuth();
   const { activeOrgId } = useOrgStore();
   const router = useRouter();
   const params = useParams();
   const releaseId = params.id as string;
+  const perms = usePermissions();
 
   const [release, setRelease] = useState<Release | null>(null);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
@@ -219,6 +231,9 @@ export default function ReleaseWorkspacePage() {
   const [archiving, setArchiving] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [dateOpen, setDateOpen] = useState(false);
+  const [dateValueInput, setDateValueInput] = useState('');
+  const [savingDate, setSavingDate] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -227,22 +242,6 @@ export default function ReleaseWorkspacePage() {
   const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
   const [artwork, setArtwork] = useState<Artwork | null>(null);
   const [uploadState, setUploadState] = useState<UploadState>('idle');
-  const [tab, setTab] = useState<TabId>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`rf-tab-release-${releaseId}`);
-      if (saved && TABS.some((t) => t.id === saved)) return saved as TabId;
-    }
-    return 'overview';
-  });
-
-  const visibleTabs = useMemo(() => TABS.filter((t) => (
-    t.id === 'overview' ||
-    t.id === 'workflow' ||
-    t.id === 'settings' ||
-    (t.id === 'campaign' && deliverables.some((d) => d.type === 'video' || d.type === 'other')) ||
-    (t.id === 'rights' && Boolean(release?.copyright || release?.pLine || release?.cLine)) ||
-    (t.id === 'budget' && false)
-  )), [deliverables, release?.cLine, release?.copyright, release?.pLine]);
 
   /* Load core data — fault-tolerant, always clears loading */
   useEffect(() => {
@@ -298,7 +297,7 @@ export default function ReleaseWorkspacePage() {
           try {
             return await getTasksByEntity('release', releaseId);
           } catch (error) {
-            console.error('[Workspace] Assignment load failed', error);
+            console.error('[Workspace] Workflow task load failed', error);
             return [] as Task[];
           }
         })(),
@@ -426,12 +425,6 @@ export default function ReleaseWorkspacePage() {
     return () => { cancelled = true; };
   }, [releaseId, activeOrgId, workspaceReloadToken]);
 
-  const handleTabChange = useCallback((id: string) => {
-    setTab(id as TabId);
-    localStorage.setItem(`rf-tab-release-${releaseId}`, id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [releaseId]);
-
   const handleArtworkUpload = useCallback(async (file: File) => {
     if (!user || !activeOrgId) {
       toast.error('Cannot upload artwork', 'You must be signed in to an organisation.');
@@ -450,9 +443,13 @@ export default function ReleaseWorkspacePage() {
     }
   }, [user, activeOrgId, releaseId]);
 
-  useEffect(() => {
-    if (!visibleTabs.some((t) => t.id === tab)) setTab('overview');
-  }, [tab, visibleTabs]);
+  const openCreateAssignment = useCallback(() => {
+    if (!perms.canManageAssignments) {
+      toast.error('You do not have permission to create assignments.');
+      return;
+    }
+    router.push(`/assignments/new?releaseId=${encodeURIComponent(releaseId)}&lockRelease=1&from=release`);
+  }, [perms.canManageAssignments, releaseId, router]);
 
   async function handleDeleteRelease() {
     if (!user) return;
@@ -496,19 +493,41 @@ export default function ReleaseWorkspacePage() {
     }
   }
 
+  async function handleSaveReleaseDate() {
+    if (!user || !dateValueInput) {
+      toast.error('Choose a release date.');
+      return;
+    }
+    setSavingDate(true);
+    try {
+      await editRelease(
+        releaseId,
+        { targetReleaseDate: new Date(dateValueInput) },
+        user.uid,
+      );
+      toast.success('Release date updated.');
+      setDateOpen(false);
+      setWorkspaceReloadToken((n) => n + 1);
+    } catch {
+      toast.error('Could not update release date.', 'Please try again.');
+    } finally {
+      setSavingDate(false);
+    }
+  }
+
   /* ─── Readiness calculation ─────────────────────────────────────────── */
   const readinessMap: Record<ReadinessCat, boolean> = {
     Audio:        deliverables.some((d) => d.type === 'audio'    && d.status === 'approved'),
     Artwork:      Boolean(artwork),
     Metadata:     !!(release?.upc),
-    Rights:       false, // resolved by rights service — default safe
-    Distribution: false, // resolved by dist service — default safe
+    Rights:       false,
+    Distribution: false,
     Marketing:    deliverables.some((d) => d.type === 'other'    && d.status === 'approved'),
   };
   const readyCount   = Object.values(readinessMap).filter(Boolean).length;
   const readinessPct = Math.round((readyCount / READINESS_CATS.length) * 100);
 
-  /* ─── Task priority sort ─────────────────────────────────────────────── */
+  /* ─── Workflow task priority sort ───────────────────────────────────── */
   const pendingTasks = tasks
     .filter((t) => t.status !== 'done')
     .sort((a, b) => {
@@ -516,6 +535,73 @@ export default function ReleaseWorkspacePage() {
       if (bucketDiff !== 0) return bucketDiff;
       return dateValue(a.dueDate) - dateValue(b.dueDate);
     });
+
+  const overflowItems = useMemo(() => {
+    if (!release) return [];
+    const items: {
+      id: string;
+      label: string;
+      onClick?: () => void;
+      disabled?: boolean;
+      secondaryLabel?: string;
+      variant?: 'secondary' | 'danger';
+      separatorBefore?: boolean;
+    }[] = [];
+
+    if (perms.canEditRelease) {
+      items.push({
+        id: 'edit',
+        label: 'Edit release details',
+        onClick: () => router.push(`/releases/${releaseId}/edit`),
+      });
+      items.push({
+        id: 'change-date',
+        label: 'Change release date',
+        onClick: () => {
+          setDateValueInput(tsToDateString(release.targetReleaseDate ?? release.estimatedReleaseDate));
+          setDateOpen(true);
+        },
+      });
+    }
+
+    if (perms.canEditRelease) {
+      if (release.status === 'archived') {
+        items.push({
+          id: 'restore',
+          label: 'Restore release',
+          onClick: () => setRestoreOpen(true),
+        });
+      } else {
+        items.push({
+          id: 'archive',
+          label: 'Archive release',
+          variant: 'secondary',
+          onClick: () => setArchiveOpen(true),
+        });
+      }
+    }
+
+    if (perms.canDeleteRelease) {
+      items.push({
+        id: 'delete',
+        label: 'Delete release',
+        variant: 'danger',
+        separatorBefore: true,
+        onClick: () => setDeleteOpen(true),
+      });
+    }
+
+    if (items.length === 0) {
+      items.push({
+        id: 'no-actions',
+        label: 'No administrative actions',
+        disabled: true,
+        secondaryLabel: 'Insufficient permissions',
+      });
+    }
+
+    return items;
+  }, [release, perms.canEditRelease, perms.canDeleteRelease, releaseId, router]);
 
   /* ─── Loading skeleton ───────────────────────────────────────────────── */
   if (loading) {
@@ -531,13 +617,10 @@ export default function ReleaseWorkspacePage() {
             <Skeleton className="h-6 w-24" />
             <Skeleton className="h-4 w-full" />
             <div className="flex gap-2">
-              <Skeleton className="h-9 w-28 rounded-lg" />
-              <Skeleton className="h-9 w-28 rounded-lg" />
               <Skeleton className="h-9 w-9 rounded-lg" />
             </div>
           </div>
         </div>
-        <Skeleton className="h-10 w-full mb-6" />
         <div className="space-y-4">
           <Skeleton variant="card" className="h-32" />
           <Skeleton variant="card" className="h-48" />
@@ -564,7 +647,7 @@ export default function ReleaseWorkspacePage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-96 px-6 py-20">
         <p className="text-base font-semibold text-content-primary mb-1">Access Denied</p>
-        <p className="text-sm text-content-label mb-5">You don't have access to this release.</p>
+        <p className="text-sm text-content-label mb-5">You don&apos;t have access to this release.</p>
         <Link href="/releases" className="text-sm font-medium text-primary-500 hover:text-primary-600 transition-colors">← Back to Releases</Link>
       </div>
     );
@@ -577,7 +660,7 @@ export default function ReleaseWorkspacePage() {
       </div>
     );
   }
-  /* ─── Artwork ──────────────────────────────────────────────────────────── */
+
   const artistName = fieldValue(release, ['artistName', 'artist', 'primaryArtist']) ?? 'No primary artist';
   const meaningfulActivities = activities.filter((ev) => humaniseActivity(ev) !== null);
 
@@ -594,10 +677,9 @@ export default function ReleaseWorkspacePage() {
         </Link>
       </div>
 
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="mb-10" aria-label="Release overview">
+      {/* ── 1. Release header ─────────────────────────────────────────── */}
+      <section className="mb-10" aria-label="Release header">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Column — Artwork */}
           <div className="w-full lg:w-64 shrink-0">
             <ReleaseArtwork
               artwork={artwork}
@@ -608,233 +690,168 @@ export default function ReleaseWorkspacePage() {
             />
           </div>
 
-          {/* Right Column — Details */}
           <div className="flex-1 min-w-0 space-y-4">
-            {/* Title */}
-            <h1 className="text-3xl font-bold text-content-primary tracking-tight leading-tight">{release.title}</h1>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-3xl font-bold text-content-primary tracking-tight leading-tight">
+                {release.title}
+              </h1>
+              <EntityOverflowMenu
+                aria-label="Release administrative actions"
+                items={overflowItems}
+              />
+            </div>
 
-            {/* Primary Artist */}
             <p className="text-sm text-content-primary">{artistName}</p>
 
-            {/* Metadata Row */}
             {(() => {
               const metadataStr = formatReleaseMetadata(release);
               if (!metadataStr) return null;
               return <div className="flex items-center gap-1.5 text-sm text-content-primary">{metadataStr}</div>;
             })()}
 
-            {/* Status */}
-            <StatusBadge status={displayStatus(release.status)} />
-
-            {/* Release Readiness */}
-            <div className="space-y-2">
-            <Link
-              href={`/releases/${releaseId}/readiness`}
-              className="text-xs font-medium text-primary-400 hover:text-primary-300 transition-colors"
-            >
-              Open readiness workspace →
-            </Link>
-            <ReadinessCard
-              pct={readinessPct}
-              categories={READINESS_CATS.map((cat) => ({
-                label: cat,
-                done: readinessMap[cat],
-              }))}
-            />
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2 pt-2">
-              <Button size="sm" variant="primary" onClick={() => router.push(`/releases/${releaseId}/edit`)}>Edit Release</Button>
-              <EntityOverflowMenu
-                aria-label="More release actions"
-                items={[
-                  {
-                    id: 'duplicate',
-                    label: 'Duplicate Release',
-                    disabled: true,
-                    secondaryLabel: 'Coming Soon',
-                  },
-                  ...(release.status === 'archived'
-                    ? [{
-                        id: 'restore',
-                        label: 'Restore Release',
-                        onClick: () => setRestoreOpen(true),
-                      }]
-                     : [{
-                          id: 'archive',
-                          label: 'Archive Release',
-                          variant: 'secondary' as const,
-                          onClick: () => setArchiveOpen(true),
-                       }]
-                  ),
-                  {
-                    id: 'delete',
-                    label: 'Delete Release',
-                    variant: 'danger' as const,
-                    separatorBefore: true,
-                    onClick: () => setDeleteOpen(true),
-                  },
-                ]}
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Overview ────────────────────────────────────────────────────── */}
-      <section aria-label="Overview" className="mb-10">
-        <SectionHeader title="Overview" description="Core release details and identifiers." />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
-          {/* Release Information Card */}
-          <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5">
-            <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">Release Information</h3>
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between"><dt className="text-content-secondary">Release Type</dt><dd className="text-content-primary font-medium">{RELEASE_TYPE_LABELS[release.releaseType] ?? release.releaseType}</dd></div>
-              {release.targetReleaseDate ? <div className="flex justify-between"><dt className="text-content-secondary">Estimated Release Date</dt><dd className="text-content-primary">{fmtDate(release.targetReleaseDate)}</dd></div> : null}
-              {release.estimatedReleaseDate ? <div className="flex justify-between"><dt className="text-content-secondary">Digital Release Date</dt><dd className="text-content-primary">{fmtDate(release.estimatedReleaseDate)}</dd></div> : null}
-            </dl>
-          </div>
-
-          {/* Publishing Card */}
-          <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5">
-            <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">Publishing</h3>
-            <dl className="space-y-2 text-sm">
-              {release.upc ? <div className="flex justify-between"><dt className="text-content-secondary">UPC</dt><dd className="text-content-primary font-medium">{release.upc}</dd></div> : null}
-              {release.catalogNumber ? <div className="flex justify-between"><dt className="text-content-secondary">Catalogue Number</dt><dd className="text-content-primary">{release.catalogNumber}</dd></div> : null}
-              {release.explicit ? <div className="flex justify-between"><dt className="text-content-secondary">Explicit</dt><dd className="text-content-primary">Yes</dd></div> : null}
-              {release.releaseLink ? (
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="text-content-secondary">Release Link</dt>
-                  <dd>
-                    <a
-                      href={release.releaseLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-primary-400 hover:text-primary-300 font-medium"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5h5v5m0-5L10 14M9 5H5v14h14v-4" />
-                      </svg>
-                      Open Release
-                    </a>
-                  </dd>
-                </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status={displayStatus(release.status)} />
+              <span className="text-xs text-content-secondary">
+                {RELEASE_TYPE_LABELS[release.releaseType] ?? release.releaseType}
+              </span>
+              {release.targetReleaseDate ? (
+                <span className="text-xs text-content-secondary">
+                  · Target {fmtDate(release.targetReleaseDate)}
+                </span>
               ) : null}
-            </dl>
-          </div>
+            </div>
 
-          {/* Label Card */}
-          <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5">
-            <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">Label</h3>
-            <p className="text-sm font-medium text-content-primary">{release.label || 'No label assigned'}</p>
+            {/* Compact identity cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4">
+                <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Release</h3>
+                <dl className="space-y-1.5 text-sm">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-content-secondary">Type</dt>
+                    <dd className="text-content-primary font-medium text-right">
+                      {RELEASE_TYPE_LABELS[release.releaseType] ?? release.releaseType}
+                    </dd>
+                  </div>
+                  {release.label ? (
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-content-secondary">Label</dt>
+                      <dd className="text-content-primary text-right">{release.label}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </div>
+              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4">
+                <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Publishing</h3>
+                <dl className="space-y-1.5 text-sm">
+                  {release.upc ? (
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-content-secondary">UPC</dt>
+                      <dd className="text-content-primary font-medium">{release.upc}</dd>
+                    </div>
+                  ) : (
+                    <p className="text-content-label text-xs">No UPC yet</p>
+                  )}
+                  {release.catalogNumber ? (
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-content-secondary">Cat. No.</dt>
+                      <dd className="text-content-primary">{release.catalogNumber}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </div>
+              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4">
+                <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Team</h3>
+                <p className="text-sm text-content-label mb-2">Invite collaborators to this release.</p>
+                <Button size="sm" variant="outline" onClick={() => setInviteOpen(true)}>
+                  Invite Person
+                </Button>
+              </div>
+            </div>
           </div>
-
         </div>
       </section>
 
-      {/* ── Team ───────────────────────────────────────────────────────── */}
-      <section aria-label="Team" className="mb-10">
-        <SectionHeader title="Team" description="People contributing to this release." />
-
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-6">
-          <div className="flex flex-col items-center text-center py-6">
-            <p className="text-sm font-medium text-content-primary mb-1">No collaborators yet.</p>
-            <p className="text-sm text-content-label mb-4">Invite producers, engineers and designers to collaborate.</p>
-            <Button size="sm" variant="primary" onClick={() => setInviteOpen(true)}>Invite Person</Button>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Tracks ─────────────────────────────────────────────────────── */}
-      <section aria-label="Tracks" className="mb-10">
+      {/* ── 2. Release readiness ──────────────────────────────────────── */}
+      <section aria-label="Release readiness" className="mb-10">
         <SectionHeader
-          title="Tracks"
-          description={`${tracks.length} track${tracks.length !== 1 ? 's' : ''} on this release.${artistsUnavailable ? ' Artists unavailable.' : ''}`}
-          action={{ label: '+ Add Track', onClick: () => router.push(`/tracks/new?releaseId=${releaseId}`) }}
+          title="Release readiness"
+          description="Track completion across audio, artwork, metadata, and distribution."
+          action={{
+            label: 'Open readiness workspace',
+            onClick: () => router.push(`/releases/${releaseId}/readiness`),
+          }}
         />
-        {tracks.length === 0 ? (
-          <EmptyState
-            title="No tracks added."
-            description="Add the first track to begin production."
-            action={{ label: 'Add Track', onClick: () => router.push(`/tracks/new?releaseId=${releaseId}`) }}
-          />
-        ) : (
-          <TrackList>
-            {tracks.map((rt) => {
-              const t = rt.track;
-              return (
-                <TrackRow
-                  key={rt.id}
-                  onClick={() => t && router.push(`/tracks/${t.id}`)}
-                  aria-label={t?.title ? `Open track ${t.title}` : 'Open track'}
-                >
-                  <span className="text-sm text-content-secondary font-mono w-6 shrink-0 text-right">{rt.position}</span>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-content-primary truncate block">{t?.title ?? '—'}</span>
-                    <span className="text-xs text-content-secondary mt-0.5 block">
-                      {t ? (
-                        <>
-                          {recordingTypeLabel(resolveRecordingType(t.recordingType), true)}
-                          {resolveRecordingType(t.recordingType) === 'remix' && trackArtistMeta[t.id]?.original && (
-                            <> · {trackArtistMeta[t.id]?.original}{trackArtistMeta[t.id]?.remixer ? ` × ${trackArtistMeta[t.id]?.remixer}` : ''}</>
-                          )}
-                        </>
-                      ) : 'Track not found'}
-                    </span>
-                  </div>
-                  <span className="text-xs text-content-secondary hidden sm:block">{fmtDuration(t?.duration)}</span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className={`h-2 w-2 rounded-full ${
-                      (t as unknown as { mixStatus?: string })?.mixStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300'
-                    }`} title="Mix" />
-                    <span className={`h-2 w-2 rounded-full ${
-                      (t as unknown as { masterStatus?: string })?.masterStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300'
-                    }`} title="Master" />
-                    <span className={`h-2 w-2 rounded-full ${
-                      (t as unknown as { publishingStatus?: string })?.publishingStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300'
-                    }`} title="Publishing" />
-                  </div>
-                  <svg className="h-4 w-4 text-content-label group-hover:text-content-secondary transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </TrackRow>
-              );
-            })}
-          </TrackList>
-        )}
+        <ReadinessCard
+          pct={readinessPct}
+          categories={READINESS_CATS.map((cat) => ({
+            label: cat,
+            done: readinessMap[cat],
+          }))}
+        />
       </section>
 
-      {/* ── Assignments ───────────────────────────────────────────────── */}
+      {/* ── 3. Assignments (AW-001) ───────────────────────────────────── */}
       <section aria-label="Assignments" className="mb-10">
         <SectionHeader
           title="Assignments"
-          description="Tasks and responsibilities for this release."
+          description="Work assigned to collaborators on this release."
           action={
-            pendingTasks.length > 6
-              ? { label: 'View All Tasks', onClick: () => handleTabChange('workflow') }
+            perms.canManageAssignments
+              ? { label: 'Create Assignment', onClick: openCreateAssignment }
               : undefined
           }
         />
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 sm:p-6">
+          <AssignmentsSection
+            entityType="release"
+            entityId={releaseId}
+          />
+          {perms.canManageAssignments ? (
+            <div className="mt-4 pt-4 border-t border-surface-100">
+              <Button size="sm" variant="primary" onClick={openCreateAssignment}>
+                + Create Assignment
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      {/* ── 4. Workflow ───────────────────────────────────────────────── */}
+      <section aria-label="Workflow" className="mb-10">
+        <SectionHeader
+          title="Workflow"
+          description="Operational tasks driving this release forward."
+        />
         {pendingTasks.length === 0 ? (
           <EmptyState
-            title="No assignments yet."
-            description="Assignments help coordinate work across your release."
-            action={{ label: 'Create Assignment', onClick: () => handleTabChange('workflow') }}
+            title="No open workflow tasks."
+            description="Tasks appear here as production work is generated for this release."
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {pendingTasks.slice(0, 6).map((task) => {
+            {pendingTasks.map((task) => {
               const overdue = isOverdue(task.dueDate);
-              const priorityColors: Record<string, string> = { critical: 'bg-danger-50 text-danger-600', high: 'bg-warning-50 text-warning-600', medium: 'bg-info-50 text-info-600', low: 'bg-surface-100 text-content-secondary' };
+              const priorityColors: Record<string, string> = {
+                critical: 'bg-danger-50 text-danger-600',
+                high: 'bg-warning-50 text-warning-600',
+                medium: 'bg-info-50 text-info-600',
+                low: 'bg-surface-100 text-content-secondary',
+              };
               return (
-                <div key={task.id} className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 flex flex-col gap-2.5 text-left">
+                <div
+                  key={task.id}
+                  className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 flex flex-col gap-2.5 text-left"
+                >
                   <p className="text-sm font-medium text-content-primary leading-snug">{task.title}</p>
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusBadge status={task.status} />
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-caption font-medium capitalize ${priorityColors[task.priority] ?? 'bg-surface-100 text-content-secondary'}`}>{task.priority}</span>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-caption font-medium capitalize ${
+                        priorityColors[task.priority] ?? 'bg-surface-100 text-content-secondary'
+                      }`}
+                    >
+                      {task.priority}
+                    </span>
                   </div>
                   <p className="text-xs text-content-label truncate">
                     {isInvitationPending(task)
@@ -843,8 +860,25 @@ export default function ReleaseWorkspacePage() {
                         ? <>Assigned to <span className="text-content-secondary">{task.assigneeId}</span></>
                         : 'Unassigned'}
                   </p>
-                  <p className={`text-xs font-medium ${overdue ? 'text-danger-500' : 'text-content-label'}`}>{task.dueDate ? relativeDate(task.dueDate) : 'No due date'}</p>
-                  <Button size="sm" variant={task.assigneeId ? 'outline' : 'primary'} className="mt-1 self-start" onClick={() => handleTabChange('workflow')}>
+                  <p className={`text-xs font-medium ${overdue ? 'text-danger-500' : 'text-content-label'}`}>
+                    {task.dueDate ? relativeDate(task.dueDate) : 'No due date'}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant={task.assigneeId ? 'outline' : 'primary'}
+                    className="mt-1 self-start"
+                    onClick={() => {
+                      if (isInvitationPending(task)) {
+                        router.push('/people/invitations');
+                        return;
+                      }
+                      if (perms.canManageAssignments) {
+                        openCreateAssignment();
+                        return;
+                      }
+                      toast.error('You do not have permission to manage this task.');
+                    }}
+                  >
                     {taskActionLabel(task)}
                   </Button>
                 </div>
@@ -854,9 +888,9 @@ export default function ReleaseWorkspacePage() {
         )}
       </section>
 
-      {/* ── Recent Activity ───────────────────────────────────────────── */}
+      {/* ── 5. Activity ───────────────────────────────────────────────── */}
       <section aria-label="Recent Activity" className="mb-10">
-        <SectionHeader title="Recent Activity" description="A log of actions and updates on this release." />
+        <SectionHeader title="Activity" description="A log of actions and updates on this release." />
 
         {!activitiesLoaded ? (
           <div className="flex justify-center py-10"><LoadingState text="Loading activity…" /></div>
@@ -887,52 +921,103 @@ export default function ReleaseWorkspacePage() {
         )}
       </section>
 
-      {/* ── Workspace Tabs ─────────────────────────────────────────────── */}
-      <Tabs
-        tabs={visibleTabs}
-        activeTab={tab}
-        onChange={handleTabChange}
-        variant="underline"
-        className="mt-10 mb-8"
-      />
+      {/* ── 6. Future deliverables (tracks + deliverables) ─────────────── */}
+      <section aria-label="Deliverables" className="mb-10">
+        <SectionHeader
+          title="Deliverables"
+          description="Tracks and assets for this release."
+          action={{ label: '+ Add Track', onClick: () => router.push(`/tracks/new?releaseId=${releaseId}`) }}
+        />
 
-      {/* ── Non-overview placeholder tabs ─────────────────────────────── */}
-      {tab === 'workflow' && (
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-8 text-center">
-          <p className="text-sm font-medium text-content-primary mb-1">Workflow</p>
-          <p className="text-sm text-content-label">Full workflow management coming soon. Use the Assignments section on Overview to action work.</p>
-        </div>
-      )}
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-sm font-semibold text-content-primary mb-3">
+              Tracks
+              <span className="ml-2 text-xs font-normal text-content-label">
+                {tracks.length} track{tracks.length !== 1 ? 's' : ''}
+                {artistsUnavailable ? ' · Artists unavailable' : ''}
+              </span>
+            </h3>
+            {tracks.length === 0 ? (
+              <EmptyState
+                title="No tracks added."
+                description="Add the first track to begin production."
+                action={{ label: 'Add Track', onClick: () => router.push(`/tracks/new?releaseId=${releaseId}`) }}
+              />
+            ) : (
+              <TrackList>
+                {tracks.map((rt) => {
+                  const t = rt.track;
+                  return (
+                    <TrackRow
+                      key={rt.id}
+                      onClick={() => t && router.push(`/tracks/${t.id}`)}
+                      aria-label={t?.title ? `Open track ${t.title}` : 'Open track'}
+                    >
+                      <span className="text-sm text-content-secondary font-mono w-6 shrink-0 text-right">{rt.position}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-content-primary truncate block">{t?.title ?? '—'}</span>
+                        <span className="text-xs text-content-secondary mt-0.5 block">
+                          {t ? (
+                            <>
+                              {recordingTypeLabel(resolveRecordingType(t.recordingType), true)}
+                              {resolveRecordingType(t.recordingType) === 'remix' && trackArtistMeta[t.id]?.original && (
+                                <> · {trackArtistMeta[t.id]?.original}{trackArtistMeta[t.id]?.remixer ? ` × ${trackArtistMeta[t.id]?.remixer}` : ''}</>
+                              )}
+                            </>
+                          ) : 'Track not found'}
+                        </span>
+                      </div>
+                      <span className="text-xs text-content-secondary hidden sm:block">{fmtDuration(t?.duration)}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={`h-2 w-2 rounded-full ${
+                          (t as unknown as { mixStatus?: string })?.mixStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300'
+                        }`} title="Mix" />
+                        <span className={`h-2 w-2 rounded-full ${
+                          (t as unknown as { masterStatus?: string })?.masterStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300'
+                        }`} title="Master" />
+                        <span className={`h-2 w-2 rounded-full ${
+                          (t as unknown as { publishingStatus?: string })?.publishingStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300'
+                        }`} title="Publishing" />
+                      </div>
+                      <svg className="h-4 w-4 text-content-label group-hover:text-content-secondary transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </TrackRow>
+                  );
+                })}
+              </TrackList>
+            )}
+          </div>
 
-      {tab === 'campaign' && (
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-8 text-center">
-          <EmptyState title="No campaigns yet" description="Campaigns will appear here once they are created for this release." />
+          <div>
+            <h3 className="text-sm font-semibold text-content-primary mb-3">
+              Assets
+              <span className="ml-2 text-xs font-normal text-content-label">
+                {deliverables.length} item{deliverables.length !== 1 ? 's' : ''}
+              </span>
+            </h3>
+            {deliverables.length === 0 ? (
+              <EmptyState
+                title="No deliverable assets yet."
+                description="Audio masters, artwork files, and marketing assets will appear here."
+              />
+            ) : (
+              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card divide-y divide-surface-100">
+                {deliverables.map((d) => (
+                  <div key={d.id} className="flex items-center justify-between px-4 py-3 gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-content-primary truncate">{d.title}</p>
+                      <p className="text-xs text-content-label capitalize">{d.type}</p>
+                    </div>
+                    <StatusBadge status={d.status} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      )}
-
-      {tab === 'rights' && (
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-8 text-center">
-          <EmptyState title="No rights records" description="Rights and ownership information will appear here once configured." />
-        </div>
-      )}
-
-      {tab === 'budget' && (
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-8 text-center">
-          <EmptyState title="No budget entries" description="Budget and cost information will appear here once entries are added." />
-        </div>
-      )}
-
-      {tab === 'assignments' && (
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-6">
-          <AssignmentsSection entityType="release" entityId={releaseId} />
-        </div>
-      )}
-
-      {tab === 'settings' && (
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-6 max-w-lg">
-          <h2 className="text-base font-semibold text-content-primary mb-4">Release Settings</h2>
-        </div>
-      )}
+      </section>
 
       <PersonPickerDialog
         open={inviteOpen}
@@ -977,6 +1062,44 @@ export default function ReleaseWorkspacePage() {
         cancelLabel="Cancel"
         loading={restoring}
       />
+
+      {/* Change release date (admin action from overflow) */}
+      {dateOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+          <button
+            className="absolute inset-0 bg-surface-900/60 backdrop-blur-sm"
+            onClick={() => { if (!savingDate) setDateOpen(false); }}
+            aria-label="Close"
+          />
+          <div className="relative z-10 w-full max-w-md rounded-t-2xl sm:rounded-xl border border-surface-700 bg-surface-900 p-5 sm:p-6 shadow-modal space-y-4">
+            <h2 className="text-base font-semibold text-content-primary">Change release date</h2>
+            <Input
+              label="Target release date"
+              type="date"
+              value={dateValueInput}
+              onChange={(e) => setDateValueInput(e.target.value)}
+              className="min-h-[48px] sm:min-h-0"
+            />
+            <div className="flex flex-col-reverse sm:flex-row gap-2 justify-end">
+              <Button
+                variant="ghost"
+                onClick={() => setDateOpen(false)}
+                disabled={savingDate}
+                className="min-h-[48px] sm:min-h-0"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void handleSaveReleaseDate()}
+                loading={savingDate}
+                className="min-h-[48px] sm:min-h-0"
+              >
+                Save date
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
     </div>
   );
