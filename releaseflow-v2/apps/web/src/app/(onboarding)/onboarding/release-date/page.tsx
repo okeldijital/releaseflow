@@ -44,7 +44,7 @@ export default function ReleaseDatePage() {
         ))}
       </div>
 
-      <h1 className="text-display-md font-semibold tracking-tight text-surface-50">When do you want to release it?</h1>
+      <h1 className="text-display-md font-semibold tracking-tight text-primary-400">When do you want to release it?</h1>
       <p className="mt-2 text-sm text-text-400">You can always change this later.</p>
 
       <input

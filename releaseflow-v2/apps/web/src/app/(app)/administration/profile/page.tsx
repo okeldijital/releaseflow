@@ -103,7 +103,7 @@ export default function AdministrationProfilePage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-display-md font-semibold text-text-900 tracking-tight">Profile</p>
+        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Profile</p>
         <p className="text-sm text-text-500 mt-1">Your profile, display name, avatar, timezone, locale</p>
       </div>
 
@@ -125,7 +125,7 @@ export default function AdministrationProfilePage() {
 
         <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-6 py-6 space-y-5">
           <div>
-            <p className="text-sm font-semibold text-text-900">Notification Preferences</p>
+            <p className="text-sm font-semibold text-text-700">Notification Preferences</p>
             <p className="text-xs text-text-400 mt-1">Control how you receive notifications</p>
           </div>
 

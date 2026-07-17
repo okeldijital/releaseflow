@@ -74,7 +74,7 @@ export default function DiagnosticsPage() {
     <div className="mx-auto max-w-2xl px-4 sm:px-6 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <p className="text-2xl font-bold text-text-900">System Health</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">System Health</p>
           <p className="text-sm text-text-500 mt-1">
             {d.environment.valid
               ? 'All systems operational'
@@ -89,7 +89,7 @@ export default function DiagnosticsPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <SectionStatus status={d.environment.status} />
-              <h2 className="text-sm font-semibold text-text-900">Environment</h2>
+              <h2 className="text-sm font-semibold text-text-700">Environment</h2>
             </div>
             <span className="text-xs text-text-400">{d.environment.summary}</span>
           </div>
@@ -107,7 +107,7 @@ export default function DiagnosticsPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <SectionStatus status={d.firebase.status} />
-              <h2 className="text-sm font-semibold text-text-900">Firebase</h2>
+              <h2 className="text-sm font-semibold text-text-700">Firebase</h2>
             </div>
           </div>
           <div className="flex items-center gap-4 text-xs">
@@ -126,7 +126,7 @@ export default function DiagnosticsPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <SectionStatus status={d.authentication.status} />
-              <h2 className="text-sm font-semibold text-text-900">Authentication</h2>
+              <h2 className="text-sm font-semibold text-text-700">Authentication</h2>
             </div>
           </div>
           <div className="space-y-1 text-xs text-text-500">
@@ -143,7 +143,7 @@ export default function DiagnosticsPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <SectionStatus status={d.organization.status} />
-              <h2 className="text-sm font-semibold text-text-900">Organization</h2>
+              <h2 className="text-sm font-semibold text-text-700">Organization</h2>
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-text-500">
@@ -160,7 +160,7 @@ export default function DiagnosticsPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <SectionStatus status={d.permissions.status} />
-              <h2 className="text-sm font-semibold text-text-900">Permissions</h2>
+              <h2 className="text-sm font-semibold text-text-700">Permissions</h2>
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-text-500">

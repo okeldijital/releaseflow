@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Portal } from '@/components/portal';
 
 export interface EntityOverflowMenuItem {
   id: string;
@@ -8,7 +9,7 @@ export interface EntityOverflowMenuItem {
   onClick?: () => void;
   disabled?: boolean;
   secondaryLabel?: string;
-  variant?: 'default' | 'danger';
+  variant?: 'default' | 'secondary' | 'danger';
   separatorBefore?: boolean;
 }
 
@@ -24,32 +25,107 @@ export function EntityOverflowMenu({
   'aria-label': ariaLabel = 'More actions',
 }: EntityOverflowMenuProps) {
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const [position, setPosition] = useState<{ top: number; left?: number; right?: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const enabledIndexes = useCallback(
+    () => items.map((item, i) => (item.disabled ? -1 : i)).filter((i) => i >= 0),
+    [items],
+  );
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    if (align === 'left') {
+      setPosition({ top: rect.bottom + 8, left: rect.left });
+    } else {
+      setPosition({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    }
+  }, [align]);
+
+  const openMenu = useCallback(() => {
+    updatePosition();
+    setOpen(true);
+    const firstEnabled = items.findIndex((item) => !item.disabled);
+    setActiveIndex(firstEnabled);
+  }, [items, updatePosition]);
+
+  const closeMenu = useCallback((focusTrigger = true) => {
+    setOpen(false);
+    setActiveIndex(-1);
+    if (focusTrigger) triggerRef.current?.focus();
+  }, []);
+
+  const focusItem = useCallback((index: number) => {
+    const el = itemRefs.current[index];
+    if (el) el.focus();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
+
     const onPointerDown = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        closeMenu(false);
       }
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeMenu();
+        return;
+      }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const enabled = enabledIndexes();
+        if (enabled.length === 0) return;
+        const current = enabled.indexOf(activeIndex);
+        const nextOffset = e.key === 'ArrowDown' ? 1 : -1;
+        const nextPos = (current + nextOffset + enabled.length) % enabled.length;
+        const nextIndex = enabled[nextPos] ?? -1;
+        setActiveIndex(nextIndex);
+        focusItem(nextIndex);
+        return;
+      }
+      if (e.key === 'Home' || e.key === 'End') {
+        e.preventDefault();
+        const enabled = enabledIndexes();
+        if (enabled.length === 0) return;
+        const nextIndex = e.key === 'Home' ? enabled[0] ?? -1 : enabled[enabled.length - 1] ?? -1;
+        setActiveIndex(nextIndex);
+        focusItem(nextIndex);
+        return;
+      }
+      if (e.key === 'Tab') {
+        closeMenu(false);
+      }
     };
+    const onScroll = () => closeMenu(false);
+    const onResize = () => updatePosition();
+
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
+
     return () => {
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
     };
-  }, [open]);
+  }, [open, activeIndex, closeMenu, enabledIndexes, focusItem, updatePosition]);
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative inline-flex">
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-surface-200 bg-layer-2 text-text-500 hover:bg-surface-50 hover:text-text-700 dark:border-surface-700 dark:bg-surface-900 dark:hover:bg-surface-800 dark:hover:text-text-200 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        onClick={() => (open ? closeMenu(false) : openMenu())}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border-default bg-layer-2 text-content-primary transition-colors duration-150 hover:bg-layer-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -59,43 +135,68 @@ export function EntityOverflowMenu({
         </svg>
       </button>
 
-      {open && (
-        <div
-          className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-2 w-56 rounded-xl border border-surface-200 bg-layer-2 p-1.5 shadow-modal z-50 animate-fade-in dark:border-surface-700 dark:bg-surface-900`}
-          role="menu"
-          aria-orientation="vertical"
-        >
-          {items.map((item) => (
-            <div key={item.id}>
-              {item.separatorBefore ? (
-                <div className="my-1 border-t border-surface-100 dark:border-surface-700/60" role="separator" />
-              ) : null}
-              <button
-                type="button"
-                role="menuitem"
-                disabled={item.disabled}
-                onClick={() => {
-                  if (item.disabled || !item.onClick) return;
-                  setOpen(false);
-                  item.onClick();
-                }}
-                className={`
-                  flex w-full items-center justify-between gap-3 px-3 py-2 text-sm rounded-lg text-left transition-colors duration-150
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40
-                  ${item.disabled ? 'cursor-default opacity-60' : 'hover:bg-surface-50 dark:hover:bg-surface-700/50'}
-                  ${item.variant === 'danger' && !item.disabled
-                    ? 'text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/20'
-                    : 'text-text-700 dark:text-text-300 hover:text-text-900 dark:hover:text-surface-50'}
-                `}
-              >
-                <span>{item.label}</span>
-                {item.secondaryLabel ? (
-                  <span className="text-xs text-text-400 shrink-0">{item.secondaryLabel}</span>
-                ) : null}
-              </button>
-            </div>
-          ))}
-        </div>
+      {open && position && (
+        <Portal>
+          <div
+            ref={menuRef}
+            className="fixed w-56 rounded-xl border border-border-default bg-layer-2 p-1.5 shadow-modal z-modal animate-fade-in"
+            style={
+              position.left !== undefined
+                ? { top: position.top, left: position.left }
+                : { top: position.top, right: position.right }
+            }
+            role="menu"
+            aria-orientation="vertical"
+            aria-label={ariaLabel}
+          >
+            {items.map((item, index) => {
+              const isActive = index === activeIndex;
+
+              const textColor = item.disabled
+                ? 'text-content-label opacity-50 cursor-not-allowed'
+                : item.variant === 'danger'
+                  ? `text-danger-500 ${isActive ? 'bg-danger-500/10 border-primary-500' : 'hover:bg-danger-500/10'}`
+                  : item.variant === 'secondary'
+                    ? `text-content-secondary ${isActive ? 'bg-primary-700/20 border-primary-500' : 'hover:bg-primary-700/20 hover:border-primary-500'}`
+                    : `text-content-primary ${isActive ? 'bg-primary-700/20 border-primary-500 text-primary-400' : 'hover:bg-layer-3'}`;
+
+              return (
+                <div key={item.id}>
+                  {item.separatorBefore ? (
+                    <div className="my-1 border-t border-border-default" role="separator" />
+                  ) : null}
+                  <button
+                    ref={(el) => {
+                      itemRefs.current[index] = el;
+                    }}
+                    type="button"
+                    role="menuitem"
+                    disabled={item.disabled}
+                    tabIndex={isActive ? 0 : -1}
+                    aria-disabled={item.disabled || undefined}
+                    onClick={() => {
+                      if (item.disabled || !item.onClick) return;
+                      closeMenu();
+                      item.onClick();
+                    }}
+                    className={`
+                      flex w-full items-center justify-between gap-3 px-3 py-2 text-sm rounded-lg text-left transition-colors duration-150
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40
+                      border border-transparent
+                      ${item.disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
+                      ${textColor}
+                    `.trim()}
+                  >
+                    <span>{item.label}</span>
+                    {item.secondaryLabel ? (
+                      <span className="text-xs text-content-label shrink-0 opacity-80">{item.secondaryLabel}</span>
+                    ) : null}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </Portal>
       )}
     </div>
   );

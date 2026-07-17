@@ -2,13 +2,13 @@ import type { Artwork } from '@/lib/artwork/artwork-types';
 
 const PLACEHOLDER_COLORS = [
   'from-primary-600 to-primary-800',
-  'from-purple-600 to-purple-800',
-  'from-teal-600 to-teal-600/80',
-  'from-pink-600 to-pink-800',
-  'from-amber-600 to-amber-800',
-  'from-blue-600 to-blue-800',
-  'from-emerald-600 to-emerald-800',
-  'from-rose-600 to-rose-800',
+  'from-workflow-mixing to-primary-800',
+  'from-workflow-publishing to-workflow-publishing/80',
+  'from-workflow-mastering to-primary-800',
+  'from-warning-600 to-warning-800',
+  'from-info-600 to-info-800',
+  'from-success-600 to-success-800',
+  'from-workflow-distribution to-workflow-distribution/80',
 ] as const;
 
 function pickColor(title: string): string {

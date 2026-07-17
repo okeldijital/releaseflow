@@ -18,9 +18,9 @@ interface TabsProps {
 }
 
 const variantContainerClasses: Record<TabVariant, string> = {
-  underline: 'border-b border-surface-200/70 dark:border-surface-700/70',
+  underline: 'border-b border-surface-200/70',
   pill: 'flex-wrap gap-1',
-  border: 'gap-0 border-b border-surface-200/70 dark:border-surface-700/70',
+  border: 'gap-0 border-b border-surface-200/70',
 };
 
 const variantTabClasses: Record<TabVariant, string> = {
@@ -30,9 +30,9 @@ const variantTabClasses: Record<TabVariant, string> = {
 };
 
 const variantActiveClasses: Record<TabVariant, string> = {
-  underline: 'border-primary-500 text-primary-600 dark:text-primary-400',
+  underline: 'border-primary-500 text-primary-600',
   pill: 'bg-primary-500 text-surface-50 shadow-sm',
-  border: 'bg-layer-2 text-text-900 border-surface-200 dark:bg-surface-900 dark:text-text-50 dark:border-surface-600 shadow-card -mb-px',
+  border: 'bg-layer-2 text-content-primary border-surface-200 shadow-card -mb-px',
 };
 
 export function Tabs({
@@ -101,17 +101,17 @@ export function Tabs({
             className={`
               inline-flex items-center gap-2 shrink-0 whitespace-nowrap
               ${variantTabClasses[variant]}
-              ${active ? variantActiveClasses[variant] : variant === 'pill' ? 'text-text-600 hover:text-text-900 hover:bg-surface-100 dark:text-text-400 dark:hover:text-text-200 dark:hover:bg-surface-800' : variant === 'border' ? 'text-text-500 hover:text-text-700 hover:bg-surface-50' : 'border-transparent text-text-500 hover:text-text-800 hover:border-surface-300 dark:text-text-400 dark:hover:text-text-200 dark:hover:border-surface-600'}
+              ${active ? variantActiveClasses[variant] : variant === 'pill' ? 'text-content-secondary hover:text-content-primary hover:bg-surface-100' : variant === 'border' ? 'text-content-secondary hover:text-content-primary hover:bg-surface-50' : 'border-transparent text-content-secondary hover:text-content-primary hover:border-surface-300'}
               ${tab.disabled ? 'opacity-50 pointer-events-none' : ''}
             `}
           >
             {tab.label}
             {tab.count !== undefined ? (
               <span
-                className={`text-xs rounded-full px-2 py-1 font-semibold leading-none ${
+                className={`text-xs rounded-full px-2 py-1 font-semibold leading-none border ${
                   variant === 'pill'
-                    ? (active ? 'bg-layer-2/20 text-surface-50' : 'bg-surface-200 text-text-500 dark:bg-surface-700 dark:text-text-400')
-                    : (active ? 'bg-primary-50 text-primary-600' : 'bg-surface-100 text-text-500 dark:bg-surface-800 dark:text-text-400')
+                    ? (active ? 'bg-primary-700/20 text-primary-400 border-primary-500' : 'bg-surface-200 text-content-secondary border-border-default')
+                    : (active ? 'bg-primary-700/20 text-primary-400 border-primary-500' : 'bg-layer-3 text-content-primary border-border-default')
                 }`}
               >
                 {tab.count}

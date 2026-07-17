@@ -94,7 +94,7 @@ export function ConfirmationDialog({
           relative z-10 w-full max-w-md
           bg-layer-2
           rounded-lg shadow-modal
-          border border-surface-200 dark:border-surface-700
+          border border-surface-200
           ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}
         `}
       >
@@ -115,11 +115,11 @@ export function ConfirmationDialog({
               </svg>
             </div>
             <div className="flex-1 min-w-0 pb-4">
-              <h2 id="confirm-title" className="text-base font-semibold text-text-900 dark:text-text-50 leading-6">
+              <h2 id="confirm-title" className="text-base font-semibold text-content-primary leading-6">
                 {title}
               </h2>
               {message ? (
-                <p id="confirm-message" className="mt-2 text-sm text-text-500 dark:text-text-400 leading-5">
+                <p id="confirm-message" className="mt-2 text-sm text-content-secondary leading-5">
                   {message}
                 </p>
               ) : null}
@@ -127,24 +127,24 @@ export function ConfirmationDialog({
           </div>
         ) : (
           <div className="px-6 pt-6 pb-4">
-            <h2 id="confirm-title" className="text-base font-semibold text-text-900 dark:text-text-50">
+            <h2 id="confirm-title" className="text-base font-semibold text-content-primary">
               {title}
             </h2>
             {message ? (
-              <p id="confirm-message" className="mt-2 text-sm text-text-500 dark:text-text-400 leading-5">
+              <p id="confirm-message" className="mt-2 text-sm text-content-secondary leading-5">
                 {message}
               </p>
             ) : null}
           </div>
         )}
 
-        <div className="px-6 py-4 border-t border-surface-100 dark:border-surface-800 flex items-center justify-end gap-2">
+        <div className="px-6 py-4 border-t border-surface-100 flex items-center justify-end gap-2">
           <button
             ref={cancelRef}
             type="button"
             onClick={handleClose}
             disabled={loading}
-            className="h-10 px-4 text-sm font-medium text-text-700 dark:text-text-300 rounded-md border border-surface-200 dark:border-surface-600 bg-layer-2 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors duration-100 disabled:opacity-50"
+            className="h-10 px-4 text-sm font-medium text-content-secondary rounded-md border border-surface-200 bg-layer-2 hover:bg-surface-50 transition-colors duration-100 disabled:opacity-50"
           >
             {cancelLabel}
           </button>

@@ -91,10 +91,10 @@ export default function WorkPage() {
   const { overdue, today, upcoming } = groupTasks(tasks);
 
   const priorityStyles: Record<string, string> = {
-    low: 'bg-surface-100 text-text-500 dark:bg-surface-700 dark:text-surface-300',
-    medium: 'bg-info-50 text-info-600 dark:bg-info-500/15 dark:text-info-400',
-    high: 'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-400',
-    critical: 'bg-danger-50 text-danger-600 dark:bg-danger-500/15 dark:text-danger-400',
+    low: 'bg-surface-100 text-text-500',
+    medium: 'bg-info-50 text-info-600',
+    high: 'bg-warning-50 text-warning-600',
+    critical: 'bg-danger-50 text-danger-600',
   };
 
   return (
@@ -110,7 +110,7 @@ export default function WorkPage() {
         <div className="space-y-8">
           {overdue.length > 0 && (
             <section>
-              <p className="text-sm font-semibold text-danger-600 dark:text-danger-400 mb-3">Overdue ({overdue.length})</p>
+              <p className="text-sm font-semibold text-danger-600 mb-3">Overdue ({overdue.length})</p>
               <div className="space-y-1.5">
                 {overdue.map((t) => <TaskCard key={t.id} task={t} priorityStyles={priorityStyles} overdue />)}
               </div>
@@ -119,7 +119,7 @@ export default function WorkPage() {
 
           {today.length > 0 && (
             <section>
-              <p className="text-sm font-semibold text-warning-600 dark:text-warning-400 mb-3">Due Today ({today.length})</p>
+              <p className="text-sm font-semibold text-warning-600 mb-3">Due Today ({today.length})</p>
               <div className="space-y-1.5">
                 {today.map((t) => <TaskCard key={t.id} task={t} priorityStyles={priorityStyles} />)}
               </div>
@@ -128,7 +128,7 @@ export default function WorkPage() {
 
           {upcoming.length > 0 && (
             <section>
-              <p className="text-sm font-semibold text-text-500 dark:text-text-400 mb-3">Upcoming ({upcoming.length})</p>
+              <p className="text-sm font-semibold text-text-500 mb-3">Upcoming ({upcoming.length})</p>
               <div className="space-y-1.5">
                 {upcoming.map((t) => <TaskCard key={t.id} task={t} priorityStyles={priorityStyles} />)}
               </div>
@@ -142,22 +142,22 @@ export default function WorkPage() {
 
 function TaskCard({ task, priorityStyles, overdue }: { task: TaskWithEntity; priorityStyles: Record<string, string>; overdue?: boolean }) {
   return (
-    <div className="block rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3.5 hover:border-surface-300 dark:hover:border-surface-600 transition-all duration-150">
+    <div className="block rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3.5 hover:border-surface-300 transition-all duration-150">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-content-primary truncate">{task.title}</p>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <Badge label={task.priority} color={priorityStyles[task.priority] ?? 'bg-surface-100 text-text-500'} size="sm" />
-            <span className="text-xs text-text-400 dark:text-text-500 capitalize">{task.status.replace(/_/g, ' ')}</span>
-            {task.entityName ? <span className="text-xs text-text-400 dark:text-text-500">&middot; {task.entityName}</span> : null}
+            <span className="text-xs text-text-400 capitalize">{task.status.replace(/_/g, ' ')}</span>
+            {task.entityName ? <span className="text-xs text-text-400">&middot; {task.entityName}</span> : null}
           </div>
         </div>
         {task.dueDateObj ? (
-          <span className={`text-xs shrink-0 font-medium ${overdue ? 'text-danger-500' : 'text-text-400 dark:text-text-500'}`}>
+          <span className={`text-xs shrink-0 font-medium ${overdue ? 'text-danger-500' : 'text-text-400'}`}>
             {task.dueDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
         ) : (
-          <span className="text-xs shrink-0 text-text-300 dark:text-text-600">No date</span>
+          <span className="text-xs shrink-0 text-text-300">No date</span>
         )}
       </div>
     </div>

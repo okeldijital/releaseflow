@@ -46,6 +46,17 @@ export async function fetchActivity(releaseId: string, max = 50) {
   return acts.slice(0, max);
 }
 
+export async function fetchActivityByEntity(
+  organizationId: string,
+  entityType: ActivityEventRecord['entityType'],
+  entityId: string,
+  max = 50,
+): Promise<ActivityEventRecord[]> {
+  if (!organizationId || !entityId) return [];
+  const acts = await getActivityByEntity(organizationId, entityType, entityId);
+  return acts.slice(0, max);
+}
+
 export function getStageTemplates(releaseType: string) {
   return getStageTemplatesForReleaseType(releaseType as 'single' | 'ep' | 'album' | 'remix' | 'compilation');
 }

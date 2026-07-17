@@ -9,6 +9,9 @@ import {
   searchArtists,
   findArtistByNormalizedName,
   getArtistReleases,
+  addArtistToRelease,
+  removeArtistFromRelease,
+  getArtistLinkCounts,
   getCreditsByArtist,
   getTrackTitle,
   getArtistUsage,
@@ -91,6 +94,26 @@ export async function fetchArtistByNormalizedName(
 
 export async function fetchArtistReleases(artistId: string) {
   return getArtistReleases(artistId);
+}
+
+export async function fetchArtistLinkCounts(organizationId: string) {
+  return getArtistLinkCounts(organizationId);
+}
+
+export async function linkArtistToRelease(
+  releaseId: string,
+  artistId: string,
+  role?: string,
+  isPrimary?: boolean,
+): Promise<void> {
+  return addArtistToRelease({ releaseId, artistId, role, isPrimary });
+}
+
+export async function unlinkArtistFromRelease(
+  releaseId: string,
+  artistId: string,
+): Promise<void> {
+  return removeArtistFromRelease(releaseId, artistId);
 }
 
 export async function fetchCreditsByArtist(artistId: string): Promise<TrackCreditRecord[]> {

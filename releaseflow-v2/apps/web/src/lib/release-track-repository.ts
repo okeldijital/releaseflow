@@ -83,3 +83,25 @@ export async function reorderTrack(releaseId: string, trackId: string, newPositi
   if (!firstDoc) return;
   await updateDoc(doc(db, 'release_tracks', firstDoc.id), { position: newPosition });
 }
+
+export async function getReleaseTrackRecordId(trackId: string, releaseId: string): Promise<string | null> {
+  const db = getDb();
+  if (!db) return null;
+  const snap = await getDocs(
+    query(
+      collection(db, 'release_tracks'),
+      where('trackId', '==', trackId),
+      where('releaseId', '==', releaseId),
+    ),
+  );
+  return snap.docs[0]?.id ?? null;
+}
+
+export async function getNextPosition(releaseId: string): Promise<number> {
+  const db = getDb();
+  if (!db) return 1;
+  const snap = await getDocs(
+    query(collection(db, 'release_tracks'), where('releaseId', '==', releaseId)),
+  );
+  return snap.size + 1;
+}

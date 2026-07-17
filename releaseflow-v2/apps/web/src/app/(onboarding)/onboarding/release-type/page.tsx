@@ -45,7 +45,7 @@ export default function ReleaseTypePage() {
         ))}
       </div>
 
-      <h1 className="text-display-md font-semibold tracking-tight text-surface-50">What are you releasing?</h1>
+      <h1 className="text-display-md font-semibold tracking-tight text-primary-400">What are you releasing?</h1>
       <p className="mt-2 text-sm text-text-400">Choose the format for your first release.</p>
 
       <div className="mt-8 space-y-2.5">

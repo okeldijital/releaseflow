@@ -237,9 +237,9 @@
   --color-layer-1: #1C1C1E;
   --color-layer-2: #232326;
   --color-layer-3: #2C2C2E;
-  --color-content-primary:   #F5F5F7;
-  --color-content-secondary: #C7C7CC;
-  --color-content-label:     #9A9AA1;
+  --color-content-primary:   #FFFFFF;
+  --color-content-secondary: #EBEBF5;
+  --color-content-label:     #AEAEB2;
   --color-divider: rgba(255, 255, 255, 0.08);
 
   /* ─── Borders (PDS-13) ────────────────────────────────────────── */
@@ -357,60 +357,7 @@
   background: radial-gradient(ellipse 70% 60% at 50% 30%, rgba(204,85,0,0.04) 0%, transparent 70%);
 }
 
-/* ─── Dark mode — RFDS luminance model ────────────────────────────────── */
 
-.dark {
-  --color-surface-0: #0D0A08;
-  --color-surface-50: #191511;
-  --color-surface-100: #26211B;
-  --color-surface-200: #3A342F;
-  --color-surface-300: #4E4741;
-  --color-surface-400: #635A53;
-  --color-surface-500: #8A8278;
-  --color-surface-600: #A09990;
-  --color-surface-700: #B5ADA2;
-  --color-surface-800: #C9C2B8;
-  --color-surface-900: #F4F0EB;
-  --color-surface-950: #FAF8F5;
-
-  --color-text-50: #1E1A17;
-  --color-text-100: #2A251F;
-  --color-text-200: #3A342F;
-  --color-text-300: #4B4440;
-  --color-text-400: #78716C;
-  --color-text-500: #857D76;
-  --color-text-600: #BDB4A8;
-  --color-text-700: #D0C8BC;
-  --color-text-800: #E4DDD4;
-  --color-text-900: #F5F0EA;
-
-  --color-primary-50:  #2E1300;
-  --color-primary-100: #5C2600;
-  --color-primary-200: #8A3900;
-  --color-primary-300: #CC5500;
-  --color-primary-400: #FF9933;
-  --color-primary-500: #FFB266;
-  --color-primary-600: #FFCC99;
-  --color-primary-700: #FFD9B3;
-  --color-primary-800: #FFE6CC;
-  --color-primary-900: #FFF5EE;
-
-  --color-secondary-50:  #5A3C1E;
-  --color-secondary-100: #7A5630;
-  --color-secondary-200: #9A7145;
-  --color-secondary-300: #C08D5C;
-  --color-secondary-400: #D4A373;
-  --color-secondary-500: #D6B07A;
-  --color-secondary-600: #E0C49C;
-  --color-secondary-700: #EBD9BE;
-  --color-secondary-800: #F5EDE0;
-  --color-secondary-900: #FBF7F0;
-
-  --color-border-subtle: var(--color-surface-400);
-  --color-border-default: var(--color-surface-500);
-  --color-border-strong: var(--color-surface-600);
-  --color-border-focus: var(--color-primary-400);
-}
 
 
 /* ─── Base layer ─────────────────────────────────────────────────────── */
@@ -459,9 +406,9 @@
     --rf-color-layer-1: #1C1C1E;
     --rf-color-layer-2: #232326;
     --rf-color-layer-3: #2C2C2E;
-    --rf-color-content-primary:   #F5F5F7;
-    --rf-color-content-secondary: #C7C7CC;
-    --rf-color-content-label:     #9A9AA1;
+    --rf-color-content-primary:   #FFFFFF;
+    --rf-color-content-secondary: #EBEBF5;
+    --rf-color-content-label:     #AEAEB2;
     --rf-color-divider: rgba(255, 255, 255, 0.08);
 
     /* Color.Text (semantic aliases) */
@@ -699,5 +646,25 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     background: var(--color-surface-400);
+  }
+
+  /* Date picker (BUILD-107D) — remove browser-default colours, align to token system */
+  input[type='date'] {
+    color-scheme: dark;
+  }
+  input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    opacity: 0.8;
+  }
+  input[type='date']::-webkit-datetime-edit,
+  input[type='date']::-webkit-datetime-edit-fields-wrapper,
+  input[type='date']::-webkit-datetime-edit-text,
+  input[type='date']::-webkit-datetime-edit-month-field,
+  input[type='date']::-webkit-datetime-edit-day-field,
+  input[type='date']::-webkit-datetime-edit-year-field {
+    color: var(--color-content-primary);
+  }
+  input[type='date']::-webkit-datetime-edit-text {
+    color: var(--color-content-label);
   }
 }

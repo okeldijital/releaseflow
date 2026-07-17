@@ -55,7 +55,7 @@ export default function CompletePage() {
         </svg>
       </div>
 
-      <h1 className="text-display-md font-semibold tracking-tight text-surface-50">You&apos;re all set.</h1>
+      <h1 className="text-display-md font-semibold tracking-tight text-primary-400">You&apos;re all set.</h1>
       <p className="mt-2 text-sm text-text-400">Your workspace is ready.</p>
 
       <button

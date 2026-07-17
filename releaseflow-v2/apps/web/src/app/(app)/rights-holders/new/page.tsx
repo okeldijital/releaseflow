@@ -39,8 +39,8 @@ export default function NewRightsHolderPage() {
 
   return (
     <div className="mx-auto max-w-lg px-6 py-8">
-      <Link href="/rights-holders" className="text-sm text-text-500 hover:text-text-900 dark:hover:text-surface-100 mb-6 inline-block">&larr; Back</Link>
-      <p className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-8">Add Rights Holder</p>
+      <Link href="/rights-holders" className="text-sm text-text-500 hover:text-text-200 mb-6 inline-block">&larr; Back</Link>
+      <p className="text-display-md font-semibold text-primary-400 tracking-tight mb-8">Add Rights Holder</p>
 
       <Card padding="md">
         <form onSubmit={handleSubmit} className="space-y-4">

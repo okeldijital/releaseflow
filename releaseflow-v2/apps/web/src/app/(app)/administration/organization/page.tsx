@@ -175,7 +175,7 @@ export default function AdministrationOrganizationPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Organization</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Organization</p>
           <p className="text-sm text-text-500 mt-1">Organization details, branding, and logo</p>
         </div>
         <div className="text-center py-20 text-sm text-text-400">No organization selected.</div>
@@ -187,7 +187,7 @@ export default function AdministrationOrganizationPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Organization</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Organization</p>
           <p className="text-sm text-text-500 mt-1">Organization details, branding, and logo</p>
         </div>
         <div className="text-center py-20 text-sm text-text-400">Loading&hellip;</div>
@@ -199,7 +199,7 @@ export default function AdministrationOrganizationPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Organization</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Organization</p>
           <p className="text-sm text-text-500 mt-1">Organization details, branding, and logo</p>
         </div>
         <div className="text-center py-20 text-sm text-text-400">Organization not found.</div>
@@ -210,7 +210,7 @@ export default function AdministrationOrganizationPage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-display-md font-semibold text-text-900 tracking-tight">Organization</p>
+        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Organization</p>
         <p className="text-sm text-text-500 mt-1">Organization details, branding, and logo</p>
       </div>
 
@@ -241,14 +241,14 @@ export default function AdministrationOrganizationPage() {
 
         <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-6 py-6 space-y-5">
           <div>
-            <p className="text-sm font-semibold text-text-900">Workspace Preferences</p>
+            <p className="text-sm font-semibold text-text-700">Workspace Preferences</p>
             <p className="text-xs text-text-400 mt-1">Default settings for new releases and workflows</p>
           </div>
 
           <Select label="Default Release Type" options={RELEASE_TYPE_OPTIONS} value={defaultReleaseType} onChange={setDefaultReleaseType} />
 
           <div>
-            <p className="mb-2 block text-sm font-medium text-text-700 dark:text-text-300">Default Specification Templates</p>
+            <p className="mb-2 block text-sm font-medium text-text-700">Default Specification Templates</p>
             <div className="flex flex-wrap gap-4">
               {SPEC_TEMPLATE_OPTIONS.map((opt) => (
                 <Checkbox

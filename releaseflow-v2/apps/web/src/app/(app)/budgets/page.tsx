@@ -44,11 +44,11 @@ export default function BudgetsPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <p className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-8">Budgets</p>
+      <p className="text-display-md font-semibold text-primary-400 tracking-tight mb-8">Budgets</p>
 
       {myUtil ? (
         <Card padding="sm" className="mb-8">
-          <h2 className="text-sm font-semibold text-text-900 dark:text-surface-50 mb-3">My Capacity</h2>
+          <h2 className="text-sm font-semibold text-text-700 mb-3">My Capacity</h2>
           <div className="flex items-center gap-4 text-sm">
             <span className="text-text-500">{myUtil.assignmentCount} assignments</span>
             <span className="text-text-500">Capacity: {myUtil.totalCapacity}%</span>
@@ -68,7 +68,7 @@ export default function BudgetsPage() {
             <Link key={r.id} href={`/releases/${r.id}`} className="block">
               <Card padding="md" hover clickable>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-text-900 dark:text-surface-50">{r.title}</h3>
+                  <h3 className="font-semibold text-text-700">{r.title}</h3>
                   {r.summary.budgetId ? (
                     <StatusBadge status={r.summary.status.replace(/_/g, ' ')} />
                   ) : (

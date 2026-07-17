@@ -42,7 +42,7 @@ export default function ReleaseNamePage() {
       </div>
 
       <p className="text-xs font-medium text-primary-400 uppercase tracking-widest mb-3">{typeLabel}</p>
-      <h1 className="text-display-md font-semibold tracking-tight text-surface-50">What is it called?</h1>
+      <h1 className="text-display-md font-semibold tracking-tight text-primary-400">What is it called?</h1>
       <p className="mt-2 text-sm text-text-400">Give your {typeLabel.toLowerCase()} a name.</p>
 
       <input

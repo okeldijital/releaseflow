@@ -13,19 +13,19 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-primary-500 text-surface-50 shadow-sm hover:bg-primary-600 active:bg-primary-700 active:scale-[0.98] transition-transform dark:hover:bg-primary-400 dark:active:bg-primary-300',
+    'bg-primary-500 text-surface-50 shadow-sm hover:bg-primary-600 active:bg-primary-700 active:scale-[0.98] transition-transform',
   secondary:
-    'bg-secondary-100 text-text-800 hover:bg-secondary-200 active:bg-secondary-300 active:scale-[0.98] transition-transform dark:bg-secondary-800 dark:text-secondary-300 dark:hover:bg-secondary-700 dark:active:bg-secondary-600',
+    'bg-secondary-100 text-text-800 hover:bg-secondary-200 active:bg-secondary-300 active:scale-[0.98] transition-transform',
   tertiary:
-    'border border-surface-300 bg-layer-2 text-text-700 shadow-sm hover:bg-surface-50 hover:border-surface-400 active:scale-[0.98] transition-transform dark:bg-transparent dark:border-surface-600 dark:text-text-200 dark:hover:bg-surface-800',
+    'border border-surface-300 bg-layer-2 text-text-700 shadow-sm hover:bg-surface-50 hover:border-surface-400 active:scale-[0.98] transition-transform',
   outline:
-    'border border-surface-300 bg-layer-2 text-text-700 shadow-sm hover:bg-surface-50 hover:border-surface-400 active:scale-[0.98] transition-transform dark:bg-transparent dark:border-surface-600 dark:text-text-200 dark:hover:bg-surface-800',
+    'border border-surface-300 bg-layer-2 text-text-700 shadow-sm hover:bg-surface-50 hover:border-surface-400 active:scale-[0.98] transition-transform',
   ghost:
-    'text-text-600 hover:bg-surface-100 hover:text-text-900 dark:text-text-300 dark:hover:bg-surface-800 dark:hover:text-text-100',
+    'text-text-600 hover:bg-surface-100 hover:text-text-900',
   danger:
-    'bg-danger-500 text-surface-50 shadow-sm hover:bg-danger-600 active:bg-danger-700 active:scale-[0.98] transition-transform dark:hover:bg-danger-400 dark:active:bg-danger-300',
+    'bg-danger-500 text-surface-50 shadow-sm hover:bg-danger-600 active:bg-danger-700 active:scale-[0.98] transition-transform',
   'destructive-outline':
-    'border border-danger-500 text-danger-600 bg-transparent hover:bg-danger-50 active:scale-[0.98] transition-transform dark:border-danger-400 dark:text-danger-400 dark:hover:bg-danger-950',
+    'border border-danger-500 text-danger-600 bg-transparent hover:bg-danger-50 active:scale-[0.98] transition-transform',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

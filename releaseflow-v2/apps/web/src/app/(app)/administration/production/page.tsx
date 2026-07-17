@@ -12,23 +12,23 @@ import { LoadingState, EmptyState } from '@releaseflow/ui';
 
 function specStatusColor(status: string): string {
   switch (status) {
-    case 'draft': return 'bg-surface-100 text-surface-700 dark:bg-surface-700 dark:text-surface-300';
-    case 'active': return 'bg-info-50 text-info-600 dark:bg-info-500/15 dark:text-info-400';
-    case 'submitted': return 'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-400';
-    case 'approved': return 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400';
-    case 'changes_requested': return 'bg-danger-50 text-danger-600 dark:bg-danger-500/15 dark:text-danger-400';
-    case 'completed': return 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-300';
+    case 'draft': return 'bg-surface-100 text-surface-700';
+    case 'active': return 'bg-info-50 text-info-600';
+    case 'submitted': return 'bg-warning-50 text-warning-600';
+    case 'approved': return 'bg-success-50 text-success-600';
+    case 'changes_requested': return 'bg-danger-50 text-danger-600';
+    case 'completed': return 'bg-success-50 text-success-700';
     default: return 'bg-surface-100 text-surface-700';
   }
 }
 
 function statusBadgeStyle(status: string): string {
   switch (status) {
-    case 'expected': return 'bg-surface-100 text-surface-700 dark:bg-surface-700 dark:text-surface-300';
-    case 'submitted': return 'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-400';
-    case 'under_review': return 'bg-info-50 text-info-600 dark:bg-info-500/15 dark:text-info-400';
-    case 'approved': return 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400';
-    case 'changes_requested': return 'bg-danger-50 text-danger-600 dark:bg-danger-500/15 dark:text-danger-400';
+    case 'expected': return 'bg-surface-100 text-surface-700';
+    case 'submitted': return 'bg-warning-50 text-warning-600';
+    case 'under_review': return 'bg-info-50 text-info-600';
+    case 'approved': return 'bg-success-50 text-success-600';
+    case 'changes_requested': return 'bg-danger-50 text-danger-600';
     default: return 'bg-surface-100 text-surface-700';
   }
 }
@@ -100,7 +100,7 @@ export default function ProductionDashboardPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Production</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Production</p>
           <p className="text-sm text-text-500 mt-1">Active specifications, deliverables, and review workflows</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to view production status." />
@@ -138,7 +138,7 @@ export default function ProductionDashboardPage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-display-md font-semibold text-text-900 tracking-tight">Production</p>
+        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Production</p>
         <p className="text-sm text-text-500 mt-1">Active specifications, deliverables, and review workflows</p>
       </div>
 
@@ -149,21 +149,21 @@ export default function ProductionDashboardPage() {
         </div>
         <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
           <p className="text-xs text-text-500">Pending Submissions</p>
-          <p className="text-2xl font-bold mt-0.5 text-warning-600 dark:text-warning-400">{pendingSubmissions.length}</p>
+          <p className="text-2xl font-bold mt-0.5 text-warning-600">{pendingSubmissions.length}</p>
         </div>
         <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
           <p className="text-xs text-text-500">Reviews Awaiting</p>
-          <p className="text-2xl font-bold mt-0.5 text-info-600 dark:text-info-400">{reviews.length}</p>
+          <p className="text-2xl font-bold mt-0.5 text-info-600">{reviews.length}</p>
         </div>
         <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
           <p className="text-xs text-text-500">Bottlenecks</p>
-          <p className={`text-2xl font-bold mt-0.5 ${bottleneckCount > 0 ? 'text-danger-600 dark:text-danger-400' : 'text-success-600 dark:text-success-400'}`}>{bottleneckCount}</p>
+          <p className={`text-2xl font-bold mt-0.5 ${bottleneckCount > 0 ? 'text-danger-600' : 'text-success-600'}`}>{bottleneckCount}</p>
         </div>
       </div>
 
       <div className="space-y-6">
         <div>
-          <p className="text-sm font-semibold text-text-900 dark:text-text-100 mb-3">Active Specifications</p>
+          <p className="text-sm font-semibold text-text-700 mb-3">Active Specifications</p>
           {activeSpecs.length === 0 ? (
             <EmptyState title="No active specifications" description="Specifications will appear as they are created for tracks." />
           ) : (
@@ -171,7 +171,7 @@ export default function ProductionDashboardPage() {
               {activeSpecs.slice(0, 15).map((spec) => (
                 <div key={spec.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-text-900 dark:text-text-100 truncate">{spec.title}</p>
+                    <p className="text-sm font-medium text-text-900 truncate">{spec.title}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-overline font-medium uppercase tracking-wide ${specStatusColor(spec.status)}`}>
                         {spec.status.replace(/_/g, ' ')}
@@ -189,7 +189,7 @@ export default function ProductionDashboardPage() {
         </div>
 
         <div>
-          <p className="text-sm font-semibold text-text-900 dark:text-text-100 mb-3">Pending Submissions</p>
+          <p className="text-sm font-semibold text-text-700 mb-3">Pending Submissions</p>
           {pendingSubmissions.length === 0 ? (
             <EmptyState title="No pending submissions" description="Submissions awaiting review will appear here." />
           ) : (
@@ -197,7 +197,7 @@ export default function ProductionDashboardPage() {
               {pendingSubmissions.map((sub) => (
                 <div key={sub.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-text-900 dark:text-text-100 truncate">
+                    <p className="text-sm font-medium text-text-900 truncate">
                       {sub.entityType} — rev {sub.revisionNumber}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -215,7 +215,7 @@ export default function ProductionDashboardPage() {
         </div>
 
         <div>
-          <p className="text-sm font-semibold text-text-900 dark:text-text-100 mb-3">Reviews Awaiting Action</p>
+          <p className="text-sm font-semibold text-text-700 mb-3">Reviews Awaiting Action</p>
           {reviews.length === 0 ? (
             <EmptyState title="No reviews awaiting action" description="You have no pending reviews at this time." />
           ) : (
@@ -223,13 +223,13 @@ export default function ProductionDashboardPage() {
               {reviews.map((review) => (
                 <div key={review.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-text-900 dark:text-text-100 truncate">
+                    <p className="text-sm font-medium text-text-900 truncate">
                       {review.entityType} — {review.entityId.slice(0, 8)}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-overline font-medium uppercase tracking-wide ${
-                        review.status === 'pending' ? 'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-400'
-                          : 'bg-info-50 text-info-600 dark:bg-info-500/15 dark:text-info-400'
+                        review.status === 'pending' ? 'bg-warning-50 text-warning-600'
+                          : 'bg-info-50 text-info-600'
                       }`}>
                         {review.status.replace(/_/g, ' ')}
                       </span>
@@ -244,7 +244,7 @@ export default function ProductionDashboardPage() {
         </div>
 
         <div>
-          <p className="text-sm font-semibold text-text-900 dark:text-text-100 mb-3">Deliverables Requiring Revision</p>
+          <p className="text-sm font-semibold text-text-700 mb-3">Deliverables Requiring Revision</p>
           {deliverablesNeedingChanges.length === 0 ? (
             <EmptyState title="No revisions required" description="All deliverables are on track." />
           ) : (
@@ -252,7 +252,7 @@ export default function ProductionDashboardPage() {
               {deliverablesNeedingChanges.map((del) => (
                 <div key={del.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-text-900 dark:text-text-100 truncate">
+                    <p className="text-sm font-medium text-text-900 truncate">
                       {del.deliverableType} (v{del.version}) — {del.type}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -272,17 +272,17 @@ export default function ProductionDashboardPage() {
         </div>
 
         <div>
-          <p className="text-sm font-semibold text-text-900 dark:text-text-100 mb-3">Production Bottlenecks</p>
+          <p className="text-sm font-semibold text-text-700 mb-3">Production Bottlenecks</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
-              <p className="text-xs font-medium text-text-600 dark:text-text-400 uppercase tracking-wide mb-2">Overdue Specs</p>
+              <p className="text-xs font-medium text-text-600 uppercase tracking-wide mb-2">Overdue Specs</p>
               {overdueSpecs.length === 0 ? (
                 <p className="text-sm text-text-400">None</p>
               ) : (
                 <div className="space-y-1">
                   {overdueSpecs.slice(0, 5).map((s) => (
                     <div key={s.id} className="flex items-center justify-between text-xs">
-                      <span className="text-text-700 dark:text-text-300 truncate">{s.title}</span>
+                      <span className="text-text-700 truncate">{s.title}</span>
                       <span className="text-danger-500 shrink-0 ml-2">{daysAgo(s.updatedAt)}d</span>
                     </div>
                   ))}
@@ -290,14 +290,14 @@ export default function ProductionDashboardPage() {
               )}
             </div>
             <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
-              <p className="text-xs font-medium text-text-600 dark:text-text-400 uppercase tracking-wide mb-2">Stalled Reviews</p>
+              <p className="text-xs font-medium text-text-600 uppercase tracking-wide mb-2">Stalled Reviews</p>
               {stalledReviews.length === 0 ? (
                 <p className="text-sm text-text-400">None</p>
               ) : (
                 <div className="space-y-1">
                   {stalledReviews.slice(0, 5).map((r) => (
                     <div key={r.id} className="flex items-center justify-between text-xs">
-                      <span className="text-text-700 dark:text-text-300 truncate">{r.entityType} — {r.entityId.slice(0, 8)}</span>
+                      <span className="text-text-700 truncate">{r.entityType} — {r.entityId.slice(0, 8)}</span>
                       <span className="text-warning-500 shrink-0 ml-2">{daysAgo(r.createdAt)}d</span>
                     </div>
                   ))}
@@ -305,7 +305,7 @@ export default function ProductionDashboardPage() {
               )}
             </div>
             <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-4">
-              <p className="text-xs font-medium text-text-600 dark:text-text-400 uppercase tracking-wide mb-2">Incomplete Checklists</p>
+              <p className="text-xs font-medium text-text-600 uppercase tracking-wide mb-2">Incomplete Checklists</p>
               <p className="text-sm text-text-400">Checklist tracking coming in next release</p>
             </div>
           </div>

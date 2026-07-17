@@ -4,7 +4,7 @@ import type { WizardTrack, ReleaseTypeVal, SectionStatusMap } from './release-wi
 import { releaseTypeLabel, countRecordingTypes } from '@/lib/recording-type';
 import { Btn } from './wizard-ui';
 
-export function ReviewStep({ releaseTitle, releaseType, tracks, hasArtwork, commissionArtwork, promoAssets, hasEmail, primaryArtist, primaryGenre, language, estimatedReleaseDate, sectionStatus, error, launching, back, launch }: {
+export function ReviewStep({ releaseTitle, releaseType, tracks, hasArtwork, commissionArtwork, promoAssets, hasEmail, primaryArtist, primaryGenre, language, targetReleaseDate, estimatedReleaseDate, sectionStatus, error, launching, back, launch }: {
   releaseTitle: string;
   releaseType: ReleaseTypeVal;
   tracks: WizardTrack[];
@@ -15,6 +15,7 @@ export function ReviewStep({ releaseTitle, releaseType, tracks, hasArtwork, comm
   primaryArtist: string;
   primaryGenre: string;
   language: string;
+  targetReleaseDate: string;
   estimatedReleaseDate: string;
   sectionStatus: SectionStatusMap;
   error: string;
@@ -27,7 +28,8 @@ export function ReviewStep({ releaseTitle, releaseType, tracks, hasArtwork, comm
       <p className="mt-2 text-sm text-text-400 text-center">Everything looks good?</p>
       <div className="mt-8 rounded-xl border border-surface-700 bg-surface-900 divide-y divide-surface-800">
         <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Release</span><span className="text-sm font-medium text-surface-100">{releaseTitle || '—'}</span></div>
-        <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Est. Release Date</span><span className="text-sm font-medium text-surface-100">{estimatedReleaseDate ? new Date(estimatedReleaseDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}</span></div>
+        <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Estimated Release Date</span><span className="text-sm font-medium text-surface-100">{targetReleaseDate ? new Date(targetReleaseDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}</span></div>
+        <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Digital Release Date</span><span className="text-sm font-medium text-surface-100">{estimatedReleaseDate ? new Date(estimatedReleaseDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}</span></div>
         <div className="flex justify-between px-5 py-3.5"><span className="text-sm text-text-400">Type</span><span className="text-sm font-medium text-surface-100">{releaseTypeLabel(releaseType)}</span></div>
         {(() => {
           const counts = countRecordingTypes(tracks);

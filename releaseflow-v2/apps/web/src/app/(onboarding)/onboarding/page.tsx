@@ -39,7 +39,7 @@ export default function WelcomePage() {
         ))}
       </div>
 
-      <h1 className="text-display-md font-semibold tracking-tight text-surface-50">Welcome to ReleaseFlow</h1>
+      <h1 className="text-display-md font-semibold tracking-tight text-primary-400">Welcome to ReleaseFlow</h1>
       <p className="mt-2 text-sm text-text-400">Let&apos;s confirm your identity and get started.</p>
 
       <div className="mt-10 flex justify-center">

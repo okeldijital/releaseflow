@@ -100,20 +100,20 @@ export function Modal({
           relative z-10 w-full ${modalSizeClasses[size]}
           bg-layer-2
           rounded-lg shadow-overlay
-          border border-surface-200 dark:border-surface-700
+          border border-surface-200
           ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}
           ${className}
         `}
       >
         {title || description ? (
-          <div className="px-6 pt-6 pb-4 border-b border-surface-100 dark:border-surface-800">
+          <div className="px-6 pt-6 pb-4 border-b border-surface-100">
             {title ? (
-              <h2 id={titleId} className="text-lg font-semibold text-text-900 dark:text-text-50">
+              <h2 id={titleId} className="text-lg font-semibold text-content-primary">
                 {title}
               </h2>
             ) : null}
             {description ? (
-              <p id={descId} className="mt-1 text-sm text-text-500 dark:text-text-400 leading-5">
+              <p id={descId} className="mt-1 text-sm text-content-secondary leading-5">
                 {description}
               </p>
             ) : null}
@@ -123,7 +123,7 @@ export function Modal({
         <div className="px-6 py-6">{children}</div>
 
         {footer ? (
-          <div className="px-6 py-4 border-t border-surface-100 dark:border-surface-800 flex items-center justify-end gap-2">
+          <div className="px-6 py-4 border-t border-surface-100 flex items-center justify-end gap-2">
             {footer}
           </div>
         ) : null}
@@ -214,7 +214,7 @@ export function Drawer({
         className={`
           fixed top-0 bottom-0 ${side} ${width} max-w-full
           bg-layer-2
-          border-surface-200 dark:border-surface-700
+          border-surface-200
           shadow-overlay flex flex-col
           transition-transform duration-300 ease-out
           ${mounted ? 'translate-x-0' : translate}
@@ -222,13 +222,13 @@ export function Drawer({
         `}
       >
         {title ? (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-surface-100 dark:border-surface-800 shrink-0">
-            <h2 className="text-base font-semibold text-text-900 dark:text-text-50">{title}</h2>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-surface-100 shrink-0">
+            <h2 className="text-base font-semibold text-content-primary">{title}</h2>
             <button
               type="button"
               aria-label="Close"
               onClick={handleClose}
-              className="rounded-md p-1 text-text-400 hover:text-text-700 hover:bg-surface-100 transition-colors duration-100 dark:hover:bg-surface-800"
+              className="rounded-md p-1 text-content-label hover:bg-surface-100 transition-colors duration-100"
             >
               <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />

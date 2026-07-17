@@ -50,7 +50,7 @@ export function Checkbox({
           peer-focus-visible:ring-2 peer-focus-visible:ring-primary-500 peer-focus-visible:ring-offset-1
           ${checked || indeterminate
             ? 'bg-primary-500 border-primary-500'
-            : 'border-surface-300 bg-layer-2 dark:border-surface-600'}
+            : 'border-surface-300 bg-layer-2'}
         `}
       >
         {checked && !indeterminate ? (
@@ -77,7 +77,7 @@ export function Checkbox({
         ) : null}
       </span>
       {label ? (
-        <span className="text-sm leading-5 text-text-700 dark:text-text-300">
+        <span className="text-sm leading-5 text-text-700">
           {label}
         </span>
       ) : null}
@@ -126,7 +126,7 @@ export function Radio({
           peer-focus-visible:ring-2 peer-focus-visible:ring-primary-500 peer-focus-visible:ring-offset-1
           ${checked
             ? 'border-primary-500 bg-layer-2'
-            : 'border-surface-300 bg-layer-2 dark:border-surface-600'}
+            : 'border-surface-300 bg-layer-2'}
         `}
       >
         {checked ? (
@@ -134,7 +134,7 @@ export function Radio({
         ) : null}
       </span>
       {label ? (
-        <span className="text-sm leading-5 text-text-700 dark:text-text-300">
+        <span className="text-sm leading-5 text-text-700">
           {label}
         </span>
       ) : null}

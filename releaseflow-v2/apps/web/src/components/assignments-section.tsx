@@ -7,7 +7,7 @@ import type { AssignmentRecord } from '@/lib/assignment-service';
 import { EmptyState, LoadingState, Badge, StatusBadge } from '@releaseflow/ui';
 
 const priorityColors: Record<string, string> = {
-  low: 'bg-surface-800 text-text-500',
+  low: 'bg-surface-800 text-content-secondary',
   medium: 'bg-primary-500/10 text-primary-400',
   high: 'bg-warning-500/10 text-warning-600',
   urgent: 'bg-danger-500/10 text-danger-600',
@@ -20,7 +20,7 @@ function formatDate(d: unknown): string {
 }
 
 interface AssignmentsSectionProps {
-  entityType: 'release' | 'track';
+  entityType: 'release' | 'track' | 'artist';
   entityId: string;
 }
 
@@ -51,7 +51,7 @@ export function AssignmentsSection({ entityType, entityId }: AssignmentsSectionP
         <Link key={a.id} href={`/assignments/${a.id}`} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3 hover:border-primary-200 transition-colors">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-primary-400 truncate">{a.title}</p>
-            <p className="text-xs text-text-500">{a.role} &middot; Due: {formatDate(a.dueDate)}</p>
+            <p className="text-xs text-content-label">{a.role} &middot; Due: {formatDate(a.dueDate)}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0 ml-4">
             <Badge label={a.priority} color={priorityColors[a.priority] ?? ''} />

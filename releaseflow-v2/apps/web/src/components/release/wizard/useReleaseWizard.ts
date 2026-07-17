@@ -33,6 +33,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
   const [releaseTitle, setReleaseTitle] = useState('');
   const [releaseLink, setReleaseLink] = useState('');
   const [releaseNotes, setReleaseNotes] = useState('');
+  const [targetReleaseDate, setTargetReleaseDate] = useState('');
   const [estimatedReleaseDate, setEstimatedReleaseDate] = useState('');
   const [labelOptions, setLabelOptions] = useState<LabelOption[]>([]);
   const [orgName, setOrgName] = useState('');
@@ -126,6 +127,12 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
       setReleaseTitle(data.title ?? '');
       setReleaseType((data.releaseType as ReleaseTypeVal) ?? 'single');
       setReleaseLink(data.releaseLink ?? '');
+      if (data.targetReleaseDate) {
+        const d = (data.targetReleaseDate as { toDate?: () => Date; seconds?: number }).toDate
+          ? (data.targetReleaseDate as { toDate: () => Date }).toDate()
+          : new Date((data.targetReleaseDate as { seconds: number }).seconds * 1000);
+        setTargetReleaseDate(d.toISOString().split('T')[0] ?? '');
+      }
       if (data.estimatedReleaseDate) {
         const d = (data.estimatedReleaseDate as { toDate?: () => Date; seconds?: number }).toDate
           ? (data.estimatedReleaseDate as { toDate: () => Date }).toDate()
@@ -246,6 +253,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
         await editRelease(editReleaseId, {
           title: releaseTitle,
           releaseType: releaseType as ReleaseRecord['releaseType'],
+          targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null,
           estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null,
           upc: upc || null,
           catalogNumber: catalogueNumber || null,
@@ -269,7 +277,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
       const rt = releaseType as 'single' | 'ep' | 'album';
       const labelValue = recordLabel === '__org__' ? (orgName || undefined) : (recordLabel ? (labelOptions.find((l) => l.id === recordLabel)?.name || recordLabel) : undefined);
       const { releaseId } = await createReleaseWithFullWorkflow(
-        { title: releaseTitle, releaseType: rt, status: 'planning', organizationId: activeOrgId, createdBy: user.uid, targetReleaseDate: null, estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null, label: labelValue, releaseLink: trimmedReleaseLink },
+        { title: releaseTitle, releaseType: rt, status: 'planning', organizationId: activeOrgId, createdBy: user.uid, targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null, estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null, label: labelValue, releaseLink: trimmedReleaseLink },
         getStageTemplatesForReleaseType(rt), getRequirementNamesForReleaseType(rt), user.uid,
       );
       const validTracks = tracks.filter((t) => t.title.trim());
@@ -327,6 +335,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
     releaseTitle, setReleaseTitle,
     releaseLink, setReleaseLink,
     releaseNotes, setReleaseNotes,
+    targetReleaseDate, setTargetReleaseDate,
     estimatedReleaseDate, setEstimatedReleaseDate,
     hasArtwork, setHasArtwork,
     commissionArtwork, setCommissionArtwork,

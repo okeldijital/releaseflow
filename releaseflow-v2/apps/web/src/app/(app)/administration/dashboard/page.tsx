@@ -54,7 +54,7 @@ export default function AdministrationDashboardPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Dashboard</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Dashboard</p>
           <p className="text-sm text-text-500 mt-1">Organization overview and health metrics</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to view its dashboard." />
@@ -77,7 +77,7 @@ export default function AdministrationDashboardPage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-display-md font-semibold text-text-900 tracking-tight">Dashboard</p>
+        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Dashboard</p>
         <p className="text-sm text-text-500 mt-1">Organization overview and health metrics</p>
       </div>
 
@@ -90,13 +90,13 @@ export default function AdministrationDashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-2 mb-8">
         <Card padding="md" className="border border-surface-200/80">
-          <p className="font-semibold text-text-900 mb-4">Organization Health</p>
+          <p className="font-semibold text-text-700 mb-4">Organization Health</p>
           {health ? (
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm text-text-500">Overall Score</span>
-                  <span className="text-sm font-semibold text-text-900">{Math.round(health.overallHealth * 100)}%</span>
+                  <span className="text-sm font-semibold text-text-700">{Math.round(health.overallHealth * 100)}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-surface-200 overflow-hidden">
                   <div
@@ -107,15 +107,15 @@ export default function AdministrationDashboardPage() {
               </div>
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-lg bg-surface-50 p-3">
-                  <p className="text-lg font-semibold text-text-900">{Math.round(health.collaborationScore * 100)}%</p>
+                  <p className="text-lg font-semibold text-text-700">{Math.round(health.collaborationScore * 100)}%</p>
                   <p className="text-xs text-text-500">Collaboration</p>
                 </div>
                 <div className="rounded-lg bg-surface-50 p-3">
-                  <p className="text-lg font-semibold text-text-900">{Math.round(health.operationalThroughput * 100)}%</p>
+                  <p className="text-lg font-semibold text-text-700">{Math.round(health.operationalThroughput * 100)}%</p>
                   <p className="text-xs text-text-500">Throughput</p>
                 </div>
                 <div className="rounded-lg bg-surface-50 p-3">
-                  <p className="text-lg font-semibold text-text-900">{Math.round(health.platformReadiness * 100)}%</p>
+                  <p className="text-lg font-semibold text-text-700">{Math.round(health.platformReadiness * 100)}%</p>
                   <p className="text-xs text-text-500">Readiness</p>
                 </div>
               </div>
@@ -126,13 +126,13 @@ export default function AdministrationDashboardPage() {
         </Card>
 
         <Card padding="md" className="border border-surface-200/80">
-          <p className="font-semibold text-text-900 mb-4">Storage Usage</p>
+          <p className="font-semibold text-text-700 mb-4">Storage Usage</p>
           <p className="text-sm text-text-400">Storage monitoring coming in v1.3</p>
         </Card>
       </div>
 
       <Card padding="md" className="border border-surface-200/80">
-        <p className="font-semibold text-text-900 mb-4">Recent Activity</p>
+        <p className="font-semibold text-text-700 mb-4">Recent Activity</p>
         {recentCount > 0 ? (
           <p className="text-sm text-text-500">{recentCount} recent activity events</p>
         ) : (

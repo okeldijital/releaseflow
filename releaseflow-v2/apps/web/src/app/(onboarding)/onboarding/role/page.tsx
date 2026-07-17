@@ -68,7 +68,7 @@ export default function ChooseRolePage() {
         ))}
       </div>
 
-      <h1 className="text-display-md font-semibold tracking-tight text-surface-50">What is your role at this company?</h1>
+      <h1 className="text-display-md font-semibold tracking-tight text-primary-400">What is your role at this company?</h1>
       <p className="mt-2 text-sm text-text-400">We&apos;ll personalize ReleaseFlow based on the work you do.</p>
 
       <div className="mt-8 space-y-6">

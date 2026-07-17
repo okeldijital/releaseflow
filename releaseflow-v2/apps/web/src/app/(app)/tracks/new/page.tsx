@@ -17,7 +17,7 @@ import {
   type AssetType,
 } from '@/lib/asset-lifecycle-service';
 import { invitePerson } from '@/lib/invitation-service';
-import { PersonAssigner } from '@/components/person-assigner';
+import { PersonPickerDialog } from '@/components/person-picker-dialog';
 import { ArtistFieldPicker, FeaturedArtistsPicker, RepeatableArtistPicker, type ArtistOption, type RepeatableArtistEntry } from '@/components/artist-field-picker';
 import { useArtists } from '@/hooks/useArtist';
 import {
@@ -635,11 +635,11 @@ export default function NewTrackPage() {
         />
       )}
 
-      <PersonAssigner
+      <PersonPickerDialog
         open={assignerOpen}
         onClose={() => setAssignerOpen(false)}
-        onAssign={(r) => {
-          assignerCallback.current?.(r);
+        onSelectPerson={(result) => {
+          assignerCallback.current?.({ personId: result.personId });
           assignerCallback.current = null;
           setAssignerOpen(false);
         }}
@@ -662,7 +662,7 @@ function StepTitle({ step }: { step: StepKey }) {
     metadata: 'Publishing metadata',
     review: 'Ready to create this track?',
   };
-  return <h1 className="text-display-md font-semibold tracking-tight text-surface-50 text-center">{titles[step]}</h1>;
+  return <h1 className="text-display-md font-semibold tracking-tight text-primary-400 text-center">{titles[step]}</h1>;
 }
 
 function Btn({ label = 'Continue', onClick, disabled, secondary }: { label?: string; onClick: () => void; disabled?: boolean; secondary?: boolean }) {

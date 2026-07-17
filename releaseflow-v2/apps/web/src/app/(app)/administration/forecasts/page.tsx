@@ -87,7 +87,7 @@ export default function AdministrationForecastsPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Forecasts</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Forecasts</p>
           <p className="text-sm text-text-500 mt-1">Release completion forecasts and risk analysis</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to view forecasts." />
@@ -107,7 +107,7 @@ export default function AdministrationForecastsPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Forecasts</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Forecasts</p>
           <p className="text-sm text-text-500 mt-1">Release completion forecasts and risk analysis</p>
         </div>
         <EmptyState title="Error loading forecasts" description={error} action={{ label: 'Retry', onClick: handleRefresh }} />
@@ -119,7 +119,7 @@ export default function AdministrationForecastsPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Forecasts</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Forecasts</p>
           <p className="text-sm text-text-500 mt-1">Release completion forecasts and risk analysis</p>
         </div>
         <Button
@@ -143,7 +143,7 @@ export default function AdministrationForecastsPage() {
             <Card key={release.id} padding="md" className="border border-surface-200/80">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <p className="font-semibold text-text-900">{release.title}</p>
+                  <p className="font-semibold text-text-700">{release.title}</p>
                   <p className="text-xs text-text-400 mt-0.5">
                     {release.releaseType && (
                       <span className="capitalize">{release.releaseType}</span>
@@ -165,7 +165,7 @@ export default function AdministrationForecastsPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                 <div className="rounded-lg bg-surface-50 p-3">
                   <p className="text-xs text-text-400">Expected Completion</p>
-                  <p className="text-sm font-semibold text-text-900 mt-0.5">
+                  <p className="text-sm font-semibold text-text-700 mt-0.5">
                     {forecast.expectedCompletionDate
                       ? new Date(forecast.expectedCompletionDate).toLocaleDateString('en-US', {
                           month: 'short',
@@ -177,13 +177,13 @@ export default function AdministrationForecastsPage() {
                 </div>
                 <div className="rounded-lg bg-surface-50 p-3">
                   <p className="text-xs text-text-400">Outstanding Workload</p>
-                  <p className="text-sm font-semibold text-text-900 mt-0.5">
+                  <p className="text-sm font-semibold text-text-700 mt-0.5">
                     {forecast.outstandingWorkload} task{forecast.outstandingWorkload !== 1 ? 's' : ''}
                   </p>
                 </div>
                 <div className="rounded-lg bg-surface-50 p-3">
                   <p className="text-xs text-text-400">Capacity Utilization</p>
-                  <p className="text-sm font-semibold text-text-900 mt-0.5">
+                  <p className="text-sm font-semibold text-text-700 mt-0.5">
                     {forecast.capacityUtilisation}%
                   </p>
                 </div>

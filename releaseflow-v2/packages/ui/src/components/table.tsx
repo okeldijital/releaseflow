@@ -88,14 +88,14 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
     );
   };
 
-  const shimmer = 'bg-surface-200 dark:bg-surface-700 rounded animate-shimmer';
+  const shimmer = 'bg-surface-200 rounded animate-shimmer';
 
   if (loading) {
     return (
       <div className={`w-full overflow-x-auto bg-layer-2 ${className}`}>
         <table className="w-full" role="table">
           <thead>
-            <tr className="border-b border-surface-200/50 dark:border-surface-700/50">
+            <tr className="border-b border-surface-200/50">
               {selectable ? <th className="px-4 py-3 w-10" /> : null}
               {columns.map((col) => (
                 <th key={col.key} className="px-4 py-3 text-left" style={{ width: col.width }}>
@@ -106,7 +106,7 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
           </thead>
           <tbody>
             {Array.from({ length: 5 }).map((_, i) => (
-              <tr key={i} className="border-b border-surface-100/60 dark:border-surface-800/60 last:border-0">
+              <tr key={i} className="border-b border-surface-100/60 last:border-0">
                 {selectable ? (
                   <td className="px-4 py-3">
                     <div className={`h-4 w-4 ${shimmer}`} />
@@ -129,7 +129,7 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
     <div className={`w-full overflow-x-auto bg-layer-2 ${className}`}>
       <table className="w-full" role="table">
         <thead>
-          <tr className="border-b border-surface-200/50 dark:border-surface-700/50">
+          <tr className="border-b border-surface-200/50">
             {selectable ? (
               <th className={`pl-4 ${headPy} w-10`}>
                 <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll} />
@@ -140,8 +140,8 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
                 key={col.key}
                 className={`
                   px-4 ${headPy} text-xs font-semibold uppercase tracking-wider text-text-500
-                  dark:text-text-400 whitespace-nowrap
-                  ${sortable && col.sortable !== false ? 'cursor-pointer select-none hover:text-text-900 dark:hover:text-text-200' : ''}
+                  whitespace-nowrap
+                  ${sortable && col.sortable !== false ? 'cursor-pointer select-none hover:text-text-900' : ''}
                   ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}
                 `}
                 style={{ width: col.width }}
@@ -182,7 +182,7 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
                 className="px-4 py-12 text-center"
               >
                 {emptyState ?? (
-                  <p className="text-sm text-text-400 dark:text-text-500">No data</p>
+                  <p className="text-sm text-text-400">No data</p>
                 )}
               </td>
             </tr>
@@ -194,14 +194,14 @@ export function Table<T extends Record<string, unknown> = Record<string, unknown
                 <tr
                   key={rowId}
                   className={`
-                    border-b border-surface-100/60 dark:border-surface-800/60
+                    border-b border-surface-100/60
                     last:border-0
                     transition-colors duration-100
                     ${onRowClick ? 'cursor-pointer' : ''}
                     ${isSelected
-                      ? 'bg-primary-50 dark:bg-primary-900/15'
+                      ? 'bg-primary-50'
                       : onRowClick
-                      ? 'hover:bg-surface-50 dark:hover:bg-surface-800/40'
+                      ? 'hover:bg-surface-50'
                       : ''}
                   `}
                   onClick={() => onRowClick?.(row)}
@@ -287,21 +287,21 @@ export function DataGrid<T extends Record<string, unknown> = Record<string, unkn
                  type="text"
                  placeholder={searchPlaceholder}
                  aria-label={searchPlaceholder}
-                 className="h-10 w-full rounded-md bg-layer-2 pl-9 pr-3 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:bg-surface-900 dark:text-text-100 dark:placeholder:text-text-500 transition-colors duration-100"
+                 className="h-10 w-full rounded-md bg-layer-2 pl-9 pr-3 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-colors duration-100"
                />
             </div>
           ) : null}
           {filters?.map((filter) => (
             <div
               key={filter.key}
-              className="inline-flex items-center gap-2 rounded-md bg-layer-2 px-3 h-10 dark:bg-surface-900"
+              className="inline-flex items-center gap-2 rounded-md bg-layer-2 px-3 h-10"
             >
               <span className="text-xs font-medium text-text-500">{filter.label}</span>
               <select
                 value={filterValues[filter.key] ?? ''}
                 onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
                 aria-label={`Filter by ${filter.label}`}
-                className="text-xs text-text-800 bg-transparent border-none outline-none cursor-pointer dark:text-text-200"
+                className="text-xs text-text-800 bg-transparent border-none outline-none cursor-pointer"
               >
                 <option value="">All</option>
                 {filter.options.map((opt) => (

@@ -73,17 +73,17 @@ function ReleaseCard({ release, onSelect, selected }: {
       <ArtworkDisplay releaseTitle={release.title} size="md" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2.5 flex-wrap">
-          <p className="font-semibold text-primary-400 truncate">{release.title}</p>
+          <p className="font-semibold text-content-primary truncate">{release.title}</p>
           <StatusBadge status={release.status} />
         </div>
         <div className="flex items-center gap-3 mt-0.5">
           {artistName(release) && (
-            <p className="text-xs text-text-400 truncate">{artistName(release)}</p>
+            <p className="text-xs text-content-secondary truncate">{artistName(release)}</p>
           )}
           {date ? (
-            <p className="text-xs text-text-400">{fmt(date)}</p>
+            <p className="text-xs text-content-secondary">{fmt(date)}</p>
           ) : (
-            <p className="text-xs text-text-500">No date set</p>
+            <p className="text-xs text-content-label">No date set</p>
           )}
         </div>
       </div>
@@ -92,13 +92,13 @@ function ReleaseCard({ release, onSelect, selected }: {
 }
 
 function ReadinessGauge({ score }: { score: number }) {
-  const color = score >= 80 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-500' : 'bg-red-500';
+  const color = score >= 80 ? 'bg-success-500' : score >= 50 ? 'bg-warning-500' : 'bg-danger-500';
   return (
     <div className="flex items-center gap-3">
       <div className="flex-1 h-2 rounded-full bg-surface-700 overflow-hidden">
         <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${score}%` }} />
       </div>
-      <span className="text-sm font-semibold text-text-300 w-10 text-right">{score}%</span>
+      <span className="text-sm font-semibold text-content-secondary w-10 text-right">{score}%</span>
     </div>
   );
 }
@@ -138,7 +138,7 @@ function FilterBar({ releases, onFilterChange }: {
       <select
         value={statusFilter}
         onChange={(e) => { setStatusFilter(e.target.value); onFilterChange({ status: e.target.value, genre: genreFilter, search }); }}
-        className="bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-xs text-text-300"
+        className="bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-xs text-content-secondary"
       >
         <option value="">All Statuses</option>
         {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -146,7 +146,7 @@ function FilterBar({ releases, onFilterChange }: {
       <select
         value={genreFilter}
         onChange={(e) => { setGenreFilter(e.target.value); onFilterChange({ status: statusFilter, genre: e.target.value, search }); }}
-        className="bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-xs text-text-300"
+        className="bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-xs text-content-secondary"
       >
         <option value="">All Genres</option>
         {genres.map((g) => <option key={g} value={g}>{g}</option>)}
@@ -232,19 +232,19 @@ function CalendarView({ releases }: { releases: ReleaseRecord[] }) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
-          className="px-3 py-1.5 text-sm bg-surface-800 border border-surface-700 rounded-lg hover:bg-surface-700 text-text-300">
+          className="px-3 py-1.5 text-sm bg-surface-800 border border-surface-700 rounded-lg hover:bg-surface-700 text-content-secondary">
           &larr; Prev
         </button>
-        <h3 className="text-lg font-semibold text-text-200">{monthLabel(currentMonth)}</h3>
+        <h3 className="text-lg font-semibold text-content-primary">{monthLabel(currentMonth)}</h3>
         <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
-          className="px-3 py-1.5 text-sm bg-surface-800 border border-surface-700 rounded-lg hover:bg-surface-700 text-text-300">
+          className="px-3 py-1.5 text-sm bg-surface-800 border border-surface-700 rounded-lg hover:bg-surface-700 text-content-secondary">
           Next &rarr;
         </button>
       </div>
 
       <div className="grid grid-cols-7 gap-px bg-surface-700/50 rounded-xl overflow-hidden">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-          <div key={d} className="bg-surface-900 px-2 py-1.5 text-xs font-semibold text-text-500 text-center">{d}</div>
+          <div key={d} className="bg-surface-900 px-2 py-1.5 text-xs font-semibold text-content-label text-center">{d}</div>
         ))}
         {daysInMonth.map((day, i) => {
           if (!day) return <div key={`empty-${i}`} className="bg-surface-900/50 min-h-[80px]" />;
@@ -252,7 +252,7 @@ function CalendarView({ releases }: { releases: ReleaseRecord[] }) {
           const isToday = day.toDateString() === new Date().toDateString();
           return (
             <div key={day.toISOString()} className={`bg-surface-900 min-h-[80px] p-1.5 ${isToday ? 'ring-1 ring-primary-500/40' : ''}`}>
-              <span className={`text-xs font-medium ${isToday ? 'text-primary-400' : 'text-text-500'}`}>{day.getDate()}</span>
+              <span className={`text-xs font-medium ${isToday ? 'text-primary-400' : 'text-content-label'}`}>{day.getDate()}</span>
               <div className="mt-1 space-y-0.5">
                 {releases.slice(0, 3).map((r) => (
                   <Link key={r.id} href={`/releases/${r.id}`}
@@ -261,7 +261,7 @@ function CalendarView({ releases }: { releases: ReleaseRecord[] }) {
                   </Link>
                 ))}
                 {releases.length > 3 && (
-                  <span className="text-[10px] text-text-500 px-1">+{releases.length - 3} more</span>
+                  <span className="text-[10px] text-content-label px-1">+{releases.length - 3} more</span>
                 )}
               </div>
             </div>
@@ -319,10 +319,10 @@ function GanttView({ releases }: { releases: ReleaseRecord[] }) {
     <div className="overflow-x-auto">
       <div className="min-w-[600px]">
         <div className="flex border-b border-surface-700/60 mb-2">
-          <div className="w-48 shrink-0 px-2 py-1 text-xs font-semibold text-text-500">Release</div>
+          <div className="w-48 shrink-0 px-2 py-1 text-xs font-semibold text-content-label">Release</div>
           <div className="flex flex-1">
             {months.map((m) => (
-              <div key={m.label} className="text-center text-[10px] font-semibold text-text-500 py-1"
+              <div key={m.label} className="text-center text-[10px] font-semibold text-content-label py-1"
                 style={{ width: `${(m.days / totalDays) * 100}%` }}>
                 {m.label}
               </div>
@@ -339,8 +339,8 @@ function GanttView({ releases }: { releases: ReleaseRecord[] }) {
               <Link key={r.id} href={`/releases/${r.id}`}
                 className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-surface-800/50 group">
                 <div className="w-48 shrink-0 truncate">
-                  <p className="text-sm font-medium text-primary-400 truncate">{r.title}</p>
-                  <p className="text-[10px] text-text-500">{fmt(d)}</p>
+                  <p className="text-sm font-medium text-content-primary truncate">{r.title}</p>
+                  <p className="text-[10px] text-content-label">{fmt(d)}</p>
                 </div>
                 <div className="flex-1 relative h-6">
                   <div className="absolute top-1.5 left-0 right-0 h-1 bg-surface-700 rounded-full" />
@@ -394,7 +394,7 @@ function AgendaView({ releases, selectedId, onSelect }: {
         if (key === 'no-date') {
           return (
             <div key={key}>
-              <h3 className="text-sm font-semibold text-text-500 uppercase tracking-widest mb-4">No Date Set</h3>
+              <h3 className="text-sm font-semibold text-content-label uppercase tracking-widest mb-4">No Date Set</h3>
               <div className="space-y-3">
                 {group.map((r) => <ReleaseCard key={r.id} release={r} onSelect={onSelect} selected={selectedId === r.id} />)}
               </div>
@@ -404,7 +404,7 @@ function AgendaView({ releases, selectedId, onSelect }: {
         const d = new Date(Number(key.split('-')[0]), Number(key.split('-')[1]));
         return (
           <div key={key}>
-            <h3 className="text-sm font-semibold text-text-500 uppercase tracking-widest mb-4">{monthLabel(d)}</h3>
+            <h3 className="text-sm font-semibold text-content-label uppercase tracking-widest mb-4">{monthLabel(d)}</h3>
             <div className="space-y-3">
               {group.map((r) => <ReleaseCard key={r.id} release={r} onSelect={onSelect} selected={selectedId === r.id} />)}
             </div>
@@ -425,50 +425,50 @@ function CapacityView({ releases, milestones }: { releases: ReleaseRecord[]; mil
   return (
     <div className="space-y-8">
       <Card className="p-6">
-        <h3 className="text-sm font-semibold text-text-500 uppercase tracking-widest mb-4">Releases Per Month</h3>
+        <h3 className="text-sm font-semibold text-content-label uppercase tracking-widest mb-4">Releases Per Month</h3>
         <div className="space-y-3">
           {capacity.releasesPerMonth.map((m) => (
             <div key={m.month} className="flex items-center gap-3">
-              <span className="w-20 text-xs text-text-400 shrink-0">{m.month}</span>
+              <span className="w-20 text-xs text-content-secondary shrink-0">{m.month}</span>
               <div className="flex-1 h-5 bg-surface-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary-500/60 rounded-full transition-all duration-300"
                   style={{ width: `${(m.count / maxCount) * 100}%` }}
                 />
               </div>
-              <span className="text-xs text-text-400 w-6 text-right">{m.count}</span>
+              <span className="text-xs text-content-secondary w-6 text-right">{m.count}</span>
             </div>
           ))}
           {capacity.releasesPerMonth.length === 0 && (
-            <p className="text-sm text-text-500">No releases scheduled.</p>
+            <p className="text-sm text-content-label">No releases scheduled.</p>
           )}
         </div>
       </Card>
 
       <div className="grid grid-cols-2 gap-4">
         <Card className="p-5">
-          <p className="text-xs text-text-500 uppercase tracking-widest mb-1">Workload Score</p>
-          <p className="text-2xl font-bold text-text-200">{capacity.workload}</p>
+          <p className="text-xs text-content-label uppercase tracking-widest mb-1">Workload Score</p>
+          <p className="text-2xl font-bold text-content-primary">{capacity.workload}</p>
         </Card>
         <Card className="p-5">
-          <p className="text-xs text-text-500 uppercase tracking-widest mb-1">Assignment Load</p>
-          <p className="text-2xl font-bold text-text-200">{capacity.assignmentLoad}h</p>
+          <p className="text-xs text-content-label uppercase tracking-widest mb-1">Assignment Load</p>
+          <p className="text-2xl font-bold text-content-primary">{capacity.assignmentLoad}h</p>
         </Card>
       </div>
 
       <Card className="p-6">
-        <h3 className="text-sm font-semibold text-text-500 uppercase tracking-widest mb-4">Release Readiness</h3>
+        <h3 className="text-sm font-semibold text-content-label uppercase tracking-widest mb-4">Release Readiness</h3>
         <div className="space-y-4">
           {releases.slice(0, 10).map((r) => {
             const relMilestones = milestones.filter((m) => m.releaseId === r.id);
             const score = calculateReleaseReadiness(r, relMilestones);
             return (
               <div key={r.id} className="flex items-center gap-4">
-                <Link href={`/releases/${r.id}`} className="text-sm text-primary-400 hover:underline w-40 truncate">{r.title}</Link>
+                <Link href={`/releases/${r.id}`} className="text-sm text-content-primary hover:underline w-40 truncate">{r.title}</Link>
                 <div className="flex-1">
                   <ReadinessGauge score={score.overall} />
                 </div>
-                <span className="text-xs text-text-500 w-16 text-right">{score.milestones.filter((m) => m.percentage === 100).length}/{score.milestones.length} done</span>
+                <span className="text-xs text-content-label w-16 text-right">{score.milestones.filter((m) => m.percentage === 100).length}/{score.milestones.length} done</span>
               </div>
             );
           })}
@@ -483,46 +483,46 @@ function TimelineSidebar({ release, onClose }: { release: ReleaseRecord; onClose
     <div className="w-80 border-l border-surface-700/60 bg-surface-900/80 overflow-y-auto shrink-0">
       <div className="p-5">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-sm font-semibold text-text-200">Release Details</h3>
-          <button onClick={onClose} className="text-text-500 hover:text-text-200 text-lg leading-none">&times;</button>
+          <h3 className="text-sm font-semibold text-content-primary">Release Details</h3>
+          <button onClick={onClose} className="text-content-secondary hover:text-content-primary text-lg leading-none">&times;</button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <p className="text-xs text-text-500 uppercase tracking-widest mb-1">Title</p>
-            <p className="text-sm font-medium text-text-200">{release.title}</p>
+            <p className="text-xs text-content-label uppercase tracking-widest mb-1">Title</p>
+            <p className="text-sm font-medium text-content-primary">{release.title}</p>
           </div>
 
           {artistName(release) && (
             <div>
-              <p className="text-xs text-text-500 uppercase tracking-widest mb-1">Artist</p>
-              <p className="text-sm text-text-200">{artistName(release)}</p>
+              <p className="text-xs text-content-label uppercase tracking-widest mb-1">Artist</p>
+              <p className="text-sm text-content-primary">{artistName(release)}</p>
             </div>
           )}
 
           <div>
-            <p className="text-xs text-text-500 uppercase tracking-widest mb-1">Status</p>
+            <p className="text-xs text-content-label uppercase tracking-widest mb-1">Status</p>
             <StatusBadge status={release.status} />
           </div>
 
           <div>
-            <p className="text-xs text-text-500 uppercase tracking-widest mb-1">Release Date</p>
-            <p className="text-sm text-text-200">
-              {fmt(toDate(release.estimatedReleaseDate) ?? toDate(release.targetReleaseDate) ?? new Date())}
-            </p>
+            <p className="text-xs text-content-label uppercase tracking-widest mb-1">Release Date</p>
+              <p className="text-sm text-content-primary">
+                {fmt(toDate(release.estimatedReleaseDate) ?? toDate(release.targetReleaseDate) ?? new Date())}
+              </p>
           </div>
 
           {release.genre && (
             <div>
-              <p className="text-xs text-text-500 uppercase tracking-widest mb-1">Genre</p>
-              <p className="text-sm text-text-200">{release.genre}</p>
+              <p className="text-xs text-content-label uppercase tracking-widest mb-1">Genre</p>
+              <p className="text-sm text-content-primary">{release.genre}</p>
             </div>
           )}
 
           {release.label && (
             <div>
-              <p className="text-xs text-text-500 uppercase tracking-widest mb-1">Label</p>
-              <p className="text-sm text-text-200">{release.label}</p>
+              <p className="text-xs text-content-label uppercase tracking-widest mb-1">Label</p>
+              <p className="text-sm text-content-primary">{release.label}</p>
             </div>
           )}
 
@@ -618,47 +618,47 @@ export default function SchedulePage() {
       <div className="px-5 sm:px-7 pt-6 pb-4">
         <div className="grid grid-cols-4 gap-4 mb-5">
           <div className="bg-surface-900 border border-surface-700/60 rounded-xl px-4 py-3">
-            <p className="text-xs text-text-500 uppercase tracking-widest">Upcoming</p>
-            <p className="text-xl font-bold text-text-200 mt-1">{health.upcomingThisMonth}</p>
-            <p className="text-[10px] text-text-500">this month</p>
+            <p className="text-xs text-content-label uppercase tracking-widest">Upcoming</p>
+            <p className="text-xl font-bold text-content-primary mt-1">{health.upcomingThisMonth}</p>
+            <p className="text-[10px] text-content-label">this month</p>
           </div>
           <div className="bg-surface-900 border border-surface-700/60 rounded-xl px-4 py-3">
-            <p className="text-xs text-text-500 uppercase tracking-widest">Completed</p>
-            <p className="text-xl font-bold text-text-200 mt-1">{health.completedThisMonth}</p>
-            <p className="text-[10px] text-text-500">milestones this month</p>
+            <p className="text-xs text-content-label uppercase tracking-widest">Completed</p>
+            <p className="text-xl font-bold text-content-primary mt-1">{health.completedThisMonth}</p>
+            <p className="text-[10px] text-content-label">milestones this month</p>
           </div>
           <div className="bg-surface-900 border border-surface-700/60 rounded-xl px-4 py-3">
-            <p className="text-xs text-text-500 uppercase tracking-widest">At Risk</p>
-            <p className={`text-xl font-bold mt-1 ${health.atRisk > 0 ? 'text-amber-400' : 'text-text-200'}`}>{health.atRisk}</p>
-            <p className="text-[10px] text-text-500">approaching milestones</p>
+            <p className="text-xs text-content-label uppercase tracking-widest">At Risk</p>
+            <p className={`text-xl font-bold mt-1 ${health.atRisk > 0 ? 'text-warning-500' : 'text-content-primary'}`}>{health.atRisk}</p>
+            <p className="text-[10px] text-content-label">approaching milestones</p>
           </div>
           <div className="bg-surface-900 border border-surface-700/60 rounded-xl px-4 py-3">
-            <p className="text-xs text-text-500 uppercase tracking-widest">Overdue</p>
-            <p className={`text-xl font-bold mt-1 ${health.overdue > 0 ? 'text-red-400' : 'text-text-200'}`}>{health.overdue}</p>
-            <p className="text-[10px] text-text-500">milestones</p>
+            <p className="text-xs text-content-label uppercase tracking-widest">Overdue</p>
+            <p className={`text-xl font-bold mt-1 ${health.overdue > 0 ? 'text-danger-500' : 'text-content-primary'}`}>{health.overdue}</p>
+            <p className="text-[10px] text-content-label">milestones</p>
           </div>
         </div>
 
         {/* Conflicts Banner */}
         {conflicts.length > 0 && (
-          <div className="flex items-center gap-3 px-4 py-2.5 mb-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
-            <span className="text-amber-400 text-sm font-medium">Conflicts detected:</span>
-            <div className="flex gap-3 flex-wrap">
+          <div className="flex items-center gap-3 px-4 py-2.5 mb-4 rounded-xl bg-warning-500/10 border border-warning-500/30">
+            <span className="text-content-primary text-sm font-medium">Conflicts detected:</span>
+            <ul className="space-y-1">
               {conflicts.map((c, i) => (
-                <span key={i} className="text-xs text-amber-300">{c.message}</span>
+                <li key={i} className="text-xs text-content-secondary">{c.message}</li>
               ))}
-            </div>
+            </ul>
           </div>
         )}
 
         {/* Header + Controls */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-display-md font-semibold text-primary-400 tracking-tight">Schedule</p>
-            <p className="mt-0.5 text-sm text-text-400">{releases.length} release{releases.length !== 1 ? 's' : ''} &middot; {milestones.length} milestone{milestones.length !== 1 ? 's' : ''}</p>
+            <p className="text-display-md font-semibold text-content-primary tracking-tight">Schedule</p>
+            <p className="mt-0.5 text-sm text-content-secondary">{releases.length} release{releases.length !== 1 ? 's' : ''} &middot; {milestones.length} milestone{milestones.length !== 1 ? 's' : ''}</p>
           </div>
           <button onClick={handleIcsExport}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-surface-800 border border-surface-700 text-text-300 hover:bg-surface-700 transition-colors">
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-surface-800 border border-surface-700 text-content-primary hover:bg-surface-700 transition-colors">
             Export ICS
           </button>
         </div>

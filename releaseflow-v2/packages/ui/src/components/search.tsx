@@ -26,7 +26,7 @@ export function Search({
   return (
     <div className={`relative w-full ${className}`}>
       <svg
-        className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-400 pointer-events-none"
+        className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-content-secondary pointer-events-none"
         viewBox="0 0 20 20"
         fill="currentColor"
       >
@@ -44,8 +44,8 @@ export function Search({
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full bg-surface-50 border border-surface-200 rounded-md px-3 py-2 pl-9 pr-8 text-sm text-text-900 placeholder:text-text-400 transition-colors duration-100
-          focus:outline-none focus:bg-layer-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-500
+        className={`w-full bg-surface-800 border border-surface-700 rounded-md px-3 py-2 pl-9 pr-8 text-sm text-content-primary placeholder:text-content-label transition-colors duration-100
+          focus:outline-none focus:bg-surface-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500
         `}
       />
       {value ? (
@@ -53,7 +53,7 @@ export function Search({
           type="button"
           aria-label="Clear search"
           onClick={handleClear}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-text-400 hover:text-text-700 transition-colors duration-100"
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-content-secondary hover:text-content-primary transition-colors duration-100"
         >
           <svg className="h-3 w-3" viewBox="0 0 14 14" fill="currentColor">
             <path d="M3.646 3.646a.5.5 0 01.708 0L7 6.293l2.646-2.647a.5.5 0 01.708.708L7.707 7l2.647 2.646a.5.5 0 01-.708.708L7 7.707 4.354 10.354a.5.5 0 01-.708-.708L6.293 7 3.646 4.354a.5.5 0 010-.708z" />

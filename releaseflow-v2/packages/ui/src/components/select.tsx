@@ -92,7 +92,7 @@ export function Select({
       {label ? (
         <label
           htmlFor={generatedId}
-          className="mb-2 block text-sm font-medium text-text-700 dark:text-text-300"
+          className="mb-2 block text-sm font-medium text-content-label"
         >
           {label}
         </label>
@@ -110,30 +110,30 @@ export function Select({
           onClick={() => !disabled && setOpen((p) => !p)}
           onKeyDown={handleKeyDown}
           className={`
-            h-10 w-full flex items-center justify-between rounded-md border bg-layer-2
+            h-10 w-full flex items-center justify-between rounded-md border border-divider bg-layer-3
             px-3 text-sm transition-colors duration-100 ease-out
-            dark:bg-surface-900
+
             ${error
               ? 'border-danger-500 focus:ring-2 focus:ring-danger-500'
-              : 'border-surface-300 dark:border-surface-600 hover:border-surface-400 dark:hover:border-surface-500 focus:border-primary-500 focus:ring-2 focus:ring-primary-500'}
+              : 'hover:border-border-strong focus:border-primary-500 focus:ring-2 focus:ring-primary-500'}
             ${disabled
-              ? 'cursor-not-allowed bg-surface-50 opacity-50 dark:bg-surface-800'
+              ? 'cursor-not-allowed bg-layer-2 text-content-label opacity-50'
               : 'cursor-pointer'}
             focus:outline-none
           `}
         >
-          <span className={selectedOption ? 'text-text-900 dark:text-text-100' : 'text-text-400 dark:text-text-500'}>
+          <span className={selectedOption ? 'text-content-primary' : 'text-content-label'}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           <svg
-            className={`h-4 w-4 text-text-400 shrink-0 transition-transform duration-100 ${open ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 text-content-secondary shrink-0 transition-transform duration-100 ${open ? 'rotate-180' : ''}`}
             viewBox="0 0 20 20"
             fill="currentColor"
             aria-hidden="true"
           >
             <path
               fillRule="evenodd"
-              d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+              d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71.79-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
               clipRule="evenodd"
             />
           </svg>
@@ -143,7 +143,7 @@ export function Select({
           <ul
             ref={listRef}
             role="listbox"
-            className="absolute z-20 mt-2 w-full rounded-md border border-surface-200 bg-layer-2 py-1 shadow-raised dark:bg-surface-900 dark:border-surface-700 max-h-60 overflow-auto animate-slide-down"
+            className="absolute z-20 mt-2 w-full rounded-md border border-divider bg-layer-3 py-1 shadow-raised max-h-60 overflow-auto animate-slide-down"
           >
             {options.map((option, index) => (
               <li
@@ -153,12 +153,12 @@ export function Select({
                 className={`
                   mx-1 rounded-sm px-3 py-2 text-sm cursor-pointer transition-colors duration-100
                   ${option.value === value
-                    ? 'bg-primary-50 text-primary-700 font-medium dark:bg-primary-900/30 dark:text-primary-300'
-                    : 'text-text-700 dark:text-text-300'}
+                    ? 'bg-layer-2 text-content-primary font-medium'
+                    : 'text-content-secondary'}
                   ${index === activeIndex && option.value !== value
-                    ? 'bg-surface-50 dark:bg-surface-800'
+                    ? 'bg-layer-2 hover:text-content-primary'
                     : option.value !== value
-                    ? 'hover:bg-surface-50 dark:hover:bg-surface-800'
+                    ? 'hover:bg-layer-2 hover:text-content-primary'
                     : ''}
                 `}
                 onClick={() => { onChange?.(option.value); setOpen(false); }}
@@ -172,10 +172,10 @@ export function Select({
       </div>
 
       {error ? (
-        <p className="mt-2 text-xs text-danger-500 dark:text-danger-400">{error}</p>
+        <p className="mt-2 text-xs text-danger-500">{error}</p>
       ) : null}
       {hint && !error ? (
-        <p className="mt-2 text-xs text-text-400 dark:text-text-500">{hint}</p>
+        <p className="mt-2 text-xs text-content-label">{hint}</p>
       ) : null}
     </div>
   );

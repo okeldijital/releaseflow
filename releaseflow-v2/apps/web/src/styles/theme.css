@@ -39,9 +39,9 @@
     --rf-color-layer-1: #1C1C1E;
     --rf-color-layer-2: #232326;
     --rf-color-layer-3: #2C2C2E;
-    --rf-color-content-primary:   #F5F5F7;
-    --rf-color-content-secondary: #C7C7CC;
-    --rf-color-content-label:     #9A9AA1;
+    --rf-color-content-primary:   #FFFFFF;
+    --rf-color-content-secondary: #EBEBF5;
+    --rf-color-content-label:     #AEAEB2;
     --rf-color-divider: rgba(255, 255, 255, 0.08);
 
     /* ─── Color.Text (PDS-13) ─────────────────────────────────────── */

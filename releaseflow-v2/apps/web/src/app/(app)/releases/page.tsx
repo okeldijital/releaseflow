@@ -198,7 +198,7 @@ export default function ReleasesPage() {
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
-                className="h-10 rounded-xl border border-surface-200 dark:border-surface-700 bg-layer-2 dark:bg-surface-900 px-3 text-sm text-text-600 dark:text-text-400 focus:border-primary-500/60 focus:outline-none"
+                className="h-10 rounded-xl border border-surface-200 bg-layer-2 px-3 text-sm text-text-600 focus:border-primary-500/60 focus:outline-none"
               >
                 {SORT_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -209,14 +209,14 @@ export default function ReleasesPage() {
                 className={`h-10 px-3 rounded-xl border transition-colors ${
                   hasActiveFilters
                     ? 'border-primary-500/60 bg-primary-500/10 text-primary-400'
-                    : 'border-surface-200 dark:border-surface-700 text-text-400 hover:text-text-600'
+                    : 'border-surface-200 text-text-400 hover:text-text-600'
                 }`}
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
               </button>
-              <div className="flex rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden">
+              <div className="flex rounded-xl border border-surface-200 overflow-hidden">
                 <button
                   onClick={() => setView('grid')}
                   className={`p-2 ${view === 'grid' ? 'bg-primary-500/10 text-primary-400' : 'text-text-400 hover:text-text-600'}`}
@@ -241,7 +241,7 @@ export default function ReleasesPage() {
 
           {/* Filter bar */}
           {showFilters && (
-            <div className="mb-5 p-4 rounded-xl border border-surface-200 dark:border-surface-700 bg-layer-2 dark:bg-surface-900 space-y-3">
+            <div className="mb-5 p-4 rounded-xl border border-surface-200 bg-layer-2 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-text-400 uppercase tracking-wider">Filters</span>
                 {hasActiveFilters && (
@@ -259,7 +259,7 @@ export default function ReleasesPage() {
                         className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                           filterStatus.includes(opt.value)
                             ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-                            : 'bg-surface-100 dark:bg-surface-800 text-text-500 border border-transparent hover:border-surface-300 dark:hover:border-surface-600'
+                            : 'bg-surface-100 text-text-500 border border-transparent hover:border-surface-300'
                         }`}
                       >
                         {opt.label}
@@ -277,7 +277,7 @@ export default function ReleasesPage() {
                         className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                           filterType.includes(opt.value)
                             ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-                            : 'bg-surface-100 dark:bg-surface-800 text-text-500 border border-transparent hover:border-surface-300 dark:hover:border-surface-600'
+                            : 'bg-surface-100 text-text-500 border border-transparent hover:border-surface-300'
                         }`}
                       >
                         {opt.label}
@@ -296,7 +296,7 @@ export default function ReleasesPage() {
                           className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                             filterYear.includes(year)
                               ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-                              : 'bg-surface-100 dark:bg-surface-800 text-text-500 border border-transparent hover:border-surface-300 dark:hover:border-surface-600'
+                              : 'bg-surface-100 text-text-500 border border-transparent hover:border-surface-300'
                           }`}
                         >
                           {year}
@@ -325,7 +325,7 @@ export default function ReleasesPage() {
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-surface-200 dark:border-surface-700/80 bg-layer-2 dark:bg-surface-900 overflow-hidden divide-y divide-surface-100 dark:divide-surface-800">
+            <div className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden divide-y divide-surface-100">
               {filtered.map((release) => (
                 <ReleaseCard key={release.id} release={release} view="list" />
               ))}

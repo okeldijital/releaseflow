@@ -24,7 +24,7 @@ const statusColors: Record<string, string> = {
   assigned: 'bg-primary-500/10 text-primary-400',
   accepted: 'bg-info-500/10 text-info-400',
   in_progress: 'bg-warning-500/10 text-warning-600',
-  review: 'bg-accent-500/10 text-accent-400',
+  review: 'bg-primary-500/10 text-primary-400',
   completed: 'bg-success-500/10 text-success-600',
   declined: 'bg-danger-500/10 text-danger-600',
   cancelled: 'bg-surface-800 text-text-500',
@@ -161,7 +161,7 @@ export default function AssignmentDetailPage() {
     { id: 'edit', label: 'Edit', onClick: () => setEditing(true) },
     ...(assignment.status === 'archived'
       ? [{ id: 'restore', label: 'Restore', onClick: () => restoreUserAssignment(assignment.id, user?.uid ?? '').then(refresh).catch((e) => toast.error(e.message)) }]
-      : [{ id: 'archive', label: 'Archive', onClick: () => setArchiveDialog(true) }]
+      : [{ id: 'archive', label: 'Archive', variant: 'secondary' as const, onClick: () => setArchiveDialog(true) }]
     ),
     { id: 'delete', label: 'Archive', variant: 'danger' as const, onClick: () => setDeleteDialog(true), separatorBefore: true },
   ];

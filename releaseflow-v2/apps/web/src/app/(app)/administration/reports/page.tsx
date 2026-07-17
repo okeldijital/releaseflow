@@ -108,7 +108,7 @@ export default function AdministrationReportsPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Reports</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Reports</p>
           <p className="text-sm text-text-500 mt-1">Generate and export organization reports</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to manage reports." />
@@ -119,12 +119,12 @@ export default function AdministrationReportsPage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-display-md font-semibold text-text-900 tracking-tight">Reports</p>
+        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Reports</p>
         <p className="text-sm text-text-500 mt-1">Generate and export organization reports</p>
       </div>
 
       <Card padding="md" className="border border-surface-200/80 mb-6">
-        <p className="font-semibold text-text-900 mb-4">Generate Report</p>
+        <p className="font-semibold text-text-700 mb-4">Generate Report</p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-4">
           <Select
             label="Domain"
@@ -164,7 +164,7 @@ export default function AdministrationReportsPage() {
           <Card padding="md" className="border border-surface-200/80 mb-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="font-semibold text-text-900">Report Results</p>
+                <p className="font-semibold text-text-700">Report Results</p>
                 <p className="text-sm text-text-400 mt-0.5">
                   {result.rowCount} row{result.rowCount !== 1 ? 's' : ''} &middot; Generated{' '}
                   {new Date(result.generatedAt).toLocaleString()}
@@ -225,7 +225,7 @@ export default function AdministrationReportsPage() {
 
       {savedReports.length > 0 && (
         <Card padding="md" className="border border-surface-200/80">
-          <p className="font-semibold text-text-900 mb-4">Saved Reports</p>
+          <p className="font-semibold text-text-700 mb-4">Saved Reports</p>
           <div className="space-y-1.5">
             {savedReports.map((def) => (
               <div

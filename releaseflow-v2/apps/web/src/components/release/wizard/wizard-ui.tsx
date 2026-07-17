@@ -9,7 +9,7 @@ export function StepTitle({ step }: { step: string }) {
     release_info: 'Release Information', promotion: 'How will you promote this release?',
     email: 'Will you send an email announcement?', review: 'Ready to launch?',
   };
-  return <h1 className="text-display-md font-semibold tracking-tight text-surface-50 text-center">{titles[step] ?? step}</h1>;
+  return <h1 className="text-display-md font-semibold tracking-tight text-primary-400 text-center">{titles[step] ?? step}</h1>;
 }
 
 export function Btn({ label = 'Continue', onClick, disabled, secondary }: { label?: string; onClick: () => void; disabled?: boolean; secondary?: boolean }) {

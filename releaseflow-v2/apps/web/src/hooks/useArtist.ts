@@ -4,92 +4,118 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useOrgStore } from '@/stores/org-store';
 import {
   fetchArtist, fetchArtists, fetchArtistReleases,
-  fetchCreditsByArtist, fetchTrackTitle, checkArtistReadiness,
-  fetchArtistUsage, validateDeleteArtist,
+  fetchCreditsByArtist, fetchTrackTitle,
+  validateDeleteArtist,
 } from '@/lib/artist-service';
 import { getDiscography } from '@/lib/artist-discography-service';
 import type { DiscographySummary } from '@/lib/artist-discography-service';
-import { getGroupsForArtist, getMembersOfGroup } from '@/lib/artist-membership-repository';
-import type { ArtistMembershipRecord } from '@/lib/artist-membership-repository';
-import type { ArtistRecord, TrackCreditRecord, ArtistUsageResult, ArtistReferenceSummary } from '@/lib/artist-service';
-import type { ArtistReadinessResult } from '@/lib/artist-service';
+import { getTracksByArtist } from '@/lib/track-artist-repository';
+import type { TrackArtistRecord } from '@/lib/track-artist-repository';
+import { fetchActivityByEntity } from '@/lib/workflow-service';
+import type { ActivityEventRecord } from '@/lib/activity-service';
+import type { ArtistRecord, TrackCreditRecord, ArtistReferenceSummary } from '@/lib/artist-service';
 import { toArtistOptions, type ArtistOption } from '@/lib/artist-field-picker-logic';
 
 export type { ArtistOption };
 
+export interface ArtistTrackLink extends TrackArtistRecord {
+  trackTitle?: string;
+}
+
 export function useArtist(artistId: string | undefined) {
-  const { activeOrgId } = useOrgStore();
+  const { activeOrgId, orgVersion } = useOrgStore();
   const [artist, setArtist] = useState<ArtistRecord | null>(null);
   const [releases, setReleases] = useState<{ id: string; title: string; role: string; status: string; releaseType: string }[]>([]);
   const [credits, setCredits] = useState<(TrackCreditRecord & { trackTitle?: string })[]>([]);
-  const [readiness, setReadiness] = useState<ArtistReadinessResult | null>(null);
-  const [usage, setUsage] = useState<ArtistUsageResult | null>(null);
+  const [tracks, setTracks] = useState<ArtistTrackLink[]>([]);
   const [deleteCheck, setDeleteCheck] = useState<{ allowed: boolean; references: ArtistReferenceSummary } | null>(null);
   const [discography, setDiscography] = useState<DiscographySummary | null>(null);
-  const [groups, setGroups] = useState<(ArtistMembershipRecord & { groupName?: string })[]>([]);
-  const [members, setMembers] = useState<(ArtistMembershipRecord & { memberName?: string })[]>([]);
+  const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
 
   const load = useCallback(async () => {
-    if (!artistId || !activeOrgId) { setLoading(false); return; }
+    if (!artistId || !activeOrgId) {
+      setLoading(false);
+      setArtist(null);
+      setError(null);
+      setForbidden(false);
+      return;
+    }
     setLoading(true);
+    setError(null);
+    setForbidden(false);
     try {
-      const [a, relData, credData, r, u, d, disc, g] = await Promise.all([
-        fetchArtist(activeOrgId, artistId),
+      const a = await fetchArtist(activeOrgId, artistId);
+      if (!a) {
+        setArtist(null);
+        setLoading(false);
+        return;
+      }
+      if (a.organizationId && a.organizationId !== activeOrgId) {
+        setForbidden(true);
+        setArtist(null);
+        setLoading(false);
+        return;
+      }
+      setArtist(a);
+
+      const [relResult, credResult, trackResult, d, discResult] = await Promise.allSettled([
         fetchArtistReleases(artistId),
         fetchCreditsByArtist(artistId),
-        checkArtistReadiness(activeOrgId, artistId),
-        fetchArtistUsage(activeOrgId, artistId),
+        getTracksByArtist(artistId),
         validateDeleteArtist(activeOrgId, artistId),
         getDiscography(activeOrgId, artistId),
-        getGroupsForArtist(artistId),
       ]);
-      setArtist(a);
-      setReadiness(r);
-      setReleases(relData);
-      setUsage(u);
-      setDeleteCheck(d);
-      setDiscography(disc);
-      setGroups(g);
-      const credsWithTitles: (TrackCreditRecord & { trackTitle?: string })[] = [...credData];
-      await Promise.all(credsWithTitles.map(async (c) => {
-        const title = await fetchTrackTitle(c.trackId);
-        if (title) c.trackTitle = title;
-      }));
-      setCredits(credsWithTitles);
 
-      // Resolve group names
-      const groupNames = await Promise.all(
-        g.map(async (m) => {
-          const artistName = await fetchArtist(activeOrgId, m.groupArtistId);
-          return { ...m, groupName: artistName?.name ?? m.groupArtistId };
-        }),
-      );
-      setGroups(groupNames);
+      if (relResult.status === 'fulfilled') setReleases(relResult.value);
 
-      // Resolve member names if this artist is a group
-      if (a?.artistType === 'band') {
-        const memberRecs = await getMembersOfGroup(artistId);
-        const memberNames = await Promise.all(
-          memberRecs.map(async (m) => {
-            const memberArtist = await fetchArtist(activeOrgId, m.artistId);
-            return { ...m, memberName: memberArtist?.name ?? m.artistId };
+      if (credResult.status === 'fulfilled') {
+        const creds = credResult.value;
+        const titled = await Promise.allSettled(
+          creds.map(async (c) => {
+            const title = await fetchTrackTitle(c.trackId);
+            return { ...c, trackTitle: title ?? undefined };
           }),
         );
-        setMembers(memberNames);
+        const creditsArr = titled.filter((r) => r.status === 'fulfilled');
+        setCredits(creditsArr.map((r) => r.value as TrackCreditRecord & { trackTitle?: string }));
       }
-    } catch {
-      // silent
+
+      if (trackResult.status === 'fulfilled') {
+        const trackLinks = trackResult.value;
+        const titled = await Promise.allSettled(
+          trackLinks.map(async (t) => {
+            const title = await fetchTrackTitle(t.trackId);
+            return { ...t, trackTitle: title ?? undefined };
+          }),
+        );
+        const tracksArr = titled.filter((r) => r.status === 'fulfilled');
+        setTracks(tracksArr.map((r) => r.value as ArtistTrackLink));
+      }
+
+      if (d.status === 'fulfilled') setDeleteCheck(d.value);
+      if (discResult.status === 'fulfilled') setDiscography(discResult.value);
+
+      setActivitiesLoading(true);
+      fetchActivityByEntity(activeOrgId, 'artist', artistId)
+        .then((acts) => setActivities(acts))
+        .catch(() => setActivities([]))
+        .finally(() => setActivitiesLoading(false));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load artist');
     } finally {
       setLoading(false);
     }
-  }, [artistId, activeOrgId]);
+  }, [artistId, activeOrgId, orgVersion]);
 
   useEffect(() => { void load(); }, [load]);
 
   return {
-    artist, releases, credits, readiness, usage, deleteCheck,
-    discography, groups, members, loading, refresh: load,
+    artist, releases, credits, tracks, deleteCheck,
+    discography, activities, activitiesLoading, loading, error, forbidden, refresh: load,
   };
 }
 

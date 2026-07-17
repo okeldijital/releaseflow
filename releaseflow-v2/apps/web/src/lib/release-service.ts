@@ -1,4 +1,7 @@
 import {
+  collection, query, where, getDocs,
+} from '@firebase/firestore';
+import {
   createReleaseWithWorkflow,
   deleteRelease,
   getRelease,
@@ -7,8 +10,10 @@ import {
   updateReleaseStatus,
 } from './release-repository';
 import { getArtworksByReleaseIds } from './artwork/artwork-repository';
+import { getDb } from './firebase';
 import type {
   ReleaseStatus,
+  Release,
 } from '@/app/(app)/types';
 import type { Artwork } from './artwork/artwork-types';
 import type { CreateReleaseFields, UpdateReleaseFields } from './release-repository';
@@ -139,4 +144,24 @@ export async function fetchReleasesByOrg(orgId: string) {
     if (!map.has(a.releaseId)) map.set(a.releaseId, a);
   }
   return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+}
+
+export async function fetchReleasesByArtist(orgId: string, artistId: string): Promise<Release[]> {
+  const db = getDb();
+  if (!db) return [];
+  const relSnap = await getDocs(
+    query(collection(db, 'release_artists'), where('artistId', '==', artistId)),
+  );
+  const releaseIds = relSnap.docs.map((d) => (d.data() as { releaseId: string }).releaseId);
+  if (releaseIds.length === 0) return [];
+  const releases = await getReleasesByOrganization(orgId);
+  const matched = releases.filter((r) => releaseIds.includes(r.id));
+  if (matched.length === 0) return matched;
+  const ids = matched.map((r) => r.id);
+  const artworks = await getArtworksByReleaseIds(orgId, ids);
+  const map = new Map<string, Artwork>();
+  for (const a of artworks) {
+    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
+  }
+  return matched.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
 }

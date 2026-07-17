@@ -18,7 +18,7 @@ const TYPE_OPTIONS = [
 const TYPE_COLORS: Record<AssetType, string> = {
   audio: 'bg-info-50 text-info-600',
   artwork: 'bg-warning-50 text-warning-600',
-  video: 'bg-purple-50 text-purple-600',
+  video: 'bg-workflow-distribution/10 text-workflow-distribution',
   document: 'bg-surface-100 text-text-500',
   other: 'bg-surface-100 text-text-500',
 };
@@ -76,9 +76,9 @@ function EditDialog({ asset, releases, open, onClose, onSaved }: EditDialogProps
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${closing ? 'opacity-0 transition-opacity duration-200' : ''}`}>
       <div className={`fixed inset-0 bg-surface-900/40 backdrop-blur-sm ${closing ? 'opacity-0 transition-opacity duration-200' : 'animate-fade-in'}`} onClick={handleClose} aria-hidden="true" />
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="edit-asset-title" className={`relative z-10 w-full max-w-sm bg-layer-2 dark:bg-surface-800 rounded-lg shadow-modal border border-surface-200 dark:border-surface-600 ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}`}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="edit-asset-title" className={`relative z-10 w-full max-w-sm bg-layer-2 rounded-lg shadow-modal border border-surface-200 ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}`}>
         <div className="px-6 pt-6 pb-4 space-y-4">
-          <h2 id="edit-asset-title" className="text-base font-semibold text-text-900 dark:text-text-100">Edit Asset</h2>
+          <h2 id="edit-asset-title" className="text-base font-semibold text-text-700">Edit Asset</h2>
           <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} />
           <Select label="Type" options={TYPE_OPTIONS} value={type} onChange={(v) => setType(v as AssetType)} />
           <Select
@@ -88,7 +88,7 @@ function EditDialog({ asset, releases, open, onClose, onSaved }: EditDialogProps
             onChange={(v) => setReleaseId(v)}
           />
         </div>
-        <div className="px-6 py-4 border-t border-surface-100 dark:border-surface-700 flex items-center justify-between gap-2">
+        <div className="px-6 py-4 border-t border-surface-100 flex items-center justify-between gap-2">
           <Button variant="outline" size="sm" onClick={handleArchive} disabled={saving}>
             Archive
           </Button>
@@ -183,7 +183,7 @@ export default function AssetsPage() {
 
       {showAddForm && (
         <div className="mb-6 rounded-xl border border-surface-200/80 bg-layer-2 p-5 space-y-4">
-          <p className="text-sm font-semibold text-text-900 dark:text-text-100">New Asset</p>
+          <p className="text-sm font-semibold text-text-700">New Asset</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Album Artwork Final" />
             <Select label="Type" options={TYPE_OPTIONS} value={newType} onChange={(v) => setNewType(v as AssetType)} />
@@ -222,7 +222,7 @@ export default function AssetsPage() {
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-text-900 dark:text-text-100 truncate">{a.name}</p>
+                  <p className="text-sm font-medium text-text-900 truncate">{a.name}</p>
                   <p className="text-xs text-text-400 truncate">
                     {a.releaseId && releaseMap.has(a.releaseId) ? `${releaseMap.get(a.releaseId)}  ·  ` : ''}
                     {a.filename}

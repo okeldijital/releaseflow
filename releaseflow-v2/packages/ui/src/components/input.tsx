@@ -76,7 +76,7 @@ export function Input({
       </div>
 
       {error ? (
-        <p id={errorId} className="mt-2 text-xs text-danger-500 dark:text-danger-400">
+        <p id={errorId} className="mt-2 text-xs text-danger-500">
           {error}
         </p>
       ) : null}
@@ -152,7 +152,7 @@ export function TextArea({
       />
 
       {error ? (
-        <p id={errorId} className="mt-2 text-xs text-danger-500 dark:text-danger-400">
+        <p id={errorId} className="mt-2 text-xs text-danger-500">
           {error}
         </p>
       ) : null}

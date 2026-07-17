@@ -78,7 +78,7 @@ export default function ReleaseReadyPage() {
         </svg>
       </div>
 
-      <h1 className="text-display-md font-semibold tracking-tight text-surface-50">Your release is ready</h1>
+      <h1 className="text-display-md font-semibold tracking-tight text-primary-400">Your release is ready</h1>
       <p className="mt-2 text-sm text-text-400">We&apos;ll create your {typeLabel.toLowerCase()} now.</p>
 
       <div className="mt-8 rounded-xl border border-surface-700 bg-surface-900 px-5 py-4 text-left space-y-2">

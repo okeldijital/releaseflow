@@ -206,7 +206,7 @@ export function MediaUploader({
               ? 'border-danger-500 bg-danger-500/5'
               : isDone
                 ? 'border-success-500 bg-success-500/5'
-                : 'border-surface-300 dark:border-surface-600 bg-layer-2 dark:bg-surface-900 hover:border-surface-400 dark:hover:border-surface-500',
+                : 'border-surface-300 bg-layer-2 hover:border-surface-400',
           isUploading ? 'pointer-events-none' : '',
         ].join(' ')}
         onDragOver={handleDragOver}
@@ -233,7 +233,7 @@ export function MediaUploader({
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4m-4 12H5a2 2 0 01-2-2v-4" />
             </svg>
             <div className="text-center">
-              <p className="text-sm font-medium text-text-700 dark:text-text-300">{label}</p>
+              <p className="text-sm font-medium text-text-700">{label}</p>
               <p className="text-xs text-text-500 mt-1">Drag & drop or click to browse</p>
             </div>
           </div>
@@ -268,12 +268,12 @@ export function MediaUploader({
               )}
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-text-700 dark:text-text-300 truncate max-w-[200px]">{file?.name}</p>
+              <p className="text-sm font-medium text-text-700 truncate max-w-[200px]">{file?.name}</p>
               <p className="text-xs text-text-500">{file ? formatSize(file.size) : ''}</p>
             </div>
             {isUploading && (
               <div className="w-full max-w-xs">
-                <div className="h-1.5 w-full bg-surface-200 dark:bg-surface-700 rounded-full overflow-hidden">
+                <div className="h-1.5 w-full bg-surface-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary-500 rounded-full transition-all duration-200 ease-out"
                     style={{ width: `${progress}%` }}

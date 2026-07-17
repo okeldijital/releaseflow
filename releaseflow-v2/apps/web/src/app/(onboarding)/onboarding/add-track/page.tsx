@@ -66,7 +66,7 @@ export default function AddTrackPage() {
       </div>
 
       <p className="text-xs font-medium text-text-500 uppercase tracking-widest mb-3">{releaseName}</p>
-      <h1 className="text-display-md font-semibold tracking-tight text-surface-50">Add your first track</h1>
+      <h1 className="text-display-md font-semibold tracking-tight text-primary-400">Add your first track</h1>
       <p className="mt-2 text-sm text-text-400">Every release starts with at least one track.</p>
 
       <input

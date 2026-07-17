@@ -2,13 +2,15 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useArtists } from '@/hooks/useArtist';
-import { archiveArtist, restoreArtist, validateDeleteArtist, removeArtist } from '@/lib/artist-service';
 import { useOrgStore } from '@/stores/org-store';
 import {
   Avatar, Button, EmptyState, LoadingState, StatusBadge, ConfirmationDialog,
 } from '@releaseflow/ui';
+import { EntityOverflowMenu, type EntityOverflowMenuItem } from '@/components/entity-overflow-menu';
+import { archiveArtist, restoreArtist, validateDeleteArtist, removeArtist, fetchArtistLinkCounts } from '@/lib/artist-service';
+import { toast } from '@/stores/toast-store';
 
 const typeLabels: Record<string, string> = {
   original_artist: 'Original Artist', remix_artist: 'Remix Artist',
@@ -16,74 +18,109 @@ const typeLabels: Record<string, string> = {
   band: 'Band', label: 'Label',
 };
 
-const statusFilters = [
+const SORT_OPTIONS = [
+  { value: 'name-asc', label: 'Name A–Z' },
+  { value: 'name-desc', label: 'Name Z–A' },
+  { value: 'updated', label: 'Recently Updated' },
+  { value: 'type', label: 'Artist Type' },
+];
+
+const TYPE_FILTERS = [
+  { value: '', label: 'All types' },
+  { value: 'original_artist', label: 'Original Artist' },
+  { value: 'remix_artist', label: 'Remix Artist' },
+  { value: 'cover_artist', label: 'Cover Artist' },
+  { value: 'producer', label: 'Producer' },
+  { value: 'dj', label: 'DJ' },
+  { value: 'band', label: 'Band' },
+  { value: 'label', label: 'Label' },
+];
+
+const STATUS_FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
   { value: 'archived', label: 'Archived' },
-] as const;
+];
+
+function formatUpdatedAt(timestamp: unknown): string {
+  if (!timestamp) return '—';
+  let date: Date;
+  if (
+    typeof timestamp === 'object' &&
+    timestamp !== null &&
+    'toDate' in timestamp &&
+    typeof (timestamp as { toDate: () => Date }).toDate === 'function'
+  ) {
+    date = (timestamp as { toDate: () => Date }).toDate();
+  } else {
+    date = new Date(timestamp as string | number);
+  }
+  const now = new Date();
+  const diffMins = Math.floor((now.getTime() - date.getTime()) / 60000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 export default function ArtistsPage() {
   const router = useRouter();
   const { activeOrgId } = useOrgStore();
   const { artists, allArtists, loading, refresh, statusFilter, setStatusFilter, bumpArtistCatalogue } = useArtists();
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkLoading, setBulkLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [sort, setSort] = useState('name-asc');
+  const [linkCounts, setLinkCounts] = useState<Record<string, { releases: number; tracks: number }>>({});
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; artistId: string; artistName: string; canDelete: boolean; message: string }>({ open: false, artistId: '', artistName: '', canDelete: false, message: '' });
 
-  const counts = {
+  useEffect(() => {
+    if (!activeOrgId) return;
+    let cancelled = false;
+    fetchArtistLinkCounts(activeOrgId).then((c) => { if (!cancelled) setLinkCounts(c); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeOrgId]);
+
+  const counts = useMemo(() => ({
     all: allArtists.length,
     active: allArtists.filter((a) => a.status === 'active').length,
     inactive: allArtists.filter((a) => a.status === 'inactive').length,
     archived: allArtists.filter((a) => a.status === 'archived').length,
-  };
+  }), [allArtists]);
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  const filteredArtists = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = q
+      ? artists.filter((a) =>
+          a.name.toLowerCase().includes(q) ||
+          (a.stageName?.toLowerCase().includes(q) ?? false) ||
+          (a.legalName?.toLowerCase().includes(q) ?? false),
+        )
+      : artists;
+
+    const typeFiltered = filterType
+      ? list.filter((a) => a.artistType === filterType)
+      : list;
+
+    const sorted = [...typeFiltered].sort((a, b) => {
+      switch (sort) {
+        case 'name-desc': return b.name.localeCompare(a.name);
+        case 'updated': {
+          const at = a.updatedAt ? new Date(a.updatedAt as string | number).getTime() : 0;
+          const bt = b.updatedAt ? new Date(b.updatedAt as string | number).getTime() : 0;
+          return bt - at;
+        }
+        case 'type': return a.artistType.localeCompare(b.artistType);
+        default: return a.name.localeCompare(b.name);
+      }
     });
-  };
+    return sorted;
+  }, [artists, search, filterType, sort]);
 
-  const toggleSelectAll = () => {
-    if (selectedIds.size === artists.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(artists.map((a) => a.id)));
-    }
-  };
-
-  const handleBulkArchive = useCallback(async () => {
-    if (!activeOrgId || selectedIds.size === 0) return;
-    setBulkLoading(true);
-    try {
-      await Promise.all(Array.from(selectedIds).map((id) => archiveArtist(activeOrgId, id)));
-      bumpArtistCatalogue();
-      setSelectedIds(new Set());
-      await refresh();
-    } catch {
-      // silent
-    } finally {
-      setBulkLoading(false);
-    }
-  }, [activeOrgId, selectedIds, bumpArtistCatalogue, refresh]);
-
-  const handleBulkRestore = useCallback(async () => {
-    if (!activeOrgId || selectedIds.size === 0) return;
-    setBulkLoading(true);
-    try {
-      await Promise.all(Array.from(selectedIds).map((id) => restoreArtist(activeOrgId, id)));
-      bumpArtistCatalogue();
-      setSelectedIds(new Set());
-      await refresh();
-    } catch {
-      // silent
-    } finally {
-      setBulkLoading(false);
-    }
-  }, [activeOrgId, selectedIds, bumpArtistCatalogue, refresh]);
+  const hasActiveFilters = search || filterType || statusFilter !== 'all';
 
   const handleDeleteClick = useCallback(async (artistId: string, artistName: string) => {
     if (!activeOrgId) return;
@@ -107,70 +144,114 @@ export default function ArtistsPage() {
       bumpArtistCatalogue();
       setDeleteDialog({ open: false, artistId: '', artistName: '', canDelete: false, message: '' });
       await refresh();
+      toast.success('Artist deleted.');
     } catch {
-      // silent
+      toast.error('Unable to delete artist.');
     }
   }, [activeOrgId, deleteDialog, bumpArtistCatalogue, refresh]);
 
-  const handleBulkDeleteEligible = useCallback(async () => {
-    if (!activeOrgId || selectedIds.size === 0) return;
-    setBulkLoading(true);
+  const handleArchive = useCallback(async (artistId: string) => {
+    if (!activeOrgId) return;
     try {
-      const results = await Promise.all(
-        Array.from(selectedIds).map(async (id) => {
-          const check = await validateDeleteArtist(activeOrgId, id);
-          return { id, allowed: check.allowed };
-        }),
-      );
-      const eligible = results.filter((r) => r.allowed).map((r) => r.id);
-      await Promise.all(eligible.map((id) => removeArtist(activeOrgId, id)));
+      await archiveArtist(activeOrgId, artistId);
       bumpArtistCatalogue();
-      setSelectedIds(new Set());
       await refresh();
+      toast.success('Artist archived.');
     } catch {
-      // silent
-    } finally {
-      setBulkLoading(false);
+      toast.error('Unable to archive artist.');
     }
-  }, [activeOrgId, selectedIds, bumpArtistCatalogue, refresh]);
+  }, [activeOrgId, bumpArtistCatalogue, refresh]);
 
-  if (loading) {
+  const handleRestore = useCallback(async (artistId: string) => {
+    if (!activeOrgId) return;
+    try {
+      await restoreArtist(activeOrgId, artistId);
+      bumpArtistCatalogue();
+      await refresh();
+      toast.success('Artist restored.');
+    } catch {
+      toast.error('Unable to restore artist.');
+    }
+  }, [activeOrgId, bumpArtistCatalogue, refresh]);
+
+  function getArtistMenuItems(artist: { id: string; name: string; status: string }): EntityOverflowMenuItem[] {
+    return [
+      { id: 'open', label: 'Open Artist', onClick: () => router.push(`/artists/${artist.id}`) },
+      { id: 'edit', label: 'Edit Artist', onClick: () => router.push(`/artists/${artist.id}?edit=1`) },
+      { id: 'archive-separator', label: '', separatorBefore: true },
+      ...(artist.status === 'archived'
+        ? [{ id: 'restore', label: 'Restore Artist', variant: 'secondary' as const, onClick: () => handleRestore(artist.id) }]
+        : [{ id: 'archive', label: 'Archive Artist', variant: 'secondary' as const, onClick: () => handleArchive(artist.id) }]
+      ),
+      { id: 'delete', label: 'Delete Artist', variant: 'danger' as const, separatorBefore: true, onClick: () => handleDeleteClick(artist.id, artist.name) },
+    ];
+  }
+
+  if (!activeOrgId) {
     return (
-      <div className="flex items-center justify-center py-32">
-        <LoadingState />
+      <div className="mx-auto max-w-5xl px-5 sm:px-7 py-8 page-transition">
+        <div className="mb-8">
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Artists</p>
+          <p className="mt-1 text-sm text-text-400">Manage every artist across your catalogue.</p>
+        </div>
+        <EmptyState title="No organization selected" description="Select an organization to manage artists." />
       </div>
     );
   }
 
-  const selectedActive = selectedIds.size;
-  const hasArchivedSelected = selectedIds.size > 0 && Array.from(selectedIds).some((id) => {
-    const a = allArtists.find((art) => art.id === id);
-    return a?.status === 'archived';
-  });
-  const hasNonArchivedSelected = selectedIds.size > 0 && Array.from(selectedIds).some((id) => {
-    const a = allArtists.find((art) => art.id === id);
-    return a?.status !== 'archived';
-  });
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-5xl px-5 sm:px-7 py-8 page-transition">
+        <div className="mb-8">
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Artists</p>
+          <p className="mt-1 text-sm text-text-400">Manage every artist across your catalogue.</p>
+        </div>
+        <div className="flex items-center justify-center py-32"><LoadingState /></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
-      <div className="flex items-center justify-between mb-8">
+    <div className="mx-auto max-w-5xl px-5 sm:px-7 py-8 page-transition">
+      <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Artists</p>
-          <p className="mt-1 text-sm text-text-400">Artists connected to your catalogue.</p>
+          <p className="text-display-md font-semibold text-content-primary tracking-tight">Artists</p>
+          <p className="mt-1 text-sm text-content-secondary">Manage every artist across your catalogue.</p>
+          <p className="mt-0.5 text-sm text-content-secondary">{counts.all} artist{counts.all !== 1 ? 's' : ''} in your catalogue</p>
         </div>
-        <Link href="/artists/new">
-          <Button variant="primary" size="md" className="rounded-xl">
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Artist
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/artists/new">
+            <Button variant="primary" size="sm" className="rounded-xl">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Artist
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 mb-6">
-        {statusFilters.map((f) => (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="rounded-xl border border-divider bg-layer-2 p-4 shadow-card">
+          <p className="text-xs font-medium text-content-label uppercase tracking-wider">Total Artists</p>
+          <p className="text-2xl font-semibold text-content-primary mt-2 leading-none">{counts.all}</p>
+        </div>
+        <div className="rounded-xl border border-divider bg-layer-2 p-4 shadow-card">
+          <p className="text-xs font-medium text-content-label uppercase tracking-wider">Active</p>
+          <p className="text-2xl font-semibold text-content-primary mt-2 leading-none">{counts.active}</p>
+        </div>
+        <div className="rounded-xl border border-divider bg-layer-2 p-4 shadow-card">
+          <p className="text-xs font-medium text-content-label uppercase tracking-wider">Inactive</p>
+          <p className="text-2xl font-semibold text-content-primary mt-2 leading-none">{counts.inactive}</p>
+        </div>
+        <div className="rounded-xl border border-divider bg-layer-2 p-4 shadow-card">
+          <p className="text-xs font-medium text-content-label uppercase tracking-wider">Archived</p>
+          <p className="text-2xl font-semibold text-content-primary mt-2 leading-none">{counts.archived}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {STATUS_FILTERS.map((f) => (
           <button
             key={f.value}
             onClick={() => setStatusFilter(f.value)}
@@ -186,27 +267,39 @@ export default function ArtistsPage() {
         ))}
       </div>
 
-      {selectedActive > 0 && (
-        <div className="flex items-center gap-2 mb-4 p-3 rounded-lg bg-surface-800/60">
-          <span className="text-sm text-text-400">{selectedActive} selected</span>
-          {hasNonArchivedSelected && (
-            <Button variant="ghost" size="sm" onClick={handleBulkArchive} loading={bulkLoading} disabled={bulkLoading}>
-              Archive Selected
-            </Button>
-          )}
-          {hasArchivedSelected && (
-            <Button variant="ghost" size="sm" onClick={handleBulkRestore} loading={bulkLoading} disabled={bulkLoading}>
-              Restore Selected
-            </Button>
-          )}
-          <Button variant="ghost" size="sm" onClick={handleBulkDeleteEligible} loading={bulkLoading} disabled={bulkLoading}>
-            Delete Eligible
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
-            Clear
-          </Button>
+      <div className="flex flex-col sm:flex-row gap-3 mb-2">
+        <div className="flex-1">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search artists..."
+            className="block w-full h-10 rounded-xl border border-divider bg-layer-3 px-4 text-sm text-content-primary placeholder:text-content-label focus:border-primary-500/60 focus:outline-none"
+          />
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="h-10 rounded-xl border border-divider bg-layer-3 px-3 text-sm text-content-primary focus:border-primary-500/60 focus:outline-none"
+          >
+            {TYPE_FILTERS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            className="h-10 rounded-xl border border-divider bg-layer-3 px-3 text-sm text-content-primary focus:border-primary-500/60 focus:outline-none"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="h-3" />
 
       {artists.length === 0 ? (
         <EmptyState
@@ -214,52 +307,48 @@ export default function ArtistsPage() {
           description={statusFilter === 'all' ? 'Add your first artist to connect them to releases.' : `No artists with status "${statusFilter}".`}
           action={statusFilter === 'all' ? { label: 'Add Artist', onClick: () => router.push('/artists/new') } : undefined}
         />
+      ) : filteredArtists.length === 0 ? (
+        <EmptyState
+          title="No artists match your search"
+          description="Try adjusting your filters or search terms."
+          action={hasActiveFilters ? { label: 'Clear Filters', onClick: () => { setSearch(''); setFilterType(''); setStatusFilter('all'); } } : undefined}
+        />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-surface-200/80 bg-layer-2 divide-y divide-surface-100/80 dark:bg-surface-900 dark:border-surface-700/80 dark:divide-surface-800">
-          <div className="flex items-center gap-3 px-4 py-2 bg-surface-800/40">
-            <input
-              type="checkbox"
-              checked={selectedIds.size === artists.length && artists.length > 0}
-              onChange={toggleSelectAll}
-              className="rounded"
-            />
-            <span className="text-xs text-text-500 font-medium">Select all</span>
-          </div>
-          {artists.map((a) => (
-            <div key={a.id} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-50/80 dark:hover:bg-surface-800/40 transition-colors duration-100 group">
-              <input
-                type="checkbox"
-                checked={selectedIds.has(a.id)}
-                onChange={() => toggleSelect(a.id)}
-                className="rounded shrink-0"
-              />
+        <div className="space-y-2">
+          {filteredArtists.map((a) => (
+            <div
+              key={a.id}
+              className="flex items-center gap-4 rounded-xl border border-divider bg-layer-2 shadow-card px-4 py-3 hover:border-primary-200 transition-colors group"
+            >
               <Link href={`/artists/${a.id}`} className="flex items-center gap-4 flex-1 min-w-0">
                 <Avatar name={a.name} src={a.imageUrl ?? undefined} size="md" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-primary-400 truncate">{a.name}</p>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <span className="text-xs text-text-500">{typeLabels[a.artistType] ?? a.artistType}</span>
-                    {a.genres && a.genres.length > 0 ? <span className="text-xs text-text-400">{a.genres.slice(0, 2).join(', ')}</span> : null}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <StatusBadge status={a.status} />
-                  <svg className="h-4 w-4 text-text-300 group-hover:text-text-500 transition-colors duration-100" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-content-primary truncate group-hover:text-primary-400 transition-colors">{a.name}</p>
+                  <p className="text-xs text-content-label mt-0.5">{typeLabels[a.artistType] ?? a.artistType}</p>
                 </div>
               </Link>
-              <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                {a.status === 'archived' ? (
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); if (activeOrgId) { restoreArtist(activeOrgId, a.id).then(() => { bumpArtistCatalogue(); refresh(); }); } }}>
-                    Restore
-                  </Button>
-                ) : (
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); if (activeOrgId) { archiveArtist(activeOrgId, a.id).then(() => { bumpArtistCatalogue(); refresh(); }); } }}>
-                    Archive
-                  </Button>
-                )}
-                <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); handleDeleteClick(a.id, a.name); }}>
-                  Delete
-                </Button>
+
+              <div className="hidden md:flex items-center gap-6 shrink-0 text-xs text-content-secondary">
+                <div className="text-center">
+                  <p className="text-base font-semibold text-content-primary leading-none">{linkCounts[a.id]?.tracks ?? 0}</p>
+                  <p className="mt-1 text-content-label">Tracks</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-base font-semibold text-content-primary leading-none">{linkCounts[a.id]?.releases ?? 0}</p>
+                  <p className="mt-1 text-content-label">Releases</p>
+                </div>
+                <div className="text-center min-w-[80px]">
+                  <p className="text-sm font-medium text-content-primary leading-none truncate">{a.genres?.[0] ?? '—'}</p>
+                  <p className="mt-1 text-content-label">Primary Genre</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <StatusBadge status={a.status} />
+                <span className="hidden lg:inline text-xs text-content-label tabular-nums">{formatUpdatedAt(a.updatedAt)}</span>
+                <span onClick={(e) => { e.preventDefault(); }} onKeyDown={(e) => { e.preventDefault(); }}>
+                  <EntityOverflowMenu aria-label={`Actions for ${a.name}`} items={getArtistMenuItems(a)} />
+                </span>
               </div>
             </div>
           ))}

@@ -32,8 +32,8 @@ export function SegmentedControl({
     <div
       role="radiogroup"
       className={`
-        bg-surface-100 dark:bg-surface-800
-        border border-surface-200 dark:border-surface-700
+        bg-surface-800
+        border border-surface-700
         rounded-md p-1 inline-flex overflow-x-auto
         ${fullWidth ? 'w-full' : ''}
         ${className}
@@ -54,8 +54,8 @@ export function SegmentedControl({
               transition-colors duration-100 ease-out
               ${optionSize[size]}
               ${active
-                ? 'bg-layer-2 text-text-900 dark:text-text-50 shadow-card'
-                : 'text-text-500 dark:text-text-400 hover:text-text-800 dark:hover:text-text-200'}
+                ? 'bg-layer-2 text-content-primary shadow-card'
+                : 'text-content-secondary hover:text-content-primary'}
               ${opt.disabled ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}
               ${fullWidth ? 'flex-1 text-center' : ''}
             `}

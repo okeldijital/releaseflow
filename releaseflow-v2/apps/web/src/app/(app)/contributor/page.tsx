@@ -136,7 +136,7 @@ export default function ContributorPage() {
     <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <p className="text-2xl font-bold text-text-900">Contributor Dashboard</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Contributor Dashboard</p>
           <p className="text-sm text-text-500 mt-1">{user?.email}</p>
         </div>
         {unreadCount > 0 ? (
@@ -166,7 +166,7 @@ export default function ContributorPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <Card padding="sm">
-            <h2 className="text-sm font-semibold text-text-900 mb-3">Assigned Tasks ({tasks.length})</h2>
+            <h2 className="text-sm font-semibold text-text-700 mb-3">Assigned Tasks ({tasks.length})</h2>
             {tasks.length === 0 ? (
               <EmptyState title="No assigned tasks" description="Tasks assigned to you will appear here." />
             ) : (
@@ -193,13 +193,13 @@ export default function ContributorPage() {
           </Card>
 
           <Card padding="sm">
-            <h2 className="text-sm font-semibold text-text-900 mb-3">Pending Approvals ({reviews.length})</h2>
+            <h2 className="text-sm font-semibold text-text-700 mb-3">Pending Approvals ({reviews.length})</h2>
             {reviews.length === 0 ? (
               <EmptyState title="No pending approvals" description="Nothing needs your review right now." />
             ) : (
               <div className="space-y-1.5">
                 {reviews.slice(0, 6).map((r) => (
-                  <div key={r.id} className="flex items-center justify-between rounded border border-warning-100 bg-warning-50 dark:border-warning-800 dark:bg-warning-950 px-3 py-2.5">
+                  <div key={r.id} className="flex items-center justify-between rounded border border-warning-100 bg-warning-50 px-3 py-2.5">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-text-900 truncate">Review Request</p>
                       <p className="text-xs text-text-400">Deliverable: {r.deliverableId.slice(0, 8)}...</p>
@@ -215,7 +215,7 @@ export default function ContributorPage() {
           </Card>
 
           <Card padding="sm">
-            <h2 className="text-sm font-semibold text-text-900 mb-3">Upcoming Deadlines ({deadlines.length})</h2>
+            <h2 className="text-sm font-semibold text-text-700 mb-3">Upcoming Deadlines ({deadlines.length})</h2>
             {deadlines.length === 0 ? (
               <EmptyState title="No deadlines this week" description="Nothing due in the next 7 days." />
             ) : (
@@ -238,13 +238,13 @@ export default function ContributorPage() {
 
         <div className="space-y-6">
           <Card padding="sm">
-            <h2 className="text-sm font-semibold text-text-900 mb-3">Notifications ({notifications.length})</h2>
+            <h2 className="text-sm font-semibold text-text-700 mb-3">Notifications ({notifications.length})</h2>
             {notifications.length === 0 ? (
               <EmptyState title="No notifications" description="You're all caught up." />
             ) : (
               <div className="space-y-1.5">
                 {notifications.slice(0, 8).map((n) => (
-                  <div key={n.id} className={`rounded border px-3 py-2.5 ${n.status === 'read' ? 'border-surface-100' : 'border-info-100 bg-info-50 dark:border-info-800 dark:bg-info-950'}`}>
+                  <div key={n.id} className={`rounded border px-3 py-2.5 ${n.status === 'read' ? 'border-surface-100' : 'border-info-100 bg-info-50'}`}>
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
                         <p className={`text-sm font-medium truncate ${n.status === 'read' ? 'text-text-500' : 'text-text-900'}`}>{n.title}</p>
@@ -268,11 +268,11 @@ export default function ContributorPage() {
           </Card>
 
           <Card padding="sm">
-            <h2 className="text-sm font-semibold text-text-900 mb-3">Quick Links</h2>
+            <h2 className="text-sm font-semibold text-text-700 mb-3">Quick Links</h2>
             <div className="space-y-1 text-sm">
-              <Link href="/releases" className="block text-text-500 hover:text-text-900 py-1">View Releases</Link>
-              <Link href="/dashboard" className="block text-text-500 hover:text-text-900 py-1">Operations Center</Link>
-              <Link href="/brief" className="block text-text-500 hover:text-text-900 py-1">Daily Brief</Link>
+              <Link href="/releases" className="block text-text-500 hover:text-text-200 py-1">View Releases</Link>
+              <Link href="/dashboard" className="block text-text-500 hover:text-text-200 py-1">Operations Center</Link>
+              <Link href="/brief" className="block text-text-500 hover:text-text-200 py-1">Daily Brief</Link>
             </div>
           </Card>
         </div>

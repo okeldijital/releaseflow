@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
-import { PersonAssigner } from '@/components/person-assigner';
+import { PersonPickerDialog } from '@/components/person-picker-dialog';
 import { fetchRelease, removeRelease, editRelease } from '@/lib/release-service';
 import { uploadArtwork, getArtworkByRelease } from '@/lib/artwork/artwork-service';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
@@ -29,6 +29,7 @@ import type { ActivityEventRecord } from '@/lib/activity-service';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import type { Artwork } from '@/lib/artwork/artwork-types';
 import { AssignmentsSection } from '@/components/assignments-section';
+import { TrackRow, TrackList } from '@/components/shared/track-row';
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
 
@@ -212,7 +213,6 @@ export default function ReleaseWorkspacePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
-  const [rolePickerOpen, setRolePickerOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -220,7 +220,6 @@ export default function ReleaseWorkspacePage() {
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteRole, setInviteRole] = useState<(typeof INVITE_ROLES)[number]>('Graphic Designer');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [forbidden, setForbidden] = useState(false);
@@ -551,8 +550,8 @@ export default function ReleaseWorkspacePage() {
   if (loadError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-96 px-6 py-20">
-        <p className="text-base font-semibold text-text-900 mb-1">Unable to load release.</p>
-        <p className="text-sm text-text-500 mb-5 text-center max-w-sm">Something went wrong while loading this release. You can retry or return to the releases list.</p>
+        <p className="text-base font-semibold text-content-primary mb-1">Unable to load release.</p>
+        <p className="text-sm text-content-label mb-5 text-center max-w-sm">Something went wrong while loading this release. You can retry or return to the releases list.</p>
         <div className="flex items-center gap-3">
           <Button size="sm" variant="primary" onClick={() => setWorkspaceReloadToken((n) => n + 1)}>Retry</Button>
           <Link href="/releases" className="text-sm font-medium text-primary-500 hover:text-primary-600 transition-colors">Back to Releases</Link>
@@ -564,8 +563,8 @@ export default function ReleaseWorkspacePage() {
   if (forbidden) {
     return (
       <div className="flex flex-col items-center justify-center min-h-96 px-6 py-20">
-        <p className="text-base font-semibold text-text-900 mb-1">Access Denied</p>
-        <p className="text-sm text-text-500 mb-5">You don't have access to this release.</p>
+        <p className="text-base font-semibold text-content-primary mb-1">Access Denied</p>
+        <p className="text-sm text-content-label mb-5">You don't have access to this release.</p>
         <Link href="/releases" className="text-sm font-medium text-primary-500 hover:text-primary-600 transition-colors">← Back to Releases</Link>
       </div>
     );
@@ -587,7 +586,7 @@ export default function ReleaseWorkspacePage() {
 
       {/* ── Back navigation ─────────────────────────────────────────── */}
       <div className="mb-6">
-        <Link href="/releases" className="inline-flex items-center gap-1.5 text-sm text-text-400 hover:text-text-700 transition-colors duration-150">
+        <Link href="/releases" className="inline-flex items-center gap-1.5 text-sm text-content-secondary hover:text-content-primary transition-colors duration-150">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -612,16 +611,16 @@ export default function ReleaseWorkspacePage() {
           {/* Right Column — Details */}
           <div className="flex-1 min-w-0 space-y-4">
             {/* Title */}
-            <h1 className="text-3xl font-bold text-primary-400 tracking-tight leading-tight">{release.title}</h1>
+            <h1 className="text-3xl font-bold text-content-primary tracking-tight leading-tight">{release.title}</h1>
 
             {/* Primary Artist */}
-            <p className="text-sm text-text-700">{artistName}</p>
+            <p className="text-sm text-content-primary">{artistName}</p>
 
             {/* Metadata Row */}
             {(() => {
               const metadataStr = formatReleaseMetadata(release);
               if (!metadataStr) return null;
-              return <div className="flex items-center gap-1.5 text-sm text-text-500">{metadataStr}</div>;
+              return <div className="flex items-center gap-1.5 text-sm text-content-primary">{metadataStr}</div>;
             })()}
 
             {/* Status */}
@@ -654,16 +653,17 @@ export default function ReleaseWorkspacePage() {
                         label: 'Restore Release',
                         onClick: () => setRestoreOpen(true),
                       }]
-                    : [{
-                        id: 'archive',
-                        label: 'Archive Release',
-                        onClick: () => setArchiveOpen(true),
-                      }]
+                     : [{
+                          id: 'archive',
+                          label: 'Archive Release',
+                          variant: 'secondary' as const,
+                          onClick: () => setArchiveOpen(true),
+                       }]
                   ),
                   {
                     id: 'delete',
                     label: 'Delete Release',
-                    variant: 'danger',
+                    variant: 'danger' as const,
                     separatorBefore: true,
                     onClick: () => setDeleteOpen(true),
                   },
@@ -681,25 +681,25 @@ export default function ReleaseWorkspacePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
           {/* Release Information Card */}
-          <div className="rounded-xl border border-surface-200 dark:border-surface-700/60 bg-layer-2 dark:bg-surface-900 shadow-card p-5">
-            <h3 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-3">Release Information</h3>
+          <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5">
+            <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">Release Information</h3>
             <dl className="space-y-2 text-sm">
-              <div className="flex justify-between"><dt className="text-text-400">Release Type</dt><dd className="text-text-800 dark:text-text-200 font-medium">{RELEASE_TYPE_LABELS[release.releaseType] ?? release.releaseType}</dd></div>
-              {release.targetReleaseDate ? <div className="flex justify-between"><dt className="text-text-400">Original Release Date</dt><dd className="text-text-800 dark:text-text-200">{fmtDate(release.targetReleaseDate)}</dd></div> : null}
-              {release.estimatedReleaseDate ? <div className="flex justify-between"><dt className="text-text-400">Digital Release Date</dt><dd className="text-text-800 dark:text-text-200">{fmtDate(release.estimatedReleaseDate)}</dd></div> : null}
+              <div className="flex justify-between"><dt className="text-content-secondary">Release Type</dt><dd className="text-content-primary font-medium">{RELEASE_TYPE_LABELS[release.releaseType] ?? release.releaseType}</dd></div>
+              {release.targetReleaseDate ? <div className="flex justify-between"><dt className="text-content-secondary">Estimated Release Date</dt><dd className="text-content-primary">{fmtDate(release.targetReleaseDate)}</dd></div> : null}
+              {release.estimatedReleaseDate ? <div className="flex justify-between"><dt className="text-content-secondary">Digital Release Date</dt><dd className="text-content-primary">{fmtDate(release.estimatedReleaseDate)}</dd></div> : null}
             </dl>
           </div>
 
           {/* Publishing Card */}
-          <div className="rounded-xl border border-surface-200 dark:border-surface-700/60 bg-layer-2 dark:bg-surface-900 shadow-card p-5">
-            <h3 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-3">Publishing</h3>
+          <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5">
+            <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">Publishing</h3>
             <dl className="space-y-2 text-sm">
-              {release.upc ? <div className="flex justify-between"><dt className="text-text-400">UPC</dt><dd className="text-text-800 dark:text-text-200 font-medium">{release.upc}</dd></div> : null}
-              {release.catalogNumber ? <div className="flex justify-between"><dt className="text-text-400">Catalogue Number</dt><dd className="text-text-800 dark:text-text-200">{release.catalogNumber}</dd></div> : null}
-              {release.explicit ? <div className="flex justify-between"><dt className="text-text-400">Explicit</dt><dd className="text-text-800 dark:text-text-200">Yes</dd></div> : null}
+              {release.upc ? <div className="flex justify-between"><dt className="text-content-secondary">UPC</dt><dd className="text-content-primary font-medium">{release.upc}</dd></div> : null}
+              {release.catalogNumber ? <div className="flex justify-between"><dt className="text-content-secondary">Catalogue Number</dt><dd className="text-content-primary">{release.catalogNumber}</dd></div> : null}
+              {release.explicit ? <div className="flex justify-between"><dt className="text-content-secondary">Explicit</dt><dd className="text-content-primary">Yes</dd></div> : null}
               {release.releaseLink ? (
                 <div className="flex items-center justify-between gap-2">
-                  <dt className="text-text-400">Release Link</dt>
+                  <dt className="text-content-secondary">Release Link</dt>
                   <dd>
                     <a
                       href={release.releaseLink}
@@ -719,9 +719,9 @@ export default function ReleaseWorkspacePage() {
           </div>
 
           {/* Label Card */}
-          <div className="rounded-xl border border-surface-200 dark:border-surface-700/60 bg-layer-2 dark:bg-surface-900 shadow-card p-5">
-            <h3 className="text-xs font-semibold text-text-400 uppercase tracking-wider mb-3">Label</h3>
-            <p className="text-sm font-medium text-text-800 dark:text-text-200">{release.label || 'No label assigned'}</p>
+          <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5">
+            <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">Label</h3>
+            <p className="text-sm font-medium text-content-primary">{release.label || 'No label assigned'}</p>
           </div>
 
         </div>
@@ -731,11 +731,11 @@ export default function ReleaseWorkspacePage() {
       <section aria-label="Team" className="mb-10">
         <SectionHeader title="Team" description="People contributing to this release." />
 
-        <div className="rounded-xl border border-surface-200 dark:border-surface-700/60 bg-layer-2 dark:bg-surface-900 shadow-card p-6">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-6">
           <div className="flex flex-col items-center text-center py-6">
-            <p className="text-sm font-medium text-text-700 mb-1">No collaborators yet.</p>
-            <p className="text-sm text-text-400 mb-4">Invite producers, engineers and designers to collaborate.</p>
-            <Button size="sm" variant="primary" onClick={() => setRolePickerOpen(true)}>Invite Person</Button>
+            <p className="text-sm font-medium text-content-primary mb-1">No collaborators yet.</p>
+            <p className="text-sm text-content-label mb-4">Invite producers, engineers and designers to collaborate.</p>
+            <Button size="sm" variant="primary" onClick={() => setInviteOpen(true)}>Invite Person</Button>
           </div>
         </div>
       </section>
@@ -754,21 +754,19 @@ export default function ReleaseWorkspacePage() {
             action={{ label: 'Add Track', onClick: () => router.push(`/tracks/new?releaseId=${releaseId}`) }}
           />
         ) : (
-          <div className="rounded-xl border border-surface-200 dark:border-surface-700/60 bg-layer-2 dark:bg-surface-900 shadow-card overflow-hidden">
-            {tracks.map((rt, i) => {
+          <TrackList>
+            {tracks.map((rt) => {
               const t = rt.track;
               return (
-                <button
+                <TrackRow
                   key={rt.id}
                   onClick={() => t && router.push(`/tracks/${t.id}`)}
-                  className={`w-full text-left flex items-center gap-4 px-5 py-3.5 hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors duration-100 group ${
-                    i > 0 ? 'border-t border-surface-100 dark:border-surface-800' : ''
-                  }`}
+                  aria-label={t?.title ? `Open track ${t.title}` : 'Open track'}
                 >
-                  <span className="text-sm text-text-400 font-mono w-6 shrink-0 text-right">{rt.position}</span>
+                  <span className="text-sm text-content-secondary font-mono w-6 shrink-0 text-right">{rt.position}</span>
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-primary-400 truncate block">{t?.title ?? '—'}</span>
-                    <span className="text-xs text-text-500 mt-0.5 block">
+                    <span className="text-sm font-medium text-content-primary truncate block">{t?.title ?? '—'}</span>
+                    <span className="text-xs text-content-secondary mt-0.5 block">
                       {t ? (
                         <>
                           {recordingTypeLabel(resolveRecordingType(t.recordingType), true)}
@@ -779,25 +777,25 @@ export default function ReleaseWorkspacePage() {
                       ) : 'Track not found'}
                     </span>
                   </div>
-                  <span className="text-xs text-text-500 hidden sm:block">{fmtDuration(t?.duration)}</span>
+                  <span className="text-xs text-content-secondary hidden sm:block">{fmtDuration(t?.duration)}</span>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className={`h-2 w-2 rounded-full ${
-                      (t as unknown as { mixStatus?: string })?.mixStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300 dark:bg-surface-600'
+                      (t as unknown as { mixStatus?: string })?.mixStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300'
                     }`} title="Mix" />
                     <span className={`h-2 w-2 rounded-full ${
-                      (t as unknown as { masterStatus?: string })?.masterStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300 dark:bg-surface-600'
+                      (t as unknown as { masterStatus?: string })?.masterStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300'
                     }`} title="Master" />
                     <span className={`h-2 w-2 rounded-full ${
-                      (t as unknown as { publishingStatus?: string })?.publishingStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300 dark:bg-surface-600'
+                      (t as unknown as { publishingStatus?: string })?.publishingStatus === 'completed' ? 'bg-success-500' : 'bg-surface-300'
                     }`} title="Publishing" />
                   </div>
-                  <svg className="h-4 w-4 text-text-300 dark:text-text-600 group-hover:text-text-500 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-4 w-4 text-content-label group-hover:text-content-secondary transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
-                </button>
+                </TrackRow>
               );
             })}
-          </div>
+          </TrackList>
         )}
       </section>
 
@@ -822,22 +820,22 @@ export default function ReleaseWorkspacePage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {pendingTasks.slice(0, 6).map((task) => {
               const overdue = isOverdue(task.dueDate);
-              const priorityColors: Record<string, string> = { critical: 'bg-danger-50 text-danger-600', high: 'bg-warning-50 text-warning-600', medium: 'bg-info-50 text-info-600', low: 'bg-surface-100 text-text-500' };
+              const priorityColors: Record<string, string> = { critical: 'bg-danger-50 text-danger-600', high: 'bg-warning-50 text-warning-600', medium: 'bg-info-50 text-info-600', low: 'bg-surface-100 text-content-secondary' };
               return (
-                <div key={task.id} className="rounded-xl border border-surface-200 dark:border-surface-700/60 bg-layer-2 dark:bg-surface-900 shadow-card p-5 flex flex-col gap-2.5 text-left">
-                  <p className="text-sm font-medium text-text-900 dark:text-text-100 leading-snug">{task.title}</p>
+                <div key={task.id} className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 flex flex-col gap-2.5 text-left">
+                  <p className="text-sm font-medium text-content-primary leading-snug">{task.title}</p>
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusBadge status={task.status} />
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-caption font-medium capitalize ${priorityColors[task.priority] ?? 'bg-surface-100 text-text-500'}`}>{task.priority}</span>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-caption font-medium capitalize ${priorityColors[task.priority] ?? 'bg-surface-100 text-content-secondary'}`}>{task.priority}</span>
                   </div>
-                  <p className="text-xs text-text-500 truncate">
+                  <p className="text-xs text-content-label truncate">
                     {isInvitationPending(task)
                       ? 'Invitation Pending'
                       : task.assigneeId
-                        ? <>Assigned to <span className="text-text-700 dark:text-text-300">{task.assigneeId}</span></>
+                        ? <>Assigned to <span className="text-content-secondary">{task.assigneeId}</span></>
                         : 'Unassigned'}
                   </p>
-                  <p className={`text-xs font-medium ${overdue ? 'text-danger-500' : 'text-text-500'}`}>{task.dueDate ? relativeDate(task.dueDate) : 'No due date'}</p>
+                  <p className={`text-xs font-medium ${overdue ? 'text-danger-500' : 'text-content-label'}`}>{task.dueDate ? relativeDate(task.dueDate) : 'No due date'}</p>
                   <Button size="sm" variant={task.assigneeId ? 'outline' : 'primary'} className="mt-1 self-start" onClick={() => handleTabChange('workflow')}>
                     {taskActionLabel(task)}
                   </Button>
@@ -860,19 +858,19 @@ export default function ReleaseWorkspacePage() {
             description="Activity will appear as your team works on this release."
           />
         ) : (
-          <div className="space-y-0 rounded-xl border border-surface-200 dark:border-surface-700/60 bg-layer-2 dark:bg-surface-900 shadow-card overflow-hidden">
+          <div className="space-y-0 rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
             {meaningfulActivities.slice(0, 12).map((ev, i) => {
               const label = humaniseActivity(ev);
               return (
-                <div key={ev.id} className={`flex items-start gap-3 px-5 py-3.5 ${i > 0 ? 'border-t border-surface-100 dark:border-surface-800' : ''}`}>
-                  <div className="h-7 w-7 rounded-full bg-primary-50 dark:bg-primary-500/10 flex items-center justify-center shrink-0 text-caption font-semibold text-primary-700 dark:text-primary-400 mt-0.5">
+                <div key={ev.id} className={`flex items-start gap-3 px-5 py-3.5 ${i > 0 ? 'border-t border-surface-100' : ''}`}>
+                  <div className="h-7 w-7 rounded-full bg-primary-50 flex items-center justify-center shrink-0 text-caption font-semibold text-content-primary mt-0.5">
                     {(ev.actorId ?? '?').charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-text-700 dark:text-text-300">
-                      <span className="font-medium text-text-900 dark:text-text-100">{ev.actorId}</span>{' '}{label}
+                    <p className="text-sm text-content-secondary">
+                      <span className="font-medium text-content-primary">{ev.actorId}</span>{' '}{label}
                     </p>
-                    <p className="text-xs text-text-400 mt-0.5">{timeAgo(ev.createdAt)}</p>
+                    <p className="text-xs text-content-label mt-0.5">{timeAgo(ev.createdAt)}</p>
                   </div>
                 </div>
               );
@@ -893,8 +891,8 @@ export default function ReleaseWorkspacePage() {
       {/* ── Non-overview placeholder tabs ─────────────────────────────── */}
       {tab === 'workflow' && (
         <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-8 text-center">
-          <p className="text-sm font-medium text-text-700 mb-1">Workflow</p>
-          <p className="text-sm text-text-400">Full workflow management coming soon. Use the Assignments section on Overview to action work.</p>
+          <p className="text-sm font-medium text-content-primary mb-1">Workflow</p>
+          <p className="text-sm text-content-label">Full workflow management coming soon. Use the Assignments section on Overview to action work.</p>
         </div>
       )}
 
@@ -924,61 +922,18 @@ export default function ReleaseWorkspacePage() {
 
       {tab === 'settings' && (
         <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-6 max-w-lg">
-          <h2 className="text-base font-semibold text-text-900 mb-4">Release Settings</h2>
+          <h2 className="text-base font-semibold text-content-primary mb-4">Release Settings</h2>
         </div>
       )}
 
-      {rolePickerOpen ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-          <button
-            className="absolute inset-0 bg-surface-900/60 backdrop-blur-sm"
-            onClick={() => setRolePickerOpen(false)}
-            aria-label="Close invite role picker"
-          />
-          <div className="relative z-10 w-full max-w-lg rounded-xl border border-surface-700 bg-surface-900 p-6 shadow-modal">
-            <h2 className="text-base font-semibold text-surface-50">Invite Person</h2>
-            <p className="mt-1 text-sm text-text-400">Choose the role this person should fill in the release workspace.</p>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              {INVITE_ROLES.map((role) => (
-                <button
-                  key={role}
-                  onClick={() => setInviteRole(role)}
-                  className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition-all ${
-                    inviteRole === role
-                      ? 'border-primary-500/60 bg-primary-500/10 text-primary-300'
-                      : 'border-surface-700 bg-surface-800 text-text-300 hover:border-surface-600'
-                  }`}
-                >
-                  {role}
-                </button>
-              ))}
-            </div>
-            <div className="mt-6 flex items-center gap-3">
-              <Button size="sm" variant="outline" className="flex-1" onClick={() => setRolePickerOpen(false)}>Cancel</Button>
-              <Button
-                size="sm"
-                variant="primary"
-                className="flex-1"
-                onClick={() => {
-                  setRolePickerOpen(false);
-                  setInviteOpen(true);
-                }}
-              >
-                Continue
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <PersonAssigner
+      <PersonPickerDialog
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
-        onAssign={() => setInviteOpen(false)}
-        contextLabel={`Invite ${inviteRole}`}
-        contextRole={inviteRole}
         organizationId={activeOrgId}
         currentUserId={user?.uid ?? 'unknown'}
+        contextLabel={`Invite ${INVITE_ROLES[0]}`}
+        contextRole={INVITE_ROLES[0]}
+        roles={INVITE_ROLES}
       />
 
       <ConfirmationDialog

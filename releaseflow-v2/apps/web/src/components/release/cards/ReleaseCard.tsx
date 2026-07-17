@@ -60,7 +60,7 @@ export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardP
   if (view === 'list') {
     return (
       <>
-        <div className="flex items-center gap-4 px-4 py-3 hover:bg-surface-50/80 dark:hover:bg-surface-800/40 transition-colors group border-b border-surface-100 dark:border-surface-800 last:border-b-0">
+        <div className="flex items-center gap-4 px-4 py-3 hover:bg-surface-50/80 transition-colors group border-b border-surface-100 last:border-b-0">
           <Link href={`/releases/${release.id}`} className="flex items-center gap-4 flex-1 min-w-0">
             <ArtworkDisplay artwork={release.artwork} releaseTitle={release.title} size="sm" />
             <div className="flex-1 min-w-0">
@@ -86,7 +86,7 @@ export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardP
             items={[
               { id: 'open', label: 'Open Release', onClick: () => router.push(`/releases/${release.id}`) },
               { id: 'edit', label: 'Edit Release', onClick: () => router.push(`/releases/${release.id}/edit`) },
-              { id: 'archive', label: archiving ? 'Archiving...' : 'Archive Release', onClick: handleArchive, disabled: archiving },
+              { id: 'archive', label: archiving ? 'Archiving...' : 'Archive Release', variant: 'secondary', onClick: handleArchive, disabled: archiving },
               { id: 'delete', label: 'Delete Release', variant: 'danger', separatorBefore: true, onClick: () => setDeleteOpen(true) },
             ]}
           />
@@ -107,7 +107,7 @@ export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardP
 
   return (
     <>
-      <div className="group relative rounded-xl border border-surface-200 dark:border-surface-700/80 bg-layer-2 dark:bg-surface-900 shadow-card hover:shadow-card-hover transition-all duration-200 overflow-hidden">
+      <div className="group relative rounded-xl border border-surface-200 bg-layer-2 shadow-card hover:shadow-card-hover transition-all duration-200 overflow-hidden">
         <Link href={`/releases/${release.id}`} className="block">
           <div className="relative overflow-hidden">
             <ArtworkDisplay artwork={release.artwork} releaseTitle={release.title} size="lg" />
@@ -153,7 +153,7 @@ export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardP
             items={[
               { id: 'open', label: 'Open Release', onClick: () => router.push(`/releases/${release.id}`) },
               { id: 'edit', label: 'Edit Release', onClick: () => router.push(`/releases/${release.id}/edit`) },
-              { id: 'archive', label: archiving ? 'Archiving...' : 'Archive Release', onClick: handleArchive, disabled: archiving },
+              { id: 'archive', label: archiving ? 'Archiving...' : 'Archive Release', variant: 'secondary', onClick: handleArchive, disabled: archiving },
               { id: 'delete', label: 'Delete Release', variant: 'danger', separatorBefore: true, onClick: () => setDeleteOpen(true) },
             ]}
           />

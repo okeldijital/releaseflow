@@ -90,10 +90,10 @@ function InviteDialog({ open, onClose, orgName }: { open: boolean; onClose: () =
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${closing ? 'opacity-0 transition-opacity duration-200' : ''}`}>
       <div className={`fixed inset-0 bg-surface-900/40 backdrop-blur-sm ${closing ? 'opacity-0 transition-opacity duration-200' : 'animate-fade-in'}`} onClick={handleClose} aria-hidden="true" />
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="invite-title" className={`relative z-10 w-full max-w-sm bg-layer-2 dark:bg-surface-800 rounded-lg shadow-modal border border-surface-200 dark:border-surface-600 ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}`}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="invite-title" className={`relative z-10 w-full max-w-sm bg-layer-2 rounded-lg shadow-modal border border-surface-200 ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}`}>
         <div className="px-6 pt-6 pb-4">
-          <h2 id="invite-title" className="text-base font-semibold text-text-900 dark:text-text-100">Invite Members</h2>
-          <p className="mt-3 text-sm text-text-500 dark:text-text-400">Send an invitation to join <strong>{orgName}</strong>.</p>
+          <h2 id="invite-title" className="text-base font-semibold text-text-700">Invite Members</h2>
+          <p className="mt-3 text-sm text-text-500">Send an invitation to join <strong>{orgName}</strong>.</p>
         </div>
         <div className="px-6 pb-4 space-y-4">
           <div>
@@ -104,11 +104,11 @@ function InviteDialog({ open, onClose, orgName }: { open: boolean; onClose: () =
             <label className="block text-xs font-medium text-text-500 mb-1">Role</label>
             <Select options={ROLE_OPTIONS} value={role} onChange={setRole} />
           </div>
-          {error && <p className="text-xs text-red-400">{error}</p>}
-          {success && <p className="text-xs text-emerald-400">{success}</p>}
+          {error && <p className="text-xs text-danger-500">{error}</p>}
+          {success && <p className="text-xs text-success-500">{success}</p>}
         </div>
-        <div className="px-6 py-4 border-t border-surface-100 dark:border-surface-700 flex items-center gap-3">
-          <button ref={closeBtnRef} type="button" onClick={handleClose} className="flex-1 h-10 px-4 text-sm font-medium text-text-700 dark:text-text-300 rounded-md border border-surface-200 dark:border-surface-600 bg-layer-2 dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors">
+        <div className="px-6 py-4 border-t border-surface-100 flex items-center gap-3">
+          <button ref={closeBtnRef} type="button" onClick={handleClose} className="flex-1 h-10 px-4 text-sm font-medium text-text-700 rounded-md border border-surface-200 bg-layer-2 hover:bg-surface-50 transition-colors">
             Cancel
           </button>
           <button type="button" onClick={handleInvite} disabled={sending} className="flex-1 h-10 px-4 text-sm font-medium text-surface-50 rounded-md bg-primary-500 hover:bg-primary-600 disabled:opacity-50 transition-colors">
@@ -173,7 +173,7 @@ export default function AdministrationMembersPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Members</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Members</p>
           <p className="text-sm text-text-500 mt-1">Manage members, roles, and permissions</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to manage its members." />
@@ -189,7 +189,7 @@ export default function AdministrationMembersPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Members</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Members</p>
           <p className="text-sm text-text-500 mt-1">Manage members, roles, and permissions</p>
         </div>
         {isAdminOrOwner && (
@@ -202,12 +202,12 @@ export default function AdministrationMembersPage() {
           <h3 className="text-sm font-semibold text-text-500 uppercase tracking-widest mb-3">Pending Invitations</h3>
           <div className="space-y-2">
             {invitations.map((inv) => (
-              <div key={inv.id} className="flex items-center justify-between rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-2.5">
+              <div key={inv.id} className="flex items-center justify-between rounded-lg border border-warning-500/20 bg-warning-500/5 px-4 py-2.5">
                 <div>
                   <p className="text-sm text-text-300">{inv.email}</p>
                   <p className="text-xs text-text-500">Invited {inv.createdAt ? new Date(typeof inv.createdAt === 'object' && 'toDate' in inv.createdAt ? (inv.createdAt as { toDate: () => Date }).toDate() : String(inv.createdAt)).toLocaleDateString() : 'recently'} &middot; Role: {inv.roleId}</p>
                 </div>
-                <span className="text-xs font-medium text-amber-400 px-2 py-1 rounded bg-amber-500/10">Pending</span>
+                <span className="text-xs font-medium text-warning-500 px-2 py-1 rounded bg-warning-500/10">Pending</span>
               </div>
             ))}
           </div>

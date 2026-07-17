@@ -60,7 +60,7 @@ export default function SignInPage() {
 
   return (
     <>
-      <h1 className="text-center text-xl font-semibold text-surface-50 tracking-tight">Sign in</h1>
+      <h1 className="text-center text-display-md font-semibold text-primary-400 tracking-tight">Sign in</h1>
       <p className="mt-1 text-center text-sm text-text-500">Welcome back to ReleaseFlow</p>
 
       {error && (

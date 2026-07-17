@@ -106,7 +106,7 @@ export default function NewArtistPage() {
   return (
     <div className="mx-auto max-w-lg px-6 py-8">
       <Link href="/artists" className="text-sm text-text-400 hover:text-surface-50 mb-6 inline-block">&larr; Back</Link>
-      <p className="text-2xl font-bold text-surface-50 mb-8">New Artist</p>
+      <p className="text-display-md font-semibold text-primary-400 tracking-tight mb-8">New Artist</p>
 
       {showDuplicateWarning && duplicates.length > 0 && (
         <Card padding="md" className="mb-6 border-warning-500/60">

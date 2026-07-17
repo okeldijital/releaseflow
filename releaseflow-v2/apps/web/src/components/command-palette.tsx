@@ -142,7 +142,7 @@ export function CommandPalette() {
         aria-label="Command palette"
       >
         <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-200">
-          <svg className="w-5 h-5 text-text-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <svg className="w-5 h-5 text-content-label shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
             autoFocus
             value={queryText}
@@ -153,22 +153,22 @@ export function CommandPalette() {
               if (e.key === 'Enter') { const item = display[selected]; if (item) navigate(item.href); }
             }}
             placeholder="Search releases, artists, campaigns..."
-            className="flex-1 bg-transparent text-sm text-text-900 placeholder:text-text-400 outline-none"
+            className="flex-1 bg-transparent text-sm text-content-primary placeholder:text-content-label outline-none"
             role="combobox"
             aria-expanded={true}
             aria-controls="palette-results"
             aria-activedescendant={display[selected] ? `palette-option-${selected}` : undefined}
           />
-          <kbd className="text-xs text-text-400 bg-surface-100 rounded px-1.5 py-0.5">ESC</kbd>
+          <kbd className="text-xs text-content-label bg-surface-100 rounded px-1.5 py-0.5">ESC</kbd>
         </div>
 
         {searching ? (
-          <div className="p-4 text-sm text-text-400 text-center" role="status">Searching...</div>
+          <div className="p-4 text-sm text-content-label text-center" role="status">Searching...</div>
         ) : display.length === 0 ? (
-          <div className="p-4 text-sm text-text-400 text-center" role="status">No results found.</div>
+          <div className="p-4 text-sm text-content-label text-center" role="status">No results found.</div>
         ) : (
           <div className="max-h-64 overflow-y-auto py-2" id="palette-results" role="listbox">
-            {!queryText ? <p className="px-4 py-1 text-xs font-medium text-text-400 uppercase">Navigate</p> : null}
+            {!queryText ? <p className="px-4 py-1 text-xs font-medium text-content-label uppercase">Navigate</p> : null}
             {display.map((item, i) => (
               <button
                 key={item.id}
@@ -182,9 +182,9 @@ export function CommandPalette() {
                   item.type === 'release' ? 'bg-primary-50 text-primary-500' :
                   item.type === 'artist' ? 'bg-info-50 text-info-500' :
                   item.type === 'campaign' ? 'bg-success-50 text-success-500' :
-                  'bg-surface-100 text-text-500'
+                   'bg-surface-100 text-content-secondary'
                 }`}>{item.type}</span>
-                <span className="truncate text-text-700">{item.title}</span>
+                <span className="truncate text-content-primary">{item.title}</span>
               </button>
             ))}
           </div>

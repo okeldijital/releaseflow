@@ -10,7 +10,7 @@ export interface ActivityEventRecord {
 
   organizationId: string;
 
-  entityType: 'release' | 'track' | 'task' | 'specification' | 'asset' | 'distribution_package' | 'comment' | 'approval' | 'ownership' | 'credit' | 'right';
+  entityType: 'release' | 'track' | 'task' | 'specification' | 'asset' | 'distribution_package' | 'comment' | 'approval' | 'ownership' | 'credit' | 'right' | 'artist';
 
   entityId: string;
 

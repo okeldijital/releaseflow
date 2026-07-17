@@ -13,9 +13,9 @@ import type { Recommendation } from '@/lib/recommendation-engine';
 import { Card, StatusBadge, EmptyState, LoadingState } from '@releaseflow/ui';
 
 const priorityStyles: Record<string, string> = {
-  high: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800',
-  medium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-  low: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+  high: 'bg-danger-50 text-danger-700 border-danger-100',
+  medium: 'bg-warning-50 text-warning-700 border-warning-100',
+  low: 'bg-info-50 text-info-700 border-info-100',
 };
 
 function toDate(ts: unknown): Date | null {
@@ -99,7 +99,7 @@ export default function BriefPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <p className="text-2xl font-bold text-text-900 dark:text-surface-50 mb-2">Daily Brief</p>
+      <p className="text-display-md font-semibold text-primary-400 tracking-tight mb-2">Daily Brief</p>
       <p className="text-sm text-text-500 mb-8">Operational overview for today</p>
 
       {!activeOrgId ? (
@@ -107,7 +107,7 @@ export default function BriefPage() {
       ) : (
         <div className="space-y-6">
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-900 dark:text-surface-50 mb-3">Today's Risks ({alerts.length})</h2>
+            <h2 className="text-sm font-semibold text-text-700 mb-3">Today's Risks ({alerts.length})</h2>
             {alerts.length === 0 ? (
               <p className="text-sm text-text-400">No active risks.</p>
             ) : (
@@ -138,14 +138,14 @@ export default function BriefPage() {
           </Card>
 
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-900 dark:text-surface-50 mb-3">Upcoming Deadlines ({upcoming.tasks.length})</h2>
+            <h2 className="text-sm font-semibold text-text-700 mb-3">Upcoming Deadlines ({upcoming.tasks.length})</h2>
             {upcoming.tasks.length === 0 ? (
               <p className="text-sm text-text-400">No upcoming deadlines this week.</p>
             ) : (
               <div className="space-y-1.5">
                 {upcoming.tasks.map((t) => (
                   <div key={t.id} className="flex items-center justify-between text-sm">
-                    <Link href={`/releases/${t.releaseId}`} className="text-text-700 dark:text-surface-300 hover:underline truncate">{t.title}</Link>
+                    <Link href={`/releases/${t.releaseId}`} className="text-text-700 hover:underline truncate">{t.title}</Link>
                     <span className="text-xs text-text-400 shrink-0 ml-2">{fmtDate(t.dueDate)}</span>
                   </div>
                 ))}
@@ -154,20 +154,20 @@ export default function BriefPage() {
           </Card>
 
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-900 dark:text-surface-50 mb-3">Blocked Items ({blocked.length})</h2>
+            <h2 className="text-sm font-semibold text-text-700 mb-3">Blocked Items ({blocked.length})</h2>
             {blocked.length === 0 ? (
               <p className="text-sm text-text-400">No blocked items.</p>
             ) : (
               <div className="space-y-1.5">
                 {blocked.map((s) => (
-                  <div key={s.id} className="text-sm text-danger-500 dark:text-danger-500">Blocked: {s.name}</div>
+                  <div key={s.id} className="text-sm text-danger-500">Blocked: {s.name}</div>
                 ))}
               </div>
             )}
           </Card>
 
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-900 dark:text-surface-50 mb-3">Budget Warnings ({budgetWarnings.length})</h2>
+            <h2 className="text-sm font-semibold text-text-700 mb-3">Budget Warnings ({budgetWarnings.length})</h2>
             {budgetWarnings.length === 0 ? (
               <p className="text-sm text-text-400">No budget warnings.</p>
             ) : (
@@ -183,7 +183,7 @@ export default function BriefPage() {
           </Card>
 
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-900 dark:text-surface-50 mb-3">Recommendations ({recs.length})</h2>
+            <h2 className="text-sm font-semibold text-text-700 mb-3">Recommendations ({recs.length})</h2>
             {recs.length === 0 ? (
               <p className="text-sm text-text-400">No recommendations.</p>
             ) : (
@@ -192,7 +192,7 @@ export default function BriefPage() {
                   <div key={i} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2 min-w-0">
                       <StatusBadge status={rec.priority} />
-                      <Link href={`/releases/${rec.releaseId}`} className="text-text-700 dark:text-surface-300 hover:underline truncate">{rec.message}</Link>
+                      <Link href={`/releases/${rec.releaseId}`} className="text-text-700 hover:underline truncate">{rec.message}</Link>
                     </div>
                     <span className="text-xs text-text-400 shrink-0 ml-2">{rec.action}</span>
                   </div>

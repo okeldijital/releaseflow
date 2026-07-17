@@ -113,11 +113,11 @@ export default function CampaignDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <Link href="/campaigns" className="text-sm text-text-500 hover:text-text-900 dark:hover:text-surface-100 mb-6 inline-block">&larr; Back</Link>
+      <Link href="/campaigns" className="text-sm text-text-500 hover:text-text-200 mb-6 inline-block">&larr; Back</Link>
 
       <div className="flex items-start justify-between mb-8">
         <div>
-          <p className="text-2xl font-bold text-text-900 dark:text-surface-50">{campaign.name}</p>
+          <p className="text-2xl font-bold text-text-900">{campaign.name}</p>
           <div className="flex gap-2 mt-2">
             <Badge label={typeLabels[campaign.type] ?? campaign.type} color="bg-surface-100 text-text-700" />
             <StatusBadge status={campaign.status} />
@@ -136,28 +136,28 @@ export default function CampaignDetailPage() {
       {readiness ? (
         <Card padding="md" className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-text-900 dark:text-surface-50">Campaign Readiness</h2>
-            <span className={`inline-block h-2.5 w-2.5 rounded-full ${readiness.canLaunch ? 'bg-emerald-500' : readiness.completeness >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} />
+            <h2 className="text-sm font-semibold text-text-700 mb-3">Campaign Readiness</h2>
+            <span className={`inline-block h-2.5 w-2.5 rounded-full ${readiness.canLaunch ? 'bg-success-500' : readiness.completeness >= 50 ? 'bg-warning-500' : 'bg-danger-500'}`} />
           </div>
-          <ProgressBar value={readiness.completeness} color={readiness.canLaunch ? 'bg-emerald-500' : readiness.completeness >= 50 ? 'bg-amber-500' : 'bg-red-500'} showLabel />
+          <ProgressBar value={readiness.completeness} color={readiness.canLaunch ? 'bg-success-500' : readiness.completeness >= 50 ? 'bg-warning-500' : 'bg-danger-500'} showLabel />
           <div className="flex gap-3 text-xs mt-2">
-            <span className={readiness.tasksReady ? 'text-success-500' : 'text-red-500'}>Tasks: {doneTasks}/{tasks.length}</span>
-            <span className={readiness.assetsReady ? 'text-success-500' : 'text-red-500'}>Assets: {assets.filter((a) => a.status === 'approved').length}/{assets.length}</span>
+            <span className={readiness.tasksReady ? 'text-success-500' : 'text-danger-500'}>Tasks: {doneTasks}/{tasks.length}</span>
+            <span className={readiness.assetsReady ? 'text-success-500' : 'text-danger-500'}>Assets: {assets.filter((a) => a.status === 'approved').length}/{assets.length}</span>
           </div>
         </Card>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card padding="md">
-          <h2 className="text-sm font-semibold text-text-900 dark:text-surface-50 mb-4">Tasks ({doneTasks}/{tasks.length})</h2>
+          <h2 className="text-sm font-semibold text-text-700 mb-4">Tasks ({doneTasks}/{tasks.length})</h2>
           {tasks.length === 0 ? (
             <p className="text-sm text-text-400">No campaign tasks yet.</p>
           ) : (
             <div className="space-y-2 mb-4">
               {tasks.map((t) => (
-                <div key={t.id} className="flex items-center justify-between rounded-lg border border-surface-100 dark:border-surface-800 px-3 py-2">
+                <div key={t.id} className="flex items-center justify-between rounded-lg border border-surface-100 px-3 py-2">
                   <div className="min-w-0 flex-1">
-                    <p className={`text-sm truncate ${t.status === 'done' ? 'line-through text-text-400' : 'text-text-900 dark:text-surface-50'}`}>{t.title}</p>
+                    <p className={`text-sm truncate ${t.status === 'done' ? 'line-through text-text-400' : 'text-text-900'}`}>{t.title}</p>
                     <p className="text-xs text-text-400 capitalize">{t.type.replace(/_/g, ' ')}</p>
                   </div>
                   {t.status !== 'done' ? (
@@ -178,14 +178,14 @@ export default function CampaignDetailPage() {
         </Card>
 
         <Card padding="md">
-          <h2 className="text-sm font-semibold text-text-900 dark:text-surface-50 mb-4">Promotional Assets ({assets.length})</h2>
+          <h2 className="text-sm font-semibold text-text-700 mb-4">Promotional Assets ({assets.length})</h2>
           {assets.length === 0 ? (
             <p className="text-sm text-text-400">No assets linked.</p>
           ) : (
             <div className="space-y-2">
               {assets.map((a) => (
-                <div key={a.id} className="flex items-center justify-between rounded-lg border border-surface-100 dark:border-surface-800 px-3 py-2">
-                  <p className="text-sm text-text-900 dark:text-surface-50 truncate">{a.title}</p>
+                <div key={a.id} className="flex items-center justify-between rounded-lg border border-surface-100 px-3 py-2">
+                  <p className="text-sm text-text-900 truncate">{a.title}</p>
                   <StatusBadge status={a.status} />
                 </div>
               ))}

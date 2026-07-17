@@ -198,11 +198,11 @@ export default function ArchivePage() {
           className="py-20"
         />
       ) : (
-        <div className="rounded-xl border border-surface-200 dark:border-surface-700/80 bg-layer-2 dark:bg-surface-900 overflow-hidden divide-y divide-surface-100 dark:divide-surface-800">
+        <div className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden divide-y divide-surface-100">
           {currentList.map((entity) => (
             <div
               key={`${entity.entityType}-${entity.id}`}
-              className="flex items-center gap-4 px-5 py-4 group hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+              className="flex items-center gap-4 px-5 py-4 group hover:bg-surface-50 transition-colors"
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
@@ -211,7 +211,7 @@ export default function ArchivePage() {
                   </span>
                   <StatusBadge status={entity.originalStatus ?? 'deleted'} />
                 </div>
-                <p className="text-sm font-medium text-text-700 dark:text-text-200 truncate">
+                <p className="text-sm font-medium text-text-800 truncate">
                   {entity.title}
                 </p>
                 <p className="text-xs text-text-400 mt-0.5">

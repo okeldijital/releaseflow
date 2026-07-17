@@ -13,7 +13,7 @@ import { ReviewStep } from './ReviewStep';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useReleaseWizard } from './useReleaseWizard';
-import { PersonAssigner } from '@/components/person-assigner';
+import { PersonPickerDialog } from '@/components/person-picker-dialog';
 import { LoadingState, EmptyState, ConfirmationDialog } from '@releaseflow/ui';
 
 export function ReleaseWizard({ mode = 'create', releaseId }: { mode?: 'create' | 'edit'; releaseId?: string }) {
@@ -72,6 +72,8 @@ export function ReleaseWizard({ mode = 'create', releaseId }: { mode?: 'create' 
           setReleaseTitle={stepProps.setReleaseTitle}
           releaseNotes={stepProps.releaseNotes}
           setReleaseNotes={stepProps.setReleaseNotes}
+          targetReleaseDate={stepProps.targetReleaseDate}
+          setTargetReleaseDate={stepProps.setTargetReleaseDate}
           estimatedReleaseDate={stepProps.estimatedReleaseDate}
           setEstimatedReleaseDate={stepProps.setEstimatedReleaseDate}
           back={handlers.back}
@@ -150,6 +152,7 @@ export function ReleaseWizard({ mode = 'create', releaseId }: { mode?: 'create' 
           activeOrgId={activeOrgId}
           orgName={stepProps.orgName}
           onLabelCreated={handlers.onLabelCreated}
+          userId={user.uid}
           back={handlers.back}
           next={handlers.next}
         />
@@ -216,6 +219,7 @@ export function ReleaseWizard({ mode = 'create', releaseId }: { mode?: 'create' 
           primaryArtist={stepProps.primaryArtist}
           primaryGenre={stepProps.primaryGenre}
           language={stepProps.language}
+          targetReleaseDate={stepProps.targetReleaseDate}
           estimatedReleaseDate={stepProps.estimatedReleaseDate}
           sectionStatus={stepProps.sectionStatus}
           error={stepProps.error}
@@ -225,12 +229,12 @@ export function ReleaseWizard({ mode = 'create', releaseId }: { mode?: 'create' 
         />
       )}
 
-      <PersonAssigner
+      <PersonPickerDialog
         open={assignerOpen}
         onClose={() => setAssignerOpen(false)}
-        onAssign={(r: { personId?: string; personName?: string }) => {
-          if (assignerCallback.current) { assignerCallback.current({ personId: r.personId }); assignerCallback.current = null; }
-          else handlers.updateTrack(assignerTrackId, assignerField as string, r.personId ?? '');
+        onSelectPerson={(result) => {
+          if (assignerCallback.current) { assignerCallback.current({ personId: result.personId }); assignerCallback.current = null; }
+          else handlers.updateTrack(assignerTrackId, assignerField as string, result.personId);
           setAssignerOpen(false);
         }}
         contextLabel={assignerLabel}

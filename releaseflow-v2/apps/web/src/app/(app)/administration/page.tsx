@@ -31,7 +31,7 @@ export default function AdministrationPage() {
             href={link.href}
             className="block rounded-xl border border-surface-200/80 bg-layer-2 px-5 py-5 hover:border-primary-200 hover:shadow-sm transition-all duration-150"
           >
-            <p className="font-semibold text-text-900">{link.label}</p>
+            <p className="font-semibold text-text-700">{link.label}</p>
             <p className="text-sm text-text-500 mt-1">{link.description}</p>
           </Link>
         ))}

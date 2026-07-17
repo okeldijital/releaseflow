@@ -33,7 +33,7 @@ export function Avatar({ src, name, size = 'md', className = '' }: AvatarProps) 
       <img
         src={src}
         alt={name}
-        className={`${sizeClasses[size]} rounded-full object-cover shrink-0 ring-2 ring-surface-0 dark:ring-surface-900 ${className}`}
+        className={`${sizeClasses[size]} rounded-full object-cover shrink-0 ring-2 ring-surface-0 ${className}`}
       />
     );
   }
@@ -77,14 +77,14 @@ export function AvatarGroup({
           name={u.name}
           src={u.src}
           size={size}
-          className="ring-2 ring-surface-0 dark:ring-surface-900"
+          className="ring-2 ring-surface-0"
         />
       ))}
       {remaining > 0 ? (
         <div
           className={`${
             size === 'sm' ? 'h-6 w-6 text-xs' : 'h-8 w-8 text-xs'
-          } rounded-full bg-surface-200 dark:bg-surface-700 flex items-center justify-center font-semibold text-text-600 dark:text-text-300 shrink-0 ring-2 ring-surface-0 dark:ring-surface-900`}
+          } rounded-full bg-surface-200 flex items-center justify-center font-semibold text-text-600 shrink-0 ring-2 ring-surface-0`}
           aria-label={`${remaining} more`}
         >
           +{remaining}

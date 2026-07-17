@@ -174,7 +174,7 @@ export function WorkspaceLayout({
       <div className="flex-1 min-w-0 overflow-y-auto">{children}</div>
       {contextRail ? (
         <aside
-          className="hidden lg:flex lg:flex-col w-80 shrink-0 bg-surface-50 dark:bg-surface-900 overflow-y-auto"
+          className="hidden lg:flex lg:flex-col w-80 shrink-0 bg-surface-50 overflow-y-auto"
           aria-label="Context panel"
         >
           {contextRail}

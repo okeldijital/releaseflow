@@ -97,12 +97,12 @@ export default function OrgSelectPage() {
                   }`}
                 >
                   <div className={`h-10 w-10 shrink-0 rounded-xl flex items-center justify-center shadow-lg ${
-                    isSelected ? 'bg-primary-500' : 'bg-gradient-to-br from-primary-500 to-orange-600'
+                    isSelected ? 'bg-primary-500' : 'bg-gradient-to-br from-primary-500 to-primary-700'
                   }`}>
                     <span className="text-lg font-bold text-surface-50/90">{initial}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`font-semibold truncate ${isSelected ? 'text-primary-300' : 'text-text-200'}`}>{org.name}</p>
+                    <p className={`font-semibold truncate ${isSelected ? 'text-primary-300' : 'text-text-800'}`}>{org.name}</p>
                     <p className="text-xs text-text-500">{org.slug}</p>
                   </div>
                   {isSelected && (

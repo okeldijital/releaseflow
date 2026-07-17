@@ -1,4 +1,5 @@
 import { getReleasesByTrack } from './release-track-repository';
+import { getTracksByArtist } from './track-artist-repository';
 import {
   createTrack, updateTrack, getTrack, getTracksByOrg, archiveTrack, deleteTrack,
 } from './track-repository';
@@ -33,6 +34,14 @@ export async function archiveTrackById(trackId: string): Promise<void> {
 
 export async function fetchTracksByOrg(orgId: string): Promise<TrackRecord[]> {
   return getTracksByOrg(orgId);
+}
+
+export async function fetchTracksByArtist(orgId: string, artistId: string): Promise<TrackRecord[]> {
+  const links = await getTracksByArtist(artistId);
+  if (links.length === 0) return [];
+  const all = await getTracksByOrg(orgId);
+  const ids = new Set(links.map((l) => l.trackId));
+  return all.filter((t) => ids.has(t.id));
 }
 
 export async function fetchTrack(trackId: string): Promise<TrackRecord | null> {

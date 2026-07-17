@@ -61,7 +61,7 @@ function NotificationItem({ item, onMarkRead, onArchive }: {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className={`text-sm font-medium truncate ${isUnread ? 'text-primary-300' : 'text-text-200'}`}>{item.title}</p>
+          <p className={`text-sm font-medium truncate ${isUnread ? 'text-primary-300' : 'text-text-800'}`}>{item.title}</p>
           {isUnread && <span className="h-2 w-2 rounded-full bg-primary-500 shrink-0" />}
         </div>
         <p className="text-xs text-text-400 mt-1 line-clamp-2">{item.message}</p>

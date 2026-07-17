@@ -86,9 +86,9 @@ export default function InvitePage() {
 
           {(state.status === 'valid' || state.status === 'accepted') && (
             <div className="py-4">
-              <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${state.status === 'accepted' ? 'bg-emerald-500/20' : 'bg-primary-500/20'}`}>
+              <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${state.status === 'accepted' ? 'bg-success-500/20' : 'bg-primary-500/20'}`}>
                 {state.status === 'accepted' ? (
-                  <svg className="h-7 w-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-7 w-7 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 ) : (
@@ -107,7 +107,7 @@ export default function InvitePage() {
                   <button onClick={() => {
                     sessionStorage.setItem('auth_return_to', '/invite/' + token);
                     router.push(`/sign-in?return=${encodeURIComponent('/invite/' + token)}`);
-                  }} className="w-full rounded-lg bg-primary-500 py-2.5 text-sm font-medium text-white hover:bg-primary-600 transition-colors">
+                  }}                     className="w-full rounded-lg bg-primary-500 py-2.5 text-sm font-medium text-surface-0 hover:bg-primary-600 transition-colors">
                     Sign In
                   </button>
                   <button onClick={() => {
@@ -123,26 +123,26 @@ export default function InvitePage() {
 
           {(state.status === 'invalid' || state.status === 'expired') && (
             <div className="py-4">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/20">
-                <svg className="h-7 w-7 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-warning-500/20">
+                <svg className="h-7 w-7 text-warning-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
               </div>
-              <p className="text-sm text-amber-300">{state.message}</p>
+              <p className="text-sm text-warning-500">{state.message}</p>
               <p className="mt-2 text-xs text-text-500">Please contact the person who invited you for a new link.</p>
             </div>
           )}
 
           {state.status === 'error' && (
             <div className="py-4">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/20">
-                <svg className="h-7 w-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-danger-500/20">
+                <svg className="h-7 w-7 text-danger-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <p className="text-sm text-red-300">{state.message}</p>
+              <p className="text-sm text-danger-500">{state.message}</p>
               <button onClick={() => setState({ status: 'loading', message: 'Retrying...' })}
-                className="mt-4 rounded-lg bg-primary-500 px-6 py-2 text-sm font-medium text-white hover:bg-primary-600 transition-colors">
+                className="mt-4 rounded-lg bg-primary-500 px-6 py-2 text-sm font-medium text-surface-0 hover:bg-primary-600 transition-colors">
                 Try Again
               </button>
             </div>

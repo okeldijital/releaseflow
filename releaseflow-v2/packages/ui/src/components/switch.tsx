@@ -56,7 +56,7 @@ export function Switch({
           ${trackSize[size]}
           ${checked
             ? 'bg-primary-500'
-            : 'bg-surface-300 dark:bg-surface-600'}
+            : 'bg-surface-300'}
         `}
       >
         <span
@@ -69,7 +69,7 @@ export function Switch({
         />
       </button>
       {label ? (
-        <span className="text-sm leading-5 text-text-700 dark:text-text-300">
+        <span className="text-sm leading-5 text-text-700">
           {label}
         </span>
       ) : null}

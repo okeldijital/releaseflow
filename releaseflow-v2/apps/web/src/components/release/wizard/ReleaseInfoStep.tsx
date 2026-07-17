@@ -3,9 +3,10 @@
 import type { LabelOption } from '@/components/label-field-picker';
 import { LabelFieldPicker } from '@/components/label-field-picker';
 import { isValidReleaseLink } from '@/lib/release-service';
+import { SearchableGenreSelect } from '@/components/shared/searchable-genre-select';
 import { Nav } from './wizard-ui';
 
-export function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtists, setFeaturedArtists, releaseLink, setReleaseLink, recordLabel, setRecordLabel, catalogueNumber, setCatalogueNumber, upc, setUpc, primaryGenre, setPrimaryGenre, secondaryGenre, setSecondaryGenre, language, setLanguage, copyrightOwner, setCopyrightOwner, copyrightYear, setCopyrightYear, releaseOwner, setReleaseOwner, labelOptions, activeOrgId, orgName, onLabelCreated, back, next }: {
+export function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtists, setFeaturedArtists, releaseLink, setReleaseLink, recordLabel, setRecordLabel, catalogueNumber, setCatalogueNumber, upc, setUpc, primaryGenre, setPrimaryGenre, secondaryGenre, setSecondaryGenre, language, setLanguage, copyrightOwner, setCopyrightOwner, copyrightYear, setCopyrightYear, releaseOwner, setReleaseOwner, labelOptions, activeOrgId, orgName, onLabelCreated, userId, back, next }: {
   primaryArtist: string;
   setPrimaryArtist: (v: string) => void;
   featuredArtists: string[];
@@ -34,6 +35,7 @@ export function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtis
   activeOrgId: string | null;
   orgName: string;
   onLabelCreated: (label: LabelOption) => void;
+  userId: string;
   back: () => void;
   next: () => void;
 }) {
@@ -74,10 +76,24 @@ export function ReleaseInfoStep({ primaryArtist, setPrimaryArtist, featuredArtis
               className="h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <input type="text" value={primaryGenre} onChange={(e) => setPrimaryGenre(e.target.value)} placeholder="Primary Genre"
-              className="h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
-            <input type="text" value={secondaryGenre} onChange={(e) => setSecondaryGenre(e.target.value)} placeholder="Secondary Genre"
-              className="h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
+            <SearchableGenreSelect
+              value={primaryGenre}
+              onChange={setPrimaryGenre}
+              orgId={activeOrgId}
+              userId={userId}
+              presets={[]}
+              placeholder="Primary Genre"
+              label="Primary Genre"
+            />
+            <SearchableGenreSelect
+              value={secondaryGenre}
+              onChange={setSecondaryGenre}
+              orgId={activeOrgId}
+              userId={userId}
+              presets={[]}
+              placeholder="Secondary Genre"
+              label="Secondary Genre"
+            />
           </div>
           <input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="Language (e.g. English)"
             className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />

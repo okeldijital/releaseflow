@@ -58,7 +58,7 @@ export default function AdministrationTrendsPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Trends</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Trends</p>
           <p className="text-sm text-text-500 mt-1">Organizational throughput and trend analysis</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to view trends." />
@@ -78,7 +78,7 @@ export default function AdministrationTrendsPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Trends</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Trends</p>
           <p className="text-sm text-text-500 mt-1">Organizational throughput and trend analysis</p>
         </div>
         <Button
@@ -96,7 +96,7 @@ export default function AdministrationTrendsPage() {
       ) : (
         <div className="space-y-6">
           <Card padding="md" className="border border-surface-200/80">
-            <p className="font-semibold text-text-900 mb-2">Release Throughput</p>
+            <p className="font-semibold text-text-700 mb-2">Release Throughput</p>
             <p className="text-sm text-text-500 mb-3">Releases completed per month</p>
             {summaries.length > 0 ? (
               <table className="w-full text-sm">
@@ -121,25 +121,25 @@ export default function AdministrationTrendsPage() {
           </Card>
 
           <Card padding="md" className="border border-surface-200/80">
-            <p className="font-semibold text-text-900 mb-2">Track Throughput</p>
+            <p className="font-semibold text-text-700 mb-2">Track Throughput</p>
             <p className="text-sm text-text-500 mb-3">Tracks created per month</p>
             <p className="text-sm text-text-400">Aggregate counts shown above. Monthly breakdown charts will be available in v1.3.</p>
           </Card>
 
           <Card padding="md" className="border border-surface-200/80">
-            <p className="font-semibold text-text-900 mb-2">Approval Turnaround</p>
+            <p className="font-semibold text-text-700 mb-2">Approval Turnaround</p>
             <p className="text-sm text-text-500 mb-3">Average approval time trend</p>
             <p className="text-sm text-text-400">Trend analysis requires historical data. Charts will be available in v1.3.</p>
           </Card>
 
           <Card padding="md" className="border border-surface-200/80">
-            <p className="font-semibold text-text-900 mb-2">Asset Delivery</p>
+            <p className="font-semibold text-text-700 mb-2">Asset Delivery</p>
             <p className="text-sm text-text-500 mb-3">Asset completion trend</p>
             <p className="text-sm text-text-400">Trend analysis requires historical data. Charts will be available in v1.3.</p>
           </Card>
 
           <Card padding="md" className="border border-surface-200/80">
-            <p className="font-semibold text-text-900 mb-2">Collaboration Trends</p>
+            <p className="font-semibold text-text-700 mb-2">Collaboration Trends</p>
             <p className="text-sm text-text-500 mb-3">Activity events trend</p>
             <p className="text-sm text-text-400">Trend analysis requires historical data. Charts will be available in v1.3.</p>
           </Card>

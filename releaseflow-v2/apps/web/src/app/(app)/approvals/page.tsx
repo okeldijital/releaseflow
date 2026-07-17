@@ -116,15 +116,15 @@ export default function ApprovalsPage() {
     <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <p className="text-2xl font-bold text-text-900">Approvals</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Approvals</p>
           <p className="text-sm text-text-500 mt-1">{inboxCounts.pendingApprovals} pending review{pendingMyReview.length !== 1 ? 's' : ''}</p>
         </div>
       </div>
 
       <div className="grid gap-4 grid-cols-3 mb-6">
-        <MetricSummaryCard label="Pending My Review" count={pendingMyReview.length} color="bg-warning-50 text-warning-600" darkColor="dark:bg-warning-500/15 dark:text-warning-400" />
-        <MetricSummaryCard label="Awaiting Response" count={awaitingResponse.length} color="bg-info-50 text-info-600" darkColor="dark:bg-info-500/15 dark:text-info-400" />
-        <MetricSummaryCard label="Completed" count={completed.length} color="bg-success-50 text-success-600" darkColor="dark:bg-success-500/15 dark:text-success-400" />
+        <MetricSummaryCard label="Pending My Review" count={pendingMyReview.length} color="bg-warning-50 text-warning-600" />
+        <MetricSummaryCard label="Awaiting Response" count={awaitingResponse.length} color="bg-info-50 text-info-600" />
+        <MetricSummaryCard label="Completed" count={completed.length} color="bg-success-50 text-success-600" />
       </div>
 
       <div className="space-y-8">
@@ -175,7 +175,7 @@ export default function ApprovalsPage() {
       {actionModal ? (
         <Modal open onClose={() => setActionModal(null)}>
           <div className="p-6">
-            <h3 className="text-lg font-semibold text-text-900 mb-2">
+            <h3 className="text-lg font-semibold text-text-700 mb-2">
               {actionModal.action === 'changes' ? 'Request Changes' : 'Approve with Note'}
             </h3>
             <p className="text-sm text-text-500 mb-4">
@@ -210,17 +210,15 @@ function MetricSummaryCard({
   label,
   count,
   color,
-  darkColor,
 }: {
   label: string;
   count: number;
   color: string;
-  darkColor: string;
 }) {
   return (
     <Card padding="sm">
       <p className="text-xs text-text-500">{label}</p>
-      <p className={`text-2xl font-bold mt-0.5 ${color} ${darkColor}`}>{count}</p>
+      <p className={`text-2xl font-bold mt-0.5 ${color}`}>{count}</p>
     </Card>
   );
 }
@@ -255,7 +253,7 @@ function ApprovalSection({
   return (
     <section>
       <div className="flex items-center gap-2 mb-3">
-        <h2 className="text-sm font-semibold text-text-900">{title}</h2>
+        <h2 className="text-sm font-semibold text-text-700">{title}</h2>
         <span className="text-xs text-text-400">({requests.length})</span>
       </div>
 
@@ -276,7 +274,7 @@ function ApprovalSection({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <Badge label={entityLabel} color="bg-surface-100 text-text-500" size="sm" />
-                      <h3 className="text-sm font-semibold text-text-900">
+                      <h3 className="text-sm font-semibold text-text-700">
                         {r.deliverable?.title ?? r.entityId?.slice(0, 8) ?? r.deliverableId?.slice(0, 8) ?? '—'}
                       </h3>
                       {lifecycleBadge(r.lifecycleState)}

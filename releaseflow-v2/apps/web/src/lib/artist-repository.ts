@@ -334,6 +334,79 @@ export async function getArtistsByRelease(releaseId: string): Promise<ReleaseArt
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ReleaseArtistRecord);
 }
 
+export interface ReleaseArtistLinkFields {
+  releaseId: string;
+  artistId: string;
+  role?: string;
+  isPrimary?: boolean;
+}
+
+/**
+ * Links an artist to a release. The artist/release relationship is stored in
+ * the top-level `release_artists` collection keyed by `releaseId` + `artistId`.
+ * Used by the Artist workspace Discography tab relationship management.
+ */
+export async function addArtistToRelease(fields: ReleaseArtistLinkFields): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore not initialized');
+  const now = Timestamp.now();
+  await addDoc(collection(db, 'release_artists'), {
+    releaseId: fields.releaseId,
+    artistId: fields.artistId,
+    role: fields.role ?? 'primary',
+    isPrimary: fields.isPrimary ?? true,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+/**
+ * Removes every linkage record between an artist and a release.
+ */
+export async function removeArtistFromRelease(releaseId: string, artistId: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  const snap = await getDocs(
+    query(
+      collection(db, 'release_artists'),
+      where('releaseId', '==', releaseId),
+      where('artistId', '==', artistId),
+    ),
+  );
+  if (snap.empty) return;
+  const batch = writeBatch(db);
+  for (const d of snap.docs) batch.delete(d.ref);
+  await batch.commit();
+}
+
+/**
+ * Aggregates, for every artist in the organization, how many releases and
+ * tracks they are linked to. Used by the Artist catalogue listing to render
+ * per-row counts without issuing a query per artist.
+ */
+export async function getArtistLinkCounts(_organizationId: string): Promise<Record<string, { releases: number; tracks: number }>> {
+  const db = getDb();
+  if (!db) return {};
+  const [releaseArtistsSnap, trackArtistsSnap] = await Promise.all([
+    getDocs(query(collection(db, 'release_artists'))),
+    getDocs(query(collection(db, 'track_artists'))),
+  ]);
+  const counts: Record<string, { releases: number; tracks: number }> = {};
+  const touch = (artistId: string) => {
+    if (!counts[artistId]) counts[artistId] = { releases: 0, tracks: 0 };
+    return counts[artistId];
+  };
+  for (const d of releaseArtistsSnap.docs) {
+    const artistId = (d.data() as { artistId?: string }).artistId;
+    if (artistId) touch(artistId).releases += 1;
+  }
+  for (const d of trackArtistsSnap.docs) {
+    const artistId = (d.data() as { artistId?: string }).artistId;
+    if (artistId) touch(artistId).tracks += 1;
+  }
+  return counts;
+}
+
 export async function getArtistReleases(artistId: string): Promise<{ id: string; title: string; role: string; status: string; releaseType: string }[]> {
   const db = getDb();
   if (!db) return [];

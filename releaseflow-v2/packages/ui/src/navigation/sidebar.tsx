@@ -144,14 +144,14 @@ export function Sidebar({
       onClick={onSignOut}
       className={`
         flex w-full items-center gap-3 rounded-lg text-sm font-medium text-left
-        text-text-500 hover:bg-surface-100/20 hover:text-text-700
-        dark:hover:bg-danger-950/20 dark:hover:text-danger-400
+        text-content-secondary hover:bg-surface-100/20 hover:text-content-primary
+       
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500/40
         transition-colors duration-150 min-h-[44px]
         ${collapsed ? 'lg:justify-center lg:px-2 px-3 py-2.5' : 'px-3 py-2.5'}
       `}
     >
-      <span className="text-text-400 shrink-0"><SignOutIcon /></span>
+      <span className="text-content-secondary shrink-0"><SignOutIcon /></span>
       <span className={`flex-1 ${collapsed ? 'lg:hidden' : ''}`}>Sign out</span>
     </button>
   );
@@ -164,13 +164,13 @@ export function Sidebar({
       `}
     >
       <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/40 text-xs font-semibold text-primary-700 dark:text-primary-300 shadow-sm"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-content-primary shadow-sm"
         aria-hidden="true"
       >
         {initials}
       </div>
       <div className={`min-w-0 flex-1 ${collapsed ? 'lg:hidden' : ''}`}>
-        <p className="truncate text-xs font-medium text-text-700 dark:text-text-300">{userEmail}</p>
+        <p className="truncate text-xs font-medium text-content-secondary">{userEmail}</p>
       </div>
     </div>
   );
@@ -227,11 +227,11 @@ export function Sidebar({
           className="
             hidden lg:flex absolute -right-3.5 top-5 z-50
             h-7 w-7 items-center justify-center rounded-full
-            border border-surface-200 dark:border-surface-700
-            bg-layer-2 dark:bg-surface-800
-            text-text-500 dark:text-text-400
+            border border-surface-200
+            bg-layer-2
+            text-content-secondary
             shadow-sm
-            hover:bg-surface-50 hover:text-text-800 dark:hover:bg-surface-700 dark:hover:text-text-200
+            hover:bg-surface-50 hover:text-content-primary
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30
             transition-colors duration-150
           "
@@ -252,7 +252,7 @@ export function Sidebar({
           <LogoMark />
           <span
             className={`
-              text-body font-semibold text-text-900 dark:text-surface-50
+              text-body font-semibold text-content-primary
               tracking-tight whitespace-nowrap overflow-hidden
               transition-[opacity,max-width] duration-200
               motion-reduce:transition-none
@@ -275,7 +275,7 @@ export function Sidebar({
                 {/* Section divider in collapsed mode, label in expanded */}
                 {collapsed
                   ? null
-                  : <p className="mb-1 px-3 text-caption font-medium uppercase tracking-[0.1em] text-text-300/70 dark:text-text-600" role="heading" aria-level={2}>{label}</p>
+                  : <p className="mb-1 px-3 text-caption font-medium uppercase tracking-[0.1em] text-content-secondary" role="heading" aria-level={2}>{label}</p>
                 }
 
                 <ul className="space-y-1" role="list">
@@ -291,13 +291,13 @@ export function Sidebar({
                           transition-colors duration-150 min-h-[40px]
                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30
                           ${active
-                            ? 'text-text-900 dark:text-surface-50'
-                            : 'text-text-400 hover:text-text-700 dark:text-text-500 dark:hover:text-surface-50'}
+                            ? 'text-content-primary'
+                            : 'text-content-secondary hover:text-content-primary'}
                           ${collapsed ? 'lg:justify-center lg:px-2 px-3 py-1.5' : 'px-3 py-1.5'}
                         `}
                       >
                         <span
-                          className={`h-4 w-4 shrink-0 ${active ? 'text-primary-500' : 'text-text-400'}`}
+                          className={`h-4 w-4 shrink-0 ${active ? 'text-content-primary' : 'text-content-secondary'}`}
                           aria-hidden="true"
                         >
                           {item.icon}

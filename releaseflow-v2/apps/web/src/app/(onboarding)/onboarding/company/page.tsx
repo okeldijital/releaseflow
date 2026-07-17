@@ -54,7 +54,7 @@ export default function CompanyPage() {
 
       {!showCreate ? (
         <>
-          <h1 className="text-display-md font-semibold tracking-tight text-surface-50">
+          <h1 className="text-display-md font-semibold tracking-tight text-primary-400">
             Which company are you working with?
           </h1>
           <p className="mt-2 text-sm text-text-400">Choose an existing company or create a new one.</p>
@@ -86,7 +86,7 @@ export default function CompanyPage() {
         </>
       ) : (
         <>
-          <h1 className="text-display-md font-semibold tracking-tight text-surface-50">Create your company</h1>
+          <h1 className="text-display-md font-semibold tracking-tight text-primary-400">Create your company</h1>
           <p className="mt-2 text-sm text-text-400">Name your label or group to get started.</p>
 
           <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)}

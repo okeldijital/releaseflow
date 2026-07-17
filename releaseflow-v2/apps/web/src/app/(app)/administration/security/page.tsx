@@ -29,7 +29,7 @@ export default function AdministrationSecurityPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Security</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Security</p>
           <p className="text-sm text-text-500 mt-1">Monitor access, sessions, and permissions</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to view security settings." />
@@ -53,30 +53,30 @@ export default function AdministrationSecurityPage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-display-md font-semibold text-text-900 tracking-tight">Security</p>
+        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Security</p>
         <p className="text-sm text-text-500 mt-1">Monitor access, sessions, and permissions</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2 mb-8">
         <Card padding="md" className="border border-surface-200/80">
-          <p className="font-semibold text-text-900 mb-4">Active Sessions</p>
+          <p className="font-semibold text-text-700 mb-4">Active Sessions</p>
           <p className="text-sm text-text-400">Session monitoring coming in v1.3</p>
         </Card>
 
         <Card padding="md" className="border border-surface-200/80">
-          <p className="font-semibold text-text-900 mb-4">API Keys</p>
+          <p className="font-semibold text-text-700 mb-4">API Keys</p>
           <p className="text-sm text-text-400">API key management coming in v1.3</p>
         </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2 mb-8">
         <Card padding="md" className="border border-surface-200/80">
-          <p className="font-semibold text-text-900 mb-4">Recent Sign-ins</p>
+          <p className="font-semibold text-text-700 mb-4">Recent Sign-ins</p>
           <p className="text-sm text-text-400">Sign-in history coming in v1.3</p>
         </Card>
 
         <Card padding="md" className="border border-surface-200/80">
-          <p className="font-semibold text-text-900 mb-4">Permission Review</p>
+          <p className="font-semibold text-text-700 mb-4">Permission Review</p>
           {Object.keys(roleCounts).length > 0 ? (
             <div className="space-y-2">
               {Object.entries(roleCounts).map(([role, count]) => (
@@ -93,7 +93,7 @@ export default function AdministrationSecurityPage() {
       </div>
 
       <Card padding="md" className="border border-surface-200/80">
-        <p className="font-semibold text-text-900 mb-4">Organization Access</p>
+        <p className="font-semibold text-text-700 mb-4">Organization Access</p>
         {members.length > 0 ? (
           <div className="space-y-1.5">
             {members.map((m) => (

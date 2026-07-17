@@ -62,7 +62,7 @@ export default function SignUpPage() {
 
   return (
     <>
-      <h1 className="text-center text-xl font-semibold text-surface-50 tracking-tight">Create your account</h1>
+      <h1 className="text-center text-display-md font-semibold text-primary-400 tracking-tight">Create your account</h1>
       <p className="mt-1 text-center text-sm text-text-500">Start managing releases with confidence</p>
 
       {error && (

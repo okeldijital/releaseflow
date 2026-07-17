@@ -117,10 +117,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-surface-50 dark:bg-surface-950">
+      <div className="flex min-h-screen bg-surface-50">
         {/* Skeleton sidebar */}
-        <aside className="w-[232px] border-r border-surface-200/80 bg-surface-50 px-4 py-5 space-y-5 hidden lg:block dark:bg-surface-900 dark:border-surface-700/80">
-          <div className="flex items-center gap-2.5 px-1 pb-3 border-b border-surface-200/60 dark:border-surface-700/60">
+        <aside className="w-[232px] border-r border-surface-200/80 bg-surface-50 px-4 py-5 space-y-5 hidden lg:block">
+          <div className="flex items-center gap-2.5 px-1 pb-3 border-b border-surface-200/60">
             <Skeleton className="h-7 w-7 rounded-lg" />
             <Skeleton className="h-4 w-24" />
           </div>
@@ -183,7 +183,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <select
               value={activeOrgId ?? ''}
               onChange={(e) => setActiveOrgId(e.target.value || null)}
-              className="h-8 rounded-lg border border-surface-200 bg-layer-2 px-3 pr-7 text-body-small font-medium text-text-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 transition-all duration-150 cursor-pointer hover:border-surface-300 dark:bg-surface-900 dark:border-surface-700 dark:text-text-300"
+              className="h-8 rounded-lg border border-surface-200 bg-layer-2 px-3 pr-7 text-body-small font-medium text-text-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 transition-all duration-150 cursor-pointer hover:border-surface-300"
               aria-label="Active organisation"
             >
               {orgs.map((org) => (

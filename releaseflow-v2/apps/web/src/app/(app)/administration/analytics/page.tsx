@@ -42,7 +42,7 @@ export default function AdministrationAnalyticsPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Analytics</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Analytics</p>
           <p className="text-sm text-text-500 mt-1">Operational analytics and performance metrics</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to view analytics." />
@@ -62,7 +62,7 @@ export default function AdministrationAnalyticsPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <p className="text-display-md font-semibold text-text-900 tracking-tight">Analytics</p>
+          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Analytics</p>
           <p className="text-sm text-text-500 mt-1">Operational analytics and performance metrics</p>
         </div>
         <Button

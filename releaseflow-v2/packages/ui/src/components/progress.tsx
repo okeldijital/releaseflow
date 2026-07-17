@@ -33,7 +33,7 @@ export function ProgressBar({
       aria-valuetext={`${pct}%`}
     >
       <div
-        className={`w-full ${sizeClasses[size]} rounded-full bg-surface-200 dark:bg-surface-700 overflow-hidden`}
+        className={`w-full ${sizeClasses[size]} rounded-full bg-surface-200 overflow-hidden`}
       >
         <div
           className={`h-full rounded-full transition-all duration-300 ease-out ${
@@ -43,7 +43,7 @@ export function ProgressBar({
         />
       </div>
       {showLabel ? (
-        <span className="mt-2 block text-xs font-medium text-text-500 dark:text-text-400">
+        <span className="mt-2 block text-xs font-medium text-text-500">
           {pct}%
         </span>
       ) : null}
