@@ -19,7 +19,7 @@ import {
 } from './media-usage-repository';
 import { uploadFile, getImageDimensions, generateThumbnailUrl } from './media-upload';
 import { upsertArtworkDeliverable } from '@/lib/deliverable-service';
-import { hasPermission } from '@/lib/auth/authorization-service';
+import { AuthorizationService } from '@/lib/auth/authorization-service';
 import type { MediaAsset, MediaVersion, MediaReview, MediaUsage } from './media-types';
 
 export async function uploadReleaseArtwork(
@@ -30,7 +30,7 @@ export async function uploadReleaseArtwork(
   notes?: string,
 ):   Promise<{ assetId: string; versionId: string; deliverableId: string } | { error: string }> {
   try {
-    if (!(await hasPermission(organizationId, userId, 'media.upload'))) {
+    if (!(await AuthorizationService.canAsync('media.upload', organizationId, userId))) {
       return { error: 'You do not have permission to upload media for this organization.' };
     }
 
@@ -106,7 +106,7 @@ export async function replaceReleaseArtwork(
   notes?: string,
 ):   Promise<{ versionId: string } | { error: string }> {
   try {
-    if (!(await hasPermission(organizationId, userId, 'media.replace'))) {
+    if (!(await AuthorizationService.canAsync('media.replace', organizationId, userId))) {
       return { error: 'You do not have permission to replace this media asset.' };
     }
 
@@ -174,7 +174,7 @@ export async function approveAsset(
   comments?: string,
 ): Promise<{ reviewId: string } | { error: string }> {
   try {
-    if (!(await hasPermission(organizationId, reviewerId, 'media.approve'))) {
+    if (!(await AuthorizationService.canAsync('media.approve', organizationId, reviewerId))) {
       return { error: 'You do not have permission to approve this media asset.' };
     }
 
@@ -205,7 +205,7 @@ export async function rejectAsset(
   comments?: string,
 ): Promise<{ reviewId: string } | { error: string }> {
   try {
-    if (!(await hasPermission(organizationId, reviewerId, 'media.approve'))) {
+    if (!(await AuthorizationService.canAsync('media.approve', organizationId, reviewerId))) {
       return { error: 'You do not have permission to reject this media asset.' };
     }
 
@@ -236,7 +236,7 @@ export async function requestChanges(
   comments?: string,
 ): Promise<{ reviewId: string } | { error: string }> {
   try {
-    if (!(await hasPermission(organizationId, reviewerId, 'media.review'))) {
+    if (!(await AuthorizationService.canAsync('media.review', organizationId, reviewerId))) {
       return { error: 'You do not have permission to review this media asset.' };
     }
 
@@ -266,7 +266,7 @@ export async function restoreVersion(
   _userId: string,
 ): Promise<{ success: true } | { error: string }> {
   try {
-    if (!(await hasPermission(organizationId, _userId, 'media.restore'))) {
+    if (!(await AuthorizationService.canAsync('media.restore', organizationId, _userId))) {
       return { error: 'You do not have permission to restore this media asset.' };
     }
 
@@ -298,7 +298,7 @@ export async function deleteAssetWithCheck(
   actorId?: string,
 ): Promise<{ success: true } | { error: string; usage?: MediaUsage[] }> {
   try {
-    if (actorId && !(await hasPermission(organizationId, actorId, 'media.delete'))) {
+    if (actorId && !(await AuthorizationService.canAsync('media.delete', organizationId, actorId))) {
       return { error: 'You do not have permission to delete this media asset.' };
     }
 

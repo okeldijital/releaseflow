@@ -50,6 +50,10 @@ export async function createReleaseWithFullWorkflow(
   if (!fields.title.trim()) throw new Error('Release title is required');
   if (!fields.organizationId) throw new Error('Organization is required');
 
+  // AUTH-001 — single AuthorizationService decision.
+  const { AuthorizationService } = await import('@/lib/auth/authorization-service');
+  await AuthorizationService.requireCreateRelease(fields.organizationId, actorId);
+
   return createReleaseWithWorkflow(fields, stageTemplates, requirementNames, actorId);
 }
 
@@ -59,6 +63,11 @@ export async function editRelease(
   actorId: string,
 ): Promise<void> {
   if (fields.title !== undefined && !fields.title.trim()) throw new Error('Release title is required');
+  const existing = await getRelease(releaseId);
+  if (existing?.organizationId) {
+    const { AuthorizationService } = await import('@/lib/auth/authorization-service');
+    await AuthorizationService.requireEditRelease(existing.organizationId, actorId);
+  }
   return updateRelease(releaseId, fields, actorId);
 }
 
@@ -73,6 +82,16 @@ export async function changeReleaseStatus(
     'ready_for_distribution', 'released', 'cancelled', 'archived',
   ];
   if (!validStatuses.includes(status)) throw new Error(`Invalid status: ${status}`);
+
+  const existing = await getRelease(releaseId);
+  if (existing?.organizationId) {
+    const { AuthorizationService } = await import('@/lib/auth/authorization-service');
+    if (status === 'released' || status === 'archived') {
+      await AuthorizationService.requirePublishRelease(existing.organizationId, actorId);
+    } else {
+      await AuthorizationService.requireEditRelease(existing.organizationId, actorId);
+    }
+  }
 
   const metadata: Record<string, unknown> = {};
   if (reason) metadata.reason = reason;
@@ -91,12 +110,16 @@ export async function removeRelease(
   const { getActivityByEntity, deleteActivityEvent } = await import('./activity-service');
   const { getAssetsByRelease, deleteAsset } = await import('./asset-repository');
 
+  const orgId = organizationId ?? (await getRelease(releaseId))?.organizationId ?? '';
+  if (orgId) {
+    const { AuthorizationService } = await import('@/lib/auth/authorization-service');
+    await AuthorizationService.requireDeleteRelease(orgId, actorId);
+  }
+
   const assets = await getAssetsByRelease(releaseId);
   for (const asset of assets) {
     await deleteAsset(asset.id);
   }
-
-  const orgId = organizationId ?? (await getRelease(releaseId))?.organizationId ?? '';
 
   const releaseActivities = await getActivityByEntity(orgId, 'release', releaseId);
   for (const activity of releaseActivities) {

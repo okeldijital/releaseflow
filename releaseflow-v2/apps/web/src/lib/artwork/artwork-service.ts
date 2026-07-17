@@ -1,4 +1,4 @@
-import { hasPermission } from '@/lib/auth/authorization-service';
+import { AuthorizationService } from '@/lib/auth/authorization-service';
 import { getAuthInstance } from '@/lib/firebase';
 import { uploadArtworkFile } from './artwork-upload';
 import {
@@ -16,7 +16,7 @@ export async function uploadArtwork(
   organizationId: string,
   userId: string,
 ): Promise<Artwork> {
-  if (!(await hasPermission(organizationId, userId, 'artwork.upload'))) {
+  if (!(await AuthorizationService.canAsync('artwork.upload', organizationId, userId))) {
     throw new Error('You do not have permission to upload artwork for this organization.');
   }
 
@@ -74,7 +74,7 @@ export async function replaceArtwork(
   userId: string,
 ): Promise<{ artworkId: string } | { error: string }> {
   try {
-    if (!(await hasPermission(organizationId, userId, 'artwork.replace'))) {
+    if (!(await AuthorizationService.canAsync('artwork.replace', organizationId, userId))) {
       return { error: 'You do not have permission to replace this artwork.' };
     }
 
@@ -104,7 +104,7 @@ export async function removeArtwork(
   userId: string,
 ): Promise<{ success: true } | { error: string }> {
   try {
-    if (!(await hasPermission(organizationId, userId, 'artwork.delete'))) {
+    if (!(await AuthorizationService.canAsync('artwork.delete', organizationId, userId))) {
       return { error: 'You do not have permission to delete artwork.' };
     }
 

@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, getDoc, doc, addDoc, updateDoc, deleteDoc, Timestamp } from '@firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc, Timestamp } from '@firebase/firestore';
 import { getDb } from './firebase';
 import { ensureOwnerPerson } from './person-service';
 
@@ -67,6 +67,13 @@ export async function createOrganization(
     invitedBy: ownerId,
     createdAt: Timestamp.now(),
   });
+  // RBAC-001 — member index for Firestore Rules (path-based membership check).
+  await setDoc(doc(db, 'organizations', orgRef.id, 'members', ownerId), {
+    userId: ownerId,
+    roleId: 'owner',
+    status: 'active',
+    updatedAt: Timestamp.now(),
+  });
   // Provision the owner's collaboration identity (Person) in the same
   // workflow so every authenticated member has a Person, exactly like
   // invited collaborators. Business logic lives in person-service.
@@ -91,7 +98,17 @@ export async function removeMembership(membershipId: string): Promise<void> {
 export async function updateMembershipRole(membershipId: string, roleId: string): Promise<void> {
   const db = getDb();
   if (!db) return;
-  await updateDoc(doc(db, 'memberships', membershipId), { roleId });
+  const ref = doc(db, 'memberships', membershipId);
+  await updateDoc(ref, { roleId });
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    const data = snap.data() as MembershipRecord;
+    if (data.organizationId && data.userId) {
+      await syncOrgMemberIndex(data.organizationId, data.userId, roleId, data.status ?? 'active');
+    }
+  }
+  const { invalidateAuthorizationCache } = await import('@/lib/auth/authorization-service');
+  invalidateAuthorizationCache();
 }
 
 export async function getMembershipsByOrg(orgId: string): Promise<MembershipRecord[]> {
@@ -110,16 +127,59 @@ export async function updateOrganization(
   await updateDoc(doc(db, 'organizations', orgId), { ...data });
 }
 
-export async function getUserRole(userId: string): Promise<string> {
+/**
+ * RBAC-001 — Resolve platform role for a user.
+ * When organizationId is provided, returns that org's membership role only.
+ * When omitted, returns the first active membership (legacy) — prefer org-scoped.
+ * Never defaults to administrator.
+ */
+export async function getUserRole(
+  userId: string,
+  organizationId?: string | null,
+): Promise<string> {
   const db = getDb();
   if (!db) return 'contributor';
+
+  if (organizationId) {
+    const snap = await getDocs(
+      query(
+        collection(db, 'memberships'),
+        where('userId', '==', userId),
+        where('organizationId', '==', organizationId),
+        where('status', '==', 'active'),
+      ),
+    );
+    if (!snap.empty && snap.docs[0]) {
+      return (snap.docs[0].data() as { roleId: string }).roleId ?? 'contributor';
+    }
+    // No membership in this org — least privilege, not admin.
+    return 'contributor';
+  }
+
   const snap = await getDocs(
     query(collection(db, 'memberships'), where('userId', '==', userId), where('status', '==', 'active')),
   );
   if (!snap.empty && snap.docs[0]) {
-    return (snap.docs[0].data() as { roleId: string }).roleId;
+    return (snap.docs[0].data() as { roleId: string }).roleId ?? 'contributor';
   }
   return 'contributor';
+}
+
+/** Sync organizations/{orgId}/members/{userId} for Firestore Rules membership checks. */
+export async function syncOrgMemberIndex(
+  organizationId: string,
+  userId: string,
+  roleId: string,
+  status: 'active' | 'pending' | 'inactive' = 'active',
+): Promise<void> {
+  const db = getDb();
+  if (!db || !organizationId || !userId) return;
+  const { setDoc, doc: firestoreDoc, Timestamp: Ts } = await import('@firebase/firestore');
+  await setDoc(
+    firestoreDoc(db, 'organizations', organizationId, 'members', userId),
+    { userId, roleId, status, updatedAt: Ts.now() },
+    { merge: true },
+  );
 }
 
 export async function userHasOrganization(userId: string): Promise<boolean> {

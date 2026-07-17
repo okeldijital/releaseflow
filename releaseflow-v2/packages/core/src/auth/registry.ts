@@ -1,31 +1,32 @@
 /**
- * BUILD-031A — Canonical permission registry (single source of truth).
- *
- * Every permission defined in ./permissions has exactly one registry entry
- * describing what it does and which roles receive it by default. Future
- * modules seed their permissions here so the platform keeps one consistent
- * RBAC surface instead of each feature inventing its own access rules.
+ * BUILD-031A / RBAC-001 — Canonical permission registry (single source of truth).
  */
 
 import type { Permission } from './permissions';
 import type { RoleId } from './roles';
 
 export interface PermissionRegistryEntry {
-  /** Stable permission identifier (must match ./permissions). */
   id: Permission;
-  /** Human-readable description of the action this permission grants. */
   description: string;
-  /** Roles that receive this permission by default. */
   defaultRoles: RoleId[];
-  /** Modules / features that consume this permission. */
   usedBy: string[];
 }
+
+const MANAGERS: RoleId[] = ['owner', 'administrator', 'project_manager'];
+const ALL_MEMBERS: RoleId[] = [
+  'owner', 'administrator', 'project_manager', 'producer', 'designer',
+  'engineer', 'reviewer', 'contributor', 'viewer',
+];
+const WORKERS: RoleId[] = [
+  'owner', 'administrator', 'project_manager', 'producer', 'designer',
+  'engineer', 'reviewer', 'contributor',
+];
 
 export const PERMISSION_REGISTRY: readonly PermissionRegistryEntry[] = Object.freeze([
   {
     id: 'media.read',
     description: 'View media assets and their versions, reviews, and usage.',
-    defaultRoles: ['owner', 'administrator', 'project_manager', 'producer', 'designer', 'engineer', 'reviewer', 'contributor', 'viewer'],
+    defaultRoles: ALL_MEMBERS,
     usedBy: ['Release Artwork', 'Artist Images', 'People Images', 'Marketing Assets'],
   },
   {
@@ -55,19 +56,19 @@ export const PERMISSION_REGISTRY: readonly PermissionRegistryEntry[] = Object.fr
   {
     id: 'media.approve',
     description: 'Approve or reject media assets.',
-    defaultRoles: ['owner', 'administrator', 'project_manager'],
+    defaultRoles: MANAGERS,
     usedBy: ['Approvals'],
   },
   {
     id: 'media.restore',
     description: 'Restore a previous version of a media asset.',
-    defaultRoles: ['owner', 'administrator', 'project_manager'],
+    defaultRoles: MANAGERS,
     usedBy: ['Release Artwork'],
   },
   {
     id: 'artwork.read',
     description: 'View release artwork.',
-    defaultRoles: ['owner', 'administrator', 'project_manager', 'producer', 'designer', 'engineer', 'reviewer', 'contributor', 'viewer'],
+    defaultRoles: ALL_MEMBERS,
     usedBy: ['Release Workspace'],
   },
   {
@@ -85,62 +86,134 @@ export const PERMISSION_REGISTRY: readonly PermissionRegistryEntry[] = Object.fr
   {
     id: 'artwork.delete',
     description: 'Delete release artwork.',
-    defaultRoles: ['owner', 'administrator', 'project_manager'],
+    defaultRoles: MANAGERS,
     usedBy: ['Release Workspace'],
   },
   {
+    id: 'profile.upload',
+    description: 'Upload and update profile avatar.',
+    defaultRoles: WORKERS,
+    usedBy: ['Profile'],
+  },
+  {
     id: 'release.read',
-    description: 'View releases and their related metadata.',
-    defaultRoles: ['owner', 'administrator', 'project_manager'],
-    usedBy: ['Releases', 'Schedule'],
+    description: 'View releases and related metadata.',
+    defaultRoles: ALL_MEMBERS,
+    usedBy: ['Releases', 'Schedule', 'Collaborator Workspace'],
   },
   {
     id: 'release.write',
     description: 'Create and edit releases.',
-    defaultRoles: ['owner', 'administrator', 'project_manager'],
+    defaultRoles: MANAGERS,
     usedBy: ['Releases'],
+  },
+  {
+    id: 'release.delete',
+    description: 'Delete or archive releases.',
+    defaultRoles: ['owner', 'administrator'],
+    usedBy: ['Releases'],
+  },
+  {
+    id: 'release.publish',
+    description: 'Publish a release or change public distribution status.',
+    defaultRoles: MANAGERS,
+    usedBy: ['Releases', 'Distribution'],
   },
   {
     id: 'artist.read',
     description: 'View artists and their catalog.',
-    defaultRoles: ['owner', 'administrator', 'project_manager'],
+    defaultRoles: [...MANAGERS, 'contributor', 'producer', 'designer', 'engineer', 'reviewer'],
     usedBy: ['Artists'],
   },
   {
     id: 'artist.write',
     description: 'Create and edit artists.',
-    defaultRoles: ['owner', 'administrator', 'project_manager'],
+    defaultRoles: MANAGERS,
     usedBy: ['Artists'],
   },
   {
+    id: 'people.manage',
+    description: 'Manage people directory and professional roles.',
+    defaultRoles: MANAGERS,
+    usedBy: ['People', 'Invitations'],
+  },
+  {
     id: 'assignment.manage',
-    description: 'Manage task and resource assignments.',
-    defaultRoles: ['owner', 'administrator', 'project_manager'],
+    description: 'Assign, reassign, and delete work assignments.',
+    defaultRoles: MANAGERS,
+    usedBy: ['Assignments'],
+  },
+  {
+    id: 'assignment.view',
+    description: 'View assignments (own or team depending on role).',
+    defaultRoles: WORKERS,
     usedBy: ['Assignments', 'My Work'],
   },
   {
     id: 'workflow.manage',
     description: 'Manage workflows, stages, and dependencies.',
-    defaultRoles: ['owner', 'administrator', 'project_manager'],
+    defaultRoles: MANAGERS,
     usedBy: ['Workflows', 'Schedule'],
   },
   {
-    id: 'profile.upload',
-    description: 'Upload and update profile avatar.',
-    defaultRoles: ['owner', 'administrator'],
-    usedBy: ['Profile'],
+    id: 'comment.create',
+    description: 'Comment and reply on assignments and releases.',
+    defaultRoles: WORKERS,
+    usedBy: ['Assignment Collaboration'],
   },
   {
     id: 'organization.manage',
     description: 'Manage organization settings and structure.',
-    defaultRoles: ['owner'],
+    defaultRoles: ['owner', 'administrator'],
     usedBy: ['Administration'],
   },
   {
     id: 'user.invite',
-    description: 'Invite users and manage membership.',
-    defaultRoles: ['owner', 'administrator'],
+    description: 'Invite users to the organization.',
+    defaultRoles: MANAGERS,
     usedBy: ['Members', 'Invitations'],
+  },
+  {
+    id: 'user.remove',
+    description: 'Remove users from the organization.',
+    defaultRoles: ['owner', 'administrator'],
+    usedBy: ['Members'],
+  },
+  {
+    id: 'admin.access',
+    description: 'Access the administration workspace.',
+    defaultRoles: ['owner', 'administrator'],
+    usedBy: ['Administration'],
+  },
+  {
+    id: 'schedule.team',
+    description: 'View team schedule and capacity planning.',
+    defaultRoles: MANAGERS,
+    usedBy: ['Schedule'],
+  },
+  {
+    id: 'schedule.personal',
+    description: 'View personal schedule.',
+    defaultRoles: WORKERS,
+    usedBy: ['Schedule', 'Collaborator Workspace'],
+  },
+  {
+    id: 'schedule.reschedule',
+    description: 'Reschedule assignments for the team.',
+    defaultRoles: MANAGERS,
+    usedBy: ['Schedule'],
+  },
+  {
+    id: 'readiness.view',
+    description: 'View release readiness (limited for collaborators).',
+    defaultRoles: [...MANAGERS, 'contributor'],
+    usedBy: ['Release Readiness'],
+  },
+  {
+    id: 'readiness.manage',
+    description: 'Go / No-Go decisions and readiness management.',
+    defaultRoles: MANAGERS,
+    usedBy: ['Release Readiness'],
   },
 ]);
 

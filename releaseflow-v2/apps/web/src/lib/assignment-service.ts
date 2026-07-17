@@ -32,9 +32,25 @@ import { addWatcher, isWatching } from './assignment-watchers-repository';
 import { generateNotificationEvent } from './notification-event-service';
 import { getPeopleByOrg } from './people-repository';
 import type { AppRole } from '@/stores/role-store';
+import { AuthorizationService } from '@/lib/auth/authorization-service';
+import { roleGrantsPermission } from '@releaseflow/core/auth/authorization';
+import { PERMISSIONS } from '@releaseflow/core/auth/permissions';
 
-export function canManageReview(role: AppRole): boolean {
-  return role === 'owner' || role === 'admin' || role === 'release_manager';
+/**
+ * AUTH-001 — review management via permission matrix / AuthorizationService.
+ * Prefer session AuthorizationService; optional AppRole maps through matrix only.
+ */
+export function canManageReview(role?: AppRole): boolean {
+  if (role) {
+    const roleId =
+      role === 'admin' ? 'administrator'
+        : role === 'release_manager' ? 'project_manager'
+          : role;
+    return roleGrantsPermission(roleId, PERMISSIONS.AssignmentManage)
+      || roleGrantsPermission(roleId, PERMISSIONS.MediaReview);
+  }
+  return AuthorizationService.canManageAssignments()
+    || AuthorizationService.canReviewAssignment();
 }
 
 /** Resolve Firebase/user ids to auto-watch for a new assignment. */

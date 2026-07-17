@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cloudinaryConfig } from '@releaseflow/firebase/cloudinary/config';
 import { signUpload } from '@releaseflow/firebase/cloudinary/signature';
 import { getAdminAuth, getAdminDb } from '@/lib/server/firebase-admin';
-import { hasPermission, type MembershipResolver } from '@/lib/auth/authorization-service';
+import { AuthorizationService, type MembershipResolver } from '@/lib/auth/authorization-service';
 import { resolveRole } from '@releaseflow/core/auth/authorization';
 
 export const runtime = 'nodejs';
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     }
 
     const permission = body.entityType === 'artwork' ? 'artwork.upload' : body.entityType === 'avatar' ? 'profile.upload' : 'media.upload';
-    if (!(await hasPermission(body.organizationId, uid, permission, { membershipResolver: serverMembershipResolver }))) {
+    if (!(await AuthorizationService.canAsync(permission, body.organizationId, uid, { membershipResolver: serverMembershipResolver }))) {
       return NextResponse.json(
         { error: `You do not have permission to upload ${body.entityType === 'artwork' ? 'artwork' : body.entityType === 'avatar' ? 'avatar' : 'media'} for this organization.` },
         { status: 403 },

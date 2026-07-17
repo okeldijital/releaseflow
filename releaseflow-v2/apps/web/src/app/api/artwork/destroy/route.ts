@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cloudinaryConfig } from '@releaseflow/firebase/cloudinary/config';
 import { getAdminAuth } from '@/lib/server/firebase-admin';
-import { hasPermission, type MembershipResolver } from '@/lib/auth/authorization-service';
+import { AuthorizationService, type MembershipResolver } from '@/lib/auth/authorization-service';
 import { resolveRole } from '@releaseflow/core/auth/authorization';
 import { createHash } from 'node:crypto';
 
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing publicId or organizationId.' }, { status: 400 });
     }
 
-    if (!(await hasPermission(body.organizationId, uid, 'artwork.delete', { membershipResolver: serverMembershipResolver }))) {
+    if (!(await AuthorizationService.canAsync('artwork.delete', body.organizationId, uid, { membershipResolver: serverMembershipResolver }))) {
       return NextResponse.json(
         { error: 'You do not have permission to delete artwork for this organization.' },
         { status: 403 },

@@ -1,9 +1,18 @@
+/**
+ * AUTH-001 — Role store is a thin React binding over AuthorizationService.
+ * Permission decisions always flow through AuthorizationService.
+ */
+
 import { create } from 'zustand';
-import { getUserRole } from '@/lib/organization-repository';
+import type { Permission } from '@releaseflow/core/auth/permissions';
+import {
+  AuthorizationService,
+  type AuthorizationContext,
+} from '@/lib/auth/authorization-service';
 
 export type AppRole = 'owner' | 'admin' | 'release_manager' | 'contributor' | 'viewer';
 
-function mapRoleIdToAppRole(roleId: string): AppRole {
+function mapRoleIdToAppRole(roleId: string | null): AppRole {
   switch (roleId) {
     case 'owner':
       return 'owner';
@@ -22,23 +31,74 @@ function mapRoleIdToAppRole(roleId: string): AppRole {
 
 interface RoleState {
   role: AppRole;
+  roleId: string | null;
+  permissions: Permission[];
+  organizationId: string | null;
   loading: boolean;
-  resolveRole: (userId: string) => Promise<void>;
+  /** Load authorization context via AuthorizationService. */
+  resolveRole: (userId: string, organizationId?: string | null) => Promise<void>;
+  /** Session can() — delegates to AuthorizationService. */
+  can: (permission: Permission) => boolean;
+  isCollaborator: () => boolean;
   reset: () => void;
+}
+
+function applyContext(ctx: AuthorizationContext | null): Partial<RoleState> {
+  if (!ctx) {
+    return {
+      role: 'viewer',
+      roleId: null,
+      permissions: [],
+      organizationId: null,
+      loading: false,
+    };
+  }
+  return {
+    role: mapRoleIdToAppRole(ctx.roleId),
+    roleId: ctx.roleId,
+    permissions: ctx.permissions,
+    organizationId: ctx.organizationId,
+    loading: false,
+  };
 }
 
 export const useRoleStore = create<RoleState>((set) => ({
   role: 'viewer',
+  roleId: null,
+  permissions: [],
+  organizationId: null,
   loading: true,
-  resolveRole: async (userId: string) => {
-    try {
-      const roleId = await getUserRole(userId);
-      set({ role: mapRoleIdToAppRole(roleId), loading: false });
-    } catch {
-      set({ role: 'contributor', loading: false });
+
+  resolveRole: async (userId: string, organizationId?: string | null) => {
+    set({ loading: true });
+    if (!organizationId) {
+      set({
+        role: 'contributor',
+        roleId: null,
+        permissions: [],
+        organizationId: null,
+        loading: false,
+      });
+      return;
     }
+    const ctx = await AuthorizationService.loadContext(userId, organizationId);
+    set(applyContext(ctx));
   },
-  reset: () => set({ role: 'viewer', loading: true }),
+
+  can: (permission: Permission) => AuthorizationService.can(permission),
+
+  isCollaborator: () => AuthorizationService.isCollaboratorWorkspace(),
+
+  reset: () => {
+    AuthorizationService.clearContext();
+    set({
+      role: 'viewer',
+      roleId: null,
+      permissions: [],
+      organizationId: null,
+      loading: true,
+    });
+  },
 }));
 
 export const ROLE_DEFAULT_ROUTES: Record<AppRole, string> = {
@@ -46,5 +106,5 @@ export const ROLE_DEFAULT_ROUTES: Record<AppRole, string> = {
   admin: '/dashboard',
   release_manager: '/dashboard',
   contributor: '/home',
-  viewer: '/dashboard',
+  viewer: '/home',
 };

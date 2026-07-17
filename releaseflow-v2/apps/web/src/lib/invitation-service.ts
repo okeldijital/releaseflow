@@ -93,6 +93,13 @@ export async function invitePerson(fields: InvitePersonInput): Promise<Invitatio
   if (!fields.organizationId) throw new Error('Organization ID is required');
   if (!fields.invitedByUserId) throw new Error('Inviter ID is required');
 
+  // AUTH-001 — invite only via AuthorizationService.
+  const { AuthorizationService } = await import('@/lib/auth/authorization-service');
+  await AuthorizationService.requireInviteCollaborators(
+    fields.organizationId,
+    fields.invitedByUserId,
+  );
+
   const tFirestoreStart = Date.now();
   const invitation = await repoCreate({
     organizationId: fields.organizationId,

@@ -488,7 +488,8 @@ export async function acceptInvitationAtomically(
       const email = (user.email?.trim() || invitation.inviteeEmail);
       const { platformRole, professionalRole, invitedByUserId } = invitation;
 
-      // Step 2: Create membership (if not already present).
+      // Step 2: Create or update membership with invitation platform role.
+      // RBAC-001: never leave a sticky elevated roleId when re-accepting.
       if (!existingMembershipId) {
         const membershipRef = doc(collection(db, 'memberships'));
         transaction.set(membershipRef, {
@@ -499,7 +500,22 @@ export async function acceptInvitationAtomically(
           invitedBy: invitedByUserId,
           createdAt: now,
         });
+      } else {
+        transaction.update(doc(db, 'memberships', existingMembershipId), {
+          roleId: systemRole,
+          status: 'active',
+        });
       }
+
+      // RBAC-001 — path-based member index for Firestore Rules.
+      const memberIndexRef = doc(db, 'organizations', invitation.organizationId, 'members', user.uid);
+      transaction.set(memberIndexRef, {
+        userId: user.uid,
+        roleId: systemRole,
+        status: 'active',
+        platformRole,
+        updatedAt: now,
+      }, { merge: true });
 
       // Step 3: Create/update Person record.
       // professionalRole is the craft role (e.g. Mixer); platformRole maps to membership.roleId.

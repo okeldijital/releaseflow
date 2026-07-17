@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { useRoleStore } from '@/stores/role-store';
-import type { AppRole } from '@/stores/role-store';
+import { AuthorizationService } from '@/lib/auth/authorization-service';
 import { signOut as firebaseSignOut } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
 import { AppShell, Skeleton, BottomNav } from '@releaseflow/ui';
@@ -159,25 +159,48 @@ const collaboratorBottomNavItems: NavItem[] = [
   },
 ];
 
-/* ─── Admin routes collaborators should not access ────────────────── */
+/* ─── Route / nav rules via AuthorizationService capabilities ───── */
 
-const ADMIN_ONLY_ROUTES = [
-  '/dashboard',
-  '/releases',
-  '/tracks',
-  '/artists',
-  '/people',
-  '/organizations',
-  '/administration',
+type RouteGuard = { prefix: string; check: () => boolean };
+
+const ROUTE_GUARDS: RouteGuard[] = [
+  { prefix: '/administration', check: () => AuthorizationService.canViewAdministration() },
+  { prefix: '/organizations', check: () => AuthorizationService.canManageOrganization() },
+  { prefix: '/people', check: () => AuthorizationService.canManagePeople() },
+  { prefix: '/tracks', check: () => AuthorizationService.can('artist.write') },
+  { prefix: '/artists', check: () => AuthorizationService.can('artist.write') },
+  { prefix: '/releases/new', check: () => AuthorizationService.canCreateRelease() },
 ];
 
-function isAdminRoute(path: string): boolean {
-  return ADMIN_ONLY_ROUTES.some((route) => path === route || path.startsWith(route + '/'));
+/** Paths collaborators must never open (management surfaces). */
+const COLLABORATOR_BLOCKED_PREFIXES = [
+  '/dashboard',
+  '/administration',
+  '/organizations',
+  '/people',
+  '/tracks',
+  '/artists',
+  '/releases/new',
+];
+
+function isCollaboratorBlockedPath(path: string): boolean {
+  return COLLABORATOR_BLOCKED_PREFIXES.some(
+    (route) => path === route || path.startsWith(`${route}/`),
+  );
 }
 
-function isCollaborator(role: AppRole): boolean {
-  return role === 'contributor';
-}
+/** Nav item → capability check via AuthorizationService. */
+const NAV_CAN: Record<string, (() => boolean) | null> = {
+  '/dashboard': () => AuthorizationService.canCreateRelease(),
+  '/releases': () => AuthorizationService.canViewReleases(),
+  '/schedule': () => AuthorizationService.canViewPersonalSchedule(),
+  '/assignments': () => AuthorizationService.canViewAssignments(),
+  '/notifications': null,
+  '/people': () => AuthorizationService.canManagePeople(),
+  '/tracks': () => AuthorizationService.can('artist.write'),
+  '/artists': () => AuthorizationService.can('artist.write'),
+  '/administration': () => AuthorizationService.canViewAdministration(),
+};
 
 /* ─── Layout ───────────────────────────────────────────────────────── */
 
@@ -186,15 +209,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { activeOrgId, setActiveOrgId, setOrgsLoaded, switchingOrg } = useOrgStore();
-  const { role, resolveRole, loading: roleLoading } = useRoleStore();
+  const { resolveRole, loading: roleLoading, isCollaborator } = useRoleStore();
   const [orgs, setOrgs] = useState<OrganizationRecord[]>([]);
   const { count: notificationCount } = useNotificationBadge();
 
+  // AUTH-001: load AuthorizationService context when user/org changes.
   useEffect(() => {
     if (loading) return;
     if (!user) { router.replace('/sign-in'); return; }
-    resolveRole(user.uid);
-  }, [user, loading, router, resolveRole]);
+    if (activeOrgId) {
+      void resolveRole(user.uid, activeOrgId);
+    }
+  }, [user, loading, router, resolveRole, activeOrgId]);
 
   useEffect(() => {
     if (!user) return;
@@ -211,17 +237,52 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     });
   }, [user, activeOrgId, setActiveOrgId, setOrgsLoaded, router]);
 
-  /* ── Role-aware route guard ─────────────────────────────────────── */
+  /* ── AuthorizationService route guard ───────────────────────────── */
   useEffect(() => {
-    if (roleLoading || role === 'viewer') return;
-    if (isCollaborator(role) && isAdminRoute(pathname)) {
+    if (roleLoading) return;
+    const collab = AuthorizationService.isCollaboratorWorkspace();
+
+    if (collab && isCollaboratorBlockedPath(pathname)) {
+      const explanation = AuthorizationService.explain('admin.access');
+      console.log('[Authorization]', {
+        Path: pathname,
+        Decision: 'DENIED',
+        Reason: 'collaborator_route_blocked',
+        Detail: explanation.reason,
+      });
       router.replace('/home');
+      return;
     }
-  }, [role, roleLoading, pathname, router]);
 
-  const isCollab = useMemo(() => !roleLoading && role !== 'viewer' && isCollaborator(role), [role, roleLoading]);
+    for (const { prefix, check } of ROUTE_GUARDS) {
+      if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
+        if (!check()) {
+          console.log('[Authorization]', {
+            Path: pathname,
+            Decision: 'DENIED',
+            Reason: 'route_capability_missing',
+          });
+          router.replace(collab ? '/home' : '/dashboard');
+          return;
+        }
+      }
+    }
 
-  if (loading) {
+    if (
+      (pathname === '/dashboard' || pathname.startsWith('/dashboard/'))
+      && !AuthorizationService.canCreateRelease()
+    ) {
+      router.replace(collab ? '/home' : '/releases');
+    }
+  }, [roleLoading, pathname, router, isCollaborator]);
+
+  // Fail closed while loading: collaborator shell (no admin chrome).
+  const isCollab = useMemo(
+    () => roleLoading || AuthorizationService.isCollaboratorWorkspace(),
+    [roleLoading, isCollaborator],
+  );
+
+  if (loading || (user && roleLoading && !activeOrgId)) {
     return (
       <div className="flex min-h-screen bg-surface-50">
         <aside className="w-[232px] border-r border-surface-200/80 bg-surface-50 px-4 py-5 space-y-5 hidden lg:block">
@@ -265,6 +326,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (!user) return null;
 
+  // While role resolves for active org, show skeleton (never flash admin chrome).
+  if (roleLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-50">
+        <div className="h-5 w-5 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
   async function handleSignOut() {
     try {
       const { clearOfflineDataOnLogout } = await import('@/lib/pwa/clear-on-logout');
@@ -286,7 +356,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         : item,
     );
 
-  const navItems = withBadge(isCollab ? collaboratorNavItems : adminNavItems);
+  const filterByPermission = (items: NavItem[]): NavItem[] =>
+    items.filter((item) => {
+      const href = item.href ?? '';
+      const check = NAV_CAN[href];
+      if (check === undefined) return true;
+      if (check === null) return true;
+      return check();
+    });
+
+  const navItems = withBadge(
+    isCollab ? collaboratorNavItems : filterByPermission(adminNavItems),
+  );
   const navSections = isCollab ? collaboratorNavSections : adminNavSections;
   const bottomItems = withBadge(collaboratorBottomNavItems);
 
