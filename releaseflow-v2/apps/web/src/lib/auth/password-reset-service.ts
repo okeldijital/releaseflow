@@ -217,13 +217,13 @@ async function withIdentityToolkitCapture<T>(fn: () => Promise<T>): Promise<T> {
           : input.url;
 
     if (url.includes('identitytoolkit.googleapis.com')) {
-      const clone = response.clone();
-      let body: unknown = null;
+      // Fresh clone per read attempt — body stream can only be consumed once.
+      let body: unknown;
       try {
-        body = await clone.json();
+        body = await response.clone().json();
       } catch {
         try {
-          body = await clone.text();
+          body = await response.clone().text();
         } catch {
           body = '(unreadable body)';
         }
