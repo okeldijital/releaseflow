@@ -1,8 +1,17 @@
 'use client';
 
+/**
+ * Assignment detail + list hooks.
+ * BUG-002 — detail load isolates document fetch from side-channel failures.
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { useOrgStore } from '@/stores/org-store';
-import { fetchAssignment, fetchAssignmentsByEntity } from '@/lib/assignment-service';
+import {
+  fetchAssignmentsByEntity,
+  loadAssignmentDetail,
+  type AssignmentLoadErrorCode,
+} from '@/lib/assignment-service';
 import type { AssignmentRecord } from '@/lib/assignment-service';
 import { getActivityByEntity } from '@/lib/activity-service';
 import type { ActivityEventRecord } from '@/lib/activity-service';
@@ -22,6 +31,7 @@ export interface AssignmentDisplayRecord extends AssignmentRecord {
 }
 
 function getEntityReleaseId(a: AssignmentRecord): string | null {
+  if (a.releaseId) return a.releaseId;
   if (a.entityType === 'release') return a.entityId;
   return null;
 }
@@ -32,107 +42,145 @@ export interface AssignmentDetailData {
   deliverableLinks: DeliverableLinkRecord[];
   releaseContext: AssignmentReleaseContext | null;
   loading: boolean;
+  /** BUG-002 — distinguishable load failure (not a generic null). */
+  error: { code: AssignmentLoadErrorCode; message: string } | null;
   refresh: () => Promise<void>;
 }
 
-export function useAssignment(assignmentId: string | undefined): AssignmentDetailData {
-  const { activeOrgId } = useOrgStore();
+function normalizeRouteId(raw: string | string[] | undefined): string {
+  if (!raw) return '';
+  if (Array.isArray(raw)) return (raw[0] ?? '').trim();
+  return String(raw).trim();
+}
+
+export function useAssignment(assignmentId: string | string[] | undefined): AssignmentDetailData {
+  const { activeOrgId, orgsLoaded } = useOrgStore();
+  const id = normalizeRouteId(assignmentId);
+
   const [assignment, setAssignment] = useState<AssignmentDisplayRecord | null>(null);
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [deliverableLinks, setDeliverableLinks] = useState<DeliverableLinkRecord[]>([]);
   const [releaseContext, setReleaseContext] = useState<AssignmentReleaseContext | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<{ code: AssignmentLoadErrorCode; message: string } | null>(null);
 
   const load = useCallback(async () => {
-    if (!assignmentId || !activeOrgId) { setLoading(false); return; }
+    if (!id) {
+      setAssignment(null);
+      setError({ code: 'invalid_id', message: 'Missing assignment id.' });
+      setLoading(false);
+      return;
+    }
+
+    // Wait for org store hydration before treating org as empty (BUG-002 race).
+    if (!orgsLoaded) {
+      setLoading(true);
+      return;
+    }
+
     setLoading(true);
+    setError(null);
+
+    // 1) Canonical document load — never blocked by activity/links/context.
+    const result = await loadAssignmentDetail(id, {
+      organizationId: activeOrgId,
+      enforceOrg: Boolean(activeOrgId),
+    });
+
+    if (!result.ok) {
+      setAssignment(null);
+      setActivities([]);
+      setDeliverableLinks([]);
+      setReleaseContext(null);
+      setError({ code: result.code, message: result.message });
+      setLoading(false);
+      return;
+    }
+
+    const a = result.assignment;
+
+    // 2) Enrich names (best-effort)
+    let displayRecord: AssignmentDisplayRecord = {
+      ...a,
+      assigneeName: null,
+      assignerName: null,
+    };
     try {
-      const [a, acts, links] = await Promise.all([
-        fetchAssignment(assignmentId),
-        getActivityByEntity(activeOrgId, 'task', assignmentId),
-        fetchDeliverableLinks(assignmentId),
-      ]);
+      const map = await resolvePersonNames([a.assigneeId, a.assignerId].filter(Boolean));
+      displayRecord = {
+        ...a,
+        assigneeName: map.get(a.assigneeId) ?? 'Unknown Person',
+        assignerName: map.get(a.assignerId) ?? 'Unknown Person',
+      };
+    } catch (err) {
+      console.warn('[useAssignment] name resolution failed', err);
+    }
 
-      let displayRecord: AssignmentDisplayRecord | null = null;
-      let releaseCtx: AssignmentReleaseContext | null = null;
+    setAssignment(displayRecord);
+    setError(null);
 
-      if (a) {
-        const map = await resolvePersonNames([a.assigneeId, a.assignerId]);
-        displayRecord = {
-          ...a,
-          assigneeName: map.get(a.assigneeId) ?? 'Unknown Person',
-          assignerName: map.get(a.assignerId) ?? 'Unknown Person',
-        };
+    // 3) Side channels — failures must NOT clear the assignment (BUG-002 root cause).
+    const orgForActivity = a.organizationId || activeOrgId || '';
+    const [acts, links, releaseCtx] = await Promise.all([
+      orgForActivity
+        ? getActivityByEntity(orgForActivity, 'task', id).catch((err) => {
+          console.warn('[useAssignment] activity load failed', err);
+          return [] as ActivityEventRecord[];
+        })
+        : Promise.resolve([] as ActivityEventRecord[]),
+      fetchDeliverableLinks(id).catch((err) => {
+        console.warn('[useAssignment] deliverable links failed', err);
+        return [] as DeliverableLinkRecord[];
+      }),
+      fetchAssignmentReleaseContext(a.entityType, a.entityId).catch((err) => {
+        console.warn('[useAssignment] release context failed', err);
+        return null;
+      }),
+    ]);
 
-        releaseCtx = await fetchAssignmentReleaseContext(a.entityType, a.entityId);
-        setReleaseContext(releaseCtx);
-      } else {
-        setReleaseContext(null);
-      }
+    setActivities(acts);
+    setDeliverableLinks(links);
+    setReleaseContext(releaseCtx);
+    setLoading(false);
 
-      setAssignment(displayRecord);
-      setActivities(acts);
-      setDeliverableLinks(links);
-
-      // CE-008 — cache recent assignment view for offline (no secrets)
-      if (displayRecord && typeof navigator !== 'undefined') {
-        try {
-          const { cacheAssignmentView } = await import('@/lib/pwa/offline-data-cache');
-          const { getAuthInstance } = await import('@/lib/firebase');
-          const uid = getAuthInstance()?.currentUser?.uid;
-          if (uid) {
-            await cacheAssignmentView({
-              id: displayRecord.id,
-              userId: uid,
-              organizationId: activeOrgId,
-              snapshot: {
-                assignment: displayRecord,
-                activities: acts,
-                deliverableLinks: links,
-                releaseContext: releaseCtx,
-              },
-            });
-          }
-        } catch {
-          /* offline cache best-effort */
-        }
-      }
-    } catch {
-      // CE-008 — fall back to offline cache
+    // CE-008 — offline cache best-effort
+    if (typeof navigator !== 'undefined' && activeOrgId) {
       try {
-        const { getCachedAssignment } = await import('@/lib/pwa/offline-data-cache');
+        const { cacheAssignmentView } = await import('@/lib/pwa/offline-data-cache');
         const { getAuthInstance } = await import('@/lib/firebase');
         const uid = getAuthInstance()?.currentUser?.uid;
-        if (uid && assignmentId) {
-          const cached = await getCachedAssignment(assignmentId, uid);
-          if (cached?.snapshot) {
-            const snap = cached.snapshot as {
-              assignment?: AssignmentDisplayRecord;
-              activities?: ActivityEventRecord[];
-              deliverableLinks?: DeliverableLinkRecord[];
-              releaseContext?: AssignmentReleaseContext | null;
-            };
-            setAssignment(snap.assignment ?? null);
-            setActivities(snap.activities ?? []);
-            setDeliverableLinks(snap.deliverableLinks ?? []);
-            setReleaseContext(snap.releaseContext ?? null);
-            setLoading(false);
-            return;
-          }
+        if (uid) {
+          await cacheAssignmentView({
+            id: displayRecord.id,
+            userId: uid,
+            organizationId: activeOrgId,
+            snapshot: {
+              assignment: displayRecord,
+              activities: acts,
+              deliverableLinks: links,
+              releaseContext: releaseCtx,
+            },
+          });
         }
       } catch {
         /* ignore */
       }
-      setAssignment(null);
-      setReleaseContext(null);
-    } finally {
-      setLoading(false);
     }
-  }, [assignmentId, activeOrgId]);
+  }, [id, activeOrgId, orgsLoaded]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  return { assignment, activities, deliverableLinks, releaseContext, loading, refresh: load };
+  return {
+    assignment,
+    activities,
+    deliverableLinks,
+    releaseContext,
+    loading,
+    error,
+    refresh: load,
+  };
 }
 
 async function enrichAssignments(
@@ -244,7 +292,7 @@ export function useAssignments(entityType?: string, entityId?: string) {
     }
   }, [activeOrgId, entityType, entityId, applyData]);
 
-  // ARS-004.3 — Firestore snapshot listeners via Assignment Service (not pages)
+  // ARS-004.3 — Firestore snapshot listeners via Assignment Service
   useEffect(() => {
     if (!activeOrgId) {
       setAssignments([]);

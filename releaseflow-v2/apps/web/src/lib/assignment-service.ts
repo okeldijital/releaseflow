@@ -381,8 +381,90 @@ export async function updateAssignmentStatus(
   });
 }
 
+/**
+ * BUG-002 — Canonical public single-assignment retrieval.
+ * Prefer loadAssignmentDetail() for UI so errors are distinguishable.
+ */
 export async function fetchAssignment(assignmentId: string): Promise<AssignmentRecord | null> {
   return repoGet(assignmentId);
+}
+
+export type AssignmentLoadErrorCode =
+  | 'not_found'
+  | 'org_mismatch'
+  | 'permission_denied'
+  | 'network'
+  | 'unavailable'
+  | 'invalid_id';
+
+export type AssignmentLoadResult =
+  | { ok: true; assignment: AssignmentRecord }
+  | { ok: false; code: AssignmentLoadErrorCode; message: string };
+
+/**
+ * BUG-002 — Detail workspace entry point.
+ * Document existence is separate from org/authorization checks.
+ */
+export async function loadAssignmentDetail(
+  assignmentId: string,
+  opts?: {
+    organizationId?: string | null;
+    /** When true (default), reject assignments outside active org. */
+    enforceOrg?: boolean;
+  },
+): Promise<AssignmentLoadResult> {
+  const id = assignmentId?.trim();
+  if (!id) {
+    return { ok: false, code: 'invalid_id', message: 'Missing assignment id.' };
+  }
+
+  try {
+    const assignment = await repoGet(id);
+    if (!assignment) {
+      return {
+        ok: false,
+        code: 'not_found',
+        message: 'This assignment does not exist or has been removed.',
+      };
+    }
+
+    const enforceOrg = opts?.enforceOrg !== false;
+    const orgId = opts?.organizationId;
+    if (enforceOrg && orgId && assignment.organizationId && assignment.organizationId !== orgId) {
+      return {
+        ok: false,
+        code: 'org_mismatch',
+        message: 'This assignment belongs to another organization.',
+      };
+    }
+
+    return { ok: true, assignment };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === 'INVALID_ASSIGNMENT_ID') {
+      return { ok: false, code: 'invalid_id', message: 'Invalid assignment id.' };
+    }
+    if (msg === 'FIRESTORE_UNAVAILABLE' || /unavailable|offline|network/i.test(msg)) {
+      return {
+        ok: false,
+        code: msg === 'FIRESTORE_UNAVAILABLE' ? 'unavailable' : 'network',
+        message: 'Unable to load assignment. Check your connection and try again.',
+      };
+    }
+    if (/permission|insufficient|Missing or insufficient permissions/i.test(msg)) {
+      return {
+        ok: false,
+        code: 'permission_denied',
+        message: 'You do not have permission to access this assignment.',
+      };
+    }
+    console.error('[assignments] loadAssignmentDetail failed', { assignmentId: id, err });
+    return {
+      ok: false,
+      code: 'network',
+      message: 'Unable to load assignment. Please try again.',
+    };
+  }
 }
 
 export async function fetchAssignments(orgId: string, opts?: { includeArchived?: boolean }): Promise<AssignmentRecord[]> {

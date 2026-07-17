@@ -228,10 +228,21 @@ export async function findDuplicateAssignment(
   return match ? toRecord(match.id, match.data() as Record<string, unknown>) : null;
 }
 
+/**
+ * BUG-002 — Canonical single-document lookup.
+ * Returns null only when the document does not exist.
+ * Throws when Firestore is unavailable or the ID is invalid.
+ */
 export async function getAssignment(assignmentId: string): Promise<AssignmentRecord | null> {
+  if (!assignmentId || typeof assignmentId !== 'string' || !assignmentId.trim()) {
+    throw new Error('INVALID_ASSIGNMENT_ID');
+  }
+  const id = assignmentId.trim();
   const db = getDb();
-  if (!db) return null;
-  const snap = await getDoc(doc(db, 'assignments', assignmentId));
+  if (!db) {
+    throw new Error('FIRESTORE_UNAVAILABLE');
+  }
+  const snap = await getDoc(doc(db, 'assignments', id));
   if (!snap.exists()) return null;
   return toRecord(snap.id, snap.data() as Record<string, unknown>);
 }

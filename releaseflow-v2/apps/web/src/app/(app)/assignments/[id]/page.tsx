@@ -80,8 +80,18 @@ function fmtDate(d: unknown): string {
 
 export default function AssignmentDetailPage() {
   const params = useParams();
-  const id = params.id as string;
-  const { assignment, activities, deliverableLinks, releaseContext, loading, refresh } = useAssignment(id);
+  // BUG-002 — route param is the Firestore assignment document id only
+  const rawId = params.id;
+  const id = Array.isArray(rawId) ? (rawId[0] ?? '') : String(rawId ?? '');
+  const {
+    assignment,
+    activities,
+    deliverableLinks,
+    releaseContext,
+    loading,
+    error: loadError,
+    refresh,
+  } = useAssignment(id);
   const { user } = useAuth();
   const { activeOrgId } = useOrgStore();
   const { role } = useRoleStore();
@@ -274,17 +284,52 @@ export default function AssignmentDetailPage() {
   if (loading) {
     return (
       <WorkspaceLayout>
-        <div className="px-6 py-6"><Skeleton className="h-8 w-64 mb-4" /><Skeleton className="h-4 w-96 mb-8" /><Skeleton className="h-64 w-full" /></div>
+        <div className="px-6 py-6">
+          <p className="text-sm text-text-500 mb-4">Loading assignment…</p>
+          <Skeleton className="h-8 w-64 mb-4" />
+          <Skeleton className="h-4 w-96 mb-8" />
+          <Skeleton className="h-64 w-full" />
+        </div>
       </WorkspaceLayout>
     );
   }
 
-  if (!assignment) {
+  // BUG-002 — distinguishable error states (never mask auth/org as "not found")
+  if (!assignment || loadError) {
+    const code = loadError?.code ?? 'not_found';
+    const title =
+      code === 'not_found' ? 'Assignment not found'
+        : code === 'org_mismatch' ? 'Wrong organization'
+          : code === 'permission_denied' ? 'Permission denied'
+            : code === 'invalid_id' ? 'Invalid assignment'
+              : 'Unable to load assignment';
+    const description =
+      loadError?.message
+      ?? (code === 'not_found'
+        ? 'This assignment does not exist or has been removed.'
+        : 'Something went wrong while loading this assignment.');
+
     return (
       <WorkspaceLayout>
-        <div className="px-6 py-6">
-          <p className="text-display-md font-semibold text-primary-400 mb-4">Assignment not found</p>
-          <p className="text-sm text-text-500">This assignment may have been removed.</p>
+        <div className="px-6 py-6 max-w-lg">
+          <p className="text-display-md font-semibold text-primary-400 mb-2">{title}</p>
+          <p className="text-sm text-text-500 mb-4">{description}</p>
+          {id ? (
+            <p className="text-xs text-text-600 font-mono mb-4 break-all">ID: {id}</p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            {(code === 'network' || code === 'unavailable') ? (
+              <Button size="sm" variant="primary" onClick={() => void refresh()}>
+                Retry
+              </Button>
+            ) : null}
+            <Link
+              href="/assignments"
+              className="inline-flex items-center h-9 px-3 rounded-lg text-sm font-medium text-primary-400 hover:text-primary-300"
+            >
+              ← Back to Assignments
+            </Link>
+          </div>
         </div>
       </WorkspaceLayout>
     );
