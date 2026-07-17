@@ -63,10 +63,22 @@ export default function SignInPage() {
     try {
       const auth = getAuthInstance();
       if (!auth) throw new Error('Auth not initialized');
-      await signInWithEmailAndPassword(auth, email, password);
+      const normalized = email.trim().toLowerCase();
+      await signInWithEmailAndPassword(auth, normalized, password);
       // useEffect handles redirect when auth state updates
-    } catch {
-      setError('Invalid email or password.');
+    } catch (err) {
+      const code = (err as { code?: string })?.code ?? '';
+      if (code === 'auth/too-many-requests') {
+        setError('Too many attempts. Please wait a few minutes and try again.');
+      } else if (code === 'auth/network-request-failed') {
+        setError('Network error. Check your connection and try again.');
+      } else if (code === 'auth/user-disabled') {
+        setError('This account has been disabled. Contact support.');
+      } else if (code === 'auth/invalid-email') {
+        setError('Please enter a valid email address.');
+      } else {
+        setError('Invalid email or password.');
+      }
     } finally {
       setSubmitting(false);
     }
