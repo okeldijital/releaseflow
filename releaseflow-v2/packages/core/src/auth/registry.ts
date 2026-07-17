@@ -125,6 +125,12 @@ export const PERMISSION_REGISTRY: readonly PermissionRegistryEntry[] = Object.fr
     usedBy: ['Workflows', 'Schedule'],
   },
   {
+    id: 'profile.upload',
+    description: 'Upload and update profile avatar.',
+    defaultRoles: ['owner', 'administrator'],
+    usedBy: ['Profile'],
+  },
+  {
     id: 'organization.manage',
     description: 'Manage organization settings and structure.',
     defaultRoles: ['owner'],

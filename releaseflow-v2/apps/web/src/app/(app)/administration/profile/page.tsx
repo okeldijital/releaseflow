@@ -6,6 +6,9 @@ import { doc, setDoc, getDoc, Timestamp } from '@firebase/firestore';
 import { useAuth } from '@/contexts/auth-context';
 import { getDb } from '@/lib/firebase';
 import { Button, Input, Select, Checkbox, TextArea } from '@releaseflow/ui';
+import { ProfileAvatarUploader } from '@/components/profile/ProfileAvatarUploader';
+import { uploadImageFile, getAvatarThumbnailUrl } from '@/components/common/image-upload/image-upload-service';
+import { useOrgStore } from '@/stores/org-store';
 
 const TIMEZONE_OPTIONS = [
   { value: 'UTC', label: 'UTC' },
@@ -56,6 +59,7 @@ async function saveUserPreferences(userId: string, preferences: Record<string, u
 
 export default function AdministrationProfilePage() {
   const { user } = useAuth();
+  const { activeOrgId } = useOrgStore();
   const [displayName, setDisplayName] = useState('');
   const [photoURL, setPhotoURL] = useState('');
   const [biography, setBiography] = useState('');
@@ -91,13 +95,32 @@ export default function AdministrationProfilePage() {
     if (!user) return;
     setSaving(true);
     setSaved(false);
-    await updateProfile(user, { displayName: displayName || null, photoURL: photoURL || null });
+    await updateProfile(user, { displayName: displayName || null });
     try { localStorage.setItem('rf_user_timezone', timezone); } catch { /* ignore */ }
     try { localStorage.setItem('rf_user_locale', locale); } catch { /* ignore */ }
     await saveUserPreferences(user.uid, { biography, notifEmail, notifDigest });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  async function handleAvatarUpload(file: File) {
+    if (!user || !activeOrgId) return;
+    const result = await uploadImageFile(file, {
+      entityType: 'avatar',
+      entityId: user.uid,
+      organizationId: activeOrgId,
+      tags: [`user:${user.uid}`, `org:${activeOrgId}`],
+    });
+    const thumbnailUrl = getAvatarThumbnailUrl(result.publicId);
+    await updateProfile(user, { photoURL: thumbnailUrl });
+    setPhotoURL(thumbnailUrl);
+  }
+
+  async function handleAvatarRemove() {
+    if (!user) return;
+    await updateProfile(user, { photoURL: null });
+    setPhotoURL('');
   }
 
   return (
@@ -109,11 +132,16 @@ export default function AdministrationProfilePage() {
 
       <div className="space-y-6">
         <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-6 py-6 space-y-5">
+          <ProfileAvatarUploader
+            currentImageUrl={photoURL || null}
+            displayName={displayName}
+            onUpload={handleAvatarUpload}
+            onRemove={handleAvatarRemove}
+          />
+
           <Input label="Email" type="email" value={user?.email ?? ''} disabled />
 
           <Input label="Display Name" type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your display name" />
-
-          <Input label="Avatar URL" type="url" value={photoURL} onChange={(e) => setPhotoURL(e.target.value)} placeholder="https://..." hint="Used as avatar across ReleaseFlow" />
 
           <TextArea label="Biography" value={biography} onChange={(e) => setBiography(e.target.value)} placeholder="Tell teammates about yourself" rows={4} />
 

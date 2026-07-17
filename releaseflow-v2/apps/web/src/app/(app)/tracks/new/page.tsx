@@ -17,6 +17,7 @@ import {
   type AssetType,
 } from '@/lib/asset-lifecycle-service';
 import { invitePerson } from '@/lib/invitation-service';
+import { getOrganization } from '@/lib/organization-repository';
 import { PersonPickerDialog } from '@/components/person-picker-dialog';
 import { ArtistFieldPicker, FeaturedArtistsPicker, RepeatableArtistPicker, type ArtistOption, type RepeatableArtistEntry } from '@/components/artist-field-picker';
 import { useArtists } from '@/hooks/useArtist';
@@ -351,11 +352,16 @@ export default function NewTrackPage() {
       }
     }
     if (item.status === 'invited' && item.inviteEmail && user) {
+      const org = await getOrganization(activeOrgId);
       await invitePerson({
         organizationId: activeOrgId,
-        inviterId: user.uid,
-        email: item.inviteEmail,
-        roleId: 'contributor',
+        organizationName: org?.name ?? '',
+        inviteeName: '',
+        inviteeEmail: item.inviteEmail,
+        platformRole: 'collaborator',
+        professionalRole: 'Contributor',
+        invitedByUserId: user.uid,
+        invitedByName: user.displayName || user.email?.split('@')[0] || 'Administrator',
       });
     }
   }

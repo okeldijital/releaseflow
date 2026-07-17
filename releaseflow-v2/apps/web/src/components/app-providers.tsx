@@ -11,10 +11,16 @@ const CommandPalette = dynamic(
   { ssr: false },
 );
 
+const PwaBootstrap = dynamic(
+  () => import('@/components/pwa/pwa-bootstrap').then((mod) => ({ default: mod.PwaBootstrap })),
+  { ssr: false },
+);
+
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ErrorBoundary>
       <AuthProvider>
+        <PwaBootstrap />
         {children}
         <ToastContainer />
         <CommandPalette />

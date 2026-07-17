@@ -8,6 +8,7 @@ export interface UserProfileRecord {
   displayName: string;
   email: string;
   avatarUrl?: string | null;
+  avatarPublicId?: string | null;
   role?: string | null;
   roleCategory?: string | null;
   onboardingCompleted: boolean;

@@ -26,6 +26,9 @@ export const PERMISSIONS = {
   ArtworkReplace: 'artwork.replace',
   ArtworkDelete: 'artwork.delete',
 
+  // --- Profile module ---
+  ProfileUpload: 'profile.upload',
+
   // --- Platform (seeded, consumed by future modules) ---
   ReleaseRead: 'release.read',
   ReleaseWrite: 'release.write',

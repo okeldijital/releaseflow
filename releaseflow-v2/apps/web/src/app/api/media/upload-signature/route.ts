@@ -16,6 +16,7 @@ const ENTITY_SUBFOLDER: Record<string, string> = {
   person: 'people',
   marketing: 'marketing',
   artwork: 'releases',
+  avatar: 'avatars',
 };
 
 // Membership resolution via the Admin SDK. The role → permission decision is
@@ -66,9 +67,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing upload context.' }, { status: 400 });
     }
 
-    if (!(await hasPermission(body.organizationId, uid, body.entityType === 'artwork' ? 'artwork.upload' : 'media.upload', { membershipResolver: serverMembershipResolver }))) {
+    const permission = body.entityType === 'artwork' ? 'artwork.upload' : body.entityType === 'avatar' ? 'profile.upload' : 'media.upload';
+    if (!(await hasPermission(body.organizationId, uid, permission, { membershipResolver: serverMembershipResolver }))) {
       return NextResponse.json(
-        { error: `You do not have permission to upload ${body.entityType === 'artwork' ? 'artwork' : 'media'} for this organization.` },
+        { error: `You do not have permission to upload ${body.entityType === 'artwork' ? 'artwork' : body.entityType === 'avatar' ? 'avatar' : 'media'} for this organization.` },
         { status: 403 },
       );
     }

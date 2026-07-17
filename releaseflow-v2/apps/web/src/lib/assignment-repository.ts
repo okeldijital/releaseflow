@@ -12,6 +12,7 @@ export type AssignmentStatus =
   | 'review'
   | 'completed'
   | 'declined'
+  | 'blocked'
   | 'cancelled'
   | 'archived';
 
@@ -46,8 +47,13 @@ export interface AssignmentRecord {
   actualHours?: number | null;
   createdAt: unknown;
   updatedAt: unknown;
+  declineReason?: string | null;
   deletedAt?: unknown | null;
   deletedBy?: string | null;
+  reviewRequestedBy?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: unknown | null;
+  reviewOutcome?: 'approved' | 'changes_requested' | 'rejected' | null;
 }
 
 export interface CreateAssignmentFields {
@@ -79,6 +85,10 @@ export interface UpdateAssignmentFields {
   estimatedHours?: number | null;
   actualHours?: number | null;
   assigneeId?: string;
+  reviewedBy?: string | null;
+  reviewedAt?: unknown | null;
+  reviewOutcome?: 'approved' | 'changes_requested' | 'rejected' | null;
+  reviewRequestedBy?: string | null;
 }
 
 function toRecord(id: string, data: Record<string, unknown>): AssignmentRecord {
@@ -103,8 +113,13 @@ function toRecord(id: string, data: Record<string, unknown>): AssignmentRecord {
     actualHours: data.actualHours as number | null | undefined,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
+    declineReason: data.declineReason as string | null | undefined,
     deletedAt: data.deletedAt as unknown | null | undefined,
     deletedBy: data.deletedBy as string | null | undefined,
+    reviewRequestedBy: data.reviewRequestedBy as string | null | undefined,
+    reviewedBy: data.reviewedBy as string | null | undefined,
+    reviewedAt: data.reviewedAt as unknown | null | undefined,
+    reviewOutcome: data.reviewOutcome as 'approved' | 'changes_requested' | 'rejected' | null | undefined,
   };
 }
 
@@ -130,6 +145,10 @@ export async function createAssignment(fields: CreateAssignmentFields): Promise<
     estimatedHours: fields.estimatedHours ?? null,
     actualHours: null,
     completedAt: null,
+    reviewRequestedBy: null,
+    reviewedBy: null,
+    reviewedAt: null,
+    reviewOutcome: null,
     createdAt: now,
     updatedAt: now,
   });
@@ -234,11 +253,94 @@ export async function acceptAssignment(assignmentId: string): Promise<void> {
   });
 }
 
-export async function declineAssignment(assignmentId: string): Promise<void> {
+export async function declineAssignment(assignmentId: string, reason?: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  const update: Record<string, unknown> = { status: 'declined', updatedAt: Timestamp.now() };
+  if (reason) update.declineReason = reason;
+  await updateDoc(doc(db, 'assignments', assignmentId), update);
+}
+
+export async function markStarted(assignmentId: string): Promise<void> {
   const db = getDb();
   if (!db) return;
   await updateDoc(doc(db, 'assignments', assignmentId), {
-    status: 'declined', updatedAt: Timestamp.now(),
+    status: 'in_progress', startDate: Timestamp.now(), updatedAt: Timestamp.now(),
+  });
+}
+
+export async function blockAssignment(assignmentId: string, reason?: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  const update: Record<string, unknown> = { status: 'blocked', updatedAt: Timestamp.now() };
+  if (reason) update.blockReason = reason;
+  await updateDoc(doc(db, 'assignments', assignmentId), update);
+}
+
+export async function unblockAssignment(assignmentId: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  await updateDoc(doc(db, 'assignments', assignmentId), {
+    status: 'in_progress', updatedAt: Timestamp.now(),
+  });
+}
+
+export async function submitForReview(assignmentId: string, requestedBy: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  await updateDoc(doc(db, 'assignments', assignmentId), {
+    status: 'review',
+    reviewRequestedBy: requestedBy,
+    reviewedBy: null,
+    reviewedAt: null,
+    reviewOutcome: null,
+    updatedAt: Timestamp.now(),
+  });
+}
+
+export async function approveAssignment(assignmentId: string, reviewerId: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  const now = Timestamp.now();
+  await updateDoc(doc(db, 'assignments', assignmentId), {
+    status: 'completed',
+    completedAt: now,
+    reviewedBy: reviewerId,
+    reviewedAt: now,
+    reviewOutcome: 'approved',
+    updatedAt: now,
+  });
+}
+
+export async function requestChangesAssignment(
+  assignmentId: string,
+  reviewerId: string,
+): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  const now = Timestamp.now();
+  await updateDoc(doc(db, 'assignments', assignmentId), {
+    status: 'in_progress',
+    reviewedBy: reviewerId,
+    reviewedAt: now,
+    reviewOutcome: 'changes_requested',
+    updatedAt: now,
+  });
+}
+
+export async function rejectAssignmentReview(
+  assignmentId: string,
+  reviewerId: string,
+): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  const now = Timestamp.now();
+  await updateDoc(doc(db, 'assignments', assignmentId), {
+    status: 'cancelled',
+    reviewedBy: reviewerId,
+    reviewedAt: now,
+    reviewOutcome: 'rejected',
+    updatedAt: now,
   });
 }
 

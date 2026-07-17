@@ -67,6 +67,7 @@ export const ROLE_PERMISSIONS: Record<RoleId, RolePermissions> = {
     'assignment.manage',
     'workflow.manage',
     'user.invite',
+    'profile.upload',
   ],
   project_manager: [
     'media.read',

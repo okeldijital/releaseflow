@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { useOrgStore } from '@/stores/org-store';
 import { useAssignments } from '@/hooks/useAssignment';
-import { completeUserAssignment, archiveUserAssignment } from '@/lib/assignment-service';
+import { archiveUserAssignment } from '@/lib/assignment-service';
 import { useAuth } from '@/contexts/auth-context';
 import { Button, EmptyState, LoadingState, Input, Badge, StatusBadge, ConfirmationDialog } from '@releaseflow/ui';
+import { ArtworkPlaceholder } from '@/components/release/artwork-display';
 import { toast } from '@/stores/toast-store';
 
 const priorityColors: Record<string, string> = {
@@ -22,6 +23,18 @@ function formatDate(d: unknown): string {
   return String(d);
 }
 
+function statusDisplay(s: string): string {
+  const map: Record<string, string> = {
+    assigned: 'Not Started',
+    accepted: 'Not Started',
+    in_progress: 'In Progress',
+    review: 'In Review',
+    completed: 'Completed',
+    blocked: 'Blocked',
+  };
+  return map[s] ?? s.replace(/_/g, ' ');
+}
+
 export default function AssignmentsPage() {
   const { activeOrgId } = useOrgStore();
   const { assignments, loading, refresh } = useAssignments();
@@ -35,25 +48,15 @@ export default function AssignmentsPage() {
   const filtered = useMemo(() => {
     return assignments.filter((a) => {
       if (a.status === 'archived' || a.status === 'cancelled' || a.status === 'declined') return false;
-      if (searchQuery && !a.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (searchQuery && !a.title.toLowerCase().includes(searchQuery.toLowerCase()) && !a.releaseTitle?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       if (filterPriority !== 'all' && a.priority !== filterPriority) return false;
-      if (filterStatus !== 'all' && a.status !== filterStatus) return false;
+      if (filterStatus !== 'all') {
+        const display = statusDisplay(a.status);
+        if (display !== filterStatus) return false;
+      }
       return true;
     });
   }, [assignments, searchQuery, filterPriority, filterStatus]);
-
-  async function handleComplete(id: string) {
-    setActionLoading(true);
-    try {
-      await completeUserAssignment(id, user?.uid ?? '');
-      toast.success('Assignment completed');
-      await refresh();
-    } catch {
-      toast.error('Failed to complete assignment');
-    } finally {
-      setActionLoading(false);
-    }
-  }
 
   async function handleArchive() {
     if (!archiveId) return;
@@ -115,11 +118,11 @@ export default function AssignmentsPage() {
           className="h-9 px-3 text-sm rounded-md border border-surface-700/60 bg-surface-900 text-surface-100"
         >
           <option value="all">All Status</option>
-          <option value="assigned">Assigned</option>
-          <option value="accepted">Accepted</option>
-          <option value="in_progress">In Progress</option>
-          <option value="review">Review</option>
-          <option value="completed">Completed</option>
+          <option value="Not Started">Not Started</option>
+          <option value="In Progress">In Progress</option>
+          <option value="In Review">In Review</option>
+          <option value="Completed">Completed</option>
+          <option value="Blocked">Blocked</option>
         </select>
       </div>
 
@@ -135,28 +138,40 @@ export default function AssignmentsPage() {
           {filtered.map((a) => (
             <div
               key={a.id}
-              className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3.5 hover:border-primary-200 hover:shadow-sm transition-all duration-150"
+              className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3 hover:border-primary-200 hover:shadow-sm transition-all duration-150"
             >
-              <div className="flex-1 min-w-0">
-                <Link href={`/assignments/${a.id}`} className="block">
+              <Link href={`/assignments/${a.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                {a.releaseArtwork?.secureUrl ? (
+                  <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-surface-800">
+                    <img src={a.releaseArtwork.secureUrl} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : a.releaseTitle ? (
+                  <ArtworkPlaceholder title={a.releaseTitle} size="sm" />
+                ) : null}
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-primary-400 truncate">{a.title}</p>
-                  <p className="text-xs text-text-500 capitalize">{a.entityType} &middot; {a.role}</p>
-                   {Boolean(a.dueDate) && <p className="text-xs text-text-500 mt-0.5">Due: {formatDate(a.dueDate)}</p>}
-                </Link>
-              </div>
+                  <div className="flex items-center gap-2 text-xs text-text-500 mt-0.5">
+                    {a.releaseTitle ? <span className="truncate">{a.releaseTitle}</span> : null}
+                    {a.trackTitle ? <span>· {a.trackTitle}</span> : null}
+                    {!a.releaseTitle && !a.trackTitle ? (
+                      <span className="capitalize">{a.entityType}</span>
+                    ) : null}
+                    <span>· {a.role}</span>
+                  </div>
+                  {a.assigneeName ? (
+                    <p className="text-xs text-text-400 mt-0.5">{a.assigneeName}</p>
+                  ) : null}
+                  {Boolean(a.dueDate) && (
+                    <p className="text-xs text-text-500 mt-0.5">Due: {formatDate(a.dueDate)}</p>
+                  )}
+                </div>
+              </Link>
               <div className="flex items-center gap-2 shrink-0 ml-4">
                 <Badge label={a.priority} color={priorityColors[a.priority] ?? ''} />
-                <StatusBadge status={a.status} />
-                <div className="flex items-center gap-1">
-                  {['assigned', 'accepted', 'in_progress', 'review'].includes(a.status) && (
-                    <Button size="sm" variant="ghost" onClick={() => handleComplete(a.id)} disabled={actionLoading}>
-                      Complete
-                    </Button>
-                  )}
-                  <Button size="sm" variant="ghost" onClick={() => setArchiveId(a.id)} disabled={actionLoading}>
-                    Remove
-                  </Button>
-                </div>
+                <StatusBadge status={statusDisplay(a.status).toLowerCase().replace(/ /g, '_')} />
+                <Button size="sm" variant="ghost" onClick={() => setArchiveId(a.id)} disabled={actionLoading}>
+                  Remove
+                </Button>
               </div>
             </div>
           ))}

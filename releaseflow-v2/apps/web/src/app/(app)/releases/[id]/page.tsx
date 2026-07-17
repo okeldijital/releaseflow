@@ -627,6 +627,13 @@ export default function ReleaseWorkspacePage() {
             <StatusBadge status={displayStatus(release.status)} />
 
             {/* Release Readiness */}
+            <div className="space-y-2">
+            <Link
+              href={`/releases/${releaseId}/readiness`}
+              className="text-xs font-medium text-primary-400 hover:text-primary-300 transition-colors"
+            >
+              Open readiness workspace →
+            </Link>
             <ReadinessCard
               pct={readinessPct}
               categories={READINESS_CATS.map((cat) => ({
@@ -634,6 +641,7 @@ export default function ReleaseWorkspacePage() {
                 done: readinessMap[cat],
               }))}
             />
+            </div>
 
             {/* Actions */}
             <div className="flex items-center gap-2 pt-2">

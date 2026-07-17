@@ -7,8 +7,10 @@ import {
   invitePerson,
   expireStaleInvitations,
   fetchInvitationsByOrg,
+  getInvitationLink,
 } from '@/lib/invitation-service';
-import type { InvitationRecord } from '@/lib/invitation-service';
+import type { InvitationRecord, PlatformRole } from '@/lib/invitation-service';
+import { getOrganization } from '@/lib/organization-repository';
 
 export function useInvitations() {
   const [invitations, setInvitations] = useState<InvitationRecord[]>([]);
@@ -45,26 +47,38 @@ export function useInvitations() {
   };
 }
 
+export interface InvitePersonInput {
+  email: string;
+  name: string;
+  platformRole: PlatformRole;
+  professionalRole: string;
+}
+
 export function useInvitePerson() {
   const [saving, setSaving] = useState(false);
   const { activeOrgId } = useOrgStore();
   const { user } = useAuth();
 
-  const invite = useCallback(async (email: string, discipline: string) => {
+  const invite = useCallback(async (input: InvitePersonInput) => {
     if (!activeOrgId || !user?.uid) return null;
     setSaving(true);
     try {
+      const org = await getOrganization(activeOrgId);
       const result = await invitePerson({
         organizationId: activeOrgId,
-        email: email.trim(),
-        inviterId: user.uid,
-        discipline: discipline.trim() || undefined,
+        organizationName: org?.name ?? '',
+        inviteeName: input.name.trim(),
+        inviteeEmail: input.email.trim(),
+        platformRole: input.platformRole,
+        professionalRole: input.professionalRole.trim(),
+        invitedByUserId: user.uid,
+        invitedByName: user.displayName || user.email?.split('@')[0] || 'Administrator',
       });
       return result;
     } finally {
       setSaving(false);
     }
-  }, [activeOrgId, user?.uid]);
+  }, [activeOrgId, user?.uid, user?.displayName, user?.email]);
 
-  return { invite, saving };
+  return { invite, saving, getInvitationLink };
 }

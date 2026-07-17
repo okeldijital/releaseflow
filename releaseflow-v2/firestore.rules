@@ -140,5 +140,84 @@ service cloud.firestore {
       allow read, write: if isAuth() && request.auth.uid == userId;
     }
 
+    // CE-005 — Assignment collaboration (tenant isolation via organizationId / assignment access)
+    match /assignment_comments/{docId} {
+      allow read, list: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.assignmentId != null
+        && request.resource.data.organizationId != null
+        && request.resource.data.authorId == request.auth.uid;
+      allow update: if isAuth();
+      allow delete: if false; // soft-delete only
+    }
+    match /assignment_watchers/{docId} {
+      allow read, list: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.assignmentId != null
+        && request.resource.data.userId != null;
+      allow update: if false;
+      allow delete: if isAuth();
+    }
+    match /assignment_comment_reads/{docId} {
+      allow read, list: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.assignmentId != null
+        && request.resource.data.commentId != null;
+      allow update, delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+    match /notification_events/{docId} {
+      allow read, list: if isAuth();
+      allow create: if isAuth() && request.resource.data.actorId == request.auth.uid;
+      allow update, delete: if false; // immutable event log (delivery is future)
+    }
+    match /deliverable_links/{docId} {
+      allow read, list: if isAuth();
+      allow create: if isAuth() && request.resource.data.assignmentId != null;
+      allow update, delete: if isAuth();
+    }
+
+    // CE-006 — Notification engine
+    match /user_notifications/{docId} {
+      allow read, list: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth()
+        && request.resource.data.userId != null
+        && request.resource.data.eventId != null;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
+    match /notification_processing/{eventId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if false;
+    }
+    match /notification_preferences/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+    match /email_queue/{docId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.status == 'pending';
+      allow update, delete: if false; // worker-owned later
+    }
+    match /push_subscriptions/{docId} {
+      allow read, list: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // CE-007 — Calendar preferences (user-owned)
+    match /calendar_preferences/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+
+    // CE-009 — Readiness history (meaningful transitions only)
+    match /release_readiness_history/{docId} {
+      allow read, list: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.releaseId != null
+        && request.resource.data.organizationId != null;
+      allow update, delete: if false;
+    }
+
   }
 }

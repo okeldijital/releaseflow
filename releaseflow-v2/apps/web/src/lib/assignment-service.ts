@@ -16,12 +16,56 @@ import {
   deleteAssignment as repoDelete,
   getAssignmentStats as repoStats,
   findDuplicateAssignment,
+  markStarted as repoMarkStarted,
+  blockAssignment as repoBlock,
+  unblockAssignment as repoUnblock,
+  submitForReview as repoSubmitForReview,
+  approveAssignment as repoApprove,
+  requestChangesAssignment as repoRequestChanges,
+  rejectAssignmentReview as repoRejectReview,
 } from './assignment-repository';
 import type {
   AssignmentRecord, CreateAssignmentFields, UpdateAssignmentFields, AssignmentStatus, AssignmentPriority, AssignmentEntityType,
 } from './assignment-repository';
 import { recordActivity } from './activity-service';
-import { createNotification } from './notification-service';
+import { addWatcher, isWatching } from './assignment-watchers-repository';
+import { generateNotificationEvent } from './notification-event-service';
+import { getPeopleByOrg } from './people-repository';
+import type { AppRole } from '@/stores/role-store';
+
+export function canManageReview(role: AppRole): boolean {
+  return role === 'owner' || role === 'admin' || role === 'release_manager';
+}
+
+/** Resolve Firebase/user ids to auto-watch for a new assignment. */
+async function autoWatchDefaults(
+  assignmentId: string,
+  organizationId: string,
+  assigneeId: string,
+  assignerId: string,
+): Promise<void> {
+  const watchIds = new Set<string>([assigneeId, assignerId].filter(Boolean));
+
+  try {
+    const people = await getPeopleByOrg(organizationId);
+    for (const p of people) {
+      if (p.id === assigneeId || p.id === assignerId) {
+        if (p.userId) watchIds.add(p.userId);
+      }
+    }
+  } catch {
+    // Best-effort; assignment still succeeds without watchers.
+  }
+
+  for (const userId of watchIds) {
+    try {
+      const already = await isWatching(assignmentId, userId);
+      if (!already) await addWatcher(assignmentId, userId);
+    } catch {
+      // ignore individual watcher failures
+    }
+  }
+}
 
 export type { AssignmentRecord, CreateAssignmentFields, UpdateAssignmentFields, AssignmentStatus, AssignmentPriority, AssignmentEntityType };
 
@@ -44,9 +88,10 @@ const VALID_TRANSITIONS: Record<AssignmentStatus, AssignmentStatus[]> = {
   draft: ['assigned', 'cancelled', 'archived'],
   assigned: ['accepted', 'declined', 'cancelled', 'archived'],
   accepted: ['in_progress', 'declined', 'cancelled', 'archived'],
-  in_progress: ['review', 'cancelled', 'archived'],
-  review: ['in_progress', 'cancelled', 'archived'],
+  in_progress: ['review', 'blocked', 'cancelled', 'archived'],
+  review: ['in_progress', 'completed', 'blocked', 'cancelled', 'archived'],
   completed: ['in_progress', 'archived'],
+  blocked: ['in_progress', 'cancelled', 'archived'],
   declined: ['assigned', 'archived'],
   cancelled: ['draft', 'archived'],
   archived: ['draft'],
@@ -91,14 +136,24 @@ export async function createNewAssignment(fields: CreateAssignmentFields): Promi
     details: `Assignment "${assignment.title}" created for ${fields.assigneeId}`,
   });
 
-  await createNotification({
-    userId: fields.assigneeId,
-    type: 'assignment',
-    title: 'New Assignment',
-    message: `You have been assigned: ${fields.title}`,
-    referenceId: assignment.id,
-    referenceType: 'assignment',
+  // CE-006 — business logic emits events only (processor creates notifications)
+  await generateNotificationEvent({
+    type: 'assignment.assigned',
+    organizationId: fields.organizationId,
+    actorId: fields.assignerId,
+    recipientId: fields.assigneeId,
+    entityId: assignment.id,
+    entityType: 'assignment',
+    metadata: { title: fields.title },
   });
+
+  // CE-005 — auto-watch assignee + creator (release manager typically the assigner)
+  await autoWatchDefaults(
+    assignment.id,
+    fields.organizationId,
+    fields.assigneeId,
+    fields.assignerId,
+  );
 
   return assignment;
 }
@@ -115,6 +170,64 @@ export async function editAssignment(assignmentId: string, fields: UpdateAssignm
     actorId,
     action: 'updated',
     details: `Assignment "${existing.title}" updated`,
+  });
+}
+
+/**
+ * CE-007 — Reschedule assignment due date (managers only).
+ * Creates activity + notification events. Assignments remain source of truth.
+ */
+export async function rescheduleAssignment(
+  assignmentId: string,
+  newDueDate: Date,
+  actorId: string,
+  role: AppRole,
+  opts?: { actorName?: string },
+): Promise<void> {
+  if (!canManageReview(role)) {
+    throw new Error('Only managers can reschedule assignments');
+  }
+  const existing = await repoGet(assignmentId);
+  if (!existing) throw new Error('Assignment not found');
+
+  const oldDue = existing.dueDate;
+  await repoUpdate(assignmentId, { dueDate: newDueDate });
+
+  const oldLabel = oldDue
+    ? (typeof oldDue === 'object' && oldDue !== null && 'toDate' in oldDue
+      ? (oldDue as { toDate: () => Date }).toDate().toLocaleDateString()
+      : String(oldDue))
+    : 'none';
+  const newLabel = newDueDate.toLocaleDateString();
+  const by = opts?.actorName ?? actorId;
+
+  await recordActivity({
+    entityType: 'task',
+    entityId: assignmentId,
+    organizationId: existing.organizationId,
+    actorId,
+    action: 'due_date.changed',
+    details: `Due date changed from ${oldLabel} to ${newLabel} by ${by}`,
+    metadata: {
+      details: `Due date changed\nOld: ${oldLabel}\nNew: ${newLabel}\nBy: ${by}`,
+      oldDueDate: oldLabel,
+      newDueDate: newLabel,
+      history: true,
+    },
+  });
+
+  await generateNotificationEvent({
+    type: 'assignment.rescheduled',
+    organizationId: existing.organizationId,
+    actorId,
+    recipientId: existing.assigneeId,
+    entityId: assignmentId,
+    entityType: 'assignment',
+    metadata: {
+      oldDueDate: oldLabel,
+      newDueDate: newLabel,
+      title: existing.title,
+    },
   });
 }
 
@@ -188,13 +301,22 @@ export async function acceptUserAssignment(assignmentId: string, actorId: string
     action: 'accepted',
     details: 'Assignment accepted',
   });
+
+  await generateNotificationEvent({
+    type: 'assignment.accepted',
+    organizationId: existing.organizationId,
+    actorId,
+    recipientId: existing.assignerId,
+    entityId: assignmentId,
+    entityType: 'assignment',
+  });
 }
 
-export async function declineUserAssignment(assignmentId: string, actorId: string): Promise<void> {
+export async function declineUserAssignment(assignmentId: string, actorId: string, reason?: string): Promise<void> {
   const existing = await repoGet(assignmentId);
   if (!existing) throw new Error('Assignment not found');
   if (existing.assigneeId !== actorId) throw new Error('Only the assignee can decline');
-  await repoDecline(assignmentId);
+  await repoDecline(assignmentId, reason);
 
   await recordActivity({
     entityType: 'task',
@@ -202,7 +324,8 @@ export async function declineUserAssignment(assignmentId: string, actorId: strin
     organizationId: existing.organizationId,
     actorId,
     action: 'declined',
-    details: 'Assignment declined',
+    details: reason ? `Assignment declined: ${reason}` : 'Assignment declined',
+    metadata: reason ? { reason } : undefined,
   });
 }
 
@@ -218,6 +341,196 @@ export async function completeUserAssignment(assignmentId: string, actorId: stri
     actorId,
     action: 'completed',
     details: 'Assignment completed',
+  });
+}
+
+export async function markAsStarted(assignmentId: string, actorId: string): Promise<void> {
+  const existing = await repoGet(assignmentId);
+  if (!existing) throw new Error('Assignment not found');
+  if (existing.assigneeId !== actorId) throw new Error('Only the assignee can mark as started');
+  await repoMarkStarted(assignmentId);
+
+  await recordActivity({
+    entityType: 'task',
+    entityId: assignmentId,
+    organizationId: existing.organizationId,
+    actorId,
+    action: 'started',
+    details: 'Assignment started',
+  });
+
+  await generateNotificationEvent({
+    type: 'assignment.started',
+    organizationId: existing.organizationId,
+    actorId,
+    recipientId: existing.assignerId,
+    entityId: assignmentId,
+    entityType: 'assignment',
+  });
+}
+
+export async function submitForReviewAssignment(assignmentId: string, actorId: string): Promise<void> {
+  const existing = await repoGet(assignmentId);
+  if (!existing) throw new Error('Assignment not found');
+  if (existing.assigneeId !== actorId) throw new Error('Only the assignee can submit for review');
+  if (existing.status !== 'in_progress') {
+    throw new Error('Only in-progress assignments can be submitted for review');
+  }
+  await repoSubmitForReview(assignmentId, actorId);
+
+  await recordActivity({
+    entityType: 'task',
+    entityId: assignmentId,
+    organizationId: existing.organizationId,
+    actorId,
+    action: 'review.requested',
+    details: 'Assignment submitted for review',
+    metadata: { details: 'Review requested' },
+  });
+
+  await generateNotificationEvent({
+    type: 'review.requested',
+    organizationId: existing.organizationId,
+    actorId,
+    entityId: assignmentId,
+    entityType: 'assignment',
+    recipientId: existing.assignerId,
+  });
+}
+
+export async function approveUserAssignment(
+  assignmentId: string,
+  actorId: string,
+  role?: AppRole,
+): Promise<void> {
+  const existing = await repoGet(assignmentId);
+  if (!existing) throw new Error('Assignment not found');
+  if (existing.status !== 'review') throw new Error('Assignment is not awaiting review');
+  if (role && !canManageReview(role)) {
+    throw new Error('Only managers can approve assignments');
+  }
+  await repoApprove(assignmentId, actorId);
+
+  await recordActivity({
+    entityType: 'task',
+    entityId: assignmentId,
+    organizationId: existing.organizationId,
+    actorId,
+    action: 'review.approved',
+    details: 'Assignment approved and completed',
+    metadata: { details: 'Assignment approved', outcome: 'approved' },
+  });
+
+  await generateNotificationEvent({
+    type: 'review.approved',
+    organizationId: existing.organizationId,
+    actorId,
+    entityId: assignmentId,
+    entityType: 'assignment',
+    recipientId: existing.assigneeId,
+  });
+}
+
+export async function requestChangesUserAssignment(
+  assignmentId: string,
+  actorId: string,
+  role: AppRole,
+  notes?: string,
+): Promise<void> {
+  const existing = await repoGet(assignmentId);
+  if (!existing) throw new Error('Assignment not found');
+  if (existing.status !== 'review') throw new Error('Assignment is not awaiting review');
+  if (!canManageReview(role)) {
+    throw new Error('Only managers can request changes');
+  }
+  await repoRequestChanges(assignmentId, actorId);
+
+  await recordActivity({
+    entityType: 'task',
+    entityId: assignmentId,
+    organizationId: existing.organizationId,
+    actorId,
+    action: 'review.changes_requested',
+    details: notes
+      ? `Changes requested: ${notes}`
+      : 'Changes requested on assignment',
+    metadata: { details: 'Changes requested', outcome: 'changes_requested', notes: notes ?? null },
+  });
+
+  await generateNotificationEvent({
+    type: 'review.changes_requested',
+    organizationId: existing.organizationId,
+    actorId,
+    entityId: assignmentId,
+    entityType: 'assignment',
+    recipientId: existing.assigneeId,
+    metadata: notes ? { notes } : undefined,
+  });
+}
+
+export async function rejectUserAssignment(
+  assignmentId: string,
+  actorId: string,
+  role: AppRole,
+  notes?: string,
+): Promise<void> {
+  const existing = await repoGet(assignmentId);
+  if (!existing) throw new Error('Assignment not found');
+  if (existing.status !== 'review') throw new Error('Assignment is not awaiting review');
+  if (!canManageReview(role)) {
+    throw new Error('Only managers can reject assignments');
+  }
+  await repoRejectReview(assignmentId, actorId);
+
+  await recordActivity({
+    entityType: 'task',
+    entityId: assignmentId,
+    organizationId: existing.organizationId,
+    actorId,
+    action: 'review.rejected',
+    details: notes ? `Assignment rejected: ${notes}` : 'Assignment rejected',
+    metadata: { details: 'Assignment rejected', outcome: 'rejected', notes: notes ?? null },
+  });
+
+  await generateNotificationEvent({
+    type: 'review.rejected',
+    organizationId: existing.organizationId,
+    actorId,
+    entityId: assignmentId,
+    entityType: 'assignment',
+    recipientId: existing.assigneeId,
+    metadata: notes ? { notes } : undefined,
+  });
+}
+
+export async function blockUserAssignment(assignmentId: string, actorId: string, reason?: string): Promise<void> {
+  const existing = await repoGet(assignmentId);
+  if (!existing) throw new Error('Assignment not found');
+  await repoBlock(assignmentId, reason);
+
+  await recordActivity({
+    entityType: 'task',
+    entityId: assignmentId,
+    organizationId: existing.organizationId,
+    actorId,
+    action: 'blocked',
+    details: reason ? `Assignment blocked: ${reason}` : 'Assignment blocked',
+    metadata: reason ? { reason } : undefined,
+  });
+}
+
+export async function unblockUserAssignment(assignmentId: string, actorId: string): Promise<void> {
+  const existing = await repoGet(assignmentId);
+  if (!existing) throw new Error('Assignment not found');
+  await repoUnblock(assignmentId);
+
+  await recordActivity({
+    entityType: 'task',
+    entityId: assignmentId,
+    organizationId: existing.organizationId,
+    actorId,
+    action: 'unblocked',
+    details: 'Assignment unblocked',
   });
 }
 

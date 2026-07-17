@@ -1,175 +1,320 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
+import { useOrgStore } from '@/stores/org-store';
 import {
-  fetchUserNotifications,
-  markAsRead,
-  archiveUserNotification,
-  fetchUnreadCount,
-} from '@/lib/notification-service';
-import type { NotificationRecord } from '@/lib/notification-repository';
-import { EmptyState, LoadingState, SegmentedControl } from '@releaseflow/ui';
+  fetchInbox,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  notificationHref,
+  refreshNotificationPipeline,
+  type UserNotificationRecord,
+} from '@/lib/notification-engine-service';
+import { getNotificationTypeDefinition } from '@/lib/notification-type-registry';
+import {
+  Avatar, Button, EmptyState, LoadingState,
+} from '@releaseflow/ui';
+import type { QueryDocumentSnapshot, DocumentData } from '@firebase/firestore';
 
-function fmtDate(value: unknown): string {
+function relativeTime(value: unknown): string {
   if (!value) return '';
-  if (typeof value === 'object' && 'toDate' in value) return (value as { toDate: () => Date }).toDate().toLocaleDateString();
-  if (value instanceof Date) return value.toLocaleDateString();
-  return String(value);
+  let date: Date | null = null;
+  if (typeof value === 'object' && value !== null && 'toDate' in value) {
+    date = (value as { toDate: () => Date }).toDate();
+  } else if (value instanceof Date) {
+    date = value;
+  }
+  if (!date) return '';
+  const sec = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (sec < 60) return 'just now';
+  if (sec < 3600) return `${Math.floor(sec / 60)} minutes ago`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)} hours ago`;
+  if (sec < 172800) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function NotificationIcon({ type }: { type: string }) {
-  const icons: Record<string, string> = {
-    mention: 'M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z',
-    approval: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+function startOfDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function sectionFor(value: unknown): 'today' | 'yesterday' | 'earlier' {
+  let date: Date | null = null;
+  if (typeof value === 'object' && value !== null && 'toDate' in value) {
+    date = (value as { toDate: () => Date }).toDate();
+  } else if (value instanceof Date) {
+    date = value;
+  }
+  if (!date) return 'earlier';
+  const today = startOfDay(new Date());
+  const that = startOfDay(date);
+  if (that === today) return 'today';
+  if (that === today - 86400000) return 'yesterday';
+  return 'earlier';
+}
+
+function TypeIcon({ type }: { type: string }) {
+  const def = getNotificationTypeDefinition(type);
+  const kind = def?.icon ?? 'system';
+  const paths: Record<string, string> = {
     assignment: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
     comment: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z',
+    mention: 'M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207',
+    review: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+    watcher: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
+    due: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
     invitation: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
-    review_request: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-    release_reminder: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
     system: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   };
-  const d = icons[type] || icons.system;
+  const d = paths[kind] ?? paths.system;
   return (
-    <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={d} />
     </svg>
   );
 }
 
-function NotificationItem({ item, onMarkRead, onArchive }: {
-  item: NotificationRecord;
-  onMarkRead: (id: string) => void;
-  onArchive: (id: string) => void;
+function NotificationCard({
+  item,
+  onOpen,
+}: {
+  item: UserNotificationRecord;
+  onOpen: (item: UserNotificationRecord) => void;
 }) {
-  const isUnread = item.status === 'unread';
-  const entityLink = item.entityType && item.entityId
-    ? `/${item.entityType === 'release' ? 'releases' : item.entityType}/${item.entityId}`
-    : null;
-
+  const unread = !item.isRead;
   return (
-    <div className={`flex items-start gap-4 rounded-xl border px-5 py-4 transition-all ${
-      isUnread
-        ? 'border-primary-500/30 bg-primary-500/5'
-        : 'border-surface-700/60 bg-surface-900 hover:border-surface-600'
-    }`}>
-      <div className={`mt-0.5 rounded-lg p-2 ${
-        isUnread ? 'bg-primary-500/15 text-primary-400' : 'bg-surface-800 text-text-400'
-      }`}>
-        <NotificationIcon type={item.type} />
+    <button
+      type="button"
+      onClick={() => onOpen(item)}
+      className={`
+        w-full text-left flex items-start gap-3 rounded-xl border px-4 py-3.5
+        transition-colors duration-150
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40
+        ${unread
+          ? 'border-primary-500/30 bg-primary-500/5'
+          : 'border-surface-700/60 bg-layer-2 hover:border-surface-600'
+        }
+      `}
+    >
+      <div className={`mt-0.5 rounded-lg p-2 ${unread ? 'bg-primary-500/15 text-primary-400' : 'bg-surface-800 text-text-400'}`}>
+        <TypeIcon type={item.type} />
       </div>
+      <Avatar name={item.actorName || 'User'} size="sm" />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className={`text-sm font-medium truncate ${isUnread ? 'text-primary-300' : 'text-text-800'}`}>{item.title}</p>
-          {isUnread && <span className="h-2 w-2 rounded-full bg-primary-500 shrink-0" />}
+        <div className="flex items-center gap-2">
+          <p className={`text-sm font-medium truncate ${unread ? 'text-primary-300' : 'text-surface-100'}`}>
+            {item.title}
+          </p>
+          {unread ? <span className="h-2 w-2 rounded-full bg-primary-500 shrink-0" aria-label="Unread" /> : null}
         </div>
-        <p className="text-xs text-text-400 mt-1 line-clamp-2">{item.message}</p>
-        <div className="flex items-center gap-3 mt-2">
-          <span className="text-[10px] text-text-500">{fmtDate(item.createdAt)}</span>
-          {entityLink && (
-            <Link href={entityLink} className="text-[10px] text-primary-500 hover:underline">
-              View Details
-            </Link>
-          )}
-        </div>
+        <p className="text-xs text-text-400 mt-0.5 line-clamp-2">{item.message}</p>
+        <p className="text-[11px] text-text-500 mt-1.5">{relativeTime(item.createdAt)}</p>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {isUnread && (
-          <button onClick={() => onMarkRead(item.id)} className="rounded-lg px-3 py-1.5 text-[10px] font-medium bg-primary-500/10 text-primary-400 hover:bg-primary-500/20 transition-colors">
-            Read
-          </button>
-        )}
-        <button onClick={() => onArchive(item.id)} className="rounded-lg px-2 py-1.5 text-[10px] font-medium text-text-500 hover:text-text-300 hover:bg-surface-800 transition-colors" title="Archive">
-          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      </div>
-    </div>
+      <span className="text-text-500 self-center shrink-0" aria-hidden>
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </span>
+    </button>
   );
 }
 
-type FilterMode = 'all' | 'unread' | 'read';
-
-const filterOptions = [
-  { value: 'all', label: 'All' },
-  { value: 'unread', label: 'Unread' },
-  { value: 'read', label: 'Read' },
-];
-
 export default function NotificationsPage() {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
+  const { activeOrgId } = useOrgStore();
+  const router = useRouter();
+  const [items, setItems] = useState<UserNotificationRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<FilterMode>('all');
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pullY, setPullY] = useState(0);
+  const touchStart = useRef<number | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  const load = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
+  const load = useCallback(async (opts?: { append?: boolean; cursorDoc?: QueryDocumentSnapshot<DocumentData> | null }) => {
+    if (!user?.uid) return;
+    if (opts?.append) setLoadingMore(true);
+    else setLoading(true);
     try {
-      const data = await fetchUserNotifications(user.uid);
-      setNotifications(data);
-      const count = await fetchUnreadCount(user.uid);
-      setUnreadCount(count);
-    } catch { /* ignore */ } finally {
+      if (activeOrgId && !opts?.append) {
+        await refreshNotificationPipeline(activeOrgId, user.uid);
+      }
+      const page = await fetchInbox(user.uid, {
+        organizationId: activeOrgId ?? undefined,
+        pageSize: 50,
+        cursor: opts?.append ? opts.cursorDoc ?? undefined : undefined,
+      });
+      setItems((prev) => {
+        const next = opts?.append ? [...prev, ...page.notifications] : page.notifications;
+        setUnreadCount(next.filter((n) => !n.isRead).length);
+        return next;
+      });
+      setHasMore(page.hasMore);
+      setCursor(page.lastDoc);
+
+      if (!opts?.append && user?.uid) {
+        try {
+          const { cacheNotifications } = await import('@/lib/pwa/offline-data-cache');
+          await cacheNotifications(
+            user.uid,
+            activeOrgId ?? undefined,
+            page.notifications as unknown as Record<string, unknown>[],
+          );
+        } catch { /* ignore */ }
+      }
+    } catch {
+      // CE-008 offline notifications
+      if (!opts?.append && user?.uid) {
+        try {
+          const { listCachedNotifications } = await import('@/lib/pwa/offline-data-cache');
+          const cached = await listCachedNotifications(user.uid);
+          const mapped = cached.map((c) => c.snapshot as unknown as UserNotificationRecord);
+          setItems(mapped);
+          setUnreadCount(mapped.filter((n) => !n.isRead).length);
+          setHasMore(false);
+        } catch {
+          setItems([]);
+        }
+      } else if (!opts?.append) {
+        setItems([]);
+      }
+    } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [user]);
+  }, [user?.uid, activeOrgId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  const filtered = filter === 'all'
-    ? notifications
-    : filter === 'unread'
-      ? notifications.filter((n) => n.status === 'unread')
-      : notifications.filter((n) => n.status === 'read');
-
-  const handleMarkRead = async (id: string) => {
+  const handleOpen = async (item: UserNotificationRecord) => {
+    if (!user?.uid) return;
     try {
-      await markAsRead(id, user!.uid);
-      setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, status: 'read' } : n));
-      setUnreadCount((c) => Math.max(0, c - 1));
+      if (!item.isRead) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          const { enqueueOfflineAction } = await import('@/lib/pwa/offline-queue');
+          await enqueueOfflineAction('mark_read', {
+            notificationId: item.id,
+            userId: user.uid,
+          }, { userId: user.uid });
+        } else {
+          await markNotificationAsRead(item.id, user.uid);
+        }
+        setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)));
+        setUnreadCount((c) => Math.max(0, c - 1));
+      }
+    } catch { /* ignore */ }
+    router.push(notificationHref(item));
+  };
+
+  const handleMarkAll = async () => {
+    if (!user?.uid) return;
+    try {
+      await markAllNotificationsAsRead(user.uid, activeOrgId ?? undefined);
+      setItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
     } catch { /* ignore */ }
   };
 
-  const handleArchive = async (id: string) => {
-    try {
-      await archiveUserNotification(id, user!.uid);
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-      setUnreadCount((c) => Math.max(0, c - (notifications.find((n) => n.id === id)?.status === 'unread' ? 1 : 0)));
-    } catch { /* ignore */ }
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (listRef.current && listRef.current.scrollTop <= 0) {
+      touchStart.current = e.touches[0]?.clientY ?? null;
+    }
   };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (touchStart.current == null) return;
+    const y = e.touches[0]?.clientY ?? 0;
+    const delta = y - touchStart.current;
+    if (delta > 0) setPullY(Math.min(delta, 80));
+  };
+  const onTouchEnd = () => {
+    if (pullY > 50) void load();
+    touchStart.current = null;
+    setPullY(0);
+  };
+
+  const grouped = {
+    today: items.filter((n) => sectionFor(n.createdAt) === 'today'),
+    yesterday: items.filter((n) => sectionFor(n.createdAt) === 'yesterday'),
+    earlier: items.filter((n) => sectionFor(n.createdAt) === 'earlier'),
+  };
+
+  const titleCount = unreadCount > 0 ? ` (${unreadCount})` : '';
 
   return (
-    <div className="mx-auto max-w-3xl px-5 sm:px-7 py-8 page-transition">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Notifications</p>
-          <p className="mt-1 text-sm text-text-400">
-            {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
-          </p>
+    <div
+      className="mx-auto w-full max-w-2xl px-4 sm:px-6 py-6 sm:py-8 page-transition min-h-[70vh]"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      <div className="sticky top-0 z-10 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mb-4 bg-layer-1/95 backdrop-blur border-b border-surface-700/40">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">
+              Notifications{titleCount}
+            </h1>
+            <p className="mt-0.5 text-sm text-text-400">
+              {unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}
+            </p>
+          </div>
+          {unreadCount > 0 ? (
+            <Button size="sm" variant="ghost" onClick={() => void handleMarkAll()}>
+              Mark all read
+            </Button>
+          ) : null}
         </div>
-        <SegmentedControl options={filterOptions} value={filter} onChange={(v) => setFilter(v as FilterMode)} size="sm" />
+        {pullY > 0 ? (
+          <p className="text-xs text-text-500 text-center mt-2">
+            {pullY > 50 ? 'Release to refresh' : 'Pull to refresh'}
+          </p>
+        ) : null}
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <LoadingState />
-        </div>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          title={filter === 'unread' ? 'No unread notifications' : 'No notifications'}
-          description={filter === 'unread' ? 'You have no unread notifications.' : 'Notifications will appear here when you receive messages from your team.'}
-        />
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((n) => (
-            <NotificationItem key={n.id} item={n} onMarkRead={handleMarkRead} onArchive={handleArchive} />
-          ))}
-        </div>
-      )}
+      <div ref={listRef} className="space-y-6">
+        {loading ? (
+          <div className="flex justify-center py-20"><LoadingState /></div>
+        ) : items.length === 0 ? (
+          <EmptyState
+            title="You're all caught up."
+            description="No new notifications."
+          />
+        ) : (
+          <>
+            {(['today', 'yesterday', 'earlier'] as const).map((key) => {
+              const list = grouped[key];
+              if (list.length === 0) return null;
+              const label = key === 'today' ? 'Today' : key === 'yesterday' ? 'Yesterday' : 'Earlier';
+              return (
+                <section key={key}>
+                  <p className="text-xs font-medium uppercase tracking-wider text-text-500 mb-2">{label}</p>
+                  <div className="space-y-2">
+                    {list.map((n) => (
+                      <NotificationCard key={n.id} item={n} onOpen={(item) => void handleOpen(item)} />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+            {hasMore ? (
+              <div className="flex justify-center pt-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  loading={loadingMore}
+                  onClick={() => void load({ append: true, cursorDoc: cursor })}
+                >
+                  Load more
+                </Button>
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
     </div>
   );
 }

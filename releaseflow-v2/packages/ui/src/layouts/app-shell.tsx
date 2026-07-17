@@ -20,6 +20,10 @@ interface AppShellProps {
   notificationCount?: number;
   onOpenNotifications?: () => void;
   onOpenCommandPalette?: () => void;
+  /** Optional bottom navigation bar — shown on phone screens */
+  bottomNav?: ReactNode;
+  /** Hide sidebar on phone screens — used with bottomNav for collaborator shell */
+  hideMobileSidebar?: boolean;
 }
 
 const STORAGE_KEY = 'rf-sidebar-collapsed';
@@ -40,6 +44,8 @@ export function AppShell({
   notificationCount,
   onOpenNotifications,
   onOpenCommandPalette,
+  bottomNav,
+  hideMobileSidebar,
 }: AppShellProps) {
   // Initialise from localStorage on desktop; mobile always starts closed
   const [collapsed, setCollapsed] = useState(false);
@@ -119,6 +125,7 @@ export function AppShell({
           onSignOut={onSignOut}
           collapsed={collapsed}
           onToggle={handleToggle}
+          hideMobile={hideMobileSidebar}
         />
       )}
 
@@ -143,6 +150,7 @@ export function AppShell({
           userImage={userImage}
           onSignOut={onSignOut}
           onNavigate={onNavigate}
+          hideMobileToggle={hideMobileSidebar}
         >
           {topbarChildren}
         </Topbar>
@@ -150,12 +158,15 @@ export function AppShell({
         {/* Main scrollable area */}
         <main
           id="main-content"
-          className="flex-1 overflow-y-auto animate-fade-in focus:outline-none"
+          className={`flex-1 overflow-y-auto animate-fade-in focus:outline-none ${bottomNav ? 'pb-[72px] md:pb-0' : ''}`}
           tabIndex={-1}
         >
           {children}
         </main>
       </div>
+
+      {/* ── Bottom Navigation (phone only) ────────────────────────────── */}
+      {bottomNav}
     </div>
   );
 }

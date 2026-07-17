@@ -233,7 +233,16 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
 
   async function handleInvite() {
     if (!activeOrgId || !inviteName.trim() || !inviteEmail.trim()) return;
-    await invitePerson({ organizationId: activeOrgId, inviterId: user!.uid, email: inviteEmail.trim(), roleId: inviteRole || 'contributor' });
+    await invitePerson({
+      organizationId: activeOrgId,
+      organizationName: orgName,
+      inviteeName: inviteName.trim(),
+      inviteeEmail: inviteEmail.trim(),
+      platformRole: (inviteRole || 'contributor') as 'collaborator',
+      professionalRole: inviteRole || 'Contributor',
+      invitedByUserId: user!.uid,
+      invitedByName: user!.displayName || user!.email?.split('@')[0] || 'Administrator',
+    });
     if (inviteTarget?.key) setAssetDesigners((p) => ({ ...p, [inviteTarget!.key!]: inviteEmail }));
     setShowInviteForm(false); setInviteName(''); setInviteEmail(''); setInviteRole(''); setInviteTarget(null);
   }

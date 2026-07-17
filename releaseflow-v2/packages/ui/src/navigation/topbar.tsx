@@ -4,6 +4,7 @@ import {
   type OverflowMenuItem,
   type OverflowMenuPosition,
 } from '../components/overflow-menu';
+import { Avatar } from '../components/avatar';
 
 interface TopbarProps {
   collapsed: boolean;
@@ -22,13 +23,16 @@ interface TopbarProps {
   userImage?: string;
   onSignOut?: () => void;
   onNavigate?: (href: string) => void;
+  /** hide hamburger toggle on phone screens — used with bottom nav */
+  hideMobileToggle?: boolean;
 }
 
 export function Topbar({
   collapsed, onToggle, sidebarId, breadcrumbs: _breadcrumbs, title: _title, children,
   showSearch = false, onSearch, notificationCount = 0,
   onOpenNotifications, onOpenCommandPalette,
-  userEmail, onSignOut, onNavigate,
+  userEmail, userImage, onSignOut, onNavigate,
+  hideMobileToggle,
 }: TopbarProps) {
   const [searchValue, setSearchValue] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -111,7 +115,7 @@ export function Topbar({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [userMenuOpen, userMenuActive, closeUserMenu]);
 
-  const initials = userEmail?.charAt(0).toUpperCase() ?? '?';
+  const userName = userEmail ?? 'User';
 
   return (
     <header className="sticky top-0 z-30 shrink-0 bg-transparent">
@@ -120,7 +124,7 @@ export function Topbar({
         <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={onToggle}
-            className="rounded-lg p-2 text-content-primary hover:bg-surface-100 transition-colors duration-150 lg:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className={`rounded-lg p-2 text-content-primary hover:bg-surface-100 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${hideMobileToggle ? 'hidden md:inline-flex' : 'lg:hidden'}`}
             aria-label={collapsed ? 'Open navigation' : 'Close navigation'}
             aria-expanded={!collapsed}
             aria-controls={sidebarId}
@@ -199,12 +203,16 @@ export function Topbar({
               <button
                 ref={userMenuTriggerRef}
                 onClick={() => (userMenuOpen ? closeUserMenu(false) : openUserMenu())}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-primary-700 font-semibold text-xs border border-surface-200 shadow-sm hover:ring-2 hover:ring-primary-500/20 active:scale-95 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-surface-200 shadow-sm hover:ring-2 hover:ring-primary-500/20 active:scale-95 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                 aria-label="User account menu"
                 aria-expanded={userMenuOpen}
                 aria-haspopup="menu"
               >
-                {initials}
+                <Avatar
+                  src={userImage}
+                  name={userName}
+                  size="md"
+                />
               </button>
 
               {userMenuOpen && userMenuPos && (

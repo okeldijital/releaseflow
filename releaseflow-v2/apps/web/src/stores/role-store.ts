@@ -5,10 +5,18 @@ export type AppRole = 'owner' | 'admin' | 'release_manager' | 'contributor' | 'v
 
 function mapRoleIdToAppRole(roleId: string): AppRole {
   switch (roleId) {
-    case 'owner': return 'owner';
-    case 'admin': return 'admin';
-    case 'release_manager': return 'release_manager';
-    default: return 'contributor';
+    case 'owner':
+      return 'owner';
+    case 'admin':
+    case 'administrator':
+      return 'admin';
+    case 'release_manager':
+    case 'project_manager':
+      return 'release_manager';
+    case 'viewer':
+      return 'viewer';
+    default:
+      return 'contributor';
   }
 }
 
@@ -37,6 +45,6 @@ export const ROLE_DEFAULT_ROUTES: Record<AppRole, string> = {
   owner: '/dashboard',
   admin: '/dashboard',
   release_manager: '/dashboard',
-  contributor: '/contributor',
+  contributor: '/home',
   viewer: '/dashboard',
 };

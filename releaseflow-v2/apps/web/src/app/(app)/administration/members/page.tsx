@@ -12,7 +12,8 @@ import {
 import type { MembershipRecord } from '@/lib/organization-repository';
 import { invitePerson } from '@/lib/invitation-service';
 import { fetchPendingInvitations } from '@/lib/invitation-service';
-import type { InvitationRecord } from '@/lib/invitation-service';
+import type { InvitationRecord, PlatformRole } from '@/lib/invitation-service';
+import { systemRoleToPlatformRole } from '@/lib/platform-roles';
 import { Button, EmptyState, LoadingState, Select, Badge, StatusBadge, Input } from '@releaseflow/ui';
 
 const ROLE_OPTIONS = [
@@ -73,9 +74,13 @@ function InviteDialog({ open, onClose, orgName }: { open: boolean; onClose: () =
     try {
       await invitePerson({
         organizationId: activeOrgId,
-        email: email.trim(),
-        inviterId: user.uid,
-        roleId: role,
+        organizationName: orgName,
+        inviteeName: '',
+        inviteeEmail: email.trim(),
+        platformRole: systemRoleToPlatformRole(role) as PlatformRole,
+        professionalRole: role,
+        invitedByUserId: user.uid,
+        invitedByName: user.displayName || user.email?.split('@')[0] || 'Administrator',
       });
       setSuccess(`Invitation sent to ${email.trim()}`);
       setEmail('');

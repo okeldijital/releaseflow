@@ -5,23 +5,15 @@ import { sendEmail, buildEmailParams } from '@/lib/email/email-service';
 
 export const runtime = 'nodejs';
 
-interface InvitationDoc {
-  id: string;
-  organizationId: string;
-  inviterId: string;
-  email: string;
-  token: string;
-  discipline?: string;
-  roleId: string;
-  status: 'pending' | 'accepted' | 'expired' | 'revoked';
-}
+import { normalizeInvitation } from '@/lib/invitation-repository';
+import { PLATFORM_ROLE_LABELS } from '@/lib/platform-roles';
 
 function buildInvitationUrl(token: string): string {
-  const base = process.env.APP_URL;
+  const base = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
   if (!base) {
     throw new Error('APP_URL is not configured.');
   }
-  return `${base}/invite/${token}`;
+  return `${base.replace(/\/$/, '')}/invite/${token}`;
 }
 
 export async function POST(
@@ -49,7 +41,8 @@ export async function POST(
     if (!invitationSnap.exists) {
       return NextResponse.json({ error: 'Invitation not found.' }, { status: 404 });
     }
-    const invitation = { id: invitationSnap.id, ...invitationSnap.data() } as InvitationDoc;
+    const invitationRaw = { id: invitationSnap.id, ...invitationSnap.data() } as Record<string, unknown> & { id: string };
+    const invitation = normalizeInvitation(invitationRaw);
 
     const membershipSnap = await db
       .collection('memberships')
@@ -72,13 +65,13 @@ export async function POST(
     }
     const org = orgSnap.data() as { name: string };
 
-    const inviterSnap = await db.collection('users').doc(invitation.inviterId).get();
+    const inviterSnap = await db.collection('users').doc(invitation.invitedByUserId).get();
     const inviter = inviterSnap.exists
       ? (inviterSnap.data() as { displayName?: string })
       : undefined;
 
-    const inviterName = inviter?.displayName?.trim() || 'Someone';
-    const roleName = invitation.discipline || invitation.roleId;
+    const inviterName = invitation.invitedByName?.trim() || inviter?.displayName?.trim() || 'Someone';
+    const roleName = invitation.professionalRole || PLATFORM_ROLE_LABELS[invitation.platformRole] || invitation.platformRole;
     const acceptUrl = buildInvitationUrl(invitation.token);
 
     const html = renderInvitationEmail({
@@ -92,7 +85,7 @@ export async function POST(
     try {
       await sendEmail(
         buildEmailParams(
-          invitation.email,
+          invitation.inviteeEmail,
           `You're invited to join ${org.name}`,
           html,
         ),

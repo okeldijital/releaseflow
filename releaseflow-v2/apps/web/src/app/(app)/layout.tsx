@@ -1,17 +1,19 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { useRoleStore } from '@/stores/role-store';
+import type { AppRole } from '@/stores/role-store';
 import { signOut as firebaseSignOut } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
-import { AppShell, Skeleton } from '@releaseflow/ui';
+import { AppShell, Skeleton, BottomNav } from '@releaseflow/ui';
 import { CommandPalette } from '@/components/command-palette';
 import type { NavItem, NavSection } from '@releaseflow/ui';
 import { getOrganizationsByUser } from '@/lib/organization-repository';
 import type { OrganizationRecord } from '@/lib/organization-repository';
+import { useNotificationBadge } from '@/hooks/useNotificationBadge';
 
 function NavIcon({ d }: { d: string }) {
   return (
@@ -21,7 +23,9 @@ function NavIcon({ d }: { d: string }) {
   );
 }
 
-const navSections: NavSection[] = [
+/* ─── Admin Navigation ─────────────────────────────────────────────── */
+
+const adminNavSections: NavSection[] = [
   { key: 'dashboard', label: 'Dashboard' },
   { key: 'releases', label: 'Releases' },
   { key: 'collaboration', label: 'Collaboration' },
@@ -29,7 +33,7 @@ const navSections: NavSection[] = [
   { key: 'system', label: 'System' },
 ];
 
-const navItems: NavItem[] = [
+const adminNavItems: NavItem[] = [
   {
     label: 'Dashboard',
     icon: NavIcon({ d: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' }),
@@ -41,12 +45,6 @@ const navItems: NavItem[] = [
     icon: NavIcon({ d: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }),
     href: '/releases',
     section: 'releases',
-  },
-  {
-    label: 'Tracks',
-    icon: NavIcon({ d: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }),
-    href: '/tracks',
-    section: 'library',
   },
   {
     label: 'Schedule',
@@ -67,16 +65,22 @@ const navItems: NavItem[] = [
     section: 'collaboration',
   },
   {
-    label: 'Artists',
-    icon: NavIcon({ d: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' }),
-    href: '/artists',
-    section: 'library',
-  },
-  {
     label: 'People',
     icon: NavIcon({ d: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' }),
     href: '/people',
     section: 'collaboration',
+  },
+  {
+    label: 'Tracks',
+    icon: NavIcon({ d: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }),
+    href: '/tracks',
+    section: 'library',
+  },
+  {
+    label: 'Artists',
+    icon: NavIcon({ d: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' }),
+    href: '/artists',
+    section: 'library',
   },
   {
     label: 'Administration',
@@ -86,13 +90,105 @@ const navItems: NavItem[] = [
   },
 ];
 
+/* ─── Collaborator Navigation ──────────────────────────────────────── */
+
+const collaboratorNavSections: NavSection[] = [
+  { key: 'main', label: 'Main' },
+];
+
+const collaboratorNavItems: NavItem[] = [
+  {
+    label: 'Home',
+    icon: NavIcon({ d: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' }),
+    href: '/home',
+    section: 'main',
+  },
+  {
+    label: 'My Assignments',
+    icon: NavIcon({ d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' }),
+    href: '/assignments',
+    section: 'main',
+  },
+  {
+    label: 'Schedule',
+    icon: NavIcon({ d: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' }),
+    href: '/schedule',
+    section: 'main',
+  },
+  {
+    label: 'Notifications',
+    icon: NavIcon({ d: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' }),
+    href: '/notifications',
+    section: 'main',
+  },
+  {
+    label: 'Profile',
+    icon: NavIcon({ d: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' }),
+    href: '/profile',
+    section: 'main',
+  },
+];
+
+/* ─── Bottom Nav Items for Phone ──────────────────────────────────── */
+
+const collaboratorBottomNavItems: NavItem[] = [
+  {
+    label: 'Home',
+    icon: NavIcon({ d: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' }),
+    href: '/home',
+  },
+  {
+    label: 'Assignments',
+    icon: NavIcon({ d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' }),
+    href: '/assignments',
+  },
+  {
+    label: 'Schedule',
+    icon: NavIcon({ d: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' }),
+    href: '/schedule',
+  },
+  {
+    label: 'Notifications',
+    icon: NavIcon({ d: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' }),
+    href: '/notifications',
+  },
+  {
+    label: 'Profile',
+    icon: NavIcon({ d: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' }),
+    href: '/profile',
+  },
+];
+
+/* ─── Admin routes collaborators should not access ────────────────── */
+
+const ADMIN_ONLY_ROUTES = [
+  '/dashboard',
+  '/releases',
+  '/tracks',
+  '/artists',
+  '/people',
+  '/organizations',
+  '/administration',
+];
+
+function isAdminRoute(path: string): boolean {
+  return ADMIN_ONLY_ROUTES.some((route) => path === route || path.startsWith(route + '/'));
+}
+
+function isCollaborator(role: AppRole): boolean {
+  return role === 'contributor';
+}
+
+/* ─── Layout ───────────────────────────────────────────────────────── */
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const { activeOrgId, setActiveOrgId, setOrgsLoaded, switchingOrg } = useOrgStore();
-  const { resolveRole } = useRoleStore();
+  const { role, resolveRole, loading: roleLoading } = useRoleStore();
   const [orgs, setOrgs] = useState<OrganizationRecord[]>([]);
+  const { count: notificationCount } = useNotificationBadge();
 
   useEffect(() => {
     if (loading) return;
@@ -115,10 +211,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     });
   }, [user, activeOrgId, setActiveOrgId, setOrgsLoaded, router]);
 
+  /* ── Role-aware route guard ─────────────────────────────────────── */
+  useEffect(() => {
+    if (roleLoading || role === 'viewer') return;
+    if (isCollaborator(role) && isAdminRoute(pathname)) {
+      router.replace('/home');
+    }
+  }, [role, roleLoading, pathname, router]);
+
+  const isCollab = useMemo(() => !roleLoading && role !== 'viewer' && isCollaborator(role), [role, roleLoading]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen bg-surface-50">
-        {/* Skeleton sidebar */}
         <aside className="w-[232px] border-r border-surface-200/80 bg-surface-50 px-4 py-5 space-y-5 hidden lg:block">
           <div className="flex items-center gap-2.5 px-1 pb-3 border-b border-surface-200/60">
             <Skeleton className="h-7 w-7 rounded-lg" />
@@ -136,7 +241,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Skeleton className="h-8 w-full rounded-lg" />
           </div>
         </aside>
-        {/* Skeleton main */}
         <div className="flex-1 px-6 py-8">
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
@@ -162,6 +266,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   async function handleSignOut() {
+    try {
+      const { clearOfflineDataOnLogout } = await import('@/lib/pwa/clear-on-logout');
+      await clearOfflineDataOnLogout();
+    } catch {
+      /* ignore offline clear failures */
+    }
     const auth = getAuthInstance();
     if (auth) await firebaseSignOut(auth);
     useOrgStore.getState().setActiveOrgId(null);
@@ -169,15 +279,39 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     useRoleStore.getState().reset();
   }
 
+  const withBadge = (items: NavItem[]): NavItem[] =>
+    items.map((item) =>
+      item.href === '/notifications' && notificationCount > 0
+        ? { ...item, badge: notificationCount }
+        : item,
+    );
+
+  const navItems = withBadge(isCollab ? collaboratorNavItems : adminNavItems);
+  const navSections = isCollab ? collaboratorNavSections : adminNavSections;
+  const bottomItems = withBadge(collaboratorBottomNavItems);
+
   return (
     <>
-    <AppShell
+      <AppShell
         navItems={navItems}
         navSections={navSections}
         activePath={pathname}
         onNavigate={(href) => router.push(href)}
         userEmail={user.email ?? undefined}
+        userImage={user.photoURL ?? undefined}
         onSignOut={handleSignOut}
+        notificationCount={notificationCount}
+        onOpenNotifications={() => router.push('/notifications')}
+        bottomNav={
+          isCollab ? (
+            <BottomNav
+              items={bottomItems}
+              activePath={pathname}
+              onNavigate={(href) => router.push(href)}
+            />
+          ) : undefined
+        }
+        hideMobileSidebar={isCollab}
         topbarChildren={
           orgs.length > 0 ? (
             <select

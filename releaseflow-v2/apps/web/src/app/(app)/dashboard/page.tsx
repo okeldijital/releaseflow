@@ -9,8 +9,9 @@ import { useAuth } from '@/contexts/auth-context';
 import { getTasksByAssignee } from '@/lib/task-service';
 import { getRecentActivity, type ActivityEventRecord } from '@/lib/activity-service';
 import type { Task } from '@/app/(app)/types';
-import { EmptyState, LoadingState, Button, StatusBadge } from '@releaseflow/ui';
+import { EmptyState, LoadingState, Button, StatusBadge, Badge } from '@releaseflow/ui';
 import { ArtworkDisplay } from '@/components/release/artwork-display';
+import { getOrgReadinessSummaries } from '@/lib/release-readiness-service';
 
 function timeAgo(d: Date): string {
   const m = Math.floor((Date.now() - d.getTime()) / (1000 * 60));
@@ -129,6 +130,37 @@ export default function DashboardPage() {
 
   const greeting = useMemo(() => getGreeting(), []);
   const firstName = useMemo(() => getFirstName(user), [user]);
+
+  const [readinessRows, setReadinessRows] = useState<
+    Awaited<ReturnType<typeof getOrgReadinessSummaries>>
+  >([]);
+
+  useEffect(() => {
+    if (!activeOrgId) return;
+    let cancelled = false;
+    void getOrgReadinessSummaries(activeOrgId).then((rows) => {
+      if (!cancelled) setReadinessRows(rows);
+    }).catch(() => {
+      if (!cancelled) setReadinessRows([]);
+    });
+    return () => { cancelled = true; };
+  }, [activeOrgId, releases.length]);
+
+  const readinessStats = useMemo(() => {
+    const ready = readinessRows.filter((r) => r.recommendation === 'ready').length;
+    const atRisk = readinessRows.filter((r) => r.recommendation === 'needs_attention').length;
+    const blocked = readinessRows.filter((r) => r.recommendation === 'not_ready' || r.blockers.length > 0).length;
+    const thisWeek = readinessRows.filter((r) => {
+      const d = r.countdown.days;
+      return d !== null && d >= 0 && d <= 7;
+    }).length;
+    return [
+      { count: ready, label: 'Releases Ready', filter: 'ready' as const },
+      { count: atRisk, label: 'At Risk', filter: 'needs_attention' as const },
+      { count: blocked, label: 'Blocked Releases', filter: 'not_ready' as const },
+      { count: thisWeek, label: 'Releases This Week', filter: 'week' as const },
+    ];
+  }, [readinessRows]);
 
   const stats = useMemo(() => {
     const planning = releases.filter((r) => r.status === 'draft' || r.status === 'planning').length;
@@ -261,6 +293,58 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* CE-009 — Release readiness summary */}
+      <div className="mb-10">
+        <h2 className="text-sm font-semibold text-primary-400 mb-4">Release Readiness</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+          {readinessStats.map((s) => (
+            <div key={s.label} className="rounded-xl border border-surface-700/60 bg-surface-900 p-4">
+              <p className="text-2xl font-bold text-surface-50">{s.count}</p>
+              <p className="text-xs text-text-500 mt-1">{s.label}</p>
+            </div>
+          ))}
+        </div>
+        {readinessRows.length > 0 ? (
+          <div className="space-y-2">
+            {readinessRows.slice(0, 6).map((r) => (
+              <Link
+                key={r.releaseId}
+                href={`/releases/${r.releaseId}/readiness`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-500/40 transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-surface-100 truncate">{r.title}</p>
+                  <p className="text-xs text-text-500 mt-0.5">
+                    Score {r.readinessScore}
+                    {r.overdueAssignments > 0 ? ` · ${r.overdueAssignments} overdue` : ''}
+                    {r.blockers.length > 0 ? ` · ${r.blockers.length} blockers` : ''}
+                  </p>
+                </div>
+                <Badge
+                  label={
+                    r.recommendation === 'ready'
+                      ? 'Ready'
+                      : r.recommendation === 'needs_attention'
+                        ? 'At risk'
+                        : 'Not ready'
+                  }
+                  size="sm"
+                  color={
+                    r.recommendation === 'ready'
+                      ? 'bg-success-500/15 text-success-600'
+                      : r.recommendation === 'needs_attention'
+                        ? 'bg-warning-500/15 text-warning-600'
+                        : 'bg-danger-500/15 text-danger-500'
+                  }
+                />
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-text-500">Computing readiness…</p>
+        )}
       </div>
 
       <div className="mb-10">

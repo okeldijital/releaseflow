@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { fetchPeople } from '@/lib/person-service';
 import { invitePerson } from '@/lib/invitation-service';
+import type { PlatformRole } from '@/lib/invitation-service';
+import { systemRoleToPlatformRole } from '@/lib/platform-roles';
+import { getOrganization } from '@/lib/organization-repository';
 import { createNewAssignment } from '@/lib/assignment-service';
 import { toPersonOptions, filterPeopleForSearch, type PersonOption } from '@/lib/person-field-picker-logic';
 
@@ -110,11 +113,16 @@ export function PersonPickerDialog({
     if (!inviteName.trim() || !inviteEmail.trim() || !organizationId) return;
     setSaving(true);
     try {
+      const org = await getOrganization(organizationId);
       await invitePerson({
         organizationId,
-        inviterId: currentUserId,
-        email: inviteEmail.trim(),
-        roleId: selectedRole || contextRole,
+        organizationName: org?.name ?? '',
+        inviteeName: inviteName.trim(),
+        inviteeEmail: inviteEmail.trim(),
+        platformRole: systemRoleToPlatformRole(selectedRole || contextRole) as PlatformRole,
+        professionalRole: selectedRole || contextRole,
+        invitedByUserId: currentUserId,
+        invitedByName: 'Administrator',
       });
     } catch { /* best-effort */ }
     onInvitePerson?.({ email: inviteEmail.trim(), name: inviteName.trim(), role: selectedRole || contextRole });

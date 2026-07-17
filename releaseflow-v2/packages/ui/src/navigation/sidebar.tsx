@@ -2,12 +2,15 @@
 
 import { type ReactNode, useRef, useEffect, useState } from 'react';
 import { Tooltip } from '../components/tooltip';
+import { Avatar } from '../components/avatar';
 
 export interface NavItem {
   label: string;
   icon: ReactNode;
   href: string;
   section?: string;
+  /** Unread / count badge (e.g. notifications). */
+  badge?: number;
 }
 
 export interface NavSection {
@@ -26,6 +29,8 @@ interface SidebarProps {
   /** true = icon-rail (desktop) / drawer-closed (mobile) */
   collapsed: boolean;
   onToggle: () => void;
+  /** hide sidebar on mobile (phone) screens — used for collaborator bottom nav */
+  hideMobile?: boolean;
 }
 
 function isActive(activePath: string, item: NavItem): boolean {
@@ -63,9 +68,11 @@ export function Sidebar({
   activePath,
   onNavigate,
   userEmail,
+  userImage,
   onSignOut,
   collapsed,
   onToggle,
+  hideMobile,
 }: SidebarProps) {
   const sectionLabelMap = new Map(sections.map((s) => [s.key, s.label]));
   const sectionOrder = sections.map((s) => s.key);
@@ -126,7 +133,7 @@ export function Sidebar({
     {} as Record<string, NavItem[]>,
   );
 
-  const initials = userEmail?.charAt(0).toUpperCase() ?? '?';
+
 
   /*
    * Navigate and auto-close on tablet/mobile.
@@ -163,12 +170,12 @@ export function Sidebar({
         ${collapsed ? 'lg:justify-center lg:px-2 px-3 py-2.5' : 'px-3 py-2.5'}
       `}
     >
-      <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-content-primary shadow-sm"
-        aria-hidden="true"
-      >
-        {initials}
-      </div>
+      <Avatar
+        src={userImage}
+        name={userEmail ?? 'User'}
+        size="md"
+        className="shadow-sm"
+      />
       <div className={`min-w-0 flex-1 ${collapsed ? 'lg:hidden' : ''}`}>
         <p className="truncate text-xs font-medium text-content-secondary">{userEmail}</p>
       </div>
@@ -201,7 +208,8 @@ export function Sidebar({
         role="navigation"
         aria-label="Main navigation"
           className={`
-          fixed inset-y-0 left-0 z-40 flex flex-col h-full
+          ${hideMobile ? 'hidden md:flex' : 'flex'}
+          fixed inset-y-0 left-0 z-40 flex-col h-full
           touch-pan-y
 
           motion-safe:transition-transform motion-safe:duration-200
@@ -305,10 +313,20 @@ export function Sidebar({
                         <span className={`flex-1 ${collapsed ? 'lg:hidden' : ''}`}>
                           {item.label}
                         </span>
-                        {/* Active dot — only show in expanded mode */}
-                        {active && !collapsed && (
+                        {item.badge != null && item.badge > 0 ? (
+                          <span
+                            className={`
+                              min-w-[18px] h-[18px] px-1 rounded-full bg-primary-500 text-white
+                              text-[10px] font-semibold flex items-center justify-center shrink-0
+                              ${collapsed ? 'lg:absolute lg:top-1 lg:right-1' : ''}
+                            `}
+                            aria-label={`${item.badge} unread`}
+                          >
+                            {item.badge > 9 ? '9+' : item.badge}
+                          </span>
+                        ) : active && !collapsed ? (
                            <span className="h-1.5 w-1.5 rounded-full bg-primary-500 shrink-0 hidden lg:block" aria-hidden="true" />
-                        )}
+                        ) : null}
                       </button>
                     );
 

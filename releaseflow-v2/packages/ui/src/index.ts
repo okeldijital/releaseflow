@@ -38,3 +38,4 @@ export { Notification, NotificationFeed } from './components/notification';
 export { AppShell, WorkspaceLayout, DashboardLayout, Page } from './layouts/app-shell';
 export { Sidebar, type NavItem, type NavSection } from './navigation/sidebar';
 export { Topbar, Breadcrumbs } from './navigation/topbar';
+export { BottomNav } from './navigation/bottom-nav';
