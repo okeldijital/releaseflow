@@ -44,7 +44,6 @@ const RELEASEFLOW_LOGO_SRC = '/icons/ReleaseFlow-Logo.svg';
 function BrandLogo({ collapsed }: { collapsed: boolean }) {
   const size = collapsed ? 32 : 112;
   return (
-    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={RELEASEFLOW_LOGO_SRC}
       alt="ReleaseFlow"

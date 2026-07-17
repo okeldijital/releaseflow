@@ -23,7 +23,6 @@ export function Logo() {
   return (
     <div style={{ textAlign: 'center' as const, padding: '12px 0' }}>
       {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
           width={96}

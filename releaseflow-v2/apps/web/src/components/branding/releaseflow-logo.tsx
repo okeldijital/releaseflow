@@ -50,7 +50,6 @@ export function ReleaseFlowLogo({
   };
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- official SVG brand asset; no optimisation/crop
     <img
       src={RELEASEFLOW_LOGO_SRC}
       alt={alt}
