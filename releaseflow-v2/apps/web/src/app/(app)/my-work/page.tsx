@@ -128,10 +128,6 @@ export default function MyWorkPage() {
                 <p className="text-2xl font-semibold text-success-600">{stats.completionRate}%</p>
                 <p className="text-xs text-text-400 mt-1">Completion Rate</p>
               </div>
-              <div className="rounded-xl border border-surface-700/60 bg-surface-900/50 p-4">
-                <p className="text-2xl font-semibold text-surface-100">{stats.estimatedHours}h</p>
-                <p className="text-xs text-text-400 mt-1">Est. Hours</p>
-              </div>
             </div>
           )}
 
@@ -186,7 +182,7 @@ function Section({
             </div>
             <div className="text-right shrink-0">
               {a.dueDate ? <p className="text-xs text-text-500">{fd(a.dueDate)}</p> : null}
-              {a.estimatedHours ? <p className="text-xs text-text-500">{a.estimatedHours}h</p> : null}
+
             </div>
           </Link>
         ))}

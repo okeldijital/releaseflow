@@ -86,6 +86,7 @@ export default function AssignmentDetailPage() {
   const {
     assignment,
     activities,
+    activityActorNames,
     deliverableLinks,
     releaseContext,
     loading,
@@ -314,9 +315,7 @@ export default function AssignmentDetailPage() {
         <div className="px-6 py-6 max-w-lg">
           <p className="text-display-md font-semibold text-primary-400 mb-2">{title}</p>
           <p className="text-sm text-text-500 mb-4">{description}</p>
-          {id ? (
-            <p className="text-xs text-text-600 font-mono mb-4 break-all">ID: {id}</p>
-          ) : null}
+
           <div className="flex flex-wrap gap-2">
             {(code === 'network' || code === 'unavailable') ? (
               <Button size="sm" variant="primary" onClick={() => void refresh()}>
@@ -352,17 +351,18 @@ export default function AssignmentDetailPage() {
   const canBlock = ['in_progress', 'review'].includes(assignment.status) && isManager;
   const canUnblock = assignment.status === 'blocked' && isManager;
 
+  // UX-001 — theme-token sidebar (no hard-coded light surfaces)
   const contextRailContent = (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-5 bg-layer-2 border-l border-surface-700/50 min-h-full">
       {releaseContext ? (
         <div>
-          <p className="text-xs text-text-400 uppercase tracking-wider mb-2">Release</p>
-          <Link href={`/releases/${releaseContext.releaseId}`} className="block">
+          <p className="text-xs font-medium text-content-label uppercase tracking-wider mb-2">Release</p>
+          <Link href={`/releases/${releaseContext.releaseId}`} className="block rounded-xl overflow-hidden focus-visible:ring-2 focus-visible:ring-primary-500/40">
             {releaseContext.artwork?.secureUrl ? (
               <img
                 src={releaseContext.artwork.secureUrl}
-                alt={releaseContext.releaseTitle}
-                className="w-full aspect-square rounded-xl object-cover mb-2"
+                alt=""
+                className="w-full aspect-square rounded-xl object-cover mb-2 bg-surface-800"
               />
             ) : (
               <ArtworkPlaceholder title={releaseContext.releaseTitle} size="lg" />
@@ -370,59 +370,78 @@ export default function AssignmentDetailPage() {
           </Link>
           <Link
             href={`/releases/${releaseContext.releaseId}`}
-            className="text-sm font-medium text-primary-400 hover:text-primary-300 transition-colors block truncate"
+            className="text-sm font-semibold text-primary-400 hover:text-primary-300 transition-colors block truncate"
           >
             {releaseContext.releaseTitle}
           </Link>
-          <p className="text-xs text-text-500 mt-0.5">{releaseContext.artistName}</p>
-          {releaseContext.trackTitle ? (
-            <p className="text-xs text-text-400 mt-0.5">{releaseContext.trackPosition}. {releaseContext.trackTitle}</p>
+          {releaseContext.artistName ? (
+            <p className="text-xs text-content-secondary mt-0.5">{releaseContext.artistName}</p>
           ) : null}
         </div>
       ) : null}
-      <div className="space-y-3">
+
+      <dl className="space-y-3 border-t border-surface-700/40 pt-4">
         <div>
-          <p className="text-xs text-text-400 uppercase tracking-wider mb-1">Status</p>
-          <div className="flex items-center gap-2">
-            <Badge label={statusLabel} size="md" color={sColors[assignment.status] ?? 'bg-surface-800 text-text-500'} />
-            {assignment.status === 'review' ? <span className="text-xs text-info-400">Awaiting approval</span> : null}
-          </div>
+          <dt className="text-xs font-medium text-content-label uppercase tracking-wider mb-1">Status</dt>
+          <dd>
+            <Badge label={statusLabel} size="md" color={sColors[assignment.status] ?? 'bg-surface-800 text-content-secondary'} />
+          </dd>
         </div>
         <div>
-          <p className="text-xs text-text-400 uppercase tracking-wider mb-1">Priority</p>
-          <Badge label={assignment.priority} color={priorityColors[assignment.priority] ?? 'bg-surface-800 text-text-500'} />
+          <dt className="text-xs font-medium text-content-label uppercase tracking-wider mb-1">Priority</dt>
+          <dd>
+            <Badge
+              label={assignment.priority}
+              color={priorityColors[assignment.priority] ?? 'bg-surface-800 text-content-secondary'}
+            />
+          </dd>
         </div>
         <div>
-          <p className="text-xs text-text-400 uppercase tracking-wider mb-1">Assignee</p>
-          <p className="text-sm text-surface-100">{assignment.assigneeName ?? 'Unknown Person'}</p>
+          <dt className="text-xs font-medium text-content-label uppercase tracking-wider mb-1">Assignee</dt>
+          <dd className="text-sm text-content-primary">{assignment.assigneeName ?? 'Unknown'}</dd>
         </div>
         <div>
-          <p className="text-xs text-text-400 uppercase tracking-wider mb-1">Assigned By</p>
-          <p className="text-sm text-surface-100">{assignment.assignerName ?? 'Unknown Person'}</p>
+          <dt className="text-xs font-medium text-content-label uppercase tracking-wider mb-1">Assigned by</dt>
+          <dd className="text-sm text-content-primary">{assignment.assignerName ?? 'Unknown'}</dd>
         </div>
         <div>
-          <p className="text-xs text-text-400 uppercase tracking-wider mb-1">Role</p>
-          <p className="text-sm text-surface-100">{assignment.role}</p>
+          <dt className="text-xs font-medium text-content-label uppercase tracking-wider mb-1">Contribution role</dt>
+          <dd className="text-sm text-content-primary">{assignment.role || '—'}</dd>
         </div>
-        {assignment.dueDate ? (
-          <div>
-            <p className="text-xs text-text-400 uppercase tracking-wider mb-1">Due Date</p>
-            <p className="text-sm text-surface-100">{fmtDate(assignment.dueDate)}</p>
-          </div>
-        ) : null}
         <div>
-          <Button size="sm" variant="ghost" onClick={() => void handleToggleWatch()} loading={watchLoading} className="w-full">
-            {watching ? 'Unwatch' : 'Watch'}
-          </Button>
+          <dt className="text-xs font-medium text-content-label uppercase tracking-wider mb-1">Due date</dt>
+          <dd className="text-sm text-content-primary">{assignment.dueDate ? fmtDate(assignment.dueDate) : '—'}</dd>
         </div>
+      </dl>
+
+      <div className="border-t border-surface-700/40 pt-4">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => void handleToggleWatch()}
+          loading={watchLoading}
+          className="w-full min-h-[44px]"
+          aria-pressed={watching}
+        >
+          {watching ? 'Watching' : 'Watch'}
+        </Button>
       </div>
     </div>
   );
 
-  const actorNames = new Map<string, string>();
-  if (assignment.assigneeName) actorNames.set(assignment.assigneeId, assignment.assigneeName);
-  if (assignment.assignerName) actorNames.set(assignment.assignerId, assignment.assignerName);
-  if (user?.uid && user.displayName) actorNames.set(user.uid, user.displayName);
+  // UX-001 — merge resolved activity names; never fall back to raw ids in UI
+  const actorNames = new Map<string, string>(activityActorNames);
+  if (assignment.assigneeName) {
+    actorNames.set(assignment.assigneeId, assignment.assigneeName);
+    if (assignment.assigneeUserId) actorNames.set(assignment.assigneeUserId, assignment.assigneeName);
+  }
+  if (assignment.assignerName) {
+    actorNames.set(assignment.assignerId, assignment.assignerName);
+    if (assignment.assignerUserId) actorNames.set(assignment.assignerUserId, assignment.assignerName);
+  }
+  if (user?.uid && (user.displayName || user.email)) {
+    actorNames.set(user.uid, user.displayName || user.email || 'You');
+  }
 
   // MUX-001 sticky mobile action bar primary CTA
   const mobilePrimary = (() => {
@@ -453,22 +472,57 @@ export default function AssignmentDetailPage() {
             <EntityOverflowMenu items={overflowItems} aria-label="Assignment actions" />
           </div>
 
-          <div className="mb-6">
-            <h1 className="text-xl sm:text-display-md font-semibold text-primary-400 tracking-tight mb-2 leading-snug">
+          {/* UX-001.2 — clear hierarchy: title → release → people → state */}
+          <header className="mb-6 space-y-3">
+            <h1 className="text-xl sm:text-2xl font-semibold text-content-primary tracking-tight leading-snug">
               {assignment.title}
             </h1>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-text-500 mb-2">
-              <Badge label={statusLabel} size="sm" color={sColors[assignment.status] ?? 'bg-surface-800 text-text-500'} />
-              <Badge label={assignment.priority} size="sm" color={priorityColors[assignment.priority] ?? 'bg-surface-800 text-text-500'} />
-              <span className="text-text-400">{assignment.role}</span>
-              {watching ? (
-                <Badge label="Watching" size="sm" color="bg-primary-500/10 text-primary-400" />
-              ) : null}
-            </div>
-            {assignment.description ? (
-              <p className="text-sm sm:text-base text-text-400 leading-relaxed">{assignment.description}</p>
-            ) : null}
-          </div>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+              <div className="flex gap-2 min-w-0">
+                <dt className="text-content-label shrink-0 w-28">Release</dt>
+                <dd className="text-content-primary truncate">
+                  {releaseContext ? (
+                    <Link
+                      href={`/releases/${releaseContext.releaseId}`}
+                      className="text-primary-400 hover:text-primary-300 font-medium"
+                    >
+                      {releaseContext.releaseTitle}
+                    </Link>
+                  ) : (
+                    '—'
+                  )}
+                </dd>
+              </div>
+              <div className="flex gap-2 min-w-0">
+                <dt className="text-content-label shrink-0 w-28">Assigned to</dt>
+                <dd className="text-content-primary truncate">{assignment.assigneeName ?? 'Unknown'}</dd>
+              </div>
+              <div className="flex gap-2 min-w-0">
+                <dt className="text-content-label shrink-0 w-28">Role</dt>
+                <dd className="text-content-primary truncate">{assignment.role || '—'}</dd>
+              </div>
+              <div className="flex gap-2 min-w-0 items-center">
+                <dt className="text-content-label shrink-0 w-28">Status</dt>
+                <dd>
+                  <Badge label={statusLabel} size="sm" color={sColors[assignment.status] ?? 'bg-surface-800 text-content-secondary'} />
+                </dd>
+              </div>
+              <div className="flex gap-2 min-w-0 items-center">
+                <dt className="text-content-label shrink-0 w-28">Priority</dt>
+                <dd>
+                  <Badge
+                    label={assignment.priority}
+                    size="sm"
+                    color={priorityColors[assignment.priority] ?? 'bg-surface-800 text-content-secondary'}
+                  />
+                </dd>
+              </div>
+              <div className="flex gap-2 min-w-0">
+                <dt className="text-content-label shrink-0 w-28">Due date</dt>
+                <dd className="text-content-primary">{assignment.dueDate ? fmtDate(assignment.dueDate) : '—'}</dd>
+              </div>
+            </dl>
+          </header>
 
           <Tabs
             tabs={[
@@ -557,38 +611,38 @@ export default function AssignmentDetailPage() {
                 onRemove={handleRemoveDeliverableLink}
               />
 
+              <WorkspaceCard title="Description">
+                {assignment.description ? (
+                  <p className="text-sm text-content-secondary leading-relaxed mt-2 whitespace-pre-wrap">
+                    {assignment.description}
+                  </p>
+                ) : (
+                  <p className="text-sm text-content-label mt-2">No description has been added.</p>
+                )}
+              </WorkspaceCard>
+
               <WorkspaceCard title="Details">
                 <div className="grid grid-cols-2 gap-4 text-sm mt-2">
                   <div>
-                    <p className="text-text-400">Due Date</p>
-                    <p className="text-surface-100">{assignment.dueDate ? fmtDate(assignment.dueDate) : '—'}</p>
+                    <p className="text-content-label">Due date</p>
+                    <p className="text-content-primary">{assignment.dueDate ? fmtDate(assignment.dueDate) : '—'}</p>
                   </div>
                   <div>
-                    <p className="text-text-400">Entity</p>
-                    <p className="text-surface-100 capitalize">{assignment.entityType}</p>
+                    <p className="text-content-label">Assignee</p>
+                    <p className="text-content-primary">{assignment.assigneeName ?? 'Unknown'}</p>
                   </div>
                   <div>
-                    <p className="text-text-400">Assignee</p>
-                    <p className="text-surface-100">{assignment.assigneeName ?? 'Unknown Person'}</p>
+                    <p className="text-content-label">Assigned by</p>
+                    <p className="text-content-primary">{assignment.assignerName ?? 'Unknown'}</p>
                   </div>
                   <div>
-                    <p className="text-text-400">Assigner</p>
-                    <p className="text-surface-100">{assignment.assignerName ?? 'Unknown Person'}</p>
+                    <p className="text-content-label">Contribution role</p>
+                    <p className="text-content-primary">{assignment.role || '—'}</p>
                   </div>
-                  <div>
-                    <p className="text-text-400">Est. Hours</p>
-                    <p className="text-surface-100">{assignment.estimatedHours ? `${assignment.estimatedHours}h` : '—'}</p>
-                  </div>
-                  {assignment.actualHours ? (
-                    <div>
-                      <p className="text-text-400">Actual Hours</p>
-                      <p className="text-surface-100">{assignment.actualHours}h</p>
-                    </div>
-                  ) : null}
                   {assignment.completedAt ? (
                     <div>
-                      <p className="text-text-400">Completed At</p>
-                      <p className="text-surface-100">{fmtDate(assignment.completedAt)}</p>
+                      <p className="text-content-label">Completed</p>
+                      <p className="text-content-primary">{fmtDate(assignment.completedAt)}</p>
                     </div>
                   ) : null}
                 </div>
@@ -598,7 +652,11 @@ export default function AssignmentDetailPage() {
 
           {activeTab === 'activity' && (
             <div className="mt-6">
-              <ActivityTimeline activities={activities} actorNames={actorNames} />
+              <ActivityTimeline
+                activities={activities}
+                actorNames={actorNames}
+                subjectNames={actorNames}
+              />
             </div>
           )}
 

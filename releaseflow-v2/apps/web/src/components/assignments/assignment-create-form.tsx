@@ -84,7 +84,6 @@ export function AssignmentCreateForm({
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('medium');
   const [dueDate, setDueDate] = useState('');
-  const [estimatedHours, setEstimatedHours] = useState('');
   const [loading, setLoading] = useState(false);
   const [releaseLoadError, setReleaseLoadError] = useState(false);
 
@@ -176,7 +175,6 @@ export function AssignmentCreateForm({
         role: contributionRole.trim(),
         priority: priority as 'low' | 'medium' | 'high' | 'urgent',
         dueDate: new Date(dueDate),
-        estimatedHours: estimatedHours ? Number(estimatedHours) : null,
       });
       toast.success('Assignment created');
       onCreated?.(assignment.id);
@@ -253,7 +251,7 @@ export function AssignmentCreateForm({
           placeholder="Details about this assignment…"
           rows={3}
         />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select label="Priority" options={priorityOptions} value={priority} onChange={setPriority} />
           <Input
             label="Due Date"
@@ -261,14 +259,6 @@ export function AssignmentCreateForm({
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
             required
-            className="min-h-[48px] sm:min-h-0"
-          />
-          <Input
-            label="Est. Hours"
-            type="number"
-            value={estimatedHours}
-            onChange={(e) => setEstimatedHours(e.target.value)}
-            placeholder="e.g. 8"
             className="min-h-[48px] sm:min-h-0"
           />
         </div>

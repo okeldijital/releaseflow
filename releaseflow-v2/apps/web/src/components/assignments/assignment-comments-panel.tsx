@@ -14,6 +14,7 @@ import {
   getAssignmentCommentsPage,
   canModerateComments,
   canComment,
+  subscribeAssignmentComments,
   type AssignmentCommentRecord,
 } from '@/lib/assignment-comments-service';
 import {
@@ -146,13 +147,25 @@ export function AssignmentCommentsPanel({
     }
   }, [assignmentId, user?.uid]);
 
+  // UX-001 — live comments via repository snapshot (no polling)
   useEffect(() => {
-    void load();
+    if (!assignmentId) return;
+    setLoading(true);
+    const unsub = subscribeAssignmentComments(
+      assignmentId,
+      (list) => {
+        setComments(list);
+        setLoading(false);
+      },
+      () => {
+        void load();
+      },
+    );
     void loadUnread();
-  }, [load, loadUnread]);
+    return () => unsub();
+  }, [assignmentId, load, loadUnread]);
 
   useEffect(() => {
-    // Auto-scroll to newest after initial load / new post
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [comments.length]);
 
@@ -292,7 +305,7 @@ export function AssignmentCommentsPanel({
         return;
       }
 
-      await addAssignmentComment(
+      const created = await addAssignmentComment(
         {
           assignmentId,
           organizationId: activeOrgId,
@@ -304,10 +317,14 @@ export function AssignmentCommentsPanel({
         },
         role,
       );
+      // Optimistic insert until snapshot catches up
+      setComments((prev) => {
+        if (prev.some((c) => c.id === created.id)) return prev;
+        return [...prev, created];
+      });
       setDraft('');
       setReplyTo(null);
       setSelectedMentions([]);
-      await load({ silent: true });
       onActivityChange?.();
       toast.success(replyTo ? 'Reply posted' : 'Comment posted');
     } catch (e) {
@@ -396,12 +413,12 @@ export function AssignmentCommentsPanel({
       </div>
 
       <div ref={listRef} className="flex-1 overflow-y-auto space-y-4 pr-1">
-        {loading ? (
+        {loading && comments.length === 0 ? (
           <LoadingState />
         ) : threads.length === 0 ? (
           <EmptyState
             title="No comments yet"
-            description="Discuss this assignment here. Mentions and replies stay attached to the work."
+            description="Start the discussion for this assignment."
           />
         ) : (
           threads.map(({ comment, replies }) => {

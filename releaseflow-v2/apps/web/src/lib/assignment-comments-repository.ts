@@ -1,7 +1,8 @@
 import {
   doc, getDoc, getDocs, addDoc, updateDoc,
   collection, query, where, orderBy, limit, startAfter, Timestamp,
-  type QueryDocumentSnapshot, type DocumentData,
+  onSnapshot,
+  type QueryDocumentSnapshot, type DocumentData, type Unsubscribe,
 } from '@firebase/firestore';
 import { getDb } from './firebase';
 
@@ -148,4 +149,41 @@ export async function getAssignmentComments(
   const oldestDoc = pageDocs.length > 0 ? pageDocs[pageDocs.length - 1] ?? null : null;
 
   return { comments, hasMore, oldestDoc };
+}
+
+/**
+ * UX-001 — Real-time comments for an assignment (newest at bottom).
+ * Pages must not open listeners; use service re-export.
+ */
+export function subscribeAssignmentComments(
+  assignmentId: string,
+  onData: (comments: AssignmentCommentRecord[]) => void,
+  onError?: (error: Error) => void,
+  opts?: { max?: number },
+): Unsubscribe {
+  const db = getDb();
+  if (!db || !assignmentId) {
+    onData([]);
+    return () => {};
+  }
+  const max = opts?.max ?? 100;
+  return onSnapshot(
+    query(
+      collection(db, 'assignment_comments'),
+      where('assignmentId', '==', assignmentId),
+      orderBy('createdAt', 'asc'),
+      limit(max),
+    ),
+    (snap) => {
+      onData(snap.docs.map((d) => toRecord(d.id, d.data() as Record<string, unknown>)));
+    },
+    (err) => {
+      console.error('[assignment_comments] subscribe failed', err);
+      onError?.(err instanceof Error ? err : new Error(String(err)));
+      // Fallback: one-shot load
+      void getAssignmentComments(assignmentId, { pageSize: max }).then((page) => {
+        onData(page.comments);
+      }).catch(() => onData([]));
+    },
+  );
 }

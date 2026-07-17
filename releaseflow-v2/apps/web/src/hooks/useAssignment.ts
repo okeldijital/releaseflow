@@ -15,7 +15,7 @@ import {
 import type { AssignmentRecord } from '@/lib/assignment-service';
 import { getActivityByEntity } from '@/lib/activity-service';
 import type { ActivityEventRecord } from '@/lib/activity-service';
-import { resolvePersonNames } from '@/lib/resolve-person-names';
+import { resolvePersonNames, resolveActorDisplayNames } from '@/lib/resolve-person-names';
 import { fetchDeliverableLinks } from '@/lib/deliverable-link-service';
 import type { DeliverableLinkRecord } from '@/lib/deliverable-link-service';
 import { fetchAssignmentReleaseContext } from '@/lib/fetch-assignment-context';
@@ -39,6 +39,8 @@ function getEntityReleaseId(a: AssignmentRecord): string | null {
 export interface AssignmentDetailData {
   assignment: AssignmentDisplayRecord | null;
   activities: ActivityEventRecord[];
+  /** UX-001 — display names for activity actorIds (never show raw UIDs). */
+  activityActorNames: Map<string, string>;
   deliverableLinks: DeliverableLinkRecord[];
   releaseContext: AssignmentReleaseContext | null;
   loading: boolean;
@@ -59,6 +61,7 @@ export function useAssignment(assignmentId: string | string[] | undefined): Assi
 
   const [assignment, setAssignment] = useState<AssignmentDisplayRecord | null>(null);
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
+  const [activityActorNames, setActivityActorNames] = useState<Map<string, string>>(new Map());
   const [deliverableLinks, setDeliverableLinks] = useState<DeliverableLinkRecord[]>([]);
   const [releaseContext, setReleaseContext] = useState<AssignmentReleaseContext | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,6 +93,7 @@ export function useAssignment(assignmentId: string | string[] | undefined): Assi
     if (!result.ok) {
       setAssignment(null);
       setActivities([]);
+      setActivityActorNames(new Map());
       setDeliverableLinks([]);
       setReleaseContext(null);
       setError({ code: result.code, message: result.message });
@@ -99,25 +103,29 @@ export function useAssignment(assignmentId: string | string[] | undefined): Assi
 
     const a = result.assignment;
 
-    // 2) Enrich names (best-effort)
+    // 2) Enrich names (best-effort) — include assignerUserId for activity actors
     let displayRecord: AssignmentDisplayRecord = {
       ...a,
       assigneeName: null,
       assignerName: null,
     };
     try {
-      const map = await resolvePersonNames([a.assigneeId, a.assignerId].filter(Boolean));
+      const map = await resolvePersonNames(
+        [a.assigneeId, a.assignerId, a.assigneeUserId, a.assignerUserId].filter(Boolean) as string[],
+      );
       displayRecord = {
         ...a,
-        assigneeName: map.get(a.assigneeId) ?? 'Unknown Person',
-        assignerName: map.get(a.assignerId) ?? 'Unknown Person',
+        assigneeName: map.get(a.assigneeId) ?? map.get(a.assigneeUserId ?? '') ?? 'Unknown Person',
+        assignerName: map.get(a.assignerId) ?? map.get(a.assignerUserId ?? '') ?? 'Unknown Person',
       };
     } catch (err) {
       console.warn('[useAssignment] name resolution failed', err);
     }
 
+    // Primary content ready — do not wait for comments/history (UX-001.11)
     setAssignment(displayRecord);
     setError(null);
+    setLoading(false);
 
     // 3) Side channels — failures must NOT clear the assignment (BUG-002 root cause).
     const orgForActivity = a.organizationId || activeOrgId || '';
@@ -138,10 +146,35 @@ export function useAssignment(assignmentId: string | string[] | undefined): Assi
       }),
     ]);
 
+    // Resolve activity actor display names (UX-001 — Person.id or Auth uid)
+    try {
+      const actorIds = [
+        ...acts.map((ev) => ev.actorId),
+        a.assigneeId,
+        a.assignerId,
+        a.assigneeUserId,
+        a.assignerUserId,
+      ].filter(Boolean) as string[];
+      const nameMap = await resolveActorDisplayNames(actorIds, a.organizationId || activeOrgId);
+      if (displayRecord.assigneeName === 'Unknown Person' && a.assigneeId) {
+        const n = nameMap.get(a.assigneeId) ?? (a.assigneeUserId ? nameMap.get(a.assigneeUserId) : undefined);
+        if (n && n !== 'Unknown Person') displayRecord = { ...displayRecord, assigneeName: n };
+      }
+      if (displayRecord.assignerName === 'Unknown Person') {
+        const n =
+          (a.assignerId ? nameMap.get(a.assignerId) : undefined)
+          ?? (a.assignerUserId ? nameMap.get(a.assignerUserId) : undefined);
+        if (n && n !== 'Unknown Person') displayRecord = { ...displayRecord, assignerName: n };
+      }
+      setAssignment(displayRecord);
+      setActivityActorNames(nameMap);
+    } catch {
+      setActivityActorNames(new Map());
+    }
+
     setActivities(acts);
     setDeliverableLinks(links);
     setReleaseContext(releaseCtx);
-    setLoading(false);
 
     // CE-008 — offline cache best-effort
     if (typeof navigator !== 'undefined' && activeOrgId) {
@@ -175,6 +208,7 @@ export function useAssignment(assignmentId: string | string[] | undefined): Assi
   return {
     assignment,
     activities,
+    activityActorNames,
     deliverableLinks,
     releaseContext,
     loading,

@@ -207,24 +207,25 @@ export async function createNewAssignment(fields: CreateAssignmentFields): Promi
 
   const assignment = await repoCreate(createFields);
 
-  const activityDetails = `Assignment "${assignment.title}" created`;
-  // Assignment-scoped activity (detail timeline — entityType task for backward compat)
+  // UX-001 — never put raw person/user ids in activity "details" strings
+  const assigneeDisplay =
+    assigneePerson.displayName || assigneePerson.preferredName || 'a collaborator';
+
   await recordActivity({
     entityType: 'task',
     entityId: assignment.id,
     organizationId: fields.organizationId,
     actorId: assignerAuthUid,
     action: 'assigned',
-    details: activityDetails,
     metadata: {
       assignmentId: assignment.id,
       releaseId: releaseId ?? null,
       assigneeId: fields.assigneeId,
+      assigneeName: assigneeDisplay,
       title: assignment.title,
     },
   });
 
-  // Release-scoped activity so Release Workspace feed sees creation
   if (releaseId) {
     await recordActivity({
       entityType: 'release',
@@ -232,11 +233,11 @@ export async function createNewAssignment(fields: CreateAssignmentFields): Promi
       organizationId: fields.organizationId,
       actorId: assignerAuthUid,
       action: 'assignment.created',
-      details: activityDetails,
       metadata: {
         assignmentId: assignment.id,
         title: assignment.title,
         assigneeId: fields.assigneeId,
+        assigneeName: assigneeDisplay,
       },
     });
   }

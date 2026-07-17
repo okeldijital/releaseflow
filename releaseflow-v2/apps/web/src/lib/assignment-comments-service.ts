@@ -16,6 +16,8 @@ import type { AppRole } from '@/stores/role-store';
 export type { AssignmentCommentRecord };
 export type { AppRole };
 
+export { subscribeAssignmentComments } from './assignment-comments-repository';
+
 export function canModerateComments(role: AppRole): boolean {
   return role === 'owner' || role === 'admin' || role === 'release_manager';
 }
@@ -111,6 +113,13 @@ export async function addAssignmentComment(
     entityType: 'assignment',
     metadata: { commentId: comment.id, message: fields.message },
   });
+
+  try {
+    const { processPendingEvents } = await import('./notification-processor');
+    await processPendingEvents(fields.organizationId, 20);
+  } catch {
+    /* best-effort */
+  }
 
   if (mentionedUserIds.length > 0) {
     await recordActivity({
