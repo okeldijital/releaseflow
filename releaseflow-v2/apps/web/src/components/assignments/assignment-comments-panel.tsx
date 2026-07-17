@@ -111,6 +111,8 @@ export function AssignmentCommentsPanel({
   const listRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  /** BUG-003 — optimistic rows not yet in snapshot */
+  const pendingRef = useRef<Map<string, AssignmentCommentRecord>>(new Map());
 
   const authorName =
     user?.displayName
@@ -122,20 +124,38 @@ export function AssignmentCommentsPanel({
     [selectedMentions],
   );
 
+  const mergeWithPending = useCallback((serverList: AssignmentCommentRecord[]) => {
+    const byId = new Map(serverList.map((c) => [c.id, c]));
+    // Drop pending once server has them
+    for (const id of [...pendingRef.current.keys()]) {
+      if (byId.has(id)) pendingRef.current.delete(id);
+    }
+    for (const c of pendingRef.current.values()) {
+      if (!byId.has(c.id)) byId.set(c.id, c);
+    }
+    return [...byId.values()].sort((a, b) => {
+      const at = (a.createdAt as { seconds?: number })?.seconds ?? 0;
+      const bt = (b.createdAt as { seconds?: number })?.seconds ?? 0;
+      return at - bt;
+    });
+  }, []);
+
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!assignmentId) return;
     if (!opts?.silent) setLoading(true);
     try {
       const page = await getAssignmentCommentsPage(assignmentId, { pageSize: 50 });
-      setComments(page.comments);
+      setComments(mergeWithPending(page.comments));
       setHasMore(page.hasMore);
       setOldestDoc(page.oldestDoc);
-    } catch {
-      setComments([]);
+    } catch (err) {
+      console.error('[AssignmentCommentsPanel] load failed', err);
+      // BUG-003: never blank existing conversation on load failure
+      setComments((prev) => prev);
     } finally {
       if (!opts?.silent) setLoading(false);
     }
-  }, [assignmentId]);
+  }, [assignmentId, mergeWithPending]);
 
   const loadUnread = useCallback(async () => {
     if (!user?.uid || !assignmentId) return;
@@ -147,23 +167,24 @@ export function AssignmentCommentsPanel({
     }
   }, [assignmentId, user?.uid]);
 
-  // UX-001 — live comments via repository snapshot (no polling)
+  // BUG-003 — live subscription; merge with optimistic; stable deps
   useEffect(() => {
     if (!assignmentId) return;
     setLoading(true);
     const unsub = subscribeAssignmentComments(
       assignmentId,
       (list) => {
-        setComments(list);
+        setComments(mergeWithPending(list));
         setLoading(false);
       },
       () => {
-        void load();
+        // Subscription error — one-shot load, do not clear
+        void load({ silent: true }).finally(() => setLoading(false));
       },
     );
     void loadUnread();
     return () => unsub();
-  }, [assignmentId, load, loadUnread]);
+  }, [assignmentId, load, loadUnread, mergeWithPending]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -317,11 +338,9 @@ export function AssignmentCommentsPanel({
         },
         role,
       );
-      // Optimistic insert until snapshot catches up
-      setComments((prev) => {
-        if (prev.some((c) => c.id === created.id)) return prev;
-        return [...prev, created];
-      });
+      // BUG-003 — keep optimistic until snapshot includes this id
+      pendingRef.current.set(created.id, created);
+      setComments((prev) => mergeWithPending(prev));
       setDraft('');
       setReplyTo(null);
       setSelectedMentions([]);

@@ -152,8 +152,14 @@ export async function getAssignmentComments(
 }
 
 /**
- * UX-001 — Real-time comments for an assignment (newest at bottom).
- * Pages must not open listeners; use service re-export.
+ * UX-001 / BUG-003 — Real-time comments for an assignment (newest at bottom).
+ *
+ * Uses the **same** query shape as getAssignmentComments (assignmentId + createdAt desc)
+ * so the deployed composite index is shared. Client reverses to oldest→newest.
+ *
+ * BUG-003: never emit an empty list on subscription error (that wiped optimistic UI).
+ * Empty *cache* snapshots are also ignored so local optimistic rows are not cleared
+ * before the server snapshot arrives.
  */
 export function subscribeAssignmentComments(
   assignmentId: string,
@@ -163,27 +169,43 @@ export function subscribeAssignmentComments(
 ): Unsubscribe {
   const db = getDb();
   if (!db || !assignmentId) {
-    onData([]);
     return () => {};
   }
   const max = opts?.max ?? 100;
+  let deliveredServerData = false;
+
   return onSnapshot(
     query(
       collection(db, 'assignment_comments'),
       where('assignmentId', '==', assignmentId),
-      orderBy('createdAt', 'asc'),
+      orderBy('createdAt', 'desc'),
       limit(max),
     ),
+    { includeMetadataChanges: true },
     (snap) => {
-      onData(snap.docs.map((d) => toRecord(d.id, d.data() as Record<string, unknown>)));
+      // BUG-003: ignore empty cache-only snapshots (they clear optimistic state).
+      if (snap.metadata.fromCache && snap.empty && !deliveredServerData) {
+        return;
+      }
+      if (!snap.metadata.fromCache) {
+        deliveredServerData = true;
+      }
+      // Reverse desc page → oldest→newest for chat layout (same as getAssignmentComments).
+      const ordered = [...snap.docs].reverse();
+      onData(ordered.map((d) => toRecord(d.id, d.data() as Record<string, unknown>)));
     },
     (err) => {
       console.error('[assignment_comments] subscribe failed', err);
       onError?.(err instanceof Error ? err : new Error(String(err)));
-      // Fallback: one-shot load
-      void getAssignmentComments(assignmentId, { pageSize: max }).then((page) => {
-        onData(page.comments);
-      }).catch(() => onData([]));
+      // Fallback one-shot — only push empty if the one-shot truly has no docs.
+      void getAssignmentComments(assignmentId, { pageSize: max })
+        .then((page) => {
+          onData(page.comments);
+        })
+        .catch((fallbackErr) => {
+          console.error('[assignment_comments] fallback load failed', fallbackErr);
+          // Do NOT call onData([]) — leave optimistic / previous UI intact.
+        });
     },
   );
 }

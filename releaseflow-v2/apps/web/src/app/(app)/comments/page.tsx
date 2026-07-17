@@ -29,26 +29,46 @@ function timeAgo(d: Date | null): string {
 
 export default function CommentsWorkspacePage() {
   const { user } = useAuth();
-  const { activeOrgId } = useOrgStore();
+  const { activeOrgId, orgsLoaded } = useOrgStore();
   const [threads, setThreads] = useState<AssignmentCommentThread[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!orgsLoaded) return;
     if (!user?.uid || !activeOrgId) {
       setLoading(false);
       return;
     }
+    let cancelled = false;
     setLoading(true);
+    setError(null);
+    // Wait until role context is usable — fail-closed collab during load is OK
+    // but re-run is not needed if identity resolves within the same call.
     const collab = AuthorizationService.isCollaboratorWorkspace();
     void loadCommentThreads({
       organizationId: activeOrgId,
       userId: user.uid,
       collaboratorOnly: collab,
     })
-      .then(setThreads)
-      .catch(() => setThreads([]))
-      .finally(() => setLoading(false));
-  }, [user?.uid, activeOrgId]);
+      .then((list) => {
+        if (cancelled) return;
+        setThreads(list);
+      })
+      .catch((err) => {
+        console.error('[CommentsWorkspace] load failed', err);
+        if (cancelled) return;
+        // BUG-003: do not replace a populated list with [] on error
+        setError(err instanceof Error ? err.message : 'Failed to load conversations');
+        setThreads((prev) => prev);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, activeOrgId, orgsLoaded]);
 
   return (
     <div className="mx-auto max-w-lg md:max-w-2xl px-4 sm:px-5 py-5 sm:py-8 page-transition pb-8">
@@ -61,7 +81,13 @@ export default function CommentsWorkspacePage() {
         </p>
       </header>
 
-      {loading ? (
+      {error ? (
+        <p className="mb-4 text-sm text-danger-400" role="alert">
+          {error}
+        </p>
+      ) : null}
+
+      {loading && threads.length === 0 ? (
         <LoadingState text="Loading conversations…" />
       ) : threads.length === 0 ? (
         <EmptyState
