@@ -2,6 +2,7 @@ import {
   doc,
   getDocs,
   getDoc,
+  setDoc,
   addDoc,
   updateDoc,
   collection,
@@ -15,6 +16,8 @@ import {
 import { getDb } from './firebase';
 import { generateInvitationToken } from './invitation-token';
 import { platformRoleToSystemRole } from './platform-roles';
+
+const LOG = '[Invitation Verification]';
 
 /** CE-001 — Platform roles. Security-defining. No other values permitted. */
 export type PlatformRole = 'administrator' | 'release_manager' | 'collaborator';
@@ -131,19 +134,72 @@ export async function createInvitation(fields: CreateInvitationFields): Promise<
     invitedByName: fields.invitedByName,
   };
 
-  const ref = await addDoc(collection(db, 'invitations'), record);
-  return { id: ref.id, ...record };
+  // UAT-001: document id == token so unauthenticated verification uses get()
+  // (public) rather than list/query (auth-only under firestore.rules).
+  const ref = doc(db, 'invitations', token);
+  await setDoc(ref, record);
+  console.log(LOG, '✓ Invitation persisted', {
+    documentId: token,
+    tokenLength: token.length,
+    organizationId: fields.organizationId,
+    email: fields.inviteeEmail,
+    platformRole: fields.platformRole,
+    status: 'pending',
+    expiresAt: expiresAt.toISOString(),
+  });
+  return { id: token, ...record };
 }
 
 export async function getInvitationByToken(token: string): Promise<InvitationRecord | null> {
   const db = getDb();
-  if (!db) return null;
-  const snap = await getDocs(
-    query(collection(db, 'invitations'), where('token', '==', token), limit(1)),
-  );
-  if (snap.empty) return null;
-  const docData = snap.docs[0]!;
-  return normalizeInvitation({ id: docData.id, ...docData.data() });
+  if (!db) {
+    console.error(LOG, '✗ Firestore not initialized (getDb returned null)');
+    return null;
+  }
+
+  const normalized = token.trim();
+  console.log(LOG, '✓ Firestore lookup started', {
+    tokenLength: normalized.length,
+    tokenPrefix: normalized.slice(0, 8),
+  });
+
+  // Primary path: doc id == token (CE-001 / UAT-001) — works unauthenticated via allow get.
+  try {
+    const byId = await getDoc(doc(db, 'invitations', normalized));
+    if (byId.exists()) {
+      console.log(LOG, '✓ Invitation found (by document id)', { documentId: byId.id });
+      return normalizeInvitation({ id: byId.id, ...byId.data() });
+    }
+    console.log(LOG, '· No document with id=token; trying legacy token field query');
+  } catch (err) {
+    console.error(LOG, '✗ getDoc(by token id) failed', {
+      type: err instanceof Error ? err.name : typeof err,
+      message: err instanceof Error ? err.message : String(err),
+      code: (err as { code?: string })?.code,
+    });
+    throw err;
+  }
+
+  // Legacy fallback: random-id docs with a `token` field (requires list permission = authenticated).
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'invitations'), where('token', '==', normalized), limit(1)),
+    );
+    if (snap.empty) {
+      console.log(LOG, '✗ Invitation not found (legacy query empty)');
+      return null;
+    }
+    const docData = snap.docs[0]!;
+    console.log(LOG, '✓ Invitation found (legacy token field)', { documentId: docData.id });
+    return normalizeInvitation({ id: docData.id, ...docData.data() });
+  } catch (err) {
+    console.error(LOG, '✗ legacy token query failed', {
+      type: err instanceof Error ? err.name : typeof err,
+      message: err instanceof Error ? err.message : String(err),
+      code: (err as { code?: string })?.code,
+    });
+    throw err;
+  }
 }
 
 /** Validate an invitation for acceptance. Returns the normalized record or a reason. */
@@ -152,15 +208,45 @@ export type InvitationValidation =
   | { ok: false; reason: 'not_found' | 'expired' | 'revoked' | 'accepted' | 'invalid' };
 
 export async function validateInvitationToken(token: string): Promise<InvitationValidation> {
+  console.log(LOG, '✓ Validation started', { tokenLength: token?.trim().length ?? 0 });
+
   const invitation = await getInvitationByToken(token);
-  if (!invitation) return { ok: false, reason: 'not_found' };
-  if (invitation.status === 'accepted') return { ok: false, reason: 'accepted' };
-  if (invitation.status === 'revoked') return { ok: false, reason: 'revoked' };
-  if (invitation.status === 'expired') return { ok: false, reason: 'expired' };
-  if (invitation.status !== 'pending') return { ok: false, reason: 'invalid' };
+  if (!invitation) {
+    console.log(LOG, '✗ Validation failed: invitation does not exist');
+    return { ok: false, reason: 'not_found' };
+  }
+  console.log(LOG, '✓ Invitation exists', {
+    id: invitation.id,
+    status: invitation.status,
+    organizationId: invitation.organizationId,
+    email: invitation.inviteeEmail,
+  });
+
+  if (invitation.status === 'accepted') {
+    console.log(LOG, '✗ Validation failed: already accepted');
+    return { ok: false, reason: 'accepted' };
+  }
+  if (invitation.status === 'revoked') {
+    console.log(LOG, '✗ Validation failed: revoked');
+    return { ok: false, reason: 'revoked' };
+  }
+  if (invitation.status === 'expired') {
+    console.log(LOG, '✗ Validation failed: status=expired');
+    return { ok: false, reason: 'expired' };
+  }
+  if (invitation.status !== 'pending') {
+    console.log(LOG, '✗ Validation failed: invalid status', { status: invitation.status });
+    return { ok: false, reason: 'invalid' };
+  }
+  console.log(LOG, '✓ Status valid (pending)');
 
   const expiresAt = toDate(invitation.expiresAt);
-  if (expiresAt && expiresAt.getTime() < Date.now()) return { ok: false, reason: 'expired' };
+  if (expiresAt && expiresAt.getTime() < Date.now()) {
+    console.log(LOG, '✗ Validation failed: past expiresAt', { expiresAt: expiresAt.toISOString() });
+    return { ok: false, reason: 'expired' };
+  }
+  console.log(LOG, '✓ Expiry valid', { expiresAt: expiresAt?.toISOString() ?? null });
+  console.log(LOG, '✓ Validation succeeded');
 
   return { ok: true, invitation };
 }

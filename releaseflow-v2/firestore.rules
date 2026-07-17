@@ -118,8 +118,14 @@ service cloud.firestore {
     match /assets/{docId} {
       allow read,write: if isAuth();
     }
+    // CE-UAT-001 — Invitation verification must work before the invitee signs in.
+    // Possession of the unguessable token is the credential for public `get`.
+    // Document id == token for CE-001 invites so unauthenticated clients use get
+    // (not list). Authenticated members retain list for org invitation management.
     match /invitations/{docId} {
-      allow read,write: if isAuth();
+      allow get: if true;
+      allow list: if isAuth();
+      allow create, update, delete: if isAuth();
     }
 
     // Audit log: any auth user can read, only actor can create

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { fetchInvitationByToken, validateInvitation, acceptInvitationAtomically } from '@/lib/invitation-service';
+import { validateInvitation, acceptInvitationAtomically } from '@/lib/invitation-service';
 import { PLATFORM_ROLE_LABELS } from '@/lib/platform-roles';
 import { getUserProfile } from '@/lib/user-profile-repository';
 import type { AtomicAcceptError } from '@/lib/invitation-service';
@@ -40,17 +40,41 @@ export default function InvitePage() {
     platformRole: string;
   } | null>(null);
   const [accepting, setAccepting] = useState(false);
+  const [verifyAttempt, setVerifyAttempt] = useState(0);
 
   useEffect(() => {
+    const LOG = '[Invitation Verification]';
+
     if (!token) {
+      console.error(LOG, '✗ No token in route params');
       setState({ status: 'invalid', message: 'This invitation link is invalid.' });
       return;
     }
 
+    // Decode once — Next.js params are usually already decoded, but email clients
+    // may re-encode path segments. Keep the exact value we will look up.
+    let parsedToken = token;
+    try {
+      parsedToken = decodeURIComponent(token);
+    } catch {
+      parsedToken = token;
+    }
+
+    console.log(LOG, '✓ Token received from route', {
+      rawLength: token.length,
+      parsedLength: parsedToken.length,
+      prefix: parsedToken.slice(0, 8),
+      path: typeof window !== 'undefined' ? window.location.pathname : '(ssr)',
+      attempt: verifyAttempt,
+    });
+
     async function verify() {
+      setState({ status: 'loading', message: 'Verifying invitation...' });
       try {
-        const result = await validateInvitation(token);
+        console.log(LOG, '✓ Validation request started');
+        const result = await validateInvitation(parsedToken);
         if (!result.ok) {
+          console.log(LOG, '✗ Validation returned not ok', { reason: result.reason });
           const map: Record<string, InviteState> = {
             not_found: { status: 'invalid', message: 'This invitation link is invalid.' },
             expired: { status: 'expired', message: 'This invitation has expired.' },
@@ -62,22 +86,40 @@ export default function InvitePage() {
           setState(mapped);
           return;
         }
+        console.log(LOG, '✓ Invitation verified', {
+          invitationId: result.invitation.id,
+          organizationId: result.invitation.organizationId,
+          platformRole: result.invitation.platformRole,
+        });
         setState({ status: 'valid', message: '' });
-        const inv = await fetchInvitationByToken(token);
-        if (inv) {
-          setInvitation({
-            invitedByName: inv.invitedByName,
-            organizationName: inv.organizationName,
-            professionalRole: inv.professionalRole,
-            platformRole: inv.platformRole,
-          });
-        }
-      } catch {
-        setState({ status: 'error', message: 'Failed to verify invitation. Please try again.' });
+        const inv = result.invitation;
+        setInvitation({
+          invitedByName: inv.invitedByName,
+          organizationName: inv.organizationName,
+          professionalRole: inv.professionalRole,
+          platformRole: inv.platformRole,
+        });
+      } catch (err) {
+        const code = (err as { code?: string })?.code;
+        console.error(LOG, '✗ Unhandled exception during verification', {
+          type: err instanceof Error ? err.name : typeof err,
+          message: err instanceof Error ? err.message : String(err),
+          code,
+          stack: err instanceof Error ? err.stack : undefined,
+        });
+        const permissionDenied =
+          code === 'permission-denied'
+          || (err instanceof Error && /permission/i.test(err.message));
+        setState({
+          status: 'error',
+          message: permissionDenied
+            ? 'Failed to verify invitation (permission denied). The invitation may be inaccessible — try again or request a new invite.'
+            : `Failed to verify invitation. ${err instanceof Error ? err.message : 'Please try again.'}`,
+        });
       }
     }
-    verify();
-  }, [token]);
+    void verify();
+  }, [token, verifyAttempt]);
 
   const accept = useCallback(async () => {
     if (!token || !user || accepting) return;
@@ -171,8 +213,11 @@ export default function InvitePage() {
                 </svg>
               </div>
               <p className="text-sm text-danger-500">{state.message}</p>
-              <button onClick={() => setState({ status: 'loading', message: 'Retrying...' })}
-                className="mt-4 rounded-lg bg-primary-500 px-6 py-2 text-sm font-medium text-surface-0 hover:bg-primary-600 transition-colors">
+              <button
+                type="button"
+                onClick={() => setVerifyAttempt((n) => n + 1)}
+                className="mt-4 rounded-lg bg-primary-500 px-6 py-2 text-sm font-medium text-surface-0 hover:bg-primary-600 transition-colors"
+              >
                 Try Again
               </button>
             </div>

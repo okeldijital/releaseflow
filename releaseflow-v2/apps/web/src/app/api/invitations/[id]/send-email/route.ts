@@ -74,6 +74,14 @@ export async function POST(
     const roleName = invitation.professionalRole || PLATFORM_ROLE_LABELS[invitation.platformRole] || invitation.platformRole;
     const acceptUrl = buildInvitationUrl(invitation.token);
 
+    console.log('[Invitation Verification] ✓ Email link generated', {
+      invitationId: invitation.id,
+      tokenLength: invitation.token?.length ?? 0,
+      tokenPrefix: invitation.token?.slice(0, 8),
+      acceptUrl,
+      inviteeEmail: invitation.inviteeEmail,
+    });
+
     const html = renderInvitationEmail({
       orgName: org.name,
       inviterName,
