@@ -72,3 +72,43 @@ export async function updateUserDefaultOrg(userId: string, orgId: string | null)
     updatedAt: Timestamp.now(),
   });
 }
+
+/**
+ * PROF-001 — Partial update of the authenticated user profile document.
+ * Creates the doc if missing (merge).
+ */
+export async function updateUserProfile(
+  userId: string,
+  fields: {
+    displayName?: string;
+    avatarUrl?: string | null;
+    avatarPublicId?: string | null;
+  },
+): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  const ref = doc(db, 'users', userId);
+  const snap = await getDoc(ref);
+  const now = Timestamp.now();
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      displayName: fields.displayName ?? '',
+      email: '',
+      avatarUrl: fields.avatarUrl ?? null,
+      avatarPublicId: fields.avatarPublicId ?? null,
+      role: null,
+      roleCategory: null,
+      onboardingCompleted: false,
+      onboardingCompletedAt: null,
+      defaultOrganizationId: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return;
+  }
+  const patch: Record<string, unknown> = { updatedAt: now };
+  if (fields.displayName !== undefined) patch.displayName = fields.displayName;
+  if (fields.avatarUrl !== undefined) patch.avatarUrl = fields.avatarUrl;
+  if (fields.avatarPublicId !== undefined) patch.avatarPublicId = fields.avatarPublicId;
+  await updateDoc(ref, patch);
+}

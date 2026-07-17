@@ -1,7 +1,7 @@
 interface AvatarProps {
   src?: string;
   name: string;
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   className?: string;
 }
 
@@ -11,6 +11,8 @@ const sizeClasses: Record<NonNullable<AvatarProps['size']>, string> = {
   md: 'h-8 w-8 text-xs',
   lg: 'h-10 w-10 text-base',
   xl: 'h-14 w-14 text-xl',
+  /** PROF-001 profile header — ~80px */
+  '2xl': 'h-20 w-20 text-2xl',
 };
 
 const avatarColors: readonly string[] = [

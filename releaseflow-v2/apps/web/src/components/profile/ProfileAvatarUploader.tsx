@@ -33,7 +33,7 @@ export function ProfileAvatarUploader({
   if (showUploader) {
     return (
       <div>
-        <p className="text-sm font-semibold text-text-700 mb-3">Profile Photo</p>
+        <p className="text-sm font-semibold text-content-primary mb-3">Profile photo</p>
         <ImageUploader
           onUpload={handleUpload}
           onCancel={() => setShowUploader(false)}
@@ -47,9 +47,9 @@ export function ProfileAvatarUploader({
 
   return (
     <div>
-      <p className="text-sm font-semibold text-text-700 mb-3">Profile Photo</p>
+      <p className="text-sm font-semibold text-content-primary mb-3">Profile photo</p>
       <div className="flex items-center gap-4">
-        <div className="w-20 h-20 rounded-xl overflow-hidden ring-1 ring-surface-0/10 bg-surface-950 shrink-0">
+        <div className="w-20 h-20 rounded-full overflow-hidden ring-1 ring-surface-700/60 bg-surface-950 shrink-0">
           {currentImageUrl ? (
             <img
               src={currentImageUrl}
@@ -57,18 +57,18 @@ export function ProfileAvatarUploader({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-primary-100 text-primary-700 text-xl font-semibold">
+            <div className="w-full h-full flex items-center justify-center bg-primary-500/15 text-primary-400 text-xl font-semibold">
               {displayName?.charAt(0)?.toUpperCase() ?? '?'}
             </div>
           )}
         </div>
         <div className="flex flex-col gap-2">
-          <Button size="sm" variant="outline" onClick={() => setShowUploader(true)}>
-            {currentImageUrl ? 'Change Photo' : 'Upload Photo'}
+          <Button size="sm" variant="outline" className="min-h-[40px]" onClick={() => setShowUploader(true)}>
+            {currentImageUrl ? 'Change photo' : 'Upload photo'}
           </Button>
           {currentImageUrl && (
-            <Button size="sm" variant="outline" onClick={() => setShowRemoveConfirm(true)}>
-              Remove Photo
+            <Button size="sm" variant="ghost" className="min-h-[40px]" onClick={() => setShowRemoveConfirm(true)}>
+              Remove photo
             </Button>
           )}
         </div>
