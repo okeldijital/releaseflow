@@ -24,6 +24,7 @@ import {
 } from '@/lib/notification-engine-service';
 import { loadCommentThreads } from '@/lib/assignment-comments-inbox';
 import { EmptyState, LoadingState } from '@releaseflow/ui';
+import { ReleaseFlowLogo } from '@/components/branding/releaseflow-logo';
 import { AssignmentCard, SectionHeader } from '@/components/mobile/assignment-card';
 import type { AssignmentCardModel } from '@/components/mobile/assignment-card';
 import { humanizeAssignmentActivity } from '@/lib/assignment-activity-humanize';
@@ -262,7 +263,12 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto max-w-lg md:max-w-2xl lg:max-w-3xl px-4 sm:px-5 py-5 sm:py-8 page-transition pb-6">
-      {/* Greeting */}
+      {/* BRAND-001 — understated logo above greeting (not a hero) */}
+      <div className="mb-3 sm:mb-3.5">
+        <ReleaseFlowLogo width={88} className="opacity-95" />
+      </div>
+
+      {/* Greeting remains primary visual focus */}
       <header className="mb-5 sm:mb-6 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-[22px] sm:text-2xl font-semibold text-content-primary tracking-tight leading-tight">

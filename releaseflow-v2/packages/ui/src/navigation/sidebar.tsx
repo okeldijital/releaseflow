@@ -38,17 +38,23 @@ function isActive(activePath: string, item: NavItem): boolean {
   return activePath === item.href || activePath.startsWith(item.href + '/');
 }
 
-/** Stylised R logomark */
-function LogoMark() {
+/** BRAND-001 — official logo from app public assets (no recolour / no badge). */
+const RELEASEFLOW_LOGO_SRC = '/icons/ReleaseFlow-Logo.svg';
+
+function BrandLogo({ collapsed }: { collapsed: boolean }) {
+  const size = collapsed ? 32 : 112;
   return (
-    <div
-      className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-500 shadow-sm shrink-0"
-      aria-hidden="true"
-    >
-      <svg viewBox="0 0 20 20" className="h-4 w-4 fill-white" aria-hidden="true">
-        <path d="M4 3h6.5c2.485 0 4 1.343 4 3.5 0 1.5-.8 2.7-2 3.2L15 17h-2.7l-2.3-6.8H6.6V17H4V3zm2.6 2.2v3.5h3.7c1 0 1.7-.65 1.7-1.75S11.3 5.2 10.3 5.2H6.6z" />
-      </svg>
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={RELEASEFLOW_LOGO_SRC}
+      alt="ReleaseFlow"
+      width={size}
+      height={size}
+      className="shrink-0 object-contain"
+      style={{ width: size, height: 'auto', maxWidth: size, aspectRatio: '1 / 1' }}
+      decoding="async"
+      draggable={false}
+    />
   );
 }
 
@@ -255,20 +261,9 @@ export function Sidebar({
           </svg>
         </button>
 
-        {/* ── Zone 1 — Brand ───────────────────────────────────────── */}
-        <div className="flex h-16 items-center gap-2.5 px-5 shrink-0 overflow-hidden">
-          <LogoMark />
-          <span
-            className={`
-              text-body font-semibold text-content-primary
-              tracking-tight whitespace-nowrap overflow-hidden
-              transition-[opacity,max-width] duration-200
-              motion-reduce:transition-none
-              ${collapsed ? 'lg:opacity-0 lg:max-w-0' : 'opacity-100 max-w-full'}
-            `}
-          >
-            ReleaseFlow
-          </span>
+        {/* ── Zone 1 — Brand (BRAND-001 official logo; wordmark is in the asset) ─ */}
+        <div className="flex h-16 items-center px-4 shrink-0 overflow-hidden">
+          <BrandLogo collapsed={collapsed} />
         </div>
 
         {/* ── Zone 2 — Navigation ─────────────────────────────────── */}

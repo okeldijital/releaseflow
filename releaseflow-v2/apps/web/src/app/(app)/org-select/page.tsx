@@ -8,6 +8,7 @@ import { getOrganizationsByUser } from '@/lib/organization-repository';
 import { getUserProfile, updateUserDefaultOrg } from '@/lib/user-profile-repository';
 import type { OrganizationRecord } from '@/lib/organization-repository';
 import { Skeleton } from '@releaseflow/ui';
+import { ReleaseFlowLogo } from '@/components/branding/releaseflow-logo';
 
 export default function OrgSelectPage() {
   const { user, loading: authLoading } = useAuth();
@@ -72,10 +73,8 @@ export default function OrgSelectPage() {
       <div className="relative z-10 w-full max-w-sm">
         <div className="rounded-xl border border-surface-700/60 bg-surface-900 p-8 shadow-lg">
           <div className="text-center mb-6">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-500 shadow-lg">
-              <svg viewBox="0 0 20 20" className="h-6 w-6 fill-white">
-                <path d="M4 3h6.5c2.485 0 4 1.343 4 3.5 0 1.5-.8 2.7-2 3.2L15 17h-2.7l-2.3-6.8H6.6V17H4V3zm2.6 2.2v3.5h3.7c1 0 1.7-.65 1.7-1.75S11.3 5.2 10.3 5.2H6.6z" />
-              </svg>
+            <div className="mx-auto mb-4 flex justify-center">
+              <ReleaseFlowLogo width={96} priority />
             </div>
             <h1 className="text-display-md font-semibold text-surface-50 tracking-tight">Welcome back,</h1>
             <p className="text-display-md font-semibold text-primary-400 tracking-tight">{displayName}</p>

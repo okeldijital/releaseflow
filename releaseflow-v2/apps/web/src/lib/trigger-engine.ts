@@ -116,7 +116,7 @@ async function handleReviewRequest(event: TriggerEvent) {
         event.recipientEmail,
         'Review Requested on ReleaseFlow',
         `<div style="max-width:560px;margin:0 auto;padding:24px;background:#fff;border-radius:12px;font-family:sans-serif">
-<div style="text-align:center;padding:8px 0"><span style="font-size:20px;font-weight:800;color:#6366f1">ReleaseFlow</span></div>
+<div style="text-align:center;padding:12px 0"><img src="${process.env.NEXT_PUBLIC_APP_URL || ''}/icons/ReleaseFlow-Logo.svg" width="96" height="96" alt="ReleaseFlow" style="display:inline-block;width:96px;height:auto;border:0"/></div>
 <div style="padding:32px 0 16px;text-align:center"><h1 style="font-size:24px;font-weight:700;color:#1a1a2e;margin:0 0 8px">Review Requested</h1></div>
 <p style="font-size:16px;color:#374151;line-height:1.6;margin:0 0 16px">${event.metadata?.actorName || 'A user'} is requesting your review on <strong>${entityLabel}</strong> (${event.entityType || 'item'}).</p>
 <div style="text-align:center;margin:0 0 24px"><a href="${`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/${event.entityType || 'dashboard'}/${event.entityId || ''}`}" style="display:inline-block;padding:12px 32px;background:#6366f1;color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600">Review Now</a></div>
