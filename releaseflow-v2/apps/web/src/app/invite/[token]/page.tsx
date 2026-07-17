@@ -7,6 +7,11 @@ import { validateInvitation, acceptInvitationAtomically } from '@/lib/invitation
 import { PLATFORM_ROLE_LABELS } from '@/lib/platform-roles';
 import { getUserProfile } from '@/lib/user-profile-repository';
 import type { AtomicAcceptError } from '@/lib/invitation-service';
+import {
+  storeAuthReturn,
+  clearAuthReturn,
+  clearInvitationToken,
+} from '@/lib/auth-return';
 
 interface InviteState {
   status: 'loading' | 'valid' | 'accepting' | 'accepted' | 'invalid' | 'expired' | 'revoked' | 'error';
@@ -25,6 +30,14 @@ const ERROR_ROUTES: Record<AtomicAcceptError, string> = {
 
 function getRedirectFromError(reason: AtomicAcceptError): string {
   return ERROR_ROUTES[reason] ?? '/invitation-error/invalid-token';
+}
+
+function parseInviteToken(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
 }
 
 export default function InvitePage() {
@@ -51,14 +64,7 @@ export default function InvitePage() {
       return;
     }
 
-    // Decode once — Next.js params are usually already decoded, but email clients
-    // may re-encode path segments. Keep the exact value we will look up.
-    let parsedToken = token;
-    try {
-      parsedToken = decodeURIComponent(token);
-    } catch {
-      parsedToken = token;
-    }
+    const parsedToken = parseInviteToken(token);
 
     console.log(LOG, '✓ Token received from route', {
       rawLength: token.length,
@@ -123,31 +129,70 @@ export default function InvitePage() {
 
   const accept = useCallback(async () => {
     if (!token || !user || accepting) return;
+    const parsedToken = parseInviteToken(token);
+
     setAccepting(true);
     setState({ status: 'accepting', message: 'Joining...' });
+    console.log('[Invitation Acceptance] ✓ Accepting with authenticated user', {
+      uid: user.uid,
+      email: user.email,
+      tokenPrefix: parsedToken.slice(0, 8),
+    });
     try {
-      const result = await acceptInvitationAtomically(token, {
+      const result = await acceptInvitationAtomically(parsedToken, {
         uid: user.uid,
         email: user.email || '',
         displayName: user.displayName,
       });
       if (!result.ok) {
+        console.error('[Invitation Acceptance] ✗ Accept failed', {
+          reason: result.reason,
+          message: result.message,
+        });
+        // Prefer staying on invite with a clear message for permission errors
+        if (result.reason === 'invalid' && /permission/i.test(result.message)) {
+          setState({ status: 'error', message: result.message });
+          return;
+        }
         router.replace(getRedirectFromError(result.reason));
         return;
       }
+      console.log('[Invitation Acceptance] ✓ Accepted → membership/role assigned', {
+        organizationId: result.invitation.organizationId,
+        platformRole: result.invitation.platformRole,
+      });
+      clearAuthReturn();
+      clearInvitationToken();
       setState({ status: 'accepted', message: 'You have joined the organization!' });
-      // Check if profile completion is needed
+      // Collaborators land on home; managers/admins on dashboard after resolve.
       const profile = await getUserProfile(user.uid);
       const needsProfileCompletion = profile && !profile.displayName?.trim();
+      const dest = needsProfileCompletion
+        ? '/onboarding/invitation'
+        : result.invitation.platformRole === 'collaborator'
+          ? '/home'
+          : '/dashboard';
       setTimeout(() => {
-        router.replace(needsProfileCompletion ? '/onboarding/invitation' : '/dashboard');
+        router.replace(dest);
       }, 1500);
-    } catch {
-      setState({ status: 'error', message: 'Something went wrong. Please try again.' });
+    } catch (err) {
+      console.error('[Invitation Acceptance] ✗ Accept threw', err);
+      setState({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+      });
     } finally {
       setAccepting(false);
     }
   }, [token, user, router, accepting]);
+
+  // UAT-002: after sign-in return, automatically accept once invitation is verified.
+  useEffect(() => {
+    if (authLoading || !user || accepting) return;
+    if (state.status !== 'valid') return;
+    console.log('[Invitation Acceptance] ✓ Returned authenticated with valid invitation → auto-accept');
+    void accept();
+  }, [authLoading, user, state.status, accepting, accept]);
 
   async function handleContinueInBrowser() {
     if (!token) return;
@@ -155,9 +200,11 @@ export default function InvitePage() {
       await accept();
       return;
     }
-    sessionStorage.setItem('auth_return_to', '/invite/' + token);
-    sessionStorage.setItem('invitation_token', token);
-    router.push(`/sign-in?return=${encodeURIComponent('/invite/' + token)}`);
+    const parsedToken = parseInviteToken(token);
+    const returnPath = `/invite/${parsedToken}`;
+    storeAuthReturn(returnPath, parsedToken);
+    console.log('[Invitation Acceptance] ✓ Redirecting to sign-in with return', { returnPath });
+    router.push(`/sign-in?return=${encodeURIComponent(returnPath)}`);
   }
 
   async function handleInstallApp() {
@@ -166,9 +213,11 @@ export default function InvitePage() {
       await accept();
       return;
     }
-    sessionStorage.setItem('auth_return_to', '/invite/' + token);
-    sessionStorage.setItem('invitation_token', token);
-    router.push(`/sign-up?return=${encodeURIComponent('/invite/' + token)}`);
+    const parsedToken = parseInviteToken(token);
+    const returnPath = `/invite/${parsedToken}`;
+    storeAuthReturn(returnPath, parsedToken);
+    console.log('[Invitation Acceptance] ✓ Redirecting to sign-up with return', { returnPath });
+    router.push(`/sign-up?return=${encodeURIComponent(returnPath)}`);
   }
 
   if (authLoading) {

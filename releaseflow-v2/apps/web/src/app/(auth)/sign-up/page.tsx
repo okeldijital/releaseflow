@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
+import { consumeAuthReturn, storeAuthReturn } from '@/lib/auth-return';
 
 export default function SignUpPage() {
   const { user, loading } = useAuth();
@@ -15,18 +16,24 @@ export default function SignUpPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  const getReturnTo = () => {
-    if (typeof window === 'undefined') return null;
-    const fromUrl = new URLSearchParams(window.location.search).get('return');
-    if (fromUrl) return fromUrl;
-    const fromSession = sessionStorage.getItem('auth_return_to');
-    sessionStorage.removeItem('auth_return_to');
-    return fromSession;
-  };
+  const redirected = useRef(false);
 
   useEffect(() => {
-    if (!loading && user) router.push(getReturnTo() || '/auth/resolve');
+    if (typeof window === 'undefined') return;
+    const fromUrl = new URLSearchParams(window.location.search).get('return');
+    if (fromUrl) {
+      const tokenMatch = fromUrl.match(/^\/invite\/([^/?#]+)/);
+      storeAuthReturn(fromUrl, tokenMatch?.[1]);
+      console.log('[Invitation Acceptance] ✓ Sign-up page captured return URL', { fromUrl });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (loading || !user || redirected.current) return;
+    redirected.current = true;
+    const dest = consumeAuthReturn() || '/auth/resolve';
+    console.log('[Invitation Acceptance] ✓ Sign-up auth complete → redirect', { dest, uid: user.uid });
+    router.replace(dest);
   }, [user, loading, router]);
 
   if (loading || user) return null;
@@ -37,7 +44,6 @@ export default function SignUpPage() {
       const auth = getAuthInstance();
       if (!auth) throw new Error('Auth not initialized');
       await signInWithPopup(auth, new GoogleAuthProvider());
-      router.push(getReturnTo() || '/auth/resolve');
     } catch {
       setError('Could not sign up with Google. Please try again.');
     }
@@ -52,13 +58,18 @@ export default function SignUpPage() {
       const auth = getAuthInstance();
       if (!auth) throw new Error('Auth not initialized');
       await createUserWithEmailAndPassword(auth, email, password);
-      router.push(getReturnTo() || '/auth/resolve');
     } catch {
       setError('Could not create account. The email may already be in use.');
     } finally {
       setSubmitting(false);
     }
   }
+
+  const signInHref = (() => {
+    if (typeof window === 'undefined') return '/sign-in';
+    const ret = new URLSearchParams(window.location.search).get('return');
+    return ret ? `/sign-in?return=${encodeURIComponent(ret)}` : '/sign-in';
+  })();
 
   return (
     <>
@@ -132,7 +143,7 @@ export default function SignUpPage() {
 
       <p className="mt-6 text-center text-body-small text-text-500">
         Already have an account?{' '}
-        <Link href="/sign-in" className="font-semibold text-primary-400 hover:text-primary-300 transition-colors duration-150">
+        <Link href={signInHref} className="font-semibold text-primary-400 hover:text-primary-300 transition-colors duration-150">
           Sign in
         </Link>
       </p>

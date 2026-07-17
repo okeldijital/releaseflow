@@ -348,17 +348,35 @@ export async function acceptInvitationAtomically(
   token: string,
   user: { uid: string; email: string; displayName?: string | null },
 ): Promise<AtomicAcceptResult> {
+  const ACCEPT_LOG = '[Invitation Acceptance]';
   const db = getDb();
-  if (!db) return { ok: false, reason: 'not_found', message: 'Service unavailable.' };
+  if (!db) {
+    console.error(ACCEPT_LOG, '✗ Firestore unavailable');
+    return { ok: false, reason: 'not_found', message: 'Service unavailable.' };
+  }
+
+  const normalizedToken = token.trim();
+  console.log(ACCEPT_LOG, '✓ Accept started', {
+    tokenLength: normalizedToken.length,
+    tokenPrefix: normalizedToken.slice(0, 8),
+    uid: user.uid,
+    email: user.email,
+  });
 
   // ── Pre-query: resolve document references ──────────────────────────
   // These queries run BEFORE the transaction to obtain the doc IDs / refs
   // that we need inside the transaction (which only accepts get(docRef)).
 
-  const invitationRecord = await getInvitationByToken(token);
+  const invitationRecord = await getInvitationByToken(normalizedToken);
   if (!invitationRecord) {
+    console.error(ACCEPT_LOG, '✗ Invitation lookup returned null before transaction');
     return { ok: false, reason: 'not_found', message: 'This invitation link is invalid.' };
   }
+  console.log(ACCEPT_LOG, '✓ Invitation loaded for accept', {
+    id: invitationRecord.id,
+    status: invitationRecord.status,
+    organizationId: invitationRecord.organizationId,
+  });
   const invitationRef = doc(db, 'invitations', invitationRecord.id);
   const orgRef = doc(db, 'organizations', invitationRecord.organizationId);
   const userProfileRef = doc(db, 'users', user.uid);
@@ -542,14 +560,31 @@ export async function acceptInvitationAtomically(
         createdAt: now,
       });
 
+      console.log(ACCEPT_LOG, '✓ Transaction writes staged (membership, person, profile, accepted)');
       return {
         ok: true as const,
         invitation: { ...invitation, status: 'accepted' as const, acceptedAt: now },
       };
     });
   } catch (err) {
-    console.error('[acceptInvitationAtomically] Transaction failed:', err);
-    return { ok: false, reason: 'not_found', message: 'Something went wrong. Please try again.' };
+    const code = (err as { code?: string })?.code;
+    console.error(ACCEPT_LOG, '✗ Transaction failed', {
+      type: err instanceof Error ? err.name : typeof err,
+      message: err instanceof Error ? err.message : String(err),
+      code,
+      stack: err instanceof Error ? err.stack : undefined,
+    });
+    // Do not mask permission / transaction failures as "invalid invitation".
+    const permissionDenied =
+      code === 'permission-denied'
+      || (err instanceof Error && /permission/i.test(err.message));
+    return {
+      ok: false,
+      reason: 'invalid',
+      message: permissionDenied
+        ? 'Could not complete invitation acceptance (permission denied). Please contact support or try again after rules deploy.'
+        : (err instanceof Error ? err.message : 'Something went wrong. Please try again.'),
+    };
   }
 }
 

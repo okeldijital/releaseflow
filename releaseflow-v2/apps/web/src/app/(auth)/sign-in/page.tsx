@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
+import { consumeAuthReturn, storeAuthReturn } from '@/lib/auth-return';
 
 export default function SignInPage() {
   const { user, loading } = useAuth();
@@ -14,18 +15,25 @@ export default function SignInPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const redirected = useRef(false);
 
-  const getReturnTo = () => {
-    if (typeof window === 'undefined') return null;
+  // Capture return from query into session on mount so sign-up links don't lose it.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     const fromUrl = new URLSearchParams(window.location.search).get('return');
-    if (fromUrl) return fromUrl;
-    const fromSession = sessionStorage.getItem('auth_return_to');
-    sessionStorage.removeItem('auth_return_to');
-    return fromSession;
-  };
+    if (fromUrl) {
+      const tokenMatch = fromUrl.match(/^\/invite\/([^/?#]+)/);
+      storeAuthReturn(fromUrl, tokenMatch?.[1]);
+      console.log('[Invitation Acceptance] ✓ Sign-in page captured return URL', { fromUrl });
+    }
+  }, []);
 
   useEffect(() => {
-    if (!loading && user) router.push(getReturnTo() || '/auth/resolve');
+    if (loading || !user || redirected.current) return;
+    redirected.current = true;
+    const dest = consumeAuthReturn() || '/auth/resolve';
+    console.log('[Invitation Acceptance] ✓ Auth complete → redirect', { dest, uid: user.uid });
+    router.replace(dest);
   }, [user, loading, router]);
 
   if (loading || user) return null;
@@ -36,7 +44,7 @@ export default function SignInPage() {
       const auth = getAuthInstance();
       if (!auth) throw new Error('Auth not initialized');
       await signInWithPopup(auth, new GoogleAuthProvider());
-      router.push(getReturnTo() || '/auth/resolve');
+      // useEffect handles redirect when auth state updates
     } catch {
       setError('Could not sign in with Google. Please try again.');
     }
@@ -50,13 +58,19 @@ export default function SignInPage() {
       const auth = getAuthInstance();
       if (!auth) throw new Error('Auth not initialized');
       await signInWithEmailAndPassword(auth, email, password);
-      router.push(getReturnTo() || '/auth/resolve');
+      // useEffect handles redirect when auth state updates
     } catch {
       setError('Invalid email or password.');
     } finally {
       setSubmitting(false);
     }
   }
+
+  const signUpHref = (() => {
+    if (typeof window === 'undefined') return '/sign-up';
+    const ret = new URLSearchParams(window.location.search).get('return');
+    return ret ? `/sign-up?return=${encodeURIComponent(ret)}` : '/sign-up';
+  })();
 
   return (
     <>
@@ -127,7 +141,7 @@ export default function SignInPage() {
 
       <p className="mt-6 text-center text-body-small text-text-500">
         Don&apos;t have an account?{' '}
-        <Link href="/sign-up" className="font-semibold text-primary-400 hover:text-primary-300 transition-colors duration-150">
+        <Link href={signUpHref} className="font-semibold text-primary-400 hover:text-primary-300 transition-colors duration-150">
           Sign up
         </Link>
       </p>

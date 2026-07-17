@@ -141,6 +141,15 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 
+    // User profiles — doc id is the Firebase auth uid (invitation accept + onboarding).
+    // UAT-002: missing rules caused acceptInvitationAtomically to fail after sign-in
+    // and surface as "Invalid Invitation" (transaction catch mapped to not_found).
+    match /users/{userId} {
+      allow read: if isAuth() && request.auth.uid == userId;
+      allow create, update: if isAuth() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
     // User preferences — doc id is the user id; only the owner can access.
     match /user_preferences/{userId} {
       allow read, write: if isAuth() && request.auth.uid == userId;

@@ -6,6 +6,12 @@ import { useAuth } from '@/contexts/auth-context';
 import { getOrganizationsByUser } from '@/lib/organization-repository';
 import { acceptInvitationAtomically } from '@/lib/invitation-service';
 import { useOrgStore } from '@/stores/org-store';
+import {
+  getStoredInvitationToken,
+  clearInvitationToken,
+  clearAuthReturn,
+  consumeAuthReturn,
+} from '@/lib/auth-return';
 
 /**
  * CE-002 — Authentication resolver.
@@ -37,31 +43,52 @@ export default function AuthResolvePage() {
     let cancelled = false;
 
     async function resolve() {
+      // UAT-002: if we have an invite return path, prefer returning there
+      // so acceptance happens on the invite page with full context.
+      const returnTo = consumeAuthReturn();
+      if (returnTo && returnTo.startsWith('/invite/')) {
+        console.log('[Invitation Acceptance] ✓ Auth resolve → restoring invite URL', { returnTo });
+        router.replace(returnTo);
+        return;
+      }
+
       const orgs = await getOrganizationsByUser(uid);
       if (cancelled) return;
 
-      if (orgs.length === 0) {
-        // No memberships — check for a pending invitation in session storage.
-        const pendingToken = typeof window !== 'undefined'
-          ? sessionStorage.getItem('invitation_token')
-          : null;
-
-        if (pendingToken) {
-          sessionStorage.removeItem('invitation_token');
-          const result = await acceptInvitationAtomically(pendingToken, {
-            uid: user!.uid,
-            email: user!.email ?? '',
-            displayName: user!.displayName,
-          });
-          if (cancelled) return;
-          if (result.ok) {
-            setActiveOrgId(result.invitation.organizationId);
-            setOrgsLoaded(true);
-            router.replace('/dashboard');
-            return;
-          }
+      // Pending invitation token even if user already has other memberships.
+      const pendingToken = getStoredInvitationToken();
+      if (pendingToken) {
+        console.log('[Invitation Acceptance] ✓ Auth resolve attempting token accept', {
+          tokenPrefix: pendingToken.slice(0, 8),
+          existingOrgs: orgs.length,
+        });
+        const result = await acceptInvitationAtomically(pendingToken, {
+          uid: user!.uid,
+          email: user!.email ?? '',
+          displayName: user!.displayName,
+        });
+        if (cancelled) return;
+        if (result.ok) {
+          clearInvitationToken();
+          clearAuthReturn();
+          setActiveOrgId(result.invitation.organizationId);
+          setOrgsLoaded(true);
+          const dest =
+            result.invitation.platformRole === 'collaborator' ? '/home' : '/dashboard';
+          console.log('[Invitation Acceptance] ✓ Auth resolve accept succeeded', { dest });
+          router.replace(dest);
+          return;
         }
+        console.error('[Invitation Acceptance] ✗ Auth resolve accept failed', {
+          reason: result.reason,
+          message: result.message,
+        });
+        // Return to invite page so the user sees the real error / can retry.
+        router.replace(`/invite/${pendingToken}`);
+        return;
+      }
 
+      if (orgs.length === 0) {
         // No invitation — standard admin onboarding.
         router.replace('/onboarding');
         return;
