@@ -4,6 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { getOrganizationsByUser, createOrganization } from '@/lib/organization-repository';
+import {
+  hasPendingInvitation,
+  getInvitationContext,
+  getStoredInvitationToken,
+} from '@/lib/auth-return';
+
+const FLOW_LOG = '[Invitation Flow]';
 
 export default function CompanyPage() {
   const { user, loading } = useAuth();
@@ -17,10 +24,24 @@ export default function CompanyPage() {
 
   useEffect(() => {
     if (!loading && !user) { router.push('/sign-in'); return; }
+    // UAT-005: invitation already defines organization — never show company selection.
+    if (user && hasPendingInvitation()) {
+      const ctx = getInvitationContext();
+      const token = ctx?.token || getStoredInvitationToken();
+      const dest = ctx?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve');
+      console.log(FLOW_LOG, '· Blocked company selection — invitation context present', {
+        reason: 'invitation_already_defines_organization',
+        dest,
+        organizationId: ctx?.organizationId,
+      });
+      router.replace(dest);
+      return;
+    }
     if (user) getOrganizationsByUser(user.uid).then(setOrgs);
   }, [user, loading, router]);
 
   if (loading || !user) return null;
+  if (hasPendingInvitation()) return null;
 
   function handleContinue(orgId: string) {
     router.push(`/onboarding/role?companyId=${orgId}`);

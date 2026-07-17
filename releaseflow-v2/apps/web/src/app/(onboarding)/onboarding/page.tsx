@@ -1,16 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { createUserProfile } from '@/lib/user-profile-repository';
+import {
+  hasPendingInvitation,
+  getInvitationContext,
+  getStoredInvitationToken,
+} from '@/lib/auth-return';
+
+const FLOW_LOG = '[Invitation Flow]';
 
 export default function WelcomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
 
+  // UAT-005: never run generic onboarding when invitation context exists.
+  useEffect(() => {
+    if (loading || !user) return;
+    if (!hasPendingInvitation()) return;
+    const ctx = getInvitationContext();
+    const token = ctx?.token || getStoredInvitationToken();
+    const dest = ctx?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve');
+    console.log(FLOW_LOG, '· Blocked welcome/onboarding — invitation context present', {
+      reason: 'pending_invitation_takes_precedence',
+      dest,
+    });
+    router.replace(dest);
+  }, [user, loading, router]);
+
   if (loading || !user) return null;
+  if (hasPendingInvitation()) return null;
 
   const displayName = user.displayName ?? '—';
   const email = user.email ?? '—';
@@ -20,6 +42,12 @@ export default function WelcomePage() {
     : email.charAt(0).toUpperCase();
 
   async function handleContinue() {
+    if (hasPendingInvitation()) {
+      const ctx = getInvitationContext();
+      const token = ctx?.token || getStoredInvitationToken();
+      router.replace(ctx?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve'));
+      return;
+    }
     setSaving(true);
     try {
       await createUserProfile(user!.uid, { displayName, email, avatarUrl });

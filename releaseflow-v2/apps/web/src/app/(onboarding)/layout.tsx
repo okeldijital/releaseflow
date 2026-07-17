@@ -3,13 +3,42 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
+import {
+  hasPendingInvitation,
+  getInvitationContext,
+  getStoredInvitationToken,
+} from '@/lib/auth-return';
 
+const FLOW_LOG = '[Invitation Flow]';
+
+/**
+ * UAT-005 — Onboarding layout.
+ * When an invitation context exists, never show generic onboarding
+ * (company selection / create company). Redirect back into the invitation flow.
+ */
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) router.replace('/sign-in');
+    if (!loading && !user) {
+      router.replace('/sign-in');
+      return;
+    }
+
+    if (loading || !user) return;
+
+    if (hasPendingInvitation()) {
+      const ctx = getInvitationContext();
+      const token = ctx?.token || getStoredInvitationToken();
+      const invitePath = ctx?.returnUrl || (token ? `/invite/${token}` : '/auth/resolve');
+      console.log(FLOW_LOG, '· Blocked generic onboarding — invitation context present', {
+        reason: 'pending_invitation_takes_precedence',
+        invitePath,
+        organizationId: ctx?.organizationId,
+      });
+      router.replace(invitePath);
+    }
   }, [user, loading, router]);
 
   if (loading) {
@@ -21,6 +50,15 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
   }
 
   if (!user) return null;
+
+  // While redirecting away from onboarding for invitees, show a spinner.
+  if (hasPendingInvitation()) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-950">
+        <div className="h-5 w-5 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-surface-950 text-surface-50">

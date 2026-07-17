@@ -1,22 +1,25 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { validateInvitation, acceptInvitationAtomically } from '@/lib/invitation-service';
 import { PLATFORM_ROLE_LABELS } from '@/lib/platform-roles';
-import { getUserProfile } from '@/lib/user-profile-repository';
-import type { AtomicAcceptError } from '@/lib/invitation-service';
+import type { AtomicAcceptError, InvitationRecord } from '@/lib/invitation-service';
 import {
-  storeAuthReturn,
-  clearAuthReturn,
-  clearInvitationToken,
+  storeInvitationContext,
+  clearInvitationContext,
+  collaboratorWorkspacePath,
 } from '@/lib/auth-return';
+import { useOrgStore } from '@/stores/org-store';
+import { generateNotificationEvent } from '@/lib/notification-event-service';
 
 interface InviteState {
   status: 'loading' | 'valid' | 'accepting' | 'accepted' | 'invalid' | 'expired' | 'revoked' | 'error';
   message: string;
 }
+
+const FLOW_LOG = '[Invitation Flow]';
 
 const ERROR_ROUTES: Record<AtomicAcceptError, string> = {
   not_found: '/invitation-error/invalid-token',
@@ -44,43 +47,36 @@ export default function InvitePage() {
   const params = useParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { setActiveOrgId, setOrgsLoaded } = useOrgStore();
   const token = params?.token as string;
   const [state, setState] = useState<InviteState>({ status: 'loading', message: 'Verifying invitation...' });
-  const [invitation, setInvitation] = useState<{
-    invitedByName: string;
-    organizationName: string;
-    professionalRole: string;
-    platformRole: string;
-  } | null>(null);
+  const [invitation, setInvitation] = useState<InvitationRecord | null>(null);
   const [accepting, setAccepting] = useState(false);
   const [verifyAttempt, setVerifyAttempt] = useState(0);
+  const acceptStarted = useRef(false);
 
   useEffect(() => {
-    const LOG = '[Invitation Verification]';
-
     if (!token) {
-      console.error(LOG, '✗ No token in route params');
+      console.error(FLOW_LOG, '✗ No token in route params');
       setState({ status: 'invalid', message: 'This invitation link is invalid.' });
       return;
     }
 
     const parsedToken = parseInviteToken(token);
 
-    console.log(LOG, '✓ Token received from route', {
+    console.log(FLOW_LOG, '· Verification started', {
       rawLength: token.length,
       parsedLength: parsedToken.length,
       prefix: parsedToken.slice(0, 8),
-      path: typeof window !== 'undefined' ? window.location.pathname : '(ssr)',
       attempt: verifyAttempt,
     });
 
     async function verify() {
       setState({ status: 'loading', message: 'Verifying invitation...' });
       try {
-        console.log(LOG, '✓ Validation request started');
         const result = await validateInvitation(parsedToken);
         if (!result.ok) {
-          console.log(LOG, '✗ Validation returned not ok', { reason: result.reason });
+          console.log(FLOW_LOG, '✗ Validation returned not ok', { reason: result.reason });
           const map: Record<string, InviteState> = {
             not_found: { status: 'invalid', message: 'This invitation link is invalid.' },
             expired: { status: 'expired', message: 'This invitation has expired.' },
@@ -92,26 +88,33 @@ export default function InvitePage() {
           setState(mapped);
           return;
         }
-        console.log(LOG, '✓ Invitation verified', {
-          invitationId: result.invitation.id,
-          organizationId: result.invitation.organizationId,
-          platformRole: result.invitation.platformRole,
-        });
-        setState({ status: 'valid', message: '' });
+
         const inv = result.invitation;
-        setInvitation({
-          invitedByName: inv.invitedByName,
-          organizationName: inv.organizationName,
-          professionalRole: inv.professionalRole,
+        console.log(FLOW_LOG, '✓ Invitation verified', {
+          invitationId: inv.id,
+          organizationId: inv.organizationId,
           platformRole: inv.platformRole,
+          professionalRole: inv.professionalRole,
         });
+
+        // Persist full context so it survives sign-up / sign-in / refreshes.
+        storeInvitationContext({
+          token: parsedToken,
+          organizationId: inv.organizationId,
+          invitedEmail: inv.inviteeEmail,
+          platformRole: inv.platformRole,
+          professionalRole: inv.professionalRole,
+          returnUrl: `/invite/${parsedToken}`,
+        });
+
+        setState({ status: 'valid', message: '' });
+        setInvitation(inv);
       } catch (err) {
         const code = (err as { code?: string })?.code;
-        console.error(LOG, '✗ Unhandled exception during verification', {
+        console.error(FLOW_LOG, '✗ Unhandled exception during verification', {
           type: err instanceof Error ? err.name : typeof err,
           message: err instanceof Error ? err.message : String(err),
           code,
-          stack: err instanceof Error ? err.stack : undefined,
         });
         const permissionDenied =
           code === 'permission-denied'
@@ -128,28 +131,31 @@ export default function InvitePage() {
   }, [token, verifyAttempt]);
 
   const accept = useCallback(async () => {
-    if (!token || !user || accepting) return;
+    if (!token || !user || accepting || acceptStarted.current) return;
+    acceptStarted.current = true;
     const parsedToken = parseInviteToken(token);
 
     setAccepting(true);
     setState({ status: 'accepting', message: 'Joining...' });
-    console.log('[Invitation Acceptance] ✓ Accepting with authenticated user', {
+    console.log(FLOW_LOG, '✓ User authenticated', {
       uid: user.uid,
       email: user.email,
       tokenPrefix: parsedToken.slice(0, 8),
     });
+
     try {
       const result = await acceptInvitationAtomically(parsedToken, {
         uid: user.uid,
         email: user.email || '',
         displayName: user.displayName,
       });
+
       if (!result.ok) {
-        console.error('[Invitation Acceptance] ✗ Accept failed', {
+        acceptStarted.current = false;
+        console.error(FLOW_LOG, '✗ Accept failed', {
           reason: result.reason,
           message: result.message,
         });
-        // Prefer staying on invite with a clear message for permission errors
         if (result.reason === 'invalid' && /permission/i.test(result.message)) {
           setState({ status: 'error', message: result.message });
           return;
@@ -157,26 +163,53 @@ export default function InvitePage() {
         router.replace(getRedirectFromError(result.reason));
         return;
       }
-      console.log('[Invitation Acceptance] ✓ Accepted → membership/role assigned', {
-        organizationId: result.invitation.organizationId,
+
+      console.log(FLOW_LOG, '✓ Membership created');
+      console.log(FLOW_LOG, '✓ Platform role assigned', {
         platformRole: result.invitation.platformRole,
       });
-      clearAuthReturn();
-      clearInvitationToken();
+      console.log(FLOW_LOG, '✓ Professional role assigned', {
+        professionalRole: result.invitation.professionalRole,
+      });
+      console.log(FLOW_LOG, '✓ Invitation accepted', {
+        organizationId: result.invitation.organizationId,
+      });
+      console.log(FLOW_LOG, '✓ User profile created');
+
+      // Best-effort notification event for the inviter (outside transaction).
+      try {
+        await generateNotificationEvent({
+          type: 'invitation.accepted',
+          organizationId: result.invitation.organizationId,
+          actorId: user.uid,
+          recipientId: result.invitation.invitedByUserId,
+          entityId: result.invitation.id,
+          entityType: 'invitation',
+          metadata: {
+            inviteeEmail: result.invitation.inviteeEmail,
+            platformRole: result.invitation.platformRole,
+            professionalRole: result.invitation.professionalRole,
+          },
+        });
+        console.log(FLOW_LOG, '✓ Notification event generated');
+      } catch (notifyErr) {
+        console.warn(FLOW_LOG, '· Notification event generation failed (non-blocking)', notifyErr);
+      }
+
+      clearInvitationContext();
+      setActiveOrgId(result.invitation.organizationId);
+      setOrgsLoaded(true);
       setState({ status: 'accepted', message: 'You have joined the organization!' });
-      // Collaborators land on home; managers/admins on dashboard after resolve.
-      const profile = await getUserProfile(user.uid);
-      const needsProfileCompletion = profile && !profile.displayName?.trim();
-      const dest = needsProfileCompletion
-        ? '/onboarding/invitation'
-        : result.invitation.platformRole === 'collaborator'
-          ? '/home'
-          : '/dashboard';
+
+      // UAT-005: NEVER send invitees into generic onboarding.
+      const dest = collaboratorWorkspacePath(result.invitation.platformRole);
+      console.log(FLOW_LOG, '✓ Redirecting to collaborator workspace', { dest });
       setTimeout(() => {
         router.replace(dest);
-      }, 1500);
+      }, 1200);
     } catch (err) {
-      console.error('[Invitation Acceptance] ✗ Accept threw', err);
+      acceptStarted.current = false;
+      console.error(FLOW_LOG, '✗ Accept threw', err);
       setState({
         status: 'error',
         message: err instanceof Error ? err.message : 'Something went wrong. Please try again.',
@@ -184,40 +217,46 @@ export default function InvitePage() {
     } finally {
       setAccepting(false);
     }
-  }, [token, user, router, accepting]);
+  }, [token, user, router, accepting, setActiveOrgId, setOrgsLoaded]);
 
-  // UAT-002: after sign-in return, automatically accept once invitation is verified.
+  // Authenticated + valid invitation → skip auth UI, accept immediately.
   useEffect(() => {
-    if (authLoading || !user || accepting) return;
+    if (authLoading || !user || accepting || acceptStarted.current) return;
     if (state.status !== 'valid') return;
-    console.log('[Invitation Acceptance] ✓ Returned authenticated with valid invitation → auto-accept');
+    console.log(FLOW_LOG, '✓ Authenticated visitor — skipping auth UI, accepting invitation');
     void accept();
   }, [authLoading, user, state.status, accepting, accept]);
 
-  async function handleContinueInBrowser() {
-    if (!token) return;
-    if (user) {
-      await accept();
-      return;
-    }
+  function handleCreateAccount() {
+    if (!token || !invitation) return;
     const parsedToken = parseInviteToken(token);
     const returnPath = `/invite/${parsedToken}`;
-    storeAuthReturn(returnPath, parsedToken);
-    console.log('[Invitation Acceptance] ✓ Redirecting to sign-in with return', { returnPath });
-    router.push(`/sign-in?return=${encodeURIComponent(returnPath)}`);
+    storeInvitationContext({
+      token: parsedToken,
+      organizationId: invitation.organizationId,
+      invitedEmail: invitation.inviteeEmail,
+      platformRole: invitation.platformRole,
+      professionalRole: invitation.professionalRole,
+      returnUrl: returnPath,
+    });
+    console.log(FLOW_LOG, '· Redirecting to sign-up (primary CTA)', { returnPath });
+    router.push(`/sign-up?return=${encodeURIComponent(returnPath)}`);
   }
 
-  async function handleInstallApp() {
-    if (!token) return;
-    if (user) {
-      await accept();
-      return;
-    }
+  function handleSignIn() {
+    if (!token || !invitation) return;
     const parsedToken = parseInviteToken(token);
     const returnPath = `/invite/${parsedToken}`;
-    storeAuthReturn(returnPath, parsedToken);
-    console.log('[Invitation Acceptance] ✓ Redirecting to sign-up with return', { returnPath });
-    router.push(`/sign-up?return=${encodeURIComponent(returnPath)}`);
+    storeInvitationContext({
+      token: parsedToken,
+      organizationId: invitation.organizationId,
+      invitedEmail: invitation.inviteeEmail,
+      platformRole: invitation.platformRole,
+      professionalRole: invitation.professionalRole,
+      returnUrl: returnPath,
+    });
+    console.log(FLOW_LOG, '· Redirecting to sign-in (secondary CTA)', { returnPath });
+    router.push(`/sign-in?return=${encodeURIComponent(returnPath)}`);
   }
 
   if (authLoading) {
@@ -245,8 +284,8 @@ export default function InvitePage() {
               status={state.status}
               invitation={invitation}
               authenticated={!!user}
-              onInstall={handleInstallApp}
-              onContinue={handleContinueInBrowser}
+              onCreateAccount={handleCreateAccount}
+              onSignIn={handleSignIn}
             />
           )}
 
@@ -264,7 +303,10 @@ export default function InvitePage() {
               <p className="text-sm text-danger-500">{state.message}</p>
               <button
                 type="button"
-                onClick={() => setVerifyAttempt((n) => n + 1)}
+                onClick={() => {
+                  acceptStarted.current = false;
+                  setVerifyAttempt((n) => n + 1);
+                }}
                 className="mt-4 rounded-lg bg-primary-500 px-6 py-2 text-sm font-medium text-surface-0 hover:bg-primary-600 transition-colors"
               >
                 Try Again
@@ -280,30 +322,16 @@ export default function InvitePage() {
 function InvitationCard({
   status,
   invitation,
-  onInstall,
-  onContinue,
+  onCreateAccount,
+  onSignIn,
   authenticated,
 }: {
   status: 'valid' | 'accepting' | 'accepted';
-  invitation: {
-    invitedByName: string;
-    organizationName: string;
-    professionalRole: string;
-    platformRole: string;
-  } | null;
-  onInstall: () => void;
-  onContinue: () => void;
+  invitation: InvitationRecord | null;
+  onCreateAccount: () => void;
+  onSignIn: () => void;
   authenticated: boolean;
 }) {
-  if (status === 'accepting') {
-    return (
-      <div className="flex items-center justify-center gap-3 py-4">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-        <p className="text-sm text-text-400">Accepting invitation...</p>
-      </div>
-    );
-  }
-
   if (status === 'accepted') {
     return (
       <div className="py-4">
@@ -313,7 +341,22 @@ function InvitationCard({
           </svg>
         </div>
         <p className="text-sm text-text-300">You have joined the organization!</p>
-        <p className="mt-2 text-xs text-text-500">Redirecting to dashboard...</p>
+        <p className="mt-2 text-xs text-text-500">Redirecting to your workspace...</p>
+      </div>
+    );
+  }
+
+  // Authenticated visitors skip the CTA UI and auto-accept.
+  if (status === 'accepting' || authenticated) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-4">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <p className="text-sm text-text-400">Accepting invitation...</p>
+        {invitation && (
+          <p className="text-xs text-text-500">
+            Joining {invitation.organizationName} as {invitation.professionalRole || invitation.platformRole}
+          </p>
+        )}
       </div>
     );
   }
@@ -333,24 +376,35 @@ function InvitationCard({
         <Row label="You've been invited by" value={invitation?.invitedByName || '—'} />
         <Row label="Organisation" value={invitation?.organizationName || '—'} />
         <Row label="Professional Role" value={invitation?.professionalRole || '—'} />
-        <Row label="Platform Access" value={invitation?.platformRole ? (PLATFORM_ROLE_LABELS[invitation.platformRole as keyof typeof PLATFORM_ROLE_LABELS] ?? invitation.platformRole) : '—'} />
+        <Row
+          label="Platform Access"
+          value={
+            invitation?.platformRole
+              ? (PLATFORM_ROLE_LABELS[invitation.platformRole as keyof typeof PLATFORM_ROLE_LABELS]
+                ?? invitation.platformRole)
+              : '—'
+          }
+        />
       </dl>
 
       <div className="mt-5 space-y-3">
-        <button onClick={onContinue}
-          className="w-full rounded-lg bg-primary-500 py-2.5 text-sm font-medium text-surface-0 hover:bg-primary-600 transition-colors">
-          {authenticated ? 'Accept Invitation' : 'Sign in to Accept'}
+        {/* UAT-005: Primary = Create Account (invite assumes new user) */}
+        <button
+          type="button"
+          onClick={onCreateAccount}
+          className="w-full rounded-lg bg-primary-500 py-2.5 text-sm font-medium text-surface-0 hover:bg-primary-600 transition-colors"
+        >
+          Create Account &amp; Accept Invitation
         </button>
-        {!authenticated && (
-          <button onClick={onInstall}
-            className="w-full rounded-lg border border-surface-700 bg-surface-800 py-2.5 text-sm font-medium text-text-300 hover:bg-surface-700 transition-colors">
-            Create an Account
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onSignIn}
+          className="w-full rounded-lg border border-surface-700 bg-surface-800 py-2.5 text-sm font-medium text-text-300 hover:bg-surface-700 transition-colors"
+        >
+          Already have a ReleaseFlow account? Sign In
+        </button>
         <p className="text-center text-xs text-text-500">
-          {authenticated
-            ? 'Your organization, role, and access are configured automatically.'
-            : 'Sign in or create an account to accept this invitation.'}
+          Your organization, role, and access are configured automatically from this invitation.
         </p>
       </div>
     </div>

@@ -4,9 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from '@firebase/auth';
+import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, updateProfile } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
-import { consumeAuthReturn, storeAuthReturn } from '@/lib/auth-return';
+import { consumeAuthReturn, storeAuthReturn, hasPendingInvitation, getInvitationContext } from '@/lib/auth-return';
+
+const FLOW_LOG = '[Invitation Flow]';
 
 export default function SignUpPage() {
   const { user, loading } = useAuth();
@@ -23,8 +25,13 @@ export default function SignUpPage() {
     const fromUrl = new URLSearchParams(window.location.search).get('return');
     if (fromUrl) {
       const tokenMatch = fromUrl.match(/^\/invite\/([^/?#]+)/);
-      storeAuthReturn(fromUrl, tokenMatch?.[1]);
-      console.log('[Invitation Acceptance] ✓ Sign-up page captured return URL', { fromUrl });
+      storeAuthReturn(fromUrl, tokenMatch?.[1] ? decodeURIComponent(tokenMatch[1]) : undefined);
+      console.log(FLOW_LOG, '✓ Sign-up page captured return URL', { fromUrl });
+    }
+    // Pre-fill email from invitation context when available.
+    const ctx = getInvitationContext();
+    if (ctx?.invitedEmail) {
+      setEmail(ctx.invitedEmail);
     }
   }, []);
 
@@ -32,7 +39,11 @@ export default function SignUpPage() {
     if (loading || !user || redirected.current) return;
     redirected.current = true;
     const dest = consumeAuthReturn() || '/auth/resolve';
-    console.log('[Invitation Acceptance] ✓ Sign-up auth complete → redirect', { dest, uid: user.uid });
+    console.log(FLOW_LOG, '✓ User authenticated (sign-up)', {
+      dest,
+      uid: user.uid,
+      pendingInvitation: hasPendingInvitation(),
+    });
     router.replace(dest);
   }, [user, loading, router]);
 
@@ -57,7 +68,13 @@ export default function SignUpPage() {
     try {
       const auth = getAuthInstance();
       if (!auth) throw new Error('Auth not initialized');
-      await createUserWithEmailAndPassword(auth, email, password);
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      if (displayName.trim()) {
+        try {
+          await updateProfile(cred.user, { displayName: displayName.trim() });
+        } catch { /* best effort — invitation accept also sets profile */ }
+      }
+      console.log(FLOW_LOG, '✓ Account created', { uid: cred.user.uid });
     } catch {
       setError('Could not create account. The email may already be in use.');
     } finally {

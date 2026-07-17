@@ -490,11 +490,13 @@ export async function acceptInvitationAtomically(
       }
 
       // Step 3: Create/update Person record.
+      // professionalRole is the craft role (e.g. Mixer); platformRole maps to membership.roleId.
+      const personProfessionalRole = professionalRole || platformRole;
       if (existingPersonId) {
         const patch: Record<string, unknown> = { updatedAt: now };
         if (!existingPersonData?.userId) patch.userId = user.uid;
         if (!existingPersonData?.displayName && displayName) patch.displayName = displayName;
-        if (!existingPersonData?.primaryRole) patch.primaryRole = platformRole;
+        if (!existingPersonData?.primaryRole) patch.primaryRole = personProfessionalRole;
         patch.invitationStatus = 'accepted';
         transaction.update(doc(db, 'people', existingPersonId), patch);
       } else {
@@ -504,7 +506,7 @@ export async function acceptInvitationAtomically(
           userId: user.uid,
           email,
           displayName,
-          primaryRole: platformRole,
+          primaryRole: personProfessionalRole,
           status: 'active',
           invitationStatus: 'accepted',
           createdAt: now,
@@ -560,6 +562,11 @@ export async function acceptInvitationAtomically(
         createdAt: now,
       });
 
+      console.log('[Invitation Flow]', '✓ Membership created');
+      console.log('[Invitation Flow]', '✓ Platform role assigned', { platformRole, systemRole });
+      console.log('[Invitation Flow]', '✓ Professional role assigned', { professionalRole: personProfessionalRole });
+      console.log('[Invitation Flow]', '✓ User profile created/updated');
+      console.log('[Invitation Flow]', '✓ Invitation accepted');
       console.log(ACCEPT_LOG, '✓ Transaction writes staged (membership, person, profile, accepted)');
       return {
         ok: true as const,

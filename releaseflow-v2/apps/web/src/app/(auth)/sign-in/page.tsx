@@ -6,7 +6,9 @@ import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
-import { consumeAuthReturn, storeAuthReturn } from '@/lib/auth-return';
+import { consumeAuthReturn, storeAuthReturn, hasPendingInvitation } from '@/lib/auth-return';
+
+const FLOW_LOG = '[Invitation Flow]';
 
 export default function SignInPage() {
   const { user, loading } = useAuth();
@@ -17,14 +19,14 @@ export default function SignInPage() {
   const [submitting, setSubmitting] = useState(false);
   const redirected = useRef(false);
 
-  // Capture return from query into session on mount so sign-up links don't lose it.
+  // Capture return from query into session on mount so invite context survives.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const fromUrl = new URLSearchParams(window.location.search).get('return');
     if (fromUrl) {
       const tokenMatch = fromUrl.match(/^\/invite\/([^/?#]+)/);
-      storeAuthReturn(fromUrl, tokenMatch?.[1]);
-      console.log('[Invitation Acceptance] ✓ Sign-in page captured return URL', { fromUrl });
+      storeAuthReturn(fromUrl, tokenMatch?.[1] ? decodeURIComponent(tokenMatch[1]) : undefined);
+      console.log(FLOW_LOG, '✓ Sign-in page captured return URL', { fromUrl });
     }
   }, []);
 
@@ -32,7 +34,11 @@ export default function SignInPage() {
     if (loading || !user || redirected.current) return;
     redirected.current = true;
     const dest = consumeAuthReturn() || '/auth/resolve';
-    console.log('[Invitation Acceptance] ✓ Auth complete → redirect', { dest, uid: user.uid });
+    console.log(FLOW_LOG, '✓ User authenticated', {
+      dest,
+      uid: user.uid,
+      pendingInvitation: hasPendingInvitation(),
+    });
     router.replace(dest);
   }, [user, loading, router]);
 
