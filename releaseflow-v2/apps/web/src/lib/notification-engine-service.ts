@@ -1,6 +1,8 @@
 /**
- * CE-006 — Public API for the in-app notification experience.
+ * NOT-001 / CE-006 — Public API for the Notification Center (user Inbox).
  * UI and badges use this layer; it never creates business events.
+ *
+ * Business Event → notification_events → processor → user_notifications
  */
 
 import {
@@ -9,14 +11,19 @@ import {
   markUserNotificationRead,
   markAllUserNotificationsRead,
   getUserNotification,
+  subscribeUnreadCount,
   type UserNotificationRecord,
 } from './user-notifications-repository';
 import { processPendingEvents } from './notification-processor';
 import { runDueReminderEngine } from './due-reminder-engine';
-import { resolveDeepLink } from './notification-type-registry';
-import type { QueryDocumentSnapshot, DocumentData } from '@firebase/firestore';
+import {
+  getNotificationCategory,
+  resolveDeepLink,
+  type NotificationCategory,
+} from './notification-type-registry';
+import type { QueryDocumentSnapshot, DocumentData, Unsubscribe } from '@firebase/firestore';
 
-export type { UserNotificationRecord };
+export type { UserNotificationRecord, NotificationCategory };
 
 export async function refreshNotificationPipeline(
   organizationId: string,
@@ -40,9 +47,19 @@ export async function fetchInbox(
     organizationId?: string;
     pageSize?: number;
     cursor?: QueryDocumentSnapshot<DocumentData>;
+    /** NOT-001 — client-side category filter after fetch */
+    category?: NotificationCategory | 'all';
   },
 ) {
-  return listUserNotifications(userId, opts);
+  const page = await listUserNotifications(userId, opts);
+  if (!opts?.category || opts.category === 'all') return page;
+  const filtered = page.notifications.filter(
+    (n) => getNotificationCategory(n.type) === opts.category,
+  );
+  return {
+    ...page,
+    notifications: filtered,
+  };
 }
 
 export async function fetchUnreadBadgeCount(
@@ -50,6 +67,15 @@ export async function fetchUnreadBadgeCount(
   organizationId?: string,
 ): Promise<number> {
   return getUnreadUserNotificationCount(userId, organizationId);
+}
+
+/** Live badge — prefer over poll when Firestore is available. */
+export function subscribeInboxUnread(
+  userId: string,
+  onCount: (count: number) => void,
+  organizationId?: string,
+): Unsubscribe {
+  return subscribeUnreadCount(userId, onCount, organizationId);
 }
 
 export async function markNotificationAsRead(
@@ -69,21 +95,38 @@ export async function markAllNotificationsAsRead(
   return markAllUserNotificationsRead(userId, organizationId);
 }
 
+/**
+ * NOT-001 deep link — contextual destination (assignment tab / release / track).
+ */
 export function notificationHref(n: UserNotificationRecord): string {
-  // MUX-002.6 — open context, not a generic dead-end
   if (n.assignmentId) {
     const isComment =
       typeof n.type === 'string'
       && (n.type.includes('comment') || n.type.includes('mention'));
-    return isComment
-      ? `/assignments/${n.assignmentId}?tab=comments`
-      : `/assignments/${n.assignmentId}`;
+    const isReview =
+      typeof n.type === 'string' && n.type.startsWith('review.');
+    if (isComment) return `/assignments/${n.assignmentId}?tab=comments`;
+    if (isReview && (n.type.includes('requested') || n.type.includes('rejected') || n.type.includes('changes'))) {
+      return `/assignments/${n.assignmentId}?tab=review`;
+    }
+    return `/assignments/${n.assignmentId}`;
   }
   if (n.entityType === 'assignment' && n.entityId) {
-    return `/assignments/${n.entityId}`;
+    return resolveDeepLink(n.type, n.entityType, n.entityId);
   }
   if (n.entityType === 'release' && n.entityId) {
     return `/releases/${n.entityId}`;
   }
+  if (n.entityType === 'track' && n.entityId) {
+    return `/tracks/${n.entityId}`;
+  }
   return resolveDeepLink(n.type, n.entityType, n.entityId);
+}
+
+export function filterNotificationsByCategory(
+  items: UserNotificationRecord[],
+  category: NotificationCategory | 'all',
+): UserNotificationRecord[] {
+  if (category === 'all') return items;
+  return items.filter((n) => getNotificationCategory(n.type) === category);
 }

@@ -79,12 +79,13 @@ export function NotificationPreferencesPanel() {
           ))}
         </div>
         <p className="text-xs text-text-500 mt-2">
-          Email and push are queued only — delivery providers are configured in a later release.
+          In-app is your Inbox. Email is sent only for important events when enabled.
+          Push is queued for FCM delivery when enabled and a device is registered.
         </p>
       </div>
 
       <div>
-        <p className="text-xs text-text-500 uppercase tracking-widest mb-3">Event types</p>
+        <p className="text-xs text-text-500 uppercase tracking-widest mb-3">Categories</p>
         <div className="space-y-3">
           {PREF_KEYS.map((key) => (
             <label key={key} className="flex items-center justify-between gap-3 text-sm text-surface-100">

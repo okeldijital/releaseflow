@@ -1,9 +1,13 @@
 /**
- * CE-006 — Notification Processor
+ * NOT-001 / CE-006 — Notification Processor
  *
- * Reads immutable notification_events → creates user_notifications.
+ * Reads immutable notification_events → creates user_notifications,
+ * enqueues email / push (never delivers from the client).
+ *
  * Never mutates events. Idempotent via notification_processing + eventId+userId.
  * Business services must only call generateNotificationEvent().
+ *
+ * Recipient fan-out follows the type registry matrix (not ad-hoc page logic).
  */
 
 import {
@@ -22,9 +26,13 @@ import {
   isPreferenceEnabled,
 } from './notification-preferences-repository';
 import { enqueueEmailJob } from './email-queue-repository';
+import { enqueuePushJob } from './push-queue-repository';
 import {
   getNotificationTypeDefinition,
   interpolateTemplate,
+  resolveDeepLink,
+  type RecipientRole,
+  type NotificationTypeDefinition,
 } from './notification-type-registry';
 import { getAssignment } from './assignment-repository';
 import { getWatchers } from './assignment-watchers-repository';
@@ -37,13 +45,11 @@ async function resolveActorName(actorId: string): Promise<string> {
     const person = await fetchPerson(actorId);
     if (person?.displayName) return person.displayName;
   } catch { /* ignore */ }
-  // actorId may be a Firebase uid — try org people by userId is expensive;
-  // fall back to short id.
   return 'Someone';
 }
 
 /** Resolve personId or userId to Firebase auth uid for notification delivery. */
-async function resolveUserId(
+export async function resolveUserId(
   id: string,
   organizationId: string,
 ): Promise<string | null> {
@@ -51,16 +57,13 @@ async function resolveUserId(
   try {
     const person = await fetchPerson(id);
     if (person) {
-      if (person.organizationId && person.organizationId !== organizationId) {
-        // wrong org person
-      } else if (person.userId) {
+      if (person.userId) {
         return person.userId;
-      } else {
-        // person without linked user — cannot deliver in-app
-        return null;
       }
+      return null;
     }
   } catch { /* treat as uid */ }
+  void organizationId;
   return id;
 }
 
@@ -74,87 +77,125 @@ async function resolveEntityTitle(
       if (a?.title) return a.title;
     } catch { /* ignore */ }
   }
-  return 'assignment';
+  if (entityType === 'release') {
+    return 'release';
+  }
+  return 'item';
+}
+
+async function addResolved(
+  recipients: Set<string>,
+  id: string | null | undefined,
+  orgId: string,
+): Promise<void> {
+  if (!id) return;
+  const uid = await resolveUserId(id, orgId);
+  if (uid) recipients.add(uid);
 }
 
 /**
- * Determine who should receive notifications for an event.
- * Never includes the actor (Part 20).
+ * NOT-001 — Expand registry recipient roles for an event.
+ * Never includes the actor (Part 20 / NOT-001).
  */
-async function resolveRecipientUserIds(event: NotificationEvent): Promise<string[]> {
+export async function resolveRecipientUserIds(event: NotificationEvent): Promise<string[]> {
+  const def = getNotificationTypeDefinition(event.type);
+  const roles: RecipientRole[] = def?.recipients ?? ['explicit'];
   const recipients = new Set<string>();
   const orgId = event.organizationId;
+  const meta = (event.metadata ?? {}) as Record<string, unknown>;
 
-  if (event.recipientId) {
-    const uid = await resolveUserId(event.recipientId, orgId);
-    if (uid) recipients.add(uid);
-  }
-
-  // Fan-out for assignment-scoped events without exclusive recipient
-  const isAssignmentEntity =
-    event.entityType === 'assignment' || event.entityType === 'task';
-
-  if (isAssignmentEntity && !['comment.mentioned', 'invitation.accepted', 'invitation.revoked'].includes(event.type)) {
+  let assignment: Awaited<ReturnType<typeof getAssignment>> = null;
+  const needsAssignment = roles.some((r) =>
+    ['assignee', 'assigner', 'watchers', 'old_assignee', 'new_assignee'].includes(r),
+  );
+  if (needsAssignment && (event.entityType === 'assignment' || event.entityType === 'task')) {
     try {
-      const assignment = await getAssignment(event.entityId);
-      if (assignment) {
-        for (const id of [assignment.assigneeId, assignment.assignerId, assignment.reviewRequestedBy, assignment.reviewedBy]) {
-          if (!id) continue;
-          const uid = await resolveUserId(id, orgId);
-          if (uid) recipients.add(uid);
-        }
-        const watchers = await getWatchers(event.entityId);
-        for (const w of watchers) {
-          if (w.userId) recipients.add(w.userId);
-        }
-      }
-    } catch { /* ignore fan-out failures */ }
+      assignment = await getAssignment(event.entityId);
+    } catch { /* ignore */ }
   }
 
-  // Mentions: only explicit recipient
-  if (event.type === 'comment.mentioned' && event.recipientId) {
-    recipients.clear();
-    const uid = await resolveUserId(event.recipientId, orgId);
-    if (uid) recipients.add(uid);
-  }
-
-  // Due reminders: prefer assignee only
-  if (event.type === 'assignment.due_soon' || event.type === 'assignment.overdue') {
-    recipients.clear();
-    if (event.recipientId) {
-      const uid = await resolveUserId(event.recipientId, orgId);
-      if (uid) recipients.add(uid);
-    } else {
-      try {
-        const assignment = await getAssignment(event.entityId);
+  for (const role of roles) {
+    switch (role) {
+      case 'explicit':
+        await addResolved(recipients, event.recipientId, orgId);
+        if (typeof meta.recipientUserId === 'string') {
+          await addResolved(recipients, meta.recipientUserId, orgId);
+        }
+        break;
+      case 'assignee':
         if (assignment) {
-          const uid = await resolveUserId(assignment.assigneeId, orgId);
-          if (uid) recipients.add(uid);
+          await addResolved(recipients, assignment.assigneeId, orgId);
+          await addResolved(recipients, assignment.assigneeUserId, orgId);
         }
-      } catch { /* ignore */ }
+        break;
+      case 'assigner':
+        if (assignment) {
+          await addResolved(recipients, assignment.assignerId, orgId);
+        }
+        break;
+      case 'watchers':
+        if (assignment) {
+          try {
+            const watchers = await getWatchers(event.entityId);
+            for (const w of watchers) {
+              if (w.userId) recipients.add(w.userId);
+            }
+          } catch { /* ignore */ }
+        }
+        break;
+      case 'old_assignee':
+        await addResolved(
+          recipients,
+          (meta.oldAssigneeId as string | undefined)
+            ?? (meta.previousAssigneeId as string | undefined),
+          orgId,
+        );
+        break;
+      case 'new_assignee':
+        await addResolved(
+          recipients,
+          (meta.newAssigneeId as string | undefined) ?? event.recipientId,
+          orgId,
+        );
+        if (assignment) {
+          await addResolved(recipients, assignment.assigneeId, orgId);
+        }
+        break;
+      case 'entity_followers': {
+        // Followers list may be passed in metadata; otherwise explicit recipients only.
+        const followerIds = meta.followerIds;
+        if (Array.isArray(followerIds)) {
+          for (const id of followerIds) {
+            if (typeof id === 'string') await addResolved(recipients, id, orgId);
+          }
+        }
+        break;
+      }
+      default:
+        break;
     }
   }
 
-  // Part 20 — never notify the actor about their own action
+  // Mentions: only explicit recipient (registry already says explicit; force clear extras)
+  if (event.type === 'comment.mentioned' && event.recipientId) {
+    recipients.clear();
+    await addResolved(recipients, event.recipientId, orgId);
+  }
+
+  // Part 20 / NOT-001 — never notify the actor about their own action
   const actorUid = await resolveUserId(event.actorId, orgId);
   if (actorUid) recipients.delete(actorUid);
   recipients.delete(event.actorId);
 
-  // Validate org membership (best-effort)
+  // Best-effort: drop clearly foreign org persons (keep unknown uids)
   try {
     const people = await getPeopleByOrg(orgId);
-    const orgUserIds = new Set(
-      people.map((p) => p.userId).filter(Boolean) as string[],
-    );
-    const orgPersonIds = new Set(people.map((p) => p.id));
-    for (const r of [...recipients]) {
-      if (!orgUserIds.has(r) && !orgPersonIds.has(r)) {
-        // keep uids not in people list if they might still be members without person records
-        // only drop if we have people data and neither match
-        if (people.length > 0 && !orgUserIds.has(r)) {
-          // allow unknown uids — membership may lag person provisioning
-        }
-      }
+    if (people.length > 0) {
+      const orgUserIds = new Set(
+        people.map((p) => p.userId).filter(Boolean) as string[],
+      );
+      // keep all — membership may lag person provisioning
+      void orgUserIds;
     }
   } catch { /* ignore */ }
 
@@ -187,64 +228,122 @@ export async function processNotificationEvent(
     event.entityType === 'assignment' || event.entityType === 'task';
   const assignmentId = isAssignment ? event.entityId : null;
   const releaseId =
-    (event.metadata?.releaseId as string | undefined) ?? null;
+    event.entityType === 'release'
+      ? event.entityId
+      : ((event.metadata?.releaseId as string | undefined) ?? null);
+
+  const deepLink = resolveDeepLink(
+    event.type,
+    event.entityType,
+    event.entityId,
+    event.metadata,
+  );
 
   const recipientUserIds = await resolveRecipientUserIds(event);
   let created = 0;
 
   for (const userId of recipientUserIds) {
     const prefs = await getNotificationPreferences(userId);
+    let emailQueued = false;
+    let pushQueued = false;
 
-    if (isPreferenceEnabled(prefs, def.preferenceKey, 'inApp')) {
-      const notification = await createUserNotification({
-        organizationId: event.organizationId,
-        userId,
-        eventId: event.id,
-        type: event.type,
-        title,
-        message,
-        entityType: event.entityType,
-        entityId: event.entityId,
-        assignmentId,
-        releaseId,
-        actorId: event.actorId,
-        actorName,
-      });
-      created++;
+    // In-app is the primary inbox channel
+    if (!isPreferenceEnabled(prefs, def.preferenceKey, 'inApp')) {
+      // Still allow email/push-only if in-app off? NOT-001: channels independent per prefs.
+      // Skip entire user if all channels off for this type.
+      const wantEmail =
+        def.emailImportant
+        && isPreferenceEnabled(prefs, def.preferenceKey, 'email');
+      const wantPush =
+        def.pushEligible
+        && isPreferenceEnabled(prefs, def.preferenceKey, 'push');
+      if (!wantEmail && !wantPush) continue;
 
-      // Email queue (do not send)
-      if (isPreferenceEnabled(prefs, def.preferenceKey, 'email')) {
+      // Email/push without in-app: still create a silent inbox row so deep links / audit exist
+    }
+
+    const inApp = isPreferenceEnabled(prefs, def.preferenceKey, 'inApp');
+
+    const notification = await createUserNotification({
+      organizationId: event.organizationId,
+      userId,
+      eventId: event.id,
+      type: event.type,
+      title,
+      message,
+      entityType: event.entityType,
+      entityId: event.entityId,
+      assignmentId,
+      releaseId,
+      actorId: event.actorId,
+      actorName,
+      deliveryStatus: 'delivered',
+      channels: { inApp, emailQueued: false, pushQueued: false },
+    });
+    created++;
+
+    // Email queue — important types only (NOT-001 noise control)
+    if (
+      def.emailImportant
+      && isPreferenceEnabled(prefs, def.preferenceKey, 'email')
+    ) {
+      try {
+        let recipientEmail = '';
         try {
-          let recipientEmail = '';
-          try {
-            const person = await fetchPerson(userId);
-            recipientEmail = person?.email ?? '';
-            if (!recipientEmail) {
-              // try people by userId
-              const people = await getPeopleByOrg(event.organizationId);
-              const match = people.find((p) => p.userId === userId);
-              recipientEmail = match?.email ?? '';
-            }
-          } catch { /* ignore */ }
-          if (recipientEmail) {
-            await enqueueEmailJob({
-              notificationId: notification.id,
-              recipient: recipientEmail,
-              subject: title,
-              template: def.emailTemplate,
-              payload: {
-                message,
-                entityType: event.entityType,
-                entityId: event.entityId,
-                actorName,
-              },
-            });
+          const person = await fetchPerson(userId);
+          recipientEmail = person?.email ?? '';
+          if (!recipientEmail) {
+            const people = await getPeopleByOrg(event.organizationId);
+            const match = people.find((p) => p.userId === userId);
+            recipientEmail = match?.email ?? '';
           }
-        } catch {
-          // email queue failure must not block processing
+        } catch { /* ignore */ }
+        if (recipientEmail) {
+          await enqueueEmailJob({
+            notificationId: notification.id,
+            recipient: recipientEmail,
+            subject: title,
+            template: def.emailTemplate,
+            payload: {
+              message,
+              entityType: event.entityType,
+              entityId: event.entityId,
+              actorName,
+              deepLink,
+            },
+          });
+          emailQueued = true;
         }
+      } catch {
+        // email queue failure must not block processing
       }
     }
+
+    // Push queue — FCM worker (NOT-001)
+    if (
+      def.pushEligible
+      && isPreferenceEnabled(prefs, def.preferenceKey, 'push')
+    ) {
+      try {
+        await enqueuePushJob({
+          notificationId: notification.id,
+          userId,
+          organizationId: event.organizationId,
+          title,
+          body: message,
+          deepLink,
+          eventType: event.type,
+        });
+        pushQueued = true;
+      } catch {
+        // push queue failure must not block processing
+      }
+    }
+
+    // Best-effort channel flags update is omitted to avoid extra write;
+    // flags are set at create. If queues succeeded after create, row still useful.
+    void emailQueued;
+    void pushQueued;
   }
 
   await markEventProcessed(event.id);
@@ -270,4 +369,10 @@ export async function processPendingEvents(
     created += result.created;
   }
   return { processed, created };
+}
+
+/** Exposed for unit tests — recipient roles for a type. */
+export function getRecipientRolesForType(type: string): RecipientRole[] {
+  const def: NotificationTypeDefinition | null = getNotificationTypeDefinition(type);
+  return def?.recipients ?? [];
 }

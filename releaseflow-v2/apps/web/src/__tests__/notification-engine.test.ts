@@ -32,9 +32,9 @@ describe('CE-006 notification type registry', () => {
     expect(msg).toBe('Sarah mentioned you on Mix vocals');
   });
 
-  it('deep-links assignments to /assignments/{id}', () => {
+  it('deep-links assignments to /assignments/{id} with contextual tabs', () => {
     expect(resolveDeepLink('review.approved', 'assignment', 'a1')).toBe('/assignments/a1');
-    expect(resolveDeepLink('comment.created', 'task', 'a2')).toBe('/assignments/a2');
+    expect(resolveDeepLink('comment.created', 'task', 'a2')).toBe('/assignments/a2?tab=comments');
   });
 
   it('has default preference flags for all keys', () => {
@@ -80,7 +80,9 @@ describe('CE-006 module surfaces', () => {
       isRead: false,
       readAt: null,
       createdAt: {} as never,
-    })).toBe('/assignments/a9');
+      deliveryStatus: 'delivered',
+      channels: { inApp: true, emailQueued: false, pushQueued: false },
+    })).toBe('/assignments/a9?tab=comments');
   });
 
   it('exports email queue and push infra', async () => {

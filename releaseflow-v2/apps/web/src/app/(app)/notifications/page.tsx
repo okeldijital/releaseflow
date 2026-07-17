@@ -10,9 +10,14 @@ import {
   markAllNotificationsAsRead,
   notificationHref,
   refreshNotificationPipeline,
+  filterNotificationsByCategory,
   type UserNotificationRecord,
 } from '@/lib/notification-engine-service';
-import { getNotificationTypeDefinition } from '@/lib/notification-type-registry';
+import {
+  getNotificationTypeDefinition,
+  INBOX_FILTERS,
+  type NotificationCategory,
+} from '@/lib/notification-type-registry';
 import {
   Avatar, Button, EmptyState, LoadingState,
 } from '@releaseflow/ui';
@@ -65,6 +70,7 @@ function TypeIcon({ type }: { type: string }) {
     watcher: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
     due: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
     invitation: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+    release: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
     system: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   };
   const d = paths[kind] ?? paths.system;
@@ -130,6 +136,7 @@ export default function NotificationsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [filter, setFilter] = useState<NotificationCategory | 'all'>('all');
   const [pullY, setPullY] = useState(0);
   const touchStart = useRef<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -237,10 +244,12 @@ export default function NotificationsPage() {
     setPullY(0);
   };
 
+  const visible = filterNotificationsByCategory(items, filter);
+
   const grouped = {
-    today: items.filter((n) => sectionFor(n.createdAt) === 'today'),
-    yesterday: items.filter((n) => sectionFor(n.createdAt) === 'yesterday'),
-    earlier: items.filter((n) => sectionFor(n.createdAt) === 'earlier'),
+    today: visible.filter((n) => sectionFor(n.createdAt) === 'today'),
+    yesterday: visible.filter((n) => sectionFor(n.createdAt) === 'yesterday'),
+    earlier: visible.filter((n) => sectionFor(n.createdAt) === 'earlier'),
   };
 
   const titleCount = unreadCount > 0 ? ` (${unreadCount})` : '';
@@ -256,10 +265,12 @@ export default function NotificationsPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">
-              Notifications{titleCount}
+              Inbox{titleCount}
             </h1>
             <p className="mt-0.5 text-sm text-text-400">
-              {unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}
+              {unreadCount > 0
+                ? `${unreadCount} unread — operational updates that need attention`
+                : "You're all caught up"}
             </p>
           </div>
           {unreadCount > 0 ? (
@@ -268,6 +279,37 @@ export default function NotificationsPage() {
             </Button>
           ) : null}
         </div>
+
+        {/* NOT-001 category filters */}
+        <div
+          className="flex gap-1.5 mt-3 overflow-x-auto pb-1 -mx-0.5 px-0.5 scrollbar-none"
+          role="tablist"
+          aria-label="Filter notifications"
+        >
+          {INBOX_FILTERS.map((f) => {
+            const active = filter === f.id;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setFilter(f.id)}
+                className={`
+                  shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40
+                  ${active
+                    ? 'bg-primary-500/20 text-primary-300 border border-primary-500/40'
+                    : 'bg-surface-800/80 text-text-400 border border-transparent hover:text-surface-100'
+                  }
+                `}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+
         {pullY > 0 ? (
           <p className="text-xs text-text-500 text-center mt-2">
             {pullY > 50 ? 'Release to refresh' : 'Pull to refresh'}
@@ -278,10 +320,14 @@ export default function NotificationsPage() {
       <div ref={listRef} className="space-y-6">
         {loading ? (
           <div className="flex justify-center py-20"><LoadingState /></div>
-        ) : items.length === 0 ? (
+        ) : visible.length === 0 ? (
           <EmptyState
-            title="You're all caught up."
-            description="No new notifications."
+            title={filter === 'all' ? "You're all caught up." : 'Nothing in this filter.'}
+            description={
+              filter === 'all'
+                ? 'Assignment, release, and comment updates appear here.'
+                : 'Try another filter or check back after new activity.'
+            }
           />
         ) : (
           <>
@@ -300,7 +346,7 @@ export default function NotificationsPage() {
                 </section>
               );
             })}
-            {hasMore ? (
+            {hasMore && filter === 'all' ? (
               <div className="flex justify-center pt-2">
                 <Button
                   size="sm"

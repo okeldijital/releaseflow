@@ -1,9 +1,17 @@
 import {
   doc, getDoc, getDocs, addDoc, updateDoc, writeBatch,
   collection, query, where, orderBy, limit, startAfter, Timestamp,
-  type QueryDocumentSnapshot, type DocumentData,
+  onSnapshot,
+  type QueryDocumentSnapshot, type DocumentData, type Unsubscribe,
 } from '@firebase/firestore';
 import { getDb } from './firebase';
+
+/** NOT-001 deliveryStatus — in-app row is always "delivered" once written. */
+export type NotificationDeliveryStatus =
+  | 'pending'
+  | 'delivered'
+  | 'failed'
+  | 'partial';
 
 export interface UserNotificationRecord {
   id: string;
@@ -22,6 +30,14 @@ export interface UserNotificationRecord {
   isRead: boolean;
   readAt: Timestamp | null;
   createdAt: Timestamp;
+  /** NOT-001 — overall multi-channel status for this inbox row */
+  deliveryStatus: NotificationDeliveryStatus;
+  /** Channels attempted / queued for this notification */
+  channels: {
+    inApp: boolean;
+    emailQueued: boolean;
+    pushQueued: boolean;
+  };
 }
 
 export interface CreateUserNotificationFields {
@@ -37,9 +53,20 @@ export interface CreateUserNotificationFields {
   releaseId?: string | null;
   actorId: string;
   actorName: string;
+  deliveryStatus?: NotificationDeliveryStatus;
+  channels?: {
+    inApp?: boolean;
+    emailQueued?: boolean;
+    pushQueued?: boolean;
+  };
 }
 
 function toRecord(id: string, data: Record<string, unknown>): UserNotificationRecord {
+  const channels = (data.channels as UserNotificationRecord['channels'] | undefined) ?? {
+    inApp: true,
+    emailQueued: false,
+    pushQueued: false,
+  };
   return {
     id,
     organizationId: data.organizationId as string,
@@ -57,6 +84,12 @@ function toRecord(id: string, data: Record<string, unknown>): UserNotificationRe
     isRead: (data.isRead as boolean) ?? false,
     readAt: (data.readAt as Timestamp | null) ?? null,
     createdAt: data.createdAt as Timestamp,
+    deliveryStatus: (data.deliveryStatus as NotificationDeliveryStatus) ?? 'delivered',
+    channels: {
+      inApp: channels.inApp ?? true,
+      emailQueued: channels.emailQueued ?? false,
+      pushQueued: channels.pushQueued ?? false,
+    },
   };
 }
 
@@ -89,6 +122,11 @@ export async function createUserNotification(
   const db = getDb();
   if (!db) throw new Error('Firestore not initialized');
   const now = Timestamp.now();
+  const channels = {
+    inApp: fields.channels?.inApp ?? true,
+    emailQueued: fields.channels?.emailQueued ?? false,
+    pushQueued: fields.channels?.pushQueued ?? false,
+  };
   const data = {
     organizationId: fields.organizationId,
     userId: fields.userId,
@@ -105,6 +143,8 @@ export async function createUserNotification(
     isRead: false,
     readAt: null,
     createdAt: now,
+    deliveryStatus: fields.deliveryStatus ?? 'delivered',
+    channels,
   };
   const ref = await addDoc(collection(db, 'user_notifications'), data);
   return toRecord(ref.id, { ...data, id: ref.id });
@@ -223,4 +263,41 @@ export async function markAllUserNotificationsRead(
   }
   if (count > 0) await batch.commit();
   return count;
+}
+
+/**
+ * NOT-001 — live unread count for badge (no 60s-only lag).
+ * Filters org client-side when organizationId is provided.
+ */
+export function subscribeUnreadCount(
+  userId: string,
+  onCount: (count: number) => void,
+  organizationId?: string,
+): Unsubscribe {
+  const db = getDb();
+  if (!db || !userId) {
+    onCount(0);
+    return () => {};
+  }
+  return onSnapshot(
+    query(
+      collection(db, 'user_notifications'),
+      where('userId', '==', userId),
+      where('isRead', '==', false),
+    ),
+    (snap) => {
+      if (!organizationId) {
+        onCount(snap.size);
+        return;
+      }
+      onCount(
+        snap.docs.filter(
+          (d) => (d.data() as { organizationId?: string }).organizationId === organizationId,
+        ).length,
+      );
+    },
+    () => {
+      // keep last known via no-op; caller may poll as fallback
+    },
+  );
 }

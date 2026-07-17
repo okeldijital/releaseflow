@@ -483,6 +483,7 @@ export async function fetchAssignmentsByAssignee(personId: string, orgId?: strin
 export async function assignUserToAssignment(assignmentId: string, assigneeId: string, actorId: string): Promise<void> {
   const existing = await repoGet(assignmentId);
   if (!existing) throw new Error('Assignment not found');
+  const oldAssigneeId = existing.assigneeId;
   await repoAssignUser(assignmentId, assigneeId);
 
   await recordActivity({
@@ -492,6 +493,31 @@ export async function assignUserToAssignment(assignmentId: string, assigneeId: s
     actorId,
     action: 'reassigned',
     details: `Reassigned to ${assigneeId}`,
+  });
+
+  // NOT-001 — reassignment notifies old + new assignee + assigner
+  await generateNotificationEvent({
+    type: 'assignment.reassigned',
+    organizationId: existing.organizationId,
+    actorId,
+    recipientId: assigneeId,
+    entityId: assignmentId,
+    entityType: 'assignment',
+    metadata: {
+      oldAssigneeId,
+      newAssigneeId: assigneeId,
+      previousAssigneeId: oldAssigneeId,
+    },
+  });
+  try {
+    await processPendingEvents(existing.organizationId, 20);
+  } catch (err) {
+    console.error('[assignments] processPendingEvents after reassign failed', err);
+  }
+  emitAssignmentsChanged({
+    organizationId: existing.organizationId,
+    assignmentId,
+    reason: 'updated',
   });
 }
 
@@ -520,6 +546,11 @@ export async function acceptUserAssignment(assignmentId: string, actorId: string
     entityId: assignmentId,
     entityType: 'assignment',
   });
+  try {
+    await processPendingEvents(existing.organizationId, 20);
+  } catch (err) {
+    console.error('[assignments] processPendingEvents after accept failed', err);
+  }
 }
 
 export async function declineUserAssignment(assignmentId: string, actorId: string, reason?: string): Promise<void> {
@@ -554,6 +585,26 @@ export async function completeUserAssignment(assignmentId: string, actorId: stri
     action: 'completed',
     details: 'Assignment completed',
   });
+
+  // NOT-001 — assigner + watchers
+  await generateNotificationEvent({
+    type: 'assignment.completed',
+    organizationId: existing.organizationId,
+    actorId,
+    recipientId: existing.assignerId,
+    entityId: assignmentId,
+    entityType: 'assignment',
+  });
+  try {
+    await processPendingEvents(existing.organizationId, 20);
+  } catch (err) {
+    console.error('[assignments] processPendingEvents after complete failed', err);
+  }
+  emitAssignmentsChanged({
+    organizationId: existing.organizationId,
+    assignmentId,
+    reason: 'updated',
+  });
 }
 
 export async function markAsStarted(assignmentId: string, actorId: string): Promise<void> {
@@ -581,6 +632,11 @@ export async function markAsStarted(assignmentId: string, actorId: string): Prom
     entityId: assignmentId,
     entityType: 'assignment',
   });
+  try {
+    await processPendingEvents(existing.organizationId, 20);
+  } catch (err) {
+    console.error('[assignments] processPendingEvents after start failed', err);
+  }
 }
 
 export async function submitForReviewAssignment(assignmentId: string, actorId: string): Promise<void> {
@@ -777,6 +833,25 @@ export async function archiveUserAssignment(assignmentId: string, actorId: strin
     actorId,
     action: 'archived',
     details: 'Assignment archived',
+  });
+
+  // NOT-001 — watchers
+  await generateNotificationEvent({
+    type: 'assignment.archived',
+    organizationId: existing.organizationId,
+    actorId,
+    entityId: assignmentId,
+    entityType: 'assignment',
+  });
+  try {
+    await processPendingEvents(existing.organizationId, 20);
+  } catch (err) {
+    console.error('[assignments] processPendingEvents after archive failed', err);
+  }
+  emitAssignmentsChanged({
+    organizationId: existing.organizationId,
+    assignmentId,
+    reason: 'updated',
   });
 }
 

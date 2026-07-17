@@ -1,14 +1,28 @@
 /**
- * CE-006 — Notification type registry.
+ * NOT-001 / CE-006 — Notification type registry.
  *
  * Future types extend this registry. UI and processor resolve labels/icons
  * via lookup — no hardcoded switch statements for presentation.
+ *
+ * Notifications are derived from domain events. Pages never author them.
  */
+
+/** Inbox filter categories (Notification Center). */
+export type NotificationCategory =
+  | 'assignment'
+  | 'release'
+  | 'comment'
+  | 'review'
+  | 'schedule'
+  | 'system';
 
 export type NotificationRegistryKey =
   | 'assignment.assigned'
   | 'assignment.accepted'
   | 'assignment.started'
+  | 'assignment.completed'
+  | 'assignment.reassigned'
+  | 'assignment.archived'
   | 'comment.created'
   | 'comment.reply'
   | 'comment.mentioned'
@@ -26,14 +40,23 @@ export type NotificationRegistryKey =
   | 'assignment.conflict'
   | 'assignment.due_today'
   | 'assignment.due_tomorrow'
+  | 'release.created'
+  | 'release.date_changed'
+  | 'release.approved'
+  | 'release.published'
+  | 'release.delayed'
   | 'release.ready'
   | 'release.not_ready'
   | 'release.readiness_changed'
   | 'release.blocker_added';
 
-/** Preference toggle keys (user-configurable). */
+/**
+ * Preference toggle keys (user-configurable).
+ * NOT-001: per-category gates; channel master switches live on preferences record.
+ */
 export type PreferenceKey =
   | 'assignmentAssigned'
+  | 'assignmentLifecycle'
   | 'commentMention'
   | 'commentReply'
   | 'reviewRequested'
@@ -41,7 +64,21 @@ export type PreferenceKey =
   | 'dueReminder'
   | 'overdueReminder'
   | 'invitationAccepted'
-  | 'invitationRevoked';
+  | 'invitationRevoked'
+  | 'releaseUpdates';
+
+/**
+ * Who should receive this event (before excluding actor).
+ * Processor expands roles against the assignment / event metadata.
+ */
+export type RecipientRole =
+  | 'assignee'
+  | 'assigner'
+  | 'watchers'
+  | 'old_assignee'
+  | 'new_assignee'
+  | 'explicit'
+  | 'entity_followers';
 
 export interface NotificationTypeDefinition {
   key: NotificationRegistryKey;
@@ -51,15 +88,38 @@ export interface NotificationTypeDefinition {
   message: string;
   /** Preference gate; if falsey prefs skip channel. */
   preferenceKey: PreferenceKey;
+  /** Inbox filter category. */
+  category: NotificationCategory;
   /** Lucide-style path or icon token for UI. */
-  icon: 'assignment' | 'comment' | 'mention' | 'review' | 'watcher' | 'due' | 'invitation' | 'system';
-  /** Email template id for future worker. */
+  icon: 'assignment' | 'comment' | 'mention' | 'review' | 'watcher' | 'due' | 'invitation' | 'system' | 'release';
+  /** Email template id for worker. */
   emailTemplate: string;
-  deepLink: (entityType: string, entityId: string) => string;
+  /**
+   * When true, email may be enqueued if user enabled email for this type.
+   * When false, email is skipped even if channel master is on (noise control).
+   */
+  emailImportant: boolean;
+  /** Push is eligible when user enabled push (FCM worker). */
+  pushEligible: boolean;
+  /** Recipient roles for fan-out (NOT-001 matrix). */
+  recipients: RecipientRole[];
+  deepLink: (entityType: string, entityId: string, metadata?: Record<string, unknown> | null) => string;
 }
 
 function assignmentLink(_entityType: string, entityId: string): string {
   return `/assignments/${entityId}`;
+}
+
+function assignmentCommentsLink(_entityType: string, entityId: string): string {
+  return `/assignments/${entityId}?tab=comments`;
+}
+
+function assignmentReviewLink(_entityType: string, entityId: string): string {
+  return `/assignments/${entityId}?tab=review`;
+}
+
+function releaseLink(_entityType: string, entityId: string): string {
+  return `/releases/${entityId}`;
 }
 
 function peopleLink(_entityType: string, entityId: string): string {
@@ -77,128 +137,223 @@ function genericLink(entityType: string, entityId: string): string {
 export const NOTIFICATION_TYPE_REGISTRY: Record<NotificationRegistryKey, NotificationTypeDefinition> = {
   'assignment.assigned': {
     key: 'assignment.assigned',
-    title: 'Assignment Assigned',
+    title: 'New Assignment',
     message: '{actor} assigned you: {entity}',
     preferenceKey: 'assignmentAssigned',
+    category: 'assignment',
     icon: 'assignment',
     emailTemplate: 'assignment_assigned',
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['assignee', 'explicit'],
     deepLink: assignmentLink,
   },
   'assignment.accepted': {
     key: 'assignment.accepted',
     title: 'Assignment Accepted',
-    message: '{actor} accepted the assignment',
-    preferenceKey: 'assignmentAssigned',
+    message: '{actor} accepted: {entity}',
+    preferenceKey: 'assignmentLifecycle',
+    category: 'assignment',
     icon: 'assignment',
     emailTemplate: 'assignment_accepted',
+    emailImportant: false,
+    pushEligible: true,
+    recipients: ['assigner', 'watchers'],
     deepLink: assignmentLink,
   },
   'assignment.started': {
     key: 'assignment.started',
     title: 'Assignment Started',
-    message: '{actor} started working on the assignment',
-    preferenceKey: 'assignmentAssigned',
+    message: '{actor} started: {entity}',
+    preferenceKey: 'assignmentLifecycle',
+    category: 'assignment',
     icon: 'assignment',
     emailTemplate: 'assignment_started',
+    emailImportant: false,
+    pushEligible: true,
+    recipients: ['assigner', 'watchers'],
+    deepLink: assignmentLink,
+  },
+  'assignment.completed': {
+    key: 'assignment.completed',
+    title: 'Assignment Completed',
+    message: '{actor} completed: {entity}',
+    preferenceKey: 'assignmentLifecycle',
+    category: 'assignment',
+    icon: 'assignment',
+    emailTemplate: 'assignment_completed',
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['assigner', 'watchers'],
+    deepLink: assignmentLink,
+  },
+  'assignment.reassigned': {
+    key: 'assignment.reassigned',
+    title: 'Assignment Reassigned',
+    message: '{actor} reassigned: {entity}',
+    preferenceKey: 'assignmentAssigned',
+    category: 'assignment',
+    icon: 'assignment',
+    emailTemplate: 'assignment_reassigned',
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['old_assignee', 'new_assignee', 'assigner'],
+    deepLink: assignmentLink,
+  },
+  'assignment.archived': {
+    key: 'assignment.archived',
+    title: 'Assignment Archived',
+    message: '{entity} was archived',
+    preferenceKey: 'assignmentLifecycle',
+    category: 'assignment',
+    icon: 'assignment',
+    emailTemplate: 'assignment_archived',
+    emailImportant: false,
+    pushEligible: false,
+    recipients: ['watchers'],
     deepLink: assignmentLink,
   },
   'comment.created': {
     key: 'comment.created',
-    title: 'Comment Added',
-    message: '{actor} commented on an assignment',
+    title: 'New Comment',
+    message: '{actor} commented on {entity}',
     preferenceKey: 'commentReply',
+    category: 'comment',
     icon: 'comment',
     emailTemplate: 'comment_created',
-    deepLink: assignmentLink,
+    emailImportant: false,
+    pushEligible: true,
+    recipients: ['assignee', 'assigner', 'watchers'],
+    deepLink: assignmentCommentsLink,
   },
   'comment.reply': {
     key: 'comment.reply',
     title: 'Comment Reply',
-    message: '{actor} replied to a comment',
+    message: '{actor} replied on {entity}',
     preferenceKey: 'commentReply',
+    category: 'comment',
     icon: 'comment',
     emailTemplate: 'comment_reply',
-    deepLink: assignmentLink,
+    emailImportant: false,
+    pushEligible: true,
+    recipients: ['assignee', 'assigner', 'watchers'],
+    deepLink: assignmentCommentsLink,
   },
   'comment.mentioned': {
     key: 'comment.mentioned',
     title: 'Mention',
-    message: '{actor} mentioned you',
+    message: '{actor} mentioned you on {entity}',
     preferenceKey: 'commentMention',
+    category: 'comment',
     icon: 'mention',
     emailTemplate: 'comment_mentioned',
-    deepLink: assignmentLink,
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['explicit'],
+    deepLink: assignmentCommentsLink,
   },
   'review.requested': {
     key: 'review.requested',
     title: 'Review Requested',
-    message: '{actor} submitted work for review',
+    message: '{actor} submitted {entity} for review',
     preferenceKey: 'reviewRequested',
+    category: 'review',
     icon: 'review',
     emailTemplate: 'review_requested',
-    deepLink: assignmentLink,
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['assigner', 'watchers'],
+    deepLink: assignmentReviewLink,
   },
   'review.approved': {
     key: 'review.approved',
     title: 'Review Approved',
-    message: '{actor} approved this assignment',
+    message: '{actor} approved {entity}',
     preferenceKey: 'reviewOutcome',
+    category: 'review',
     icon: 'review',
     emailTemplate: 'review_approved',
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['assignee', 'watchers'],
     deepLink: assignmentLink,
   },
   'review.rejected': {
     key: 'review.rejected',
     title: 'Review Rejected',
-    message: '{actor} rejected this assignment',
+    message: '{actor} rejected {entity}',
     preferenceKey: 'reviewOutcome',
+    category: 'review',
     icon: 'review',
     emailTemplate: 'review_rejected',
-    deepLink: assignmentLink,
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['assignee', 'watchers'],
+    deepLink: assignmentReviewLink,
   },
   'review.changes_requested': {
     key: 'review.changes_requested',
     title: 'Changes Requested',
-    message: '{actor} requested changes',
+    message: '{actor} requested changes on {entity}',
     preferenceKey: 'reviewOutcome',
+    category: 'review',
     icon: 'review',
     emailTemplate: 'review_changes_requested',
-    deepLink: assignmentLink,
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['assignee', 'watchers'],
+    deepLink: assignmentReviewLink,
   },
   'watcher.added': {
     key: 'watcher.added',
     title: 'Started Watching',
-    message: '{actor} is watching this assignment',
-    preferenceKey: 'assignmentAssigned',
+    message: '{actor} is watching {entity}',
+    preferenceKey: 'assignmentLifecycle',
+    category: 'assignment',
     icon: 'watcher',
     emailTemplate: 'watcher_added',
+    emailImportant: false,
+    pushEligible: false,
+    recipients: ['explicit'],
     deepLink: assignmentLink,
   },
   'watcher.removed': {
     key: 'watcher.removed',
     title: 'Stopped Watching',
-    message: '{actor} stopped watching this assignment',
-    preferenceKey: 'assignmentAssigned',
+    message: '{actor} stopped watching {entity}',
+    preferenceKey: 'assignmentLifecycle',
+    category: 'assignment',
     icon: 'watcher',
     emailTemplate: 'watcher_removed',
+    emailImportant: false,
+    pushEligible: false,
+    recipients: ['explicit'],
     deepLink: assignmentLink,
   },
   'assignment.due_soon': {
     key: 'assignment.due_soon',
     title: 'Assignment Due Soon',
-    message: 'Assignment is due soon: {entity}',
+    message: 'Due soon: {entity}',
     preferenceKey: 'dueReminder',
+    category: 'schedule',
     icon: 'due',
     emailTemplate: 'assignment_due_soon',
+    emailImportant: false,
+    pushEligible: true,
+    recipients: ['assignee', 'explicit'],
     deepLink: assignmentLink,
   },
   'assignment.overdue': {
     key: 'assignment.overdue',
     title: 'Assignment Overdue',
-    message: 'Assignment is overdue: {entity}',
+    message: 'Overdue: {entity}',
     preferenceKey: 'overdueReminder',
+    category: 'schedule',
     icon: 'due',
     emailTemplate: 'assignment_overdue',
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['assignee', 'explicit'],
     deepLink: assignmentLink,
   },
   'invitation.accepted': {
@@ -206,8 +361,12 @@ export const NOTIFICATION_TYPE_REGISTRY: Record<NotificationRegistryKey, Notific
     title: 'Invitation Accepted',
     message: '{actor} accepted an invitation',
     preferenceKey: 'invitationAccepted',
+    category: 'system',
     icon: 'invitation',
     emailTemplate: 'invitation_accepted',
+    emailImportant: true,
+    pushEligible: false,
+    recipients: ['explicit'],
     deepLink: peopleLink,
   },
   'invitation.revoked': {
@@ -215,81 +374,182 @@ export const NOTIFICATION_TYPE_REGISTRY: Record<NotificationRegistryKey, Notific
     title: 'Invitation Revoked',
     message: 'An invitation was revoked',
     preferenceKey: 'invitationRevoked',
+    category: 'system',
     icon: 'invitation',
     emailTemplate: 'invitation_revoked',
+    emailImportant: false,
+    pushEligible: false,
+    recipients: ['explicit'],
     deepLink: genericLink,
   },
   'assignment.rescheduled': {
     key: 'assignment.rescheduled',
     title: 'Assignment Rescheduled',
     message: '{actor} changed the due date for {entity}',
-    preferenceKey: 'assignmentAssigned',
+    preferenceKey: 'assignmentLifecycle',
+    category: 'schedule',
     icon: 'due',
     emailTemplate: 'assignment_rescheduled',
+    emailImportant: false,
+    pushEligible: true,
+    recipients: ['assignee', 'watchers'],
     deepLink: assignmentLink,
   },
   'assignment.conflict': {
     key: 'assignment.conflict',
     title: 'Schedule Conflict',
-    message: 'Scheduling conflict detected on {entity}',
-    preferenceKey: 'assignmentAssigned',
+    message: 'Scheduling conflict on {entity}',
+    preferenceKey: 'assignmentLifecycle',
+    category: 'schedule',
     icon: 'due',
     emailTemplate: 'assignment_conflict',
+    emailImportant: false,
+    pushEligible: true,
+    recipients: ['assignee', 'assigner'],
     deepLink: assignmentLink,
   },
   'assignment.due_today': {
     key: 'assignment.due_today',
     title: 'Due Today',
-    message: 'Assignment due today: {entity}',
+    message: 'Due today: {entity}',
     preferenceKey: 'dueReminder',
+    category: 'schedule',
     icon: 'due',
     emailTemplate: 'assignment_due_today',
+    emailImportant: false,
+    pushEligible: true,
+    recipients: ['assignee', 'explicit'],
     deepLink: assignmentLink,
   },
   'assignment.due_tomorrow': {
     key: 'assignment.due_tomorrow',
     title: 'Due Tomorrow',
-    message: 'Assignment due tomorrow: {entity}',
+    message: 'Due tomorrow: {entity}',
     preferenceKey: 'dueReminder',
+    category: 'schedule',
     icon: 'due',
     emailTemplate: 'assignment_due_tomorrow',
+    emailImportant: false,
+    pushEligible: true,
+    recipients: ['assignee', 'explicit'],
     deepLink: assignmentLink,
+  },
+  'release.created': {
+    key: 'release.created',
+    title: 'Release Created',
+    message: '{actor} created release: {entity}',
+    preferenceKey: 'releaseUpdates',
+    category: 'release',
+    icon: 'release',
+    emailTemplate: 'release_created',
+    emailImportant: false,
+    pushEligible: true,
+    recipients: ['entity_followers', 'explicit'],
+    deepLink: releaseLink,
+  },
+  'release.date_changed': {
+    key: 'release.date_changed',
+    title: 'Release Date Changed',
+    message: '{actor} changed the date for {entity}',
+    preferenceKey: 'releaseUpdates',
+    category: 'release',
+    icon: 'release',
+    emailTemplate: 'release_date_changed',
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['entity_followers', 'explicit'],
+    deepLink: releaseLink,
+  },
+  'release.approved': {
+    key: 'release.approved',
+    title: 'Release Approved',
+    message: '{entity} was approved',
+    preferenceKey: 'releaseUpdates',
+    category: 'release',
+    icon: 'release',
+    emailTemplate: 'release_approved',
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['entity_followers', 'explicit'],
+    deepLink: releaseLink,
+  },
+  'release.published': {
+    key: 'release.published',
+    title: 'Release Published',
+    message: '{entity} was published',
+    preferenceKey: 'releaseUpdates',
+    category: 'release',
+    icon: 'release',
+    emailTemplate: 'release_published',
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['entity_followers', 'explicit'],
+    deepLink: releaseLink,
+  },
+  'release.delayed': {
+    key: 'release.delayed',
+    title: 'Release Delayed',
+    message: '{entity} was delayed',
+    preferenceKey: 'releaseUpdates',
+    category: 'release',
+    icon: 'release',
+    emailTemplate: 'release_delayed',
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['entity_followers', 'explicit'],
+    deepLink: releaseLink,
   },
   'release.ready': {
     key: 'release.ready',
     title: 'Release Ready',
     message: 'Release is ready: {entity}',
-    preferenceKey: 'assignmentAssigned',
+    preferenceKey: 'releaseUpdates',
+    category: 'release',
     icon: 'review',
     emailTemplate: 'release_ready',
-    deepLink: genericLink,
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['entity_followers', 'explicit'],
+    deepLink: releaseLink,
   },
   'release.not_ready': {
     key: 'release.not_ready',
     title: 'Release Not Ready',
     message: 'Release needs attention: {entity}',
-    preferenceKey: 'assignmentAssigned',
+    preferenceKey: 'releaseUpdates',
+    category: 'release',
     icon: 'review',
     emailTemplate: 'release_not_ready',
-    deepLink: genericLink,
+    emailImportant: false,
+    pushEligible: true,
+    recipients: ['entity_followers', 'explicit'],
+    deepLink: releaseLink,
   },
   'release.readiness_changed': {
     key: 'release.readiness_changed',
     title: 'Readiness Changed',
     message: 'Release readiness updated: {entity}',
-    preferenceKey: 'assignmentAssigned',
+    preferenceKey: 'releaseUpdates',
+    category: 'release',
     icon: 'system',
     emailTemplate: 'release_readiness_changed',
-    deepLink: genericLink,
+    emailImportant: false,
+    pushEligible: false,
+    recipients: ['entity_followers', 'explicit'],
+    deepLink: releaseLink,
   },
   'release.blocker_added': {
     key: 'release.blocker_added',
     title: 'Release Blocker',
     message: 'A blocker was added on {entity}',
-    preferenceKey: 'assignmentAssigned',
+    preferenceKey: 'releaseUpdates',
+    category: 'release',
     icon: 'system',
     emailTemplate: 'release_blocker_added',
-    deepLink: genericLink,
+    emailImportant: true,
+    pushEligible: true,
+    recipients: ['entity_followers', 'explicit'],
+    deepLink: releaseLink,
   },
 };
 
@@ -300,6 +560,10 @@ export function getNotificationTypeDefinition(
     return NOTIFICATION_TYPE_REGISTRY[type as NotificationRegistryKey];
   }
   return null;
+}
+
+export function getNotificationCategory(type: string): NotificationCategory {
+  return getNotificationTypeDefinition(type)?.category ?? 'system';
 }
 
 export function interpolateTemplate(
@@ -315,14 +579,16 @@ export function resolveDeepLink(
   type: string,
   entityType: string,
   entityId: string,
+  metadata?: Record<string, unknown> | null,
 ): string {
   const def = getNotificationTypeDefinition(type);
-  if (def) return def.deepLink(entityType, entityId);
+  if (def) return def.deepLink(entityType, entityId, metadata);
   return genericLink(entityType, entityId);
 }
 
 export const PREFERENCE_LABELS: Record<PreferenceKey, string> = {
-  assignmentAssigned: 'Assignment updates',
+  assignmentAssigned: 'New assignments & reassignments',
+  assignmentLifecycle: 'Assignment status updates',
   commentMention: 'Mentions',
   commentReply: 'Comments & replies',
   reviewRequested: 'Review requests',
@@ -331,10 +597,12 @@ export const PREFERENCE_LABELS: Record<PreferenceKey, string> = {
   overdueReminder: 'Overdue reminders',
   invitationAccepted: 'Invitation accepted',
   invitationRevoked: 'Invitation revoked',
+  releaseUpdates: 'Release updates',
 };
 
 export const DEFAULT_PREFERENCE_FLAGS: Record<PreferenceKey, boolean> = {
   assignmentAssigned: true,
+  assignmentLifecycle: true,
   commentMention: true,
   commentReply: true,
   reviewRequested: true,
@@ -343,4 +611,15 @@ export const DEFAULT_PREFERENCE_FLAGS: Record<PreferenceKey, boolean> = {
   overdueReminder: true,
   invitationAccepted: true,
   invitationRevoked: true,
+  releaseUpdates: true,
 };
+
+/** Category chips for Notification Center filters. */
+export const INBOX_FILTERS: { id: 'all' | NotificationCategory; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'assignment', label: 'Assignments' },
+  { id: 'release', label: 'Releases' },
+  { id: 'comment', label: 'Comments' },
+  { id: 'review', label: 'Reviews' },
+  { id: 'schedule', label: 'Schedule' },
+];
