@@ -180,13 +180,22 @@ export async function acceptPersonInvitation(
   const systemRole = platformRoleToSystemRole(platformRole);
 
   if (person) {
-    // Update missing identity fields only; never overwrite existing profile data.
-    const patch: UpdatePersonFields = { invitationStatus: 'accepted' };
-    if (!person.userId) patch.userId = user.uid;
+    // ARS-004.2 — Person.userId is mandatory after invitation acceptance.
+    const patch: UpdatePersonFields = {
+      invitationStatus: 'accepted',
+      userId: user.uid,
+      status: 'active',
+    };
     if (!person.primaryRole) patch.primaryRole = systemRoleToPlatformRole(systemRole);
     if (!person.displayName && displayName) patch.displayName = displayName;
     await updatePerson(person.id, patch);
+    if (!user.uid) {
+      throw new Error('Invitation acceptance requires a Firebase user id.');
+    }
   } else {
+    if (!user.uid) {
+      throw new Error('Invitation acceptance requires a Firebase user id.');
+    }
     await createPerson({
       organizationId: invitation.organizationId,
       userId: user.uid,

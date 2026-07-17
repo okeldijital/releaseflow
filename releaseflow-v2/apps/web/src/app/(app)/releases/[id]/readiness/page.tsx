@@ -14,7 +14,7 @@ import {
 } from '@/lib/release-readiness-service';
 import { listReadinessHistory, type ReadinessHistoryRecord } from '@/lib/release-readiness-history-repository';
 import { canViewTeamSchedule } from '@/lib/schedule-service';
-import { resolveMyPersonIds } from '@/lib/schedule-service';
+
 import {
   GoNoGoPanel,
   CountdownPanel,
@@ -67,11 +67,12 @@ export default function ReleaseReadinessPage() {
 
       // Collaborator access: only if they have assignments on this release
       if (!isManager && activeOrgId) {
-        const myPersonIds = await resolveMyPersonIds(activeOrgId, user.uid);
-        const assignments = await loadReleaseAssignments(releaseId, readiness.organizationId);
-        const mine = assignments.filter(
-          (a) => a.assigneeId === user.uid || myPersonIds.includes(a.assigneeId),
+        const { resolveActorIdentityKeys, assignmentMatchesIdentity } = await import(
+          '@/lib/assignment-identity'
         );
+        const keys = await resolveActorIdentityKeys(activeOrgId, user.uid);
+        const assignments = await loadReleaseAssignments(releaseId, readiness.organizationId);
+        const mine = assignments.filter((a) => assignmentMatchesIdentity(a, keys));
         setMyCount(mine.length);
         if (mine.length === 0) {
           setError('You do not have assignments on this release.');
@@ -79,12 +80,13 @@ export default function ReleaseReadinessPage() {
           return;
         }
       } else if (activeOrgId) {
-        const myPersonIds = await resolveMyPersonIds(activeOrgId, user.uid);
+        const { resolveActorIdentityKeys, assignmentMatchesIdentity } = await import(
+          '@/lib/assignment-identity'
+        );
+        const keys = await resolveActorIdentityKeys(activeOrgId, user.uid);
         const assignments = await loadReleaseAssignments(releaseId, readiness.organizationId);
         setMyCount(
-          assignments.filter(
-            (a) => a.assigneeId === user.uid || myPersonIds.includes(a.assigneeId),
-          ).length,
+          assignments.filter((a) => assignmentMatchesIdentity(a, keys)).length,
         );
       }
 

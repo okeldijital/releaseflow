@@ -6,9 +6,12 @@ import Link from 'next/link';
 import { useOrgStore } from '@/stores/org-store';
 import { useReleases } from '@/hooks/useRelease';
 import { useAuth } from '@/contexts/auth-context';
-import { getTasksByAssignee } from '@/lib/task-service';
 import { getRecentActivity, type ActivityEventRecord } from '@/lib/activity-service';
-import type { Task } from '@/app/(app)/types';
+import { useAssignments } from '@/hooks/useAssignment';
+import {
+  resolveActorIdentityKeys,
+  assignmentMatchesIdentity,
+} from '@/lib/assignment-identity';
 import { EmptyState, LoadingState, Button, StatusBadge, Badge } from '@releaseflow/ui';
 import { ArtworkDisplay } from '@/components/release/artwork-display';
 import { getOrgReadinessSummaries } from '@/lib/release-readiness-service';
@@ -89,17 +92,33 @@ export default function DashboardPage() {
   const { activeOrgId, orgsLoaded } = useOrgStore();
   const router = useRouter();
   const { releases, loading: releasesLoading } = useReleases();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { assignments, loading: assignmentsLoading } = useAssignments();
+  const [identityKeys, setIdentityKeys] = useState<Set<string>>(new Set());
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [loadingExtras, setLoadingExtras] = useState(true);
 
   useEffect(() => {
+    if (!user?.uid || !activeOrgId) {
+      setIdentityKeys(new Set());
+      return;
+    }
+    void resolveActorIdentityKeys(activeOrgId, user.uid).then(setIdentityKeys);
+  }, [user?.uid, activeOrgId]);
+
+  useEffect(() => {
     if (!user || !activeOrgId) { setLoadingExtras(false); return; }
-    Promise.all([
-      getTasksByAssignee(user.uid).then((d) => d.filter((t) => t.status !== 'done')),
-      getRecentActivity(activeOrgId, 10),
-    ]).then(([t, a]) => { setTasks(t); setActivities(a); }).finally(() => setLoadingExtras(false));
+    getRecentActivity(activeOrgId, 10)
+      .then(setActivities)
+      .catch(() => setActivities([]))
+      .finally(() => setLoadingExtras(false));
   }, [user, activeOrgId]);
+
+  const myOpenAssignments = useMemo(() => {
+    const open = new Set(['assigned', 'accepted', 'in_progress', 'review', 'blocked']);
+    return assignments.filter(
+      (a) => assignmentMatchesIdentity(a, identityKeys) && open.has(a.status),
+    );
+  }, [assignments, identityKeys]);
 
   const continueRelease = useMemo(() => {
     const unfinished = releases.filter((r) => !['released', 'cancelled', 'archived'].includes(r.status));
@@ -384,17 +403,21 @@ export default function DashboardPage() {
       <div className="grid gap-8 sm:grid-cols-2">
         <div>
           <h2 className="text-sm font-semibold text-primary-400 mb-4">Waiting for You</h2>
-          {loadingExtras ? <LoadingState /> : tasks.length === 0 ? (
-            <p className="text-sm text-text-500">No work requires your attention.<br/>You&apos;re all caught up.</p>
+          {assignmentsLoading ? <LoadingState /> : myOpenAssignments.length === 0 ? (
+            <p className="text-sm text-text-500">No assignments require your attention.<br/>You&apos;re all caught up.</p>
           ) : (
             <div className="space-y-2">
-              {tasks.slice(0, 8).map((t) => {
-                const dueDate = toDate(t.dueDate);
+              {myOpenAssignments.slice(0, 8).map((a) => {
+                const dueDate = toDate(a.dueDate);
                 return (
-                  <Link key={t.id} href={`/releases/${t.releaseId}`} className="block rounded-xl border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-500/40 transition-all duration-150">
+                  <Link
+                    key={a.id}
+                    href={`/assignments/${a.id}`}
+                    className="block rounded-xl border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-500/40 transition-all duration-150"
+                  >
                     <div className="flex items-center justify-between">
-                      <p className="text-sm text-surface-100 truncate">{t.title}</p>
-                      <span className={`text-caption font-medium px-2 py-0.5 rounded-full ${priorityStyles[t.priority] ?? 'bg-surface-800 text-text-400'}`}>{t.priority}</span>
+                      <p className="text-sm text-surface-100 truncate">{a.title}</p>
+                      <span className={`text-caption font-medium px-2 py-0.5 rounded-full ${priorityStyles[a.priority] ?? 'bg-surface-800 text-text-400'}`}>{a.priority}</span>
                     </div>
                     {dueDate && <p className="text-xs text-text-500 mt-1">Due {timeAgo(dueDate)}</p>}
                   </Link>

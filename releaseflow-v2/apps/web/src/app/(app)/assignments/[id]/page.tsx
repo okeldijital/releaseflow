@@ -34,7 +34,10 @@ import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { useRoleStore } from '@/stores/role-store';
 import { resolvePersonNames } from '@/lib/resolve-person-names';
-import { resolveMyPersonIds } from '@/lib/schedule-service';
+import {
+  resolveActorIdentityKeys,
+  assignmentMatchesIdentity,
+} from '@/lib/assignment-identity';
 import { AuthorizationService } from '@/lib/auth/authorization-service';
 
 const sColors: Record<string, string> = {
@@ -101,17 +104,18 @@ export default function AssignmentDetailPage() {
     reviewer: null,
     requester: null,
   });
-  const [myPersonIds, setMyPersonIds] = useState<string[]>([]);
+  const [identityKeys, setIdentityKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!user?.uid || !activeOrgId) return;
-    void resolveMyPersonIds(activeOrgId, user.uid).then(setMyPersonIds);
+    if (!user?.uid || !activeOrgId) {
+      setIdentityKeys(new Set());
+      return;
+    }
+    void resolveActorIdentityKeys(activeOrgId, user.uid).then(setIdentityKeys);
   }, [user?.uid, activeOrgId]);
 
   const isAssignee = Boolean(
-    assignment
-    && user
-    && (assignment.assigneeId === user.uid || myPersonIds.includes(assignment.assigneeId)),
+    assignment && user && assignmentMatchesIdentity(assignment, identityKeys),
   );
   const isManager = canManageReview(role) || AuthorizationService.canManageAssignments();
 

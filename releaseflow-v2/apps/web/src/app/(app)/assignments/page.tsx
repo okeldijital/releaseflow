@@ -12,7 +12,10 @@ import { useAssignments } from '@/hooks/useAssignment';
 import { archiveUserAssignment } from '@/lib/assignment-service';
 import { useAuth } from '@/contexts/auth-context';
 import { AuthorizationService } from '@/lib/auth/authorization-service';
-import { resolveMyPersonIds } from '@/lib/schedule-service';
+import {
+  resolveActorIdentityKeys,
+  assignmentMatchesIdentity,
+} from '@/lib/assignment-identity';
 import {
   Button, EmptyState, LoadingState, Input, ConfirmationDialog,
 } from '@releaseflow/ui';
@@ -33,34 +36,31 @@ function statusDisplay(s: string): string {
 
 export default function AssignmentsPage() {
   const { activeOrgId } = useOrgStore();
-  const { assignments, loading, refresh } = useAssignments();
+  const { assignments, loading, error, refresh } = useAssignments();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [archiveId, setArchiveId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [myPersonIds, setMyPersonIds] = useState<string[]>([]);
+  const [identityKeys, setIdentityKeys] = useState<Set<string>>(new Set());
 
   const isCollab = AuthorizationService.isCollaboratorWorkspace();
   const canManage = AuthorizationService.canManageAssignments();
 
   useEffect(() => {
-    if (!user?.uid || !activeOrgId) return;
-    void resolveMyPersonIds(activeOrgId, user.uid).then(setMyPersonIds);
+    if (!user?.uid || !activeOrgId) {
+      setIdentityKeys(new Set());
+      return;
+    }
+    void resolveActorIdentityKeys(activeOrgId, user.uid).then(setIdentityKeys);
   }, [user?.uid, activeOrgId]);
-
-  const identityIds = useMemo(() => {
-    const ids = new Set(myPersonIds);
-    if (user?.uid) ids.add(user.uid);
-    return ids;
-  }, [myPersonIds, user?.uid]);
 
   const filtered = useMemo(() => {
     return assignments.filter((a) => {
       if (a.status === 'archived' || a.status === 'cancelled' || a.status === 'declined') return false;
-      // Collaborators: only own assignments
-      if (isCollab && !identityIds.has(a.assigneeId)) return false;
+      // Collaborators: only own assignments (Person.id or assigneeUserId)
+      if (isCollab && !assignmentMatchesIdentity(a, identityKeys)) return false;
       if (
         searchQuery
         && !a.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -75,7 +75,7 @@ export default function AssignmentsPage() {
       }
       return true;
     });
-  }, [assignments, searchQuery, filterPriority, filterStatus, isCollab, identityIds]);
+  }, [assignments, searchQuery, filterPriority, filterStatus, isCollab, identityKeys]);
 
   async function handleArchive() {
     if (!archiveId) return;
@@ -156,6 +156,15 @@ export default function AssignmentsPage() {
           </select>
         </div>
       </div>
+
+      {error ? (
+        <div className="mb-4 rounded-xl border border-danger-500/30 bg-danger-500/10 px-4 py-3 text-sm text-danger-400">
+          {error}
+          <button type="button" className="ml-3 underline" onClick={() => void refresh()}>
+            Retry
+          </button>
+        </div>
+      ) : null}
 
       {loading ? (
         <LoadingState />

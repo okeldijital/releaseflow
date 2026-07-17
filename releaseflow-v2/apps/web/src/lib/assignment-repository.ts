@@ -1,6 +1,9 @@
 import {
   doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, Timestamp,
+  onSnapshot,
+  type Unsubscribe,
+  type QueryConstraint,
 } from '@firebase/firestore';
 import { getDb } from './firebase';
 
@@ -33,10 +36,17 @@ export interface AssignmentRecord {
   description?: string | null;
   entityType: AssignmentEntityType;
   entityId: string;
+  /** Denormalized when entityType is release or track's parent is known. */
+  releaseId?: string | null;
   workflowId?: string | null;
   stageId?: string | null;
+  /** Canonical Person.id (DOM-001 / AW-001). */
   assigneeId: string;
+  /** Auth uid linked to assignee Person at write time (ARS-003). */
+  assigneeUserId?: string | null;
+  /** Creator Auth uid (historical) or Person.id — prefer assignerUserId for auth. */
   assignerId: string;
+  assignerUserId?: string | null;
   role: string;
   priority: AssignmentPriority;
   status: AssignmentStatus;
@@ -62,10 +72,15 @@ export interface CreateAssignmentFields {
   description?: string | null;
   entityType: AssignmentEntityType;
   entityId: string;
+  releaseId?: string | null;
   workflowId?: string | null;
   stageId?: string | null;
+  /** Person.id */
   assigneeId: string;
+  /** Auth uid for assignee when known */
+  assigneeUserId?: string | null;
   assignerId: string;
+  assignerUserId?: string | null;
   role: string;
   priority?: AssignmentPriority;
   status?: AssignmentStatus;
@@ -92,17 +107,26 @@ export interface UpdateAssignmentFields {
 }
 
 function toRecord(id: string, data: Record<string, unknown>): AssignmentRecord {
+  const entityType = (data.entityType as AssignmentEntityType) || 'release';
+  const entityId = (data.entityId as string) || '';
+  const releaseId =
+    (data.releaseId as string | null | undefined)
+    ?? (entityType === 'release' ? entityId : null);
+
   return {
     id,
     organizationId: data.organizationId as string || '',
     title: data.title as string || '',
     description: data.description as string | null | undefined,
-    entityType: data.entityType as AssignmentEntityType || 'release',
-    entityId: data.entityId as string || '',
+    entityType,
+    entityId,
+    releaseId,
     workflowId: data.workflowId as string | null | undefined,
     stageId: data.stageId as string | null | undefined,
     assigneeId: data.assigneeId as string || '',
+    assigneeUserId: (data.assigneeUserId as string | null | undefined) ?? null,
     assignerId: data.assignerId as string || '',
+    assignerUserId: (data.assignerUserId as string | null | undefined) ?? null,
     role: data.role as string || '',
     priority: (data.priority as AssignmentPriority) || 'medium',
     status: (data.status as AssignmentStatus) || 'draft',
@@ -123,23 +147,43 @@ function toRecord(id: string, data: Record<string, unknown>): AssignmentRecord {
   };
 }
 
+/** Shared status filter for list surfaces (ARS-003). */
+export const TERMINAL_ASSIGNMENT_STATUSES: AssignmentStatus[] = [
+  'archived',
+  'cancelled',
+  'declined',
+];
+
+export function isActiveAssignmentStatus(status: AssignmentStatus): boolean {
+  return !TERMINAL_ASSIGNMENT_STATUSES.includes(status);
+}
+
 export async function createAssignment(fields: CreateAssignmentFields): Promise<AssignmentRecord> {
   const db = getDb();
   if (!db) throw new Error('Firestore unavailable');
   const now = Timestamp.now();
-  const ref = await addDoc(collection(db, 'assignments'), {
+  const status = fields.status ?? 'assigned';
+  const priority = fields.priority ?? 'medium';
+  const releaseId =
+    fields.releaseId
+    ?? (fields.entityType === 'release' ? fields.entityId : null);
+
+  const payload = {
     organizationId: fields.organizationId,
     title: fields.title,
     description: fields.description ?? null,
     entityType: fields.entityType,
     entityId: fields.entityId,
+    releaseId: releaseId ?? null,
     workflowId: fields.workflowId ?? null,
     stageId: fields.stageId ?? null,
     assigneeId: fields.assigneeId,
+    assigneeUserId: fields.assigneeUserId ?? null,
     assignerId: fields.assignerId,
+    assignerUserId: fields.assignerUserId ?? fields.assignerId,
     role: fields.role,
-    priority: fields.priority ?? 'medium',
-    status: fields.status ?? 'assigned',
+    priority,
+    status,
     startDate: fields.startDate ?? null,
     dueDate: fields.dueDate ?? null,
     estimatedHours: fields.estimatedHours ?? null,
@@ -151,8 +195,9 @@ export async function createAssignment(fields: CreateAssignmentFields): Promise<
     reviewOutcome: null,
     createdAt: now,
     updatedAt: now,
-  });
-  return toRecord(ref.id, { ...fields, id: ref.id, status: fields.status ?? 'assigned', priority: fields.priority ?? 'medium', createdAt: now, updatedAt: now });
+  };
+  const ref = await addDoc(collection(db, 'assignments'), payload);
+  return toRecord(ref.id, { ...payload, id: ref.id });
 }
 
 export async function findDuplicateAssignment(
@@ -202,12 +247,37 @@ export async function updateAssignment(assignmentId: string, fields: UpdateAssig
 export async function listAssignments(orgId: string, opts?: { includeArchived?: boolean }): Promise<AssignmentRecord[]> {
   const db = getDb();
   if (!db) return [];
-  const snap = await getDocs(
-    query(collection(db, 'assignments'), where('organizationId', '==', orgId), orderBy('createdAt', 'desc')),
-  );
-  return snap.docs
-    .map((d) => toRecord(d.id, d.data() as Record<string, unknown>))
-    .filter((a) => opts?.includeArchived ? true : a.status !== 'archived');
+  if (!orgId) return [];
+
+  let docs: AssignmentRecord[];
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, 'assignments'),
+        where('organizationId', '==', orgId),
+        orderBy('createdAt', 'desc'),
+      ),
+    );
+    docs = snap.docs.map((d) => toRecord(d.id, d.data() as Record<string, unknown>));
+  } catch (err) {
+    // ARS-003: index missing or orderBy failure — degrade to equality-only query.
+    console.error('[assignments] listAssignments ordered query failed; falling back', err);
+    const snap = await getDocs(
+      query(collection(db, 'assignments'), where('organizationId', '==', orgId)),
+    );
+    docs = snap.docs
+      .map((d) => toRecord(d.id, d.data() as Record<string, unknown>))
+      .sort((a, b) => {
+        const at = (a.createdAt as { seconds?: number })?.seconds ?? 0;
+        const bt = (b.createdAt as { seconds?: number })?.seconds ?? 0;
+        return bt - at;
+      });
+  }
+
+  return docs.filter((a) => {
+    if (opts?.includeArchived) return true;
+    return isActiveAssignmentStatus(a.status);
+  });
 }
 
 export async function getAssignmentsByAssignee(personId: string, orgId?: string): Promise<AssignmentRecord[]> {
@@ -220,6 +290,106 @@ export async function getAssignmentsByAssignee(personId: string, orgId?: string)
   return results;
 }
 
+/**
+ * ARS-004.3 — Real-time org assignment stream.
+ * Pages must not call onSnapshot; only the repository owns listeners.
+ */
+export function subscribeOrgAssignments(
+  organizationId: string,
+  onData: (assignments: AssignmentRecord[]) => void,
+  onError?: (error: Error) => void,
+  opts?: { includeArchived?: boolean },
+): Unsubscribe {
+  const db = getDb();
+  if (!db || !organizationId) {
+    onData([]);
+    return () => {};
+  }
+
+  const constraints: QueryConstraint[] = [
+    where('organizationId', '==', organizationId),
+    orderBy('createdAt', 'desc'),
+  ];
+
+  const mapAndFilter = (docs: AssignmentRecord[]) => {
+    if (opts?.includeArchived) return docs;
+    return docs.filter((a) => isActiveAssignmentStatus(a.status));
+  };
+
+  let fallbackUnsub: Unsubscribe | null = null;
+  const primaryUnsub = onSnapshot(
+    query(collection(db, 'assignments'), ...constraints),
+    (snap) => {
+      const docs = snap.docs.map((d) => toRecord(d.id, d.data() as Record<string, unknown>));
+      onData(mapAndFilter(docs));
+    },
+    (err) => {
+      console.error('[assignments] subscribeOrgAssignments ordered failed; falling back', err);
+      fallbackUnsub = onSnapshot(
+        query(collection(db, 'assignments'), where('organizationId', '==', organizationId)),
+        (snap) => {
+          const docs = snap.docs
+            .map((d) => toRecord(d.id, d.data() as Record<string, unknown>))
+            .sort((a, b) => {
+              const at = (a.createdAt as { seconds?: number })?.seconds ?? 0;
+              const bt = (b.createdAt as { seconds?: number })?.seconds ?? 0;
+              return bt - at;
+            });
+          onData(mapAndFilter(docs));
+        },
+        (err2) => {
+          onError?.(err2 instanceof Error ? err2 : new Error(String(err2)));
+          onData([]);
+        },
+      );
+    },
+  );
+
+  return () => {
+    primaryUnsub();
+    fallbackUnsub?.();
+  };
+}
+
+/**
+ * ARS-004.3 — Real-time entity assignment stream (e.g. release workspace).
+ */
+export function subscribeEntityAssignments(
+  entityType: AssignmentEntityType,
+  entityId: string,
+  onData: (assignments: AssignmentRecord[]) => void,
+  onError?: (error: Error) => void,
+  opts?: { organizationId?: string; includeTerminal?: boolean },
+): Unsubscribe {
+  const db = getDb();
+  if (!db || !entityId) {
+    onData([]);
+    return () => {};
+  }
+
+  return onSnapshot(
+    query(
+      collection(db, 'assignments'),
+      where('entityType', '==', entityType),
+      where('entityId', '==', entityId),
+    ),
+    (snap) => {
+      let docs = snap.docs.map((d) => toRecord(d.id, d.data() as Record<string, unknown>));
+      if (opts?.organizationId) {
+        docs = docs.filter((a) => a.organizationId === opts.organizationId);
+      }
+      if (!opts?.includeTerminal) {
+        docs = docs.filter((a) => isActiveAssignmentStatus(a.status));
+      }
+      onData(docs);
+    },
+    (err) => {
+      onError?.(err instanceof Error ? err : new Error(String(err)));
+      onData([]);
+    },
+  );
+}
+
 export async function getAssignmentsByAssigner(assignerId: string, orgId?: string): Promise<AssignmentRecord[]> {
   const db = getDb();
   if (!db) return [];
@@ -230,13 +400,28 @@ export async function getAssignmentsByAssigner(assignerId: string, orgId?: strin
   return results;
 }
 
-export async function getAssignmentsByEntity(entityType: AssignmentEntityType, entityId: string): Promise<AssignmentRecord[]> {
+export async function getAssignmentsByEntity(
+  entityType: AssignmentEntityType,
+  entityId: string,
+  opts?: { organizationId?: string; includeTerminal?: boolean },
+): Promise<AssignmentRecord[]> {
   const db = getDb();
   if (!db) return [];
   const snap = await getDocs(
-    query(collection(db, 'assignments'), where('entityType', '==', entityType), where('entityId', '==', entityId)),
+    query(
+      collection(db, 'assignments'),
+      where('entityType', '==', entityType),
+      where('entityId', '==', entityId),
+    ),
   );
-  return snap.docs.map((d) => toRecord(d.id, d.data() as Record<string, unknown>));
+  let docs = snap.docs.map((d) => toRecord(d.id, d.data() as Record<string, unknown>));
+  if (opts?.organizationId) {
+    docs = docs.filter((a) => a.organizationId === opts.organizationId);
+  }
+  if (!opts?.includeTerminal) {
+    docs = docs.filter((a) => isActiveAssignmentStatus(a.status));
+  }
+  return docs;
 }
 
 export async function assignUser(assignmentId: string, assigneeId: string): Promise<void> {

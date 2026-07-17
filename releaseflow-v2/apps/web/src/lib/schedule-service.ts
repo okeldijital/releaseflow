@@ -96,6 +96,7 @@ function matchesAssignee(
   userIds: Set<string>,
 ): boolean {
   if (personIds.has(a.assigneeId) || userIds.has(a.assigneeId)) return true;
+  if (a.assigneeUserId && userIds.has(a.assigneeUserId)) return true;
   return false;
 }
 

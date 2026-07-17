@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { fetchAssignmentsByEntity } from '@/lib/assignment-service';
 import type { AssignmentRecord } from '@/lib/assignment-service';
+import { useOrgStore } from '@/stores/org-store';
 import { EmptyState, LoadingState, Badge, StatusBadge } from '@releaseflow/ui';
 
 const priorityColors: Record<string, string> = {
@@ -25,22 +26,53 @@ interface AssignmentsSectionProps {
 }
 
 export function AssignmentsSection({ entityType, entityId }: AssignmentsSectionProps) {
+  const { activeOrgId } = useOrgStore();
   const [assignments, setAssignments] = useState<AssignmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchAssignmentsByEntity(entityType, entityId);
-      setAssignments(data.filter((a) => !['archived', 'cancelled', 'declined'].includes(a.status)));
-    } catch {
+      const data = await fetchAssignmentsByEntity(entityType, entityId, {
+        organizationId: activeOrgId ?? undefined,
+      });
+      // Service already filters terminal statuses by default
+      setAssignments(data);
+    } catch (err) {
+      console.error('[AssignmentsSection] load failed', err);
       setAssignments([]);
     } finally {
       setLoading(false);
     }
-  }, [entityType, entityId]);
+  }, [entityType, entityId, activeOrgId]);
 
-  useEffect(() => { void load(); }, [load]);
+  // ARS-004.3 — real-time via Assignment Service subscription
+  useEffect(() => {
+    if (!entityId) return;
+    let unsub: (() => void) | undefined;
+    let cancelled = false;
+    setLoading(true);
+    void import('@/lib/assignment-service').then((mod) => {
+      if (cancelled) return;
+      unsub = mod.subscribeEntityAssignments(
+        entityType,
+        entityId,
+        (data) => {
+          setAssignments(data);
+          setLoading(false);
+        },
+        () => {
+          // fallback one-shot load
+          void load();
+        },
+        { organizationId: activeOrgId ?? undefined },
+      );
+    });
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, [entityType, entityId, activeOrgId, load]);
 
   if (loading) return <LoadingState />;
   if (assignments.length === 0) return <EmptyState title="No assignments" description="No assignments for this item yet." />;

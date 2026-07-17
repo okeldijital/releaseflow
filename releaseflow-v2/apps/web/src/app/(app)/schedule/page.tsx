@@ -180,6 +180,17 @@ export default function SchedulePage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  // ARS-003 — reload schedule projection when assignments change in this tab
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    void import('@/lib/assignment-events').then(({ onAssignmentsChanged }) => {
+      unsub = onAssignmentsChanged((ev) => {
+        if (!activeOrgId || ev.organizationId === activeOrgId) void load();
+      });
+    });
+    return () => { unsub?.(); };
+  }, [activeOrgId, load]);
+
   const filtered = useMemo(
     () => applyScheduleFilters(items, { ...filters, search }),
     [items, filters, search],

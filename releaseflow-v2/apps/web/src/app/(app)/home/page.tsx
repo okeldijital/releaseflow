@@ -14,7 +14,10 @@ import { getOrganization } from '@/lib/organization-repository';
 import { useAssignments } from '@/hooks/useAssignment';
 import { getActivityByUser } from '@/lib/activity-service';
 import type { ActivityEventRecord } from '@/lib/activity-service';
-import { resolveMyPersonIds } from '@/lib/schedule-service';
+import {
+  resolveActorIdentityKeys,
+  assignmentMatchesIdentity,
+} from '@/lib/assignment-identity';
 import {
   fetchInbox,
   type UserNotificationRecord,
@@ -69,6 +72,8 @@ function humaniseActivity(action: string, metadata?: Record<string, unknown>): s
     'task.created': `Task created: ${(metadata?.title as string) ?? ''}`,
     'task.completed': 'Completed a task',
     'task.assigned': 'You were assigned a task',
+    assigned: `Assignment created: ${(metadata?.title as string) ?? ''}`,
+    'assignment.created': `Assignment created: ${(metadata?.title as string) ?? ''}`,
     'deliverable.created': 'Deliverable added',
     'deliverable.approved': 'Deliverable approved',
     'comment.added': 'Comment added',
@@ -106,7 +111,7 @@ export default function HomePage() {
   const { activeOrgId, orgsLoaded } = useOrgStore();
   const { assignments, loading: assignmentsLoading } = useAssignments();
   const [orgName, setOrgName] = useState('');
-  const [myPersonIds, setMyPersonIds] = useState<string[]>([]);
+  const [identityKeys, setIdentityKeys] = useState<Set<string>>(new Set());
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [notifications, setNotifications] = useState<UserNotificationRecord[]>([]);
   const [loadingExtras, setLoadingExtras] = useState(true);
@@ -119,8 +124,11 @@ export default function HomePage() {
   }, [activeOrgId]);
 
   useEffect(() => {
-    if (!user?.uid || !activeOrgId) return;
-    void resolveMyPersonIds(activeOrgId, user.uid).then(setMyPersonIds);
+    if (!user?.uid || !activeOrgId) {
+      setIdentityKeys(new Set());
+      return;
+    }
+    void resolveActorIdentityKeys(activeOrgId, user.uid).then(setIdentityKeys);
   }, [user?.uid, activeOrgId]);
 
   useEffect(() => {
@@ -141,17 +149,26 @@ export default function HomePage() {
     }).finally(() => setLoadingExtras(false));
   }, [user, activeOrgId]);
 
-  const identityIds = useMemo(() => {
-    const ids = new Set<string>(myPersonIds);
-    if (user?.uid) ids.add(user.uid);
-    return ids;
-  }, [myPersonIds, user?.uid]);
+  // Live-refresh inbox when assignments change (notifications processed on create)
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    void import('@/lib/assignment-events').then(({ onAssignmentsChanged }) => {
+      unsub = onAssignmentsChanged(() => {
+        if (!user?.uid) return;
+        void fetchInbox(user.uid, { pageSize: 12 }).then((inbox) => {
+          const items = inbox.notifications ?? [];
+          setNotifications(items.filter((n) => !n.isRead).slice(0, 4));
+        }).catch(() => { /* ignore */ });
+      });
+    });
+    return () => { unsub?.(); };
+  }, [user?.uid]);
 
   const myAssignments = useMemo(() => {
     return assignments.filter(
-      (a) => identityIds.has(a.assigneeId) && OPEN_STATUSES.has(a.status),
+      (a) => assignmentMatchesIdentity(a, identityKeys) && OPEN_STATUSES.has(a.status),
     );
-  }, [assignments, identityIds]);
+  }, [assignments, identityKeys]);
 
   const continueAssignment = useMemo(() => {
     const active = myAssignments.filter((a) =>

@@ -19,7 +19,6 @@ import { toast } from '@/stores/toast-store';
 import { getDeliverablesByRelease } from '@/lib/deliverable-service';
 import { getTracksByRelease } from '@/lib/release-track-repository';
 import { getArtistsByRole } from '@/lib/track-artist-repository';
-import { getTasksByEntity } from '@/lib/task-service';
 import { getActivityByEntity } from '@/lib/activity-service';
 import { fmtDate } from '@/lib/utils';
 import { formatReleaseMetadata } from '@/lib/release-metadata';
@@ -36,7 +35,7 @@ import {
 import { ReleaseArtwork, type UploadState } from '@/components/release/ReleaseArtwork';
 import { ReadinessCard } from '@/components/release/workspace/ReadinessCard';
 import { SectionHeader } from '@/components/release/workspace/SectionHeader';
-import type { Release, Deliverable, Task } from '../../types';
+import type { Release, Deliverable } from '../../types';
 import type { ReleaseTrackRecord } from '@/lib/release-track-repository';
 import type { TrackRecord } from '@/lib/track-repository';
 import type { ActivityEventRecord } from '@/lib/activity-service';
@@ -46,61 +45,6 @@ import { AssignmentsSection } from '@/components/assignments-section';
 import { TrackRow, TrackList } from '@/components/shared/track-row';
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
-
-function relativeDate(ts: unknown): string {
-  if (!ts) return '';
-  let d: Date;
-  if (ts instanceof Date) { d = ts; }
-  else if (typeof ts === 'object' && ts !== null && 'seconds' in ts) { d = new Date((ts as { seconds: number }).seconds * 1000); }
-  else if (typeof ts === 'string') { d = new Date(ts); }
-  else { return ''; }
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diffMs = target.getTime() - today.getTime();
-  const diffDays = Math.round(diffMs / 86400000);
-  if (diffDays < -1) return `${Math.abs(diffDays)} days overdue`;
-  if (diffDays === -1) return 'Yesterday (overdue)';
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Tomorrow';
-  if (diffDays < 7) return `In ${diffDays} days`;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function isOverdue(ts: unknown): boolean {
-  if (!ts) return false;
-  let d: Date;
-  if (ts instanceof Date) { d = ts; }
-  else if (typeof ts === 'object' && ts !== null && 'seconds' in ts) { d = new Date((ts as { seconds: number }).seconds * 1000); }
-  else if (typeof ts === 'string') { d = new Date(ts); }
-  else return false;
-  return d < new Date();
-}
-
-function dateValue(ts: unknown): number {
-  if (!ts) return Infinity;
-  if (ts instanceof Date) return ts.getTime();
-  if (typeof ts === 'object' && ts !== null && 'seconds' in ts) return (ts as { seconds: number }).seconds * 1000;
-  if (typeof ts === 'string') {
-    const time = new Date(ts).getTime();
-    return Number.isNaN(time) ? Infinity : time;
-  }
-  return Infinity;
-}
-
-function taskDateBucket(ts: unknown): number {
-  const value = dateValue(ts);
-  if (value === Infinity) return 4;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const target = new Date(value);
-  const targetDay = new Date(target.getFullYear(), target.getMonth(), target.getDate());
-  const diffDays = Math.round((targetDay.getTime() - today.getTime()) / 86400000);
-  if (diffDays < 0) return 0;
-  if (diffDays === 0) return 1;
-  if (diffDays === 1) return 2;
-  return 3;
-}
 
 function timeAgo(ts: unknown): string {
   if (!ts) return '';
@@ -141,16 +85,6 @@ function fieldValue(record: unknown, keys: string[]): string | undefined {
   return undefined;
 }
 
-function isInvitationPending(task: Task): boolean {
-  return Boolean(fieldValue(task, ['invitationId', 'invitationEmail', 'pendingInvitationId']));
-}
-
-function taskActionLabel(task: Task): string {
-  if (isInvitationPending(task)) return 'View Invitation';
-  if (!task.assigneeId) return 'Assign';
-  return 'Open Task';
-}
-
 function tsToDateString(ts: unknown): string {
   if (!ts) return '';
   if (typeof ts === 'string') return ts.slice(0, 10);
@@ -176,6 +110,8 @@ function humaniseActivity(ev: ActivityEventRecord): string | null {
     'task.created': `created task "${ev.metadata?.title ?? ''}"`,
     'task.completed': `completed a task`,
     'task.assigned': `assigned a task`,
+    'assignment.created': `created assignment "${ev.metadata?.title ?? ''}"`,
+    assigned: `created assignment "${ev.metadata?.title ?? ''}"`,
     'deliverable.created': `added deliverable "${ev.metadata?.title ?? ''}"`,
     'deliverable.approved': `approved a deliverable`,
     'deliverable.rejected': `rejected a deliverable`,
@@ -222,7 +158,6 @@ export default function ReleaseWorkspacePage() {
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [tracks, setTracks] = useState<(ReleaseTrackRecord & { track: TrackRecord | null })[]>([]);
   const [trackArtistMeta, setTrackArtistMeta] = useState<Record<string, { original?: string; remixer?: string }>>({});
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -253,7 +188,6 @@ export default function ReleaseWorkspacePage() {
       setRelease(null);
       setDeliverables([]);
       setTracks([]);
-      setTasks([]);
 
       let rel: Awaited<ReturnType<typeof fetchRelease>> | null;
       try {
@@ -276,7 +210,7 @@ export default function ReleaseWorkspacePage() {
 
       if (!cancelled) setRelease(rel as unknown as Release);
 
-      const [del, trk, tsk, art] = await Promise.all([
+      const [del, trk, art] = await Promise.all([
         (async () => {
           try {
             return await getDeliverablesByRelease(releaseId);
@@ -295,14 +229,6 @@ export default function ReleaseWorkspacePage() {
         })(),
         (async () => {
           try {
-            return await getTasksByEntity('release', releaseId);
-          } catch (error) {
-            console.error('[Workspace] Workflow task load failed', error);
-            return [] as Task[];
-          }
-        })(),
-        (async () => {
-          try {
             if (activeOrgId) return await getArtworkByRelease(activeOrgId, releaseId);
             return null;
           } catch (error) {
@@ -315,7 +241,6 @@ export default function ReleaseWorkspacePage() {
       if (!cancelled) {
         setDeliverables(del);
         setTracks(trk);
-        setTasks(tsk);
         setArtwork(art);
       }
     }
@@ -526,15 +451,6 @@ export default function ReleaseWorkspacePage() {
   };
   const readyCount   = Object.values(readinessMap).filter(Boolean).length;
   const readinessPct = Math.round((readyCount / READINESS_CATS.length) * 100);
-
-  /* ─── Workflow task priority sort ───────────────────────────────────── */
-  const pendingTasks = tasks
-    .filter((t) => t.status !== 'done')
-    .sort((a, b) => {
-      const bucketDiff = taskDateBucket(a.dueDate) - taskDateBucket(b.dueDate);
-      if (bucketDiff !== 0) return bucketDiff;
-      return dateValue(a.dueDate) - dateValue(b.dueDate);
-    });
 
   const overflowItems = useMemo(() => {
     if (!release) return [];
@@ -816,76 +732,52 @@ export default function ReleaseWorkspacePage() {
         </div>
       </section>
 
-      {/* ── 4. Workflow ───────────────────────────────────────────────── */}
+      {/* ── 4. Workflow (orchestration only — no Task entities) ARS-004.1 ─ */}
       <section aria-label="Workflow" className="mb-10">
         <SectionHeader
           title="Workflow"
-          description="Operational tasks driving this release forward."
+          description="Stage orchestration and release progression. Work execution lives in Assignments."
         />
-        {pendingTasks.length === 0 ? (
-          <EmptyState
-            title="No open workflow tasks."
-            description="Tasks appear here as production work is generated for this release."
-          />
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {pendingTasks.map((task) => {
-              const overdue = isOverdue(task.dueDate);
-              const priorityColors: Record<string, string> = {
-                critical: 'bg-danger-50 text-danger-600',
-                high: 'bg-warning-50 text-warning-600',
-                medium: 'bg-info-50 text-info-600',
-                low: 'bg-surface-100 text-content-secondary',
-              };
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 space-y-4">
+          <p className="text-sm text-content-secondary">
+            Workflow stages track progression. Contributor work is managed exclusively as{' '}
+            <strong className="text-content-primary">Assignments</strong> above.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {READINESS_CATS.map((cat) => {
+              const done = readinessMap[cat];
               return (
                 <div
-                  key={task.id}
-                  className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 flex flex-col gap-2.5 text-left"
+                  key={cat}
+                  className="flex items-center justify-between rounded-lg border border-surface-100 px-3 py-2.5"
                 >
-                  <p className="text-sm font-medium text-content-primary leading-snug">{task.title}</p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <StatusBadge status={task.status} />
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-caption font-medium capitalize ${
-                        priorityColors[task.priority] ?? 'bg-surface-100 text-content-secondary'
-                      }`}
-                    >
-                      {task.priority}
-                    </span>
-                  </div>
-                  <p className="text-xs text-content-label truncate">
-                    {isInvitationPending(task)
-                      ? 'Invitation Pending'
-                      : task.assigneeId
-                        ? <>Assigned to <span className="text-content-secondary">{task.assigneeId}</span></>
-                        : 'Unassigned'}
-                  </p>
-                  <p className={`text-xs font-medium ${overdue ? 'text-danger-500' : 'text-content-label'}`}>
-                    {task.dueDate ? relativeDate(task.dueDate) : 'No due date'}
-                  </p>
-                  <Button
-                    size="sm"
-                    variant={task.assigneeId ? 'outline' : 'primary'}
-                    className="mt-1 self-start"
-                    onClick={() => {
-                      if (isInvitationPending(task)) {
-                        router.push('/people/invitations');
-                        return;
-                      }
-                      if (perms.canManageAssignments) {
-                        openCreateAssignment();
-                        return;
-                      }
-                      toast.error('You do not have permission to manage this task.');
-                    }}
+                  <span className="text-sm text-content-primary">{cat}</span>
+                  <span
+                    className={`text-xs font-medium ${
+                      done ? 'text-success-500' : 'text-content-label'
+                    }`}
                   >
-                    {taskActionLabel(task)}
-                  </Button>
+                    {done ? 'Complete' : 'In progress'}
+                  </span>
                 </div>
               );
             })}
           </div>
-        )}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => router.push(`/releases/${releaseId}/readiness`)}
+            >
+              Open readiness workspace
+            </Button>
+            {perms.canManageAssignments ? (
+              <Button size="sm" variant="primary" onClick={openCreateAssignment}>
+                Create assignment
+              </Button>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       {/* ── 5. Activity ───────────────────────────────────────────────── */}

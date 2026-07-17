@@ -126,14 +126,18 @@ export async function removeRelease(
     await deleteActivityEvent(activity.id);
   }
 
-  const releaseAssignments = await getAssignmentsByEntity('release', releaseId);
+  const releaseAssignments = await getAssignmentsByEntity('release', releaseId, {
+    includeTerminal: true,
+  });
   for (const assignment of releaseAssignments) {
     await deleteAssignment(assignment.id);
   }
 
   const trackRecords = await getTracksByRelease(releaseId);
   for (const record of trackRecords) {
-    const trackAssignments = await getAssignmentsByEntity('track', record.trackId);
+    const trackAssignments = await getAssignmentsByEntity('track', record.trackId, {
+      includeTerminal: true,
+    });
     for (const assignment of trackAssignments) {
       await deleteAssignment(assignment.id);
     }

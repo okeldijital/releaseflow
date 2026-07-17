@@ -30,11 +30,16 @@ import type {
 import { recordActivity } from './activity-service';
 import { addWatcher, isWatching } from './assignment-watchers-repository';
 import { generateNotificationEvent } from './notification-event-service';
+import { processPendingEvents } from './notification-processor';
 import { getPeopleByOrg } from './people-repository';
+import { fetchPerson } from './person-service';
+import { getRelease } from './release-repository';
 import type { AppRole } from '@/stores/role-store';
 import { AuthorizationService } from '@/lib/auth/authorization-service';
 import { roleGrantsPermission } from '@releaseflow/core/auth/authorization';
 import { PERMISSIONS } from '@releaseflow/core/auth/permissions';
+import { actorIsAssignee } from './assignment-identity';
+import { emitAssignmentsChanged } from './assignment-events';
 
 /**
  * AUTH-001 — review management via permission matrix / AuthorizationService.
@@ -125,8 +130,56 @@ export async function createNewAssignment(fields: CreateAssignmentFields): Promi
   if (!fields.assignerId) throw new Error('Assigner is required');
 
   // AW-001 / AUTH-001 — only managers/admins may create assignments.
-  const { AuthorizationService } = await import('@/lib/auth/authorization-service');
-  await AuthorizationService.requireManageAssignments(fields.organizationId, fields.assignerId);
+  // assignerId is Auth uid for permission checks.
+  const assignerAuthUid = fields.assignerUserId ?? fields.assignerId;
+  await AuthorizationService.requireManageAssignments(fields.organizationId, assignerAuthUid);
+
+  // ARS-003 — organization integrity: assignment org must match release when entity is release.
+  let releaseId = fields.releaseId ?? null;
+  if (fields.entityType === 'release') {
+    releaseId = fields.entityId;
+    try {
+      const release = await getRelease(fields.entityId);
+      if (release?.organizationId && release.organizationId !== fields.organizationId) {
+        throw new Error(
+          `Assignment organizationId does not match release organization (${release.organizationId}).`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('does not match')) throw err;
+      console.warn('[assignments] could not verify release org on create', err);
+    }
+  }
+
+  // ARS-004.2 — resolve and require Person.userId for active collaborators.
+  const assigneePerson = await fetchPerson(fields.assigneeId).catch(() => null);
+  if (!assigneePerson) {
+    throw new Error(
+      'Assignee person record not found. Assign work only to people in this organization.',
+    );
+  }
+  if (assigneePerson.organizationId && assigneePerson.organizationId !== fields.organizationId) {
+    throw new Error('Assignee person belongs to a different organization.');
+  }
+  if (assigneePerson.status === 'archived') {
+    throw new Error('Cannot assign work to an archived person.');
+  }
+  const assigneeUserId = fields.assigneeUserId ?? assigneePerson.userId ?? null;
+
+  // ARS-004.2 — Person.userId is mandatory for assignment create (no silent fallbacks).
+  if (!assigneeUserId) {
+    console.error('[ARS-004 integrity] Person.userId missing', {
+      personId: assigneePerson.id,
+      organizationId: fields.organizationId,
+      invitationStatus: assigneePerson.invitationStatus,
+      status: assigneePerson.status,
+    });
+    throw new Error(
+      'This collaborator has no linked user account (Person.userId). '
+      + 'They must accept their invitation before assignments can be created. '
+      + 'Run scripts/migrate-person-userids (or the Person.userId migration) for legacy records.',
+    );
+  }
 
   const existing = await findDuplicateAssignment(
     fields.organizationId,
@@ -145,35 +198,82 @@ export async function createNewAssignment(fields: CreateAssignmentFields): Promi
     );
   }
 
-  const assignment = await repoCreate(fields);
+  const createFields: CreateAssignmentFields = {
+    ...fields,
+    releaseId,
+    assigneeUserId,
+    assignerUserId: assignerAuthUid,
+  };
 
+  const assignment = await repoCreate(createFields);
+
+  const activityDetails = `Assignment "${assignment.title}" created`;
+  // Assignment-scoped activity (detail timeline — entityType task for backward compat)
   await recordActivity({
     entityType: 'task',
     entityId: assignment.id,
     organizationId: fields.organizationId,
-    actorId: fields.assignerId,
+    actorId: assignerAuthUid,
     action: 'assigned',
-    details: `Assignment "${assignment.title}" created for ${fields.assigneeId}`,
+    details: activityDetails,
+    metadata: {
+      assignmentId: assignment.id,
+      releaseId: releaseId ?? null,
+      assigneeId: fields.assigneeId,
+      title: assignment.title,
+    },
   });
 
-  // CE-006 — business logic emits events only (processor creates notifications)
+  // Release-scoped activity so Release Workspace feed sees creation
+  if (releaseId) {
+    await recordActivity({
+      entityType: 'release',
+      entityId: releaseId,
+      organizationId: fields.organizationId,
+      actorId: assignerAuthUid,
+      action: 'assignment.created',
+      details: activityDetails,
+      metadata: {
+        assignmentId: assignment.id,
+        title: assignment.title,
+        assigneeId: fields.assigneeId,
+      },
+    });
+  }
+
+  // CE-006 — emit event then process immediately (ARS-003)
   await generateNotificationEvent({
     type: 'assignment.assigned',
     organizationId: fields.organizationId,
-    actorId: fields.assignerId,
+    actorId: assignerAuthUid,
     recipientId: fields.assigneeId,
     entityId: assignment.id,
     entityType: 'assignment',
-    metadata: { title: fields.title },
+    metadata: {
+      title: fields.title,
+      releaseId: releaseId ?? null,
+      assigneeUserId: assigneeUserId ?? null,
+    },
   });
 
-  // CE-005 — auto-watch assignee + creator (release manager typically the assigner)
+  try {
+    await processPendingEvents(fields.organizationId, 30);
+  } catch (err) {
+    console.error('[assignments] processPendingEvents after create failed', err);
+  }
+
   await autoWatchDefaults(
     assignment.id,
     fields.organizationId,
     fields.assigneeId,
-    fields.assignerId,
+    assignerAuthUid,
   );
+
+  emitAssignmentsChanged({
+    organizationId: fields.organizationId,
+    assignmentId: assignment.id,
+    reason: 'created',
+  });
 
   return assignment;
 }
@@ -190,6 +290,11 @@ export async function editAssignment(assignmentId: string, fields: UpdateAssignm
     actorId,
     action: 'updated',
     details: `Assignment "${existing.title}" updated`,
+  });
+  emitAssignmentsChanged({
+    organizationId: existing.organizationId,
+    assignmentId,
+    reason: 'updated',
   });
 }
 
@@ -310,7 +415,9 @@ export async function assignUserToAssignment(assignmentId: string, assigneeId: s
 export async function acceptUserAssignment(assignmentId: string, actorId: string): Promise<void> {
   const existing = await repoGet(assignmentId);
   if (!existing) throw new Error('Assignment not found');
-  if (existing.assigneeId !== actorId) throw new Error('Only the assignee can accept');
+  if (!(await actorIsAssignee(existing, actorId))) {
+    throw new Error('Only the assignee can accept');
+  }
   await repoAccept(assignmentId);
 
   await recordActivity({
@@ -335,7 +442,9 @@ export async function acceptUserAssignment(assignmentId: string, actorId: string
 export async function declineUserAssignment(assignmentId: string, actorId: string, reason?: string): Promise<void> {
   const existing = await repoGet(assignmentId);
   if (!existing) throw new Error('Assignment not found');
-  if (existing.assigneeId !== actorId) throw new Error('Only the assignee can decline');
+  if (!(await actorIsAssignee(existing, actorId))) {
+    throw new Error('Only the assignee can decline');
+  }
   await repoDecline(assignmentId, reason);
 
   await recordActivity({
@@ -367,7 +476,9 @@ export async function completeUserAssignment(assignmentId: string, actorId: stri
 export async function markAsStarted(assignmentId: string, actorId: string): Promise<void> {
   const existing = await repoGet(assignmentId);
   if (!existing) throw new Error('Assignment not found');
-  if (existing.assigneeId !== actorId) throw new Error('Only the assignee can mark as started');
+  if (!(await actorIsAssignee(existing, actorId))) {
+    throw new Error('Only the assignee can mark as started');
+  }
   await repoMarkStarted(assignmentId);
 
   await recordActivity({
@@ -392,7 +503,9 @@ export async function markAsStarted(assignmentId: string, actorId: string): Prom
 export async function submitForReviewAssignment(assignmentId: string, actorId: string): Promise<void> {
   const existing = await repoGet(assignmentId);
   if (!existing) throw new Error('Assignment not found');
-  if (existing.assigneeId !== actorId) throw new Error('Only the assignee can submit for review');
+  if (!(await actorIsAssignee(existing, actorId))) {
+    throw new Error('Only the assignee can submit for review');
+  }
   if (existing.status !== 'in_progress') {
     throw new Error('Only in-progress assignments can be submitted for review');
   }
@@ -614,9 +727,23 @@ export async function deleteUserAssignment(assignmentId: string, actorId: string
   });
 }
 
-export async function fetchAssignmentsByEntity(entityType: string, entityId: string): Promise<AssignmentRecord[]> {
-  return getAssignmentsByEntity(entityType as AssignmentRecord['entityType'], entityId);
+export async function fetchAssignmentsByEntity(
+  entityType: string,
+  entityId: string,
+  opts?: { organizationId?: string; includeTerminal?: boolean },
+): Promise<AssignmentRecord[]> {
+  return getAssignmentsByEntity(
+    entityType as AssignmentRecord['entityType'],
+    entityId,
+    opts,
+  );
 }
+
+// ARS-004.3 — re-export repository subscriptions via service (pages must not import repo for listeners)
+export {
+  subscribeOrgAssignments,
+  subscribeEntityAssignments,
+} from './assignment-repository';
 
 export async function fetchAssignmentStats(personId: string, orgId: string) {
   return repoStats(personId, orgId);
