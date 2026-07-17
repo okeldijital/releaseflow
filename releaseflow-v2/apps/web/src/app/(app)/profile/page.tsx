@@ -10,6 +10,8 @@ import { useRoleStore } from '@/stores/role-store';
 import { getOrganization } from '@/lib/organization-repository';
 import { getPersonByOrganizationAndUserId } from '@/lib/people-repository';
 import type { PersonRecord } from '@/lib/people-repository';
+import { AuthorizationService } from '@/lib/auth/authorization-service';
+import { platformRoleLabel } from '@/lib/people-platform';
 import { Avatar, Button, Skeleton } from '@releaseflow/ui';
 import { NotificationPreferencesPanel } from '@/components/profile/notification-preferences-panel';
 import { StoragePanel } from '@/components/pwa/storage-panel';
@@ -22,6 +24,7 @@ export default function ProfilePage() {
   const [person, setPerson] = useState<PersonRecord | null>(null);
   const [orgName, setOrgName] = useState('');
   const [loading, setLoading] = useState(true);
+  const platformRole = AuthorizationService.getCurrentRole();
 
   useEffect(() => {
     if (!user || !activeOrgId) { setLoading(false); return; }
@@ -75,7 +78,8 @@ export default function ProfilePage() {
   const displayName = user?.displayName ?? person?.displayName ?? user?.email?.split('@')[0] ?? 'User';
 
   return (
-    <div className="mx-auto max-w-lg px-4 sm:px-6 py-10 page-transition">
+    <div className="mx-auto max-w-lg px-4 sm:px-6 py-8 sm:py-10 page-transition pb-6">
+      {/* MUX-001 — simple contributor profile */}
       <div className="flex flex-col items-center mb-8">
         <Avatar
           src={photoURL}
@@ -84,25 +88,28 @@ export default function ProfilePage() {
           className="shadow-lg"
         />
         <h1 className="text-xl font-semibold text-surface-50 mt-4">{displayName}</h1>
+        {platformRole ? (
+          <p className="text-sm text-text-400 mt-1">{platformRoleLabel(platformRole)}</p>
+        ) : null}
       </div>
 
-      <div className="rounded-xl border border-surface-700/60 bg-surface-900 divide-y divide-surface-700/40">
+      <div className="rounded-2xl border border-surface-700/60 bg-surface-900 divide-y divide-surface-700/40">
         {user?.email && (
-          <div className="px-5 py-4">
+          <div className="px-5 py-4 min-h-[56px] flex flex-col justify-center">
             <p className="text-xs text-text-500 uppercase tracking-widest">Email</p>
-            <p className="text-sm text-surface-100 mt-1">{user.email}</p>
+            <p className="text-sm sm:text-base text-surface-100 mt-1 break-all">{user.email}</p>
           </div>
         )}
-        {user?.phoneNumber && (
-          <div className="px-5 py-4">
-            <p className="text-xs text-text-500 uppercase tracking-widest">Phone</p>
-            <p className="text-sm text-surface-100 mt-1">{user.phoneNumber}</p>
-          </div>
-        )}
+        <div className="px-5 py-4 min-h-[56px] flex flex-col justify-center">
+          <p className="text-xs text-text-500 uppercase tracking-widest">Platform Role</p>
+          <p className="text-sm sm:text-base text-surface-100 mt-1">
+            {platformRoleLabel(platformRole) || '—'}
+          </p>
+        </div>
         {orgName && (
-          <div className="px-5 py-4">
+          <div className="px-5 py-4 min-h-[56px] flex flex-col justify-center">
             <p className="text-xs text-text-500 uppercase tracking-widest">Organization</p>
-            <p className="text-sm text-surface-100 mt-1">{orgName}</p>
+            <p className="text-sm sm:text-base text-surface-100 mt-1">{orgName}</p>
           </div>
         )}
       </div>
@@ -128,7 +135,7 @@ export default function ProfilePage() {
       <div className="mt-8">
         <Button
           variant="danger"
-          className="w-full"
+          className="w-full min-h-[48px] text-base"
           onClick={handleSignOut}
         >
           Sign Out

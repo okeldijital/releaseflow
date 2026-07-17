@@ -34,6 +34,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { useRoleStore } from '@/stores/role-store';
 import { resolvePersonNames } from '@/lib/resolve-person-names';
+import { resolveMyPersonIds } from '@/lib/schedule-service';
+import { AuthorizationService } from '@/lib/auth/authorization-service';
 
 const sColors: Record<string, string> = {
   assigned: 'bg-surface-800 text-text-500',
@@ -99,9 +101,19 @@ export default function AssignmentDetailPage() {
     reviewer: null,
     requester: null,
   });
+  const [myPersonIds, setMyPersonIds] = useState<string[]>([]);
 
-  const isAssignee = assignment?.assigneeId === user?.uid;
-  const isManager = canManageReview(role);
+  useEffect(() => {
+    if (!user?.uid || !activeOrgId) return;
+    void resolveMyPersonIds(activeOrgId, user.uid).then(setMyPersonIds);
+  }, [user?.uid, activeOrgId]);
+
+  const isAssignee = Boolean(
+    assignment
+    && user
+    && (assignment.assigneeId === user.uid || myPersonIds.includes(assignment.assigneeId)),
+  );
+  const isManager = canManageReview(role) || AuthorizationService.canManageAssignments();
 
   const act = async (fn: () => Promise<void>) => {
     setActionLoading(true);
@@ -358,31 +370,45 @@ export default function AssignmentDetailPage() {
     </div>
   );
 
-  const tabs = [
-    { id: 'workspace', label: 'Workspace' },
-    { id: 'activity', label: 'Activity', count: activities.length },
-    { id: 'comments', label: 'Comments' },
-  ];
-
   const actorNames = new Map<string, string>();
   if (assignment.assigneeName) actorNames.set(assignment.assigneeId, assignment.assigneeName);
   if (assignment.assignerName) actorNames.set(assignment.assignerId, assignment.assignerName);
   if (user?.uid && user.displayName) actorNames.set(user.uid, user.displayName);
 
+  // MUX-001 sticky mobile action bar primary CTA
+  const mobilePrimary = (() => {
+    if (!isAssignee && !isManager) return null;
+    if (assignment.status === 'assigned' && isAssignee) {
+      return { label: 'Accept Assignment', onClick: handleAccept };
+    }
+    if (assignment.status === 'accepted' && isAssignee) {
+      return { label: 'Mark as Started', onClick: handleStart };
+    }
+    if (assignment.status === 'in_progress' && isAssignee) {
+      return { label: 'Request Review', onClick: handleSubmitReview };
+    }
+    if (assignment.status === 'review' && isManager) {
+      return { label: 'Approve', onClick: handleApprove };
+    }
+    return null;
+  })();
+
   return (
     <>
       <WorkspaceLayout contextRail={contextRailContent}>
-        <div className="px-6 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <Link href="/assignments" className="text-sm text-text-400 hover:text-surface-50 inline-block">
-              &larr; Back to assignments
+        <div className="px-4 sm:px-6 py-5 sm:py-6 pb-28 md:pb-6">
+          <div className="flex items-center justify-between mb-4 min-h-[44px]">
+            <Link href="/assignments" className="text-sm text-text-400 hover:text-surface-50 inline-flex items-center min-h-[44px]">
+              &larr; Back
             </Link>
             <EntityOverflowMenu items={overflowItems} aria-label="Assignment actions" />
           </div>
 
           <div className="mb-6">
-            <h1 className="text-display-md font-semibold text-primary-400 tracking-tight mb-1">{assignment.title}</h1>
-            <div className="flex items-center gap-3 text-sm text-text-500 mb-2">
+            <h1 className="text-xl sm:text-display-md font-semibold text-primary-400 tracking-tight mb-2 leading-snug">
+              {assignment.title}
+            </h1>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-text-500 mb-2">
               <Badge label={statusLabel} size="sm" color={sColors[assignment.status] ?? 'bg-surface-800 text-text-500'} />
               <Badge label={assignment.priority} size="sm" color={priorityColors[assignment.priority] ?? 'bg-surface-800 text-text-500'} />
               <span className="text-text-400">{assignment.role}</span>
@@ -391,14 +417,24 @@ export default function AssignmentDetailPage() {
               ) : null}
             </div>
             {assignment.description ? (
-              <p className="text-sm text-text-400">{assignment.description}</p>
+              <p className="text-sm sm:text-base text-text-400 leading-relaxed">{assignment.description}</p>
             ) : null}
           </div>
 
-          <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+          <Tabs
+            tabs={[
+              { id: 'workspace', label: 'Overview' },
+              { id: 'comments', label: 'Comments' },
+              { id: 'activity', label: 'History', count: activities.length },
+            ]}
+            activeTab={activeTab === 'activity' ? 'activity' : activeTab === 'comments' ? 'comments' : 'workspace'}
+            onChange={setActiveTab}
+          />
 
           {activeTab === 'workspace' && (
             <div className="mt-6 space-y-6">
+              {/* Desktop / tablet actions (hidden on small phones — sticky bar handles them) */}
+              <div className="hidden md:block">
               <WorkspaceCard title="Actions">
                 <div className="flex flex-wrap gap-2 mt-2">
                   {assignment.status === 'assigned' && isAssignee && (
@@ -431,6 +467,30 @@ export default function AssignmentDetailPage() {
                   )}
                 </div>
               </WorkspaceCard>
+              </div>
+
+              {/* Mobile overview actions secondary */}
+              <div className="md:hidden flex flex-col gap-2">
+                {assignment.status === 'assigned' && isAssignee ? (
+                  <Button
+                    className="min-h-[48px] w-full"
+                    variant="ghost"
+                    onClick={() => setShowDeclineModal(true)}
+                    loading={actionLoading}
+                  >
+                    Decline
+                  </Button>
+                ) : null}
+                {assignment.status === 'in_progress' && isAssignee ? (
+                  <Button
+                    className="min-h-[48px] w-full"
+                    variant="ghost"
+                    onClick={() => setActiveTab('comments')}
+                  >
+                    Comment
+                  </Button>
+                ) : null}
+              </div>
 
               <ReviewPanel
                 assignment={{
@@ -503,6 +563,26 @@ export default function AssignmentDetailPage() {
           )}
         </div>
       </WorkspaceLayout>
+
+      {/* MUX-001 — sticky mobile action bar (above bottom nav) */}
+      {mobilePrimary ? (
+        <div
+          className="
+            md:hidden fixed inset-x-0 z-40
+            bottom-[calc(56px+env(safe-area-inset-bottom))]
+            border-t border-surface-700/60 bg-surface-950/95 backdrop-blur-md
+            px-4 py-3
+          "
+        >
+          <Button
+            className="w-full min-h-[48px] text-base font-semibold"
+            onClick={mobilePrimary.onClick}
+            loading={actionLoading}
+          >
+            {mobilePrimary.label}
+          </Button>
+        </div>
+      ) : null}
 
       <Modal open={showDeclineModal} onClose={() => setShowDeclineModal(false)}>
         <div className="p-6 space-y-4">

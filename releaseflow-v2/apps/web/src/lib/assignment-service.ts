@@ -124,6 +124,10 @@ export async function createNewAssignment(fields: CreateAssignmentFields): Promi
   if (!fields.assigneeId) throw new Error('Assignee is required');
   if (!fields.assignerId) throw new Error('Assigner is required');
 
+  // AW-001 / AUTH-001 — only managers/admins may create assignments.
+  const { AuthorizationService } = await import('@/lib/auth/authorization-service');
+  await AuthorizationService.requireManageAssignments(fields.organizationId, fields.assignerId);
+
   const existing = await findDuplicateAssignment(
     fields.organizationId,
     fields.entityType,

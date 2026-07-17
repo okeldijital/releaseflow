@@ -158,7 +158,7 @@ export function AppShell({
         {/* Main scrollable area */}
         <main
           id="main-content"
-          className={`flex-1 overflow-y-auto animate-fade-in focus:outline-none ${bottomNav ? 'pb-[72px] md:pb-0' : ''}`}
+          className={`flex-1 overflow-y-auto animate-fade-in focus:outline-none ${bottomNav ? 'pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0' : ''}`}
           tabIndex={-1}
         >
           {children}

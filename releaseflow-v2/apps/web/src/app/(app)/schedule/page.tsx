@@ -44,7 +44,9 @@ import {
 } from '@/components/schedule/schedule-views';
 import { toast } from '@/stores/toast-store';
 import type { PersonRecord } from '@/lib/people-repository';
+import { AuthorizationService } from '@/lib/auth/authorization-service';
 
+/** MUX-001: mobile prioritizes agenda; week/month optional. */
 const VIEW_TABS = [
   { id: 'agenda', label: 'Agenda' },
   { id: 'day', label: 'Day' },
@@ -52,7 +54,14 @@ const VIEW_TABS = [
   { id: 'month', label: 'Month' },
 ];
 
+const MOBILE_VIEW_TABS = [
+  { id: 'agenda', label: 'Agenda' },
+  { id: 'day', label: 'Day' },
+  { id: 'week', label: 'Week' },
+];
+
 function defaultViewForViewport(pref?: CalendarViewMode): CalendarViewMode {
+  // Phone users think in lists — always start on agenda regardless of desktop pref.
   if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
     return 'agenda';
   }
@@ -66,8 +75,10 @@ export default function SchedulePage() {
 
   const isManager = canViewTeamSchedule(role);
   const canDrag = canReschedule(role);
+  const isCollab = AuthorizationService.isCollaboratorWorkspace();
 
-  const [view, setView] = useState<CalendarViewMode>('week');
+  // Collaborators default personal agenda; managers may use week on desktop.
+  const [view, setView] = useState<CalendarViewMode>('agenda');
   const [prefs, setPrefs] = useState<CalendarPreferencesRecord | null>(null);
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()));
   const [loading, setLoading] = useState(true);
@@ -83,14 +94,18 @@ export default function SchedulePage() {
   const [pendingDrop, setPendingDrop] = useState<{ assignmentId: string; day: Date } | null>(null);
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
 
-  // Preferences
+  // Preferences — phone always agenda-first (MUX-001)
   useEffect(() => {
     if (!user?.uid) return;
     void getCalendarPreferences(user.uid).then((p) => {
       setPrefs(p);
-      setView(defaultViewForViewport(p.defaultView));
+      if (isCollab) {
+        setView(defaultViewForViewport('agenda'));
+      } else {
+        setView(defaultViewForViewport(p.defaultView));
+      }
     });
-  }, [user?.uid]);
+  }, [user?.uid, isCollab]);
 
   const weekStartsOn = prefs?.weekStartsOn ?? 1;
   const showWeekends = prefs?.showWeekends ?? true;
@@ -269,20 +284,31 @@ export default function SchedulePage() {
       </div>
 
       <div className="mb-4 sticky top-0 z-10 bg-layer-1/95 backdrop-blur py-2 -mx-1 px-1 border-b border-surface-700/40">
-        <Tabs
-          tabs={VIEW_TABS}
-          activeTab={view}
-          onChange={(id) => void saveViewPref(id as CalendarViewMode)}
-        />
+        {/* MUX-001: phones get agenda-first tabs without month clutter */}
+        <div className="md:hidden">
+          <Tabs
+            tabs={MOBILE_VIEW_TABS}
+            activeTab={view === 'month' ? 'agenda' : view}
+            onChange={(id) => void saveViewPref(id as CalendarViewMode)}
+          />
+        </div>
+        <div className="hidden md:block">
+          <Tabs
+            tabs={VIEW_TABS}
+            activeTab={view}
+            onChange={(id) => void saveViewPref(id as CalendarViewMode)}
+          />
+        </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-col lg:flex-row gap-3 mb-5">
         <div className="flex-1">
           <Input
-            placeholder="Search assignment, release, artist, assignee…"
+            placeholder="Search…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            className="min-h-[48px] md:min-h-0"
           />
         </div>
         <div className="flex flex-wrap gap-2">

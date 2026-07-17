@@ -394,11 +394,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }
         hideMobileSidebar={isCollab}
         topbarChildren={
-          orgs.length > 0 ? (
+          // MUX-001: org switcher on desktop always; on phone only when multi-org
+          orgs.length > 1 ? (
             <select
               value={activeOrgId ?? ''}
               onChange={(e) => setActiveOrgId(e.target.value || null)}
-              className="h-8 rounded-lg border border-surface-200 bg-layer-2 px-3 pr-7 text-body-small font-medium text-text-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 transition-all duration-150 cursor-pointer hover:border-surface-300"
+              className="h-9 min-h-[40px] rounded-lg border border-surface-200 bg-layer-2 px-3 pr-7 text-body-small font-medium text-text-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 transition-all duration-150 cursor-pointer hover:border-surface-300 max-w-[140px] sm:max-w-none"
+              aria-label="Active organisation"
+            >
+              {orgs.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+          ) : orgs.length === 1 && !isCollab ? (
+            <select
+              value={activeOrgId ?? ''}
+              onChange={(e) => setActiveOrgId(e.target.value || null)}
+              className="hidden sm:block h-8 rounded-lg border border-surface-200 bg-layer-2 px-3 pr-7 text-body-small font-medium text-text-700"
               aria-label="Active organisation"
             >
               {orgs.map((org) => (
