@@ -87,7 +87,8 @@ describe('NOT-001 type registry', () => {
     expect(getNotificationTypeDefinition('assignment.assigned')?.emailImportant).toBe(true);
     expect(getNotificationTypeDefinition('assignment.completed')?.emailImportant).toBe(true);
     expect(getNotificationTypeDefinition('assignment.started')?.emailImportant).toBe(false);
-    expect(getNotificationTypeDefinition('comment.created')?.emailImportant).toBe(false);
+    // NOT-002 — comments are email-eligible
+    expect(getNotificationTypeDefinition('comment.created')?.emailImportant).toBe(true);
     expect(getNotificationTypeDefinition('assignment.overdue')?.emailImportant).toBe(true);
   });
 

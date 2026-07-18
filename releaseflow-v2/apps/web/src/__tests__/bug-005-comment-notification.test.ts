@@ -28,11 +28,24 @@ describe('BUG-005 comment notification pipeline', () => {
     const src = read('lib/assignment-comments-service.ts');
     expect(src).toContain("type: isReply ? 'comment.reply' : 'comment.created'");
     expect(src).toContain('generateNotificationEvent');
+    expect(src).toContain('triggerProcessEvents');
     expect(src).toContain('processPendingEvents');
-    // process after mention events (not only before)
-    const processIdx = src.lastIndexOf('processPendingEvents');
+    // server process after mention events
+    const processIdx = src.lastIndexOf('triggerProcessEvents');
     const mentionIdx = src.indexOf("type: 'comment.mentioned'");
     expect(processIdx).toBeGreaterThan(mentionIdx);
+  });
+
+  it('exposes Admin process-events API and trigger', () => {
+    const route = read('app/api/notifications/process-events/route.ts');
+    expect(route).toContain('processPendingEventsAdmin');
+    expect(route).toContain('verifyIdToken');
+    const trigger = read('lib/notification/trigger-process-events.ts');
+    expect(trigger).toContain('/api/notifications/process-events');
+    const admin = read('lib/server/notification-processor-admin.ts');
+    expect(admin).toContain('user_notifications');
+    expect(admin).toContain('email_queue');
+    expect(admin).toContain('leaving event unprocessed for retry');
   });
 
   it('preferences fan-out falls back to defaults on permission failure', () => {

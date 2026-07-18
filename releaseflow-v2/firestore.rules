@@ -317,10 +317,14 @@ service cloud.firestore {
     match /notification_preferences/{userId} {
       allow read, write: if isAuth() && request.auth.uid == userId;
     }
+    // NOT-002 — client enqueues pending only; Admin SDK worker updates status
     match /email_queue/{docId} {
       allow read: if isAuth();
-      allow create: if isAuth() && request.resource.data.status == 'pending';
-      allow update, delete: if false; // worker-owned later
+      allow create: if isAuth()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.recipientEmail != null
+        && request.resource.data.notificationId != null;
+      allow update, delete: if false; // Admin worker only
     }
     match /push_subscriptions/{docId} {
       allow read, list: if isAuth() && resource.data.userId == request.auth.uid;

@@ -34,10 +34,27 @@ export async function refreshNotificationPipeline(
   } catch {
     // reminders best-effort
   }
+  // BUG-005: prefer Admin server processor (rules-safe fan-out)
   try {
-    await processPendingEvents(organizationId, 50);
+    const { triggerProcessEvents } = await import(
+      './notification/trigger-process-events'
+    );
+    const server = await triggerProcessEvents(organizationId, 50);
+    if (!server.ok) {
+      await processPendingEvents(organizationId, 50);
+    }
   } catch {
-    // processor best-effort
+    try {
+      await processPendingEvents(organizationId, 50);
+    } catch {
+      // processor best-effort
+    }
+  }
+  try {
+    const { triggerEmailWorker } = await import('./email/trigger-email-worker');
+    void triggerEmailWorker(25);
+  } catch {
+    /* ignore */
   }
 }
 

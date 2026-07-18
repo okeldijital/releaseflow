@@ -73,11 +73,10 @@ export class ResendProvider implements EmailProvider {
       });
       console.log('[Timing] Resend API call', { ms: resendApiMs });
 
-      console.log(response.status);
-      console.log(await response.text());
+      const body = await response.text();
+      console.log('[Resend] status', response.status, body.slice(0, 300));
 
       if (!response.ok) {
-        const body = await response.text();
         throw new Error(`Resend API error ${response.status}: ${body}`);
       }
     } catch (err) {

@@ -27,6 +27,7 @@ import {
 } from './notification-preferences-repository';
 import { enqueueEmailJob } from './email-queue-repository';
 import { enqueuePushJob } from './push-queue-repository';
+import { triggerEmailWorker } from './email/trigger-email-worker';
 import {
   getNotificationTypeDefinition,
   interpolateTemplate,
@@ -54,16 +55,29 @@ export async function resolveUserId(
   organizationId: string,
 ): Promise<string | null> {
   if (!id) return null;
+
+  // 1) Person document id
   try {
     const person = await fetchPerson(id);
     if (person) {
-      if (person.userId) {
-        return person.userId;
-      }
+      if (person.userId) return person.userId;
+      // Person exists but has no linked Auth account — cannot deliver inbox/email
       return null;
     }
-  } catch { /* treat as uid */ }
-  void organizationId;
+  } catch { /* continue */ }
+
+  // 2) Org roster: match personId or userId
+  if (organizationId) {
+    try {
+      const people = await getPeopleByOrg(organizationId);
+      const byId = people.find((p) => p.id === id);
+      if (byId?.userId) return byId.userId;
+      const byUid = people.find((p) => p.userId === id);
+      if (byUid?.userId) return byUid.userId;
+    } catch { /* continue */ }
+  }
+
+  // 3) Treat as Auth uid (assigner often stored as uid)
   return id;
 }
 
@@ -249,6 +263,7 @@ export async function processNotificationEvent(
   });
 
   let created = 0;
+  let recipientFailures = 0;
 
   // BUG-005: isolate per-recipient failures so one permission error cannot
   // abort fan-out for remaining users or skip markEventProcessed incorrectly.
@@ -288,6 +303,7 @@ export async function processNotificationEvent(
       });
       created++;
 
+      // NOT-002 — email is a delivery channel; queue failures never block inbox.
       if (
         def.emailImportant
         && isPreferenceEnabled(prefs, def.preferenceKey, 'email')
@@ -304,23 +320,34 @@ export async function processNotificationEvent(
             }
           } catch { /* ignore */ }
           if (recipientEmail) {
-            await enqueueEmailJob({
+            const jobId = await enqueueEmailJob({
+              organizationId: event.organizationId,
+              recipientUid: userId,
+              recipientEmail,
               notificationId: notification.id,
-              recipient: recipientEmail,
-              subject: title,
+              eventId: event.id,
+              eventType: event.type,
               template: def.emailTemplate,
+              subject: title,
               payload: {
+                title,
                 message,
                 entityType: event.entityType,
                 entityId: event.entityId,
                 actorName,
+                entityTitle,
                 deepLink,
+                ctaLabel: undefined,
               },
             });
-            emailQueued = true;
+            emailQueued = Boolean(jobId);
           }
-        } catch {
-          // email queue failure must not block processing
+        } catch (emailErr) {
+          console.warn('[notification-processor] email queue failed', {
+            eventId: event.id,
+            userId,
+            emailErr,
+          });
         }
       }
 
@@ -347,12 +374,22 @@ export async function processNotificationEvent(
       void emailQueued;
       void pushQueued;
     } catch (recipientErr) {
+      recipientFailures++;
       console.error('[notification-processor] recipient fan-out failed', {
         eventId: event.id,
         userId,
         recipientErr,
       });
     }
+  }
+
+  // Leave unprocessed when all recipient writes failed so a later run can retry.
+  if (recipientUserIds.length > 0 && created === 0 && recipientFailures > 0) {
+    console.warn('[notification-processor] leaving event unprocessed for retry', {
+      eventId: event.id,
+      recipientFailures,
+    });
+    return { created: 0, skipped: false };
   }
 
   await markEventProcessed(event.id);
@@ -382,6 +419,12 @@ export async function processPendingEvents(
     if (!result.skipped) processed++;
     created += result.created;
   }
+
+  // NOT-002 — drain email_queue via server worker (best-effort; never blocks inbox)
+  if (typeof window !== 'undefined') {
+    void triggerEmailWorker(30);
+  }
+
   return { processed, created };
 }
 

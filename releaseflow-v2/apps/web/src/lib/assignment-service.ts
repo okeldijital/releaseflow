@@ -258,9 +258,14 @@ export async function createNewAssignment(fields: CreateAssignmentFields): Promi
   });
 
   try {
-    await processPendingEvents(fields.organizationId, 30);
+    const { triggerProcessEvents } = await import('./notification/trigger-process-events');
+    const server = await triggerProcessEvents(fields.organizationId, 40);
+    if (!server.ok) await processPendingEvents(fields.organizationId, 30);
   } catch (err) {
     console.error('[assignments] processPendingEvents after create failed', err);
+    try {
+      await processPendingEvents(fields.organizationId, 30);
+    } catch { /* best-effort */ }
   }
 
   await autoWatchDefaults(

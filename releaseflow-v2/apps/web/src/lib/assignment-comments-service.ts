@@ -147,16 +147,34 @@ export async function addAssignmentComment(
     }
   }
 
-  // BUG-005: process after all events (comment + mentions) so none sit unprocessed.
+  // BUG-005: process after all events. Prefer Admin server fan-out (rules-safe).
   try {
-    const { processPendingEvents } = await import('./notification-processor');
-    const result = await processPendingEvents(fields.organizationId, 30);
-    console.log('[assignment-comments] processPendingEvents', {
+    const { triggerProcessEvents } = await import(
+      './notification/trigger-process-events'
+    );
+    const server = await triggerProcessEvents(fields.organizationId, 40);
+    console.log('[assignment-comments] server process-events', {
       organizationId: fields.organizationId,
-      ...result,
+      eventId: commentEventId,
+      ...server,
     });
+    if (!server.ok) {
+      // Fallback: client processor (prefs defaults + per-recipient isolation)
+      const { processPendingEvents } = await import('./notification-processor');
+      const result = await processPendingEvents(fields.organizationId, 30);
+      console.log('[assignment-comments] client processPendingEvents fallback', {
+        organizationId: fields.organizationId,
+        ...result,
+      });
+    }
   } catch (err) {
-    console.error('[assignment-comments] processPendingEvents failed', err);
+    console.error('[assignment-comments] notification processing failed', err);
+    try {
+      const { processPendingEvents } = await import('./notification-processor');
+      await processPendingEvents(fields.organizationId, 30);
+    } catch (fallbackErr) {
+      console.error('[assignment-comments] client fallback failed', fallbackErr);
+    }
   }
 
   return comment;
