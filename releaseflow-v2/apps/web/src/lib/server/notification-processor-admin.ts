@@ -286,7 +286,8 @@ async function createInboxIfMissing(
     .where('eventId', '==', fields.eventId)
     .limit(1)
     .get();
-  if (!existing.empty) return existing.docs[0]!.id;
+  const existingDoc = existing.docs[0];
+  if (existingDoc) return existingDoc.id;
 
   const ref = await db.collection('user_notifications').add({
     organizationId: fields.organizationId,
@@ -333,7 +334,8 @@ async function enqueueEmailAdmin(
     .where('notificationId', '==', fields.notificationId)
     .limit(1)
     .get();
-  if (!byNotif.empty) return byNotif.docs[0]!.id;
+  const existingEmail = byNotif.docs[0];
+  if (existingEmail) return existingEmail.id;
 
   const ref = await db.collection('email_queue').add({
     organizationId: fields.organizationId,
@@ -376,8 +378,9 @@ async function resolveRecipientEmail(
       .where('userId', '==', userId)
       .limit(1)
       .get();
-    if (!people.empty) {
-      const email = (people.docs[0]!.data() as { email?: string }).email;
+    const personDoc = people.docs[0];
+    if (personDoc) {
+      const email = (personDoc.data() as { email?: string }).email;
       if (email) return email;
     }
   } catch { /* continue */ }

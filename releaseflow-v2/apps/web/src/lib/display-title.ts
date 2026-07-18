@@ -26,10 +26,12 @@ export interface DisplayTitleInput {
 export function joinArtistNames(names: string[], style: 'comma' | 'ampersand' = 'comma'): string {
   const clean = names.map((n) => n.trim()).filter(Boolean);
   if (clean.length === 0) return '';
-  if (clean.length === 1) return clean[0]!;
+  const first = clean[0] ?? '';
+  if (clean.length === 1) return first;
   if (style === 'ampersand') {
-    if (clean.length === 2) return `${clean[0]} & ${clean[1]}`;
-    return `${clean.slice(0, -1).join(', ')} & ${clean[clean.length - 1]}`;
+    if (clean.length === 2) return `${first} & ${clean[1] ?? ''}`;
+    const last = clean[clean.length - 1] ?? '';
+    return `${clean.slice(0, -1).join(', ')} & ${last}`;
   }
   return clean.join(', ');
 }
@@ -46,22 +48,17 @@ export function generateSuggestedDisplayTitle(input: DisplayTitleInput): string 
   const featured = (input.featuredArtistNames ?? []).map((n) => n.trim()).filter(Boolean);
   const remixers = (input.remixArtistNames ?? []).map((n) => n.trim()).filter(Boolean);
 
-  let result = '';
-
-  if (originals.length > 0) {
-    result = `${joinArtistNames(originals, 'ampersand')} – ${title}`;
-  } else {
-    result = title;
-  }
+  let result =
+    originals.length > 0
+      ? `${joinArtistNames(originals, 'ampersand')} – ${title}`
+      : title;
 
   if (featured.length > 0) {
     result = `${result} feat. ${joinArtistNames(featured, 'comma')}`;
   }
 
-  if (remixers.length > 0 || input.isRemix) {
-    if (remixers.length > 0) {
-      result = `${result} (${joinArtistNames(remixers, 'ampersand')} Remix)`;
-    }
+  if (remixers.length > 0) {
+    result = `${result} (${joinArtistNames(remixers, 'ampersand')} Remix)`;
   }
 
   return result;
