@@ -1,9 +1,8 @@
 'use client';
 
 /**
- * UAT-006 / UAT-006A — Request password reset.
- * Surfaces real Firebase error codes during recovery debugging.
- * Does not redesign the recovery flow — diagnostics only.
+ * UAT-006 / BUG-004A — Request password reset.
+ * Surfaces real Firebase error codes. Success only after SDK resolves.
  */
 
 import { useEffect, useState } from 'react';
@@ -28,11 +27,10 @@ export default function ForgotPasswordPage() {
   const [googleOnly, setGoogleOnly] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // UAT-006A: log public runtime Firebase config once (no secrets).
   useEffect(() => {
     const cfg = getPublicAuthRuntimeConfig();
     logPasswordRecoveryConfiguration();
-    console.log(LOG, '· Page mount — public auth runtime config object', cfg);
+    console.log(LOG, '· Page mount — public auth runtime config', cfg);
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -45,6 +43,12 @@ export default function ForgotPasswordPage() {
       const result = await requestPasswordReset(email);
       setSentTo(result.email);
       setSent(true);
+      console.log(LOG, '· UI success after SDK resolve', {
+        email: result.email,
+        projectId: result.projectId,
+        authDomain: result.authDomain,
+        usedActionCodeSettings: result.usedActionCodeSettings,
+      });
     } catch (err) {
       const mapped = err instanceof PasswordResetError ? err : null;
       const message = userFacingPasswordError(err);
@@ -67,26 +71,13 @@ export default function ForgotPasswordPage() {
           customData: undefined,
           stack: mapped.stack,
         });
-        console.error(LOG, '✗ UI received PasswordResetError', {
-          code: mapped.code,
-          message: mapped.message,
-          firebaseCode: mapped.firebaseCode,
-          firebaseMessage: mapped.firebaseMessage,
-        });
       } else {
-        const anyErr = err as {
-          code?: string;
-          message?: string;
-          customData?: unknown;
-          stack?: string;
-        };
+        const anyErr = err as { code?: string; message?: string; stack?: string };
         console.error({
           code: anyErr?.code,
           message: anyErr?.message ?? String(err),
-          customData: anyErr?.customData,
           stack: anyErr?.stack,
         });
-        console.error(LOG, '✗ UI received non-PasswordResetError', err);
       }
     } finally {
       setSubmitting(false);
@@ -105,10 +96,12 @@ export default function ForgotPasswordPage() {
       {sent ? (
         <div className="mt-6 space-y-4">
           <p className="text-center text-sm text-success-400 bg-success-500/10 rounded-lg py-3 px-4">
-            If an account exists for <strong className="text-success-300">{sentTo}</strong>, we sent a password reset link.
+            If an account with email/password exists for{' '}
+            <strong className="text-success-300">{sentTo}</strong>, Firebase will send a password reset link.
             Check your inbox and spam folder.
           </p>
           <p className="text-center text-xs text-text-500">
+            If you only sign in with Google, use Continue with Google instead.
             The link expires after a short time. After resetting, sign in with your new password.
           </p>
         </div>

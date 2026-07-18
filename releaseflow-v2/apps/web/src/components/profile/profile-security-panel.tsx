@@ -13,6 +13,10 @@ import {
   hasPasswordProvider,
   sendMyPasswordResetEmail,
 } from '@/lib/profile-service';
+import {
+  PasswordResetError,
+  userFacingPasswordError,
+} from '@/lib/auth/password-reset-service';
 
 interface ProfileSecurityPanelProps {
   user: User;
@@ -63,10 +67,25 @@ export function ProfileSecurityPanel({ user }: ProfileSecurityPanelProps) {
     }
     setResetBusy(true);
     try {
+      // Same service as /forgot-password — never swallow Firebase errors.
       await sendMyPasswordResetEmail(user.email);
-      toast.success('Password reset email sent');
+      toast.success(
+        'Reset requested',
+        'If this account uses email/password, check inbox and spam. Delivery is via Firebase Auth, not Resend.',
+      );
     } catch (e) {
-      toast.error((e as Error).message || 'Could not send reset email');
+      const msg = userFacingPasswordError(e);
+      if (e instanceof PasswordResetError) {
+        console.error('[Password Recovery] · Profile security reset failed', {
+          code: e.code,
+          firebaseCode: e.firebaseCode,
+          firebaseMessage: e.firebaseMessage,
+          stack: e.stack,
+        });
+      } else {
+        console.error('[Password Recovery] · Profile security reset failed', e);
+      }
+      toast.error(msg);
     } finally {
       setResetBusy(false);
     }

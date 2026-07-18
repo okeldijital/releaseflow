@@ -75,3 +75,28 @@ describe('UAT-006A diagnostics helpers', () => {
     expect(text).not.toBe('Could not complete password recovery.');
   });
 });
+
+describe('BUG-004 / BUG-004A single pipeline + Console-parity send', () => {
+  it('profile and forgot-password both use requestPasswordReset', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const root = join(__dirname, '..');
+    const forgot = readFileSync(join(root, 'app/(auth)/forgot-password/page.tsx'), 'utf8');
+    const profile = readFileSync(join(root, 'lib/profile-service.ts'), 'utf8');
+    const security = readFileSync(join(root, 'components/profile/profile-security-panel.tsx'), 'utf8');
+    const service = readFileSync(join(root, 'lib/auth/password-reset-service.ts'), 'utf8');
+
+    expect(forgot).toContain('requestPasswordReset');
+    expect(profile).toContain('requestPasswordReset');
+    expect(security).toContain('sendMyPasswordResetEmail');
+    expect(security).toContain('userFacingPasswordError');
+    // BUG-004A: Console parity — two-arg send only (no ActionCodeSettings on call)
+    expect(service).toContain('sendPasswordResetEmail(auth, normalized)');
+    expect(service).toContain('no ActionCodeSettings');
+    expect(service).not.toContain('sendPasswordResetEmail(auth, normalized, settings)');
+    expect(service).not.toContain('isContinueUriError');
+    // Success UI only after await (forgot page)
+    expect(forgot).toContain('await requestPasswordReset');
+    expect(forgot).toMatch(/await requestPasswordReset[\s\S]*setSent\(true\)/);
+  });
+});

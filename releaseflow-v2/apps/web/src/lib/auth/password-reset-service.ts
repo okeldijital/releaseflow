@@ -1,9 +1,14 @@
 /**
- * UAT-006 / UAT-006A — Password recovery & identity helpers.
+ * UAT-006 / UAT-006A / BUG-004A — Password recovery & identity helpers.
  *
- * UAT-006A: expose real Firebase / Identity Toolkit errors (no masking),
- * log runtime continue-URL config, and retry without ActionCodeSettings
- * only for continue-URI authorization failures.
+ * BUG-004A: Firebase Console "Reset password" delivers mail for the same
+ * Email/Password users while the client SDK path did not when it passed
+ * ActionCodeSettings. Console does not attach client continue URLs; it uses
+ * Authentication → Templates → Password reset action URL.
+ *
+ * Primary send path therefore matches Console:
+ *   sendPasswordResetEmail(auth, email)
+ * with NO ActionCodeSettings. Link host comes from the Console template.
  *
  * Scope: password reset only. Do not change invitation / RBAC / sign-in flows.
  */
@@ -82,26 +87,26 @@ function getAuthRuntimeDomainAndProject(auth?: Auth | null): {
 export function getPublicAuthRuntimeConfig(): {
   origin: string | undefined;
   nextPublicAppUrl: string;
-  continueUrl: string;
+  /** Documented template action URL — not attached to SDK send (BUG-004A). */
+  templateActionUrlExpected: string;
   authDomain: string | undefined;
   projectId: string | undefined;
   apiKeyPresent: boolean;
   appUrl: string;
   originDiffersFromAppUrl: boolean;
+  sendUsesActionCodeSettings: boolean;
 } {
   const origin =
     typeof window !== 'undefined' ? window.location.origin : undefined;
-  const settings = buildActionCodeSettings();
   const auth = typeof window !== 'undefined' ? getAuthInstance() : undefined;
   const { authDomain, projectId } = getAuthRuntimeDomainAndProject(auth);
   const nextPublicAppUrl = process.env.NEXT_PUBLIC_APP_URL || '(empty)';
   const appUrl = getAppBaseUrl() || '(empty)';
-  const continueUrl = settings?.url ?? '(none)';
 
   return {
     origin,
     nextPublicAppUrl,
-    continueUrl,
+    templateActionUrlExpected: 'https://flow.okeldijital.africa/auth/action',
     authDomain,
     projectId,
     apiKeyPresent: Boolean(process.env.NEXT_PUBLIC_FIREBASE_API_KEY),
@@ -109,6 +114,7 @@ export function getPublicAuthRuntimeConfig(): {
     originDiffersFromAppUrl: Boolean(
       origin && appUrl && appUrl !== '(empty)' && origin !== appUrl,
     ),
+    sendUsesActionCodeSettings: false,
   };
 }
 
@@ -120,19 +126,19 @@ export function logPasswordRecoveryConfiguration(auth?: Auth | null): void {
   const origin =
     typeof window !== 'undefined' ? window.location.origin : undefined;
   const nextPublicAppUrl = process.env.NEXT_PUBLIC_APP_URL || '(empty)';
-  const settings = buildActionCodeSettings();
-  const continueUrl = settings?.url ?? '(none)';
   const { authDomain, projectId } = getAuthRuntimeDomainAndProject(auth);
+  const options = auth?.app?.options as { apiKey?: string } | undefined;
 
-  // Multi-line block so DevTools search for "Password Recovery Configuration" works.
   console.log(
     [
       CONFIG_LOG,
       `origin: ${origin ?? '(ssr/unavailable)'}`,
       `NEXT_PUBLIC_APP_URL: ${nextPublicAppUrl}`,
-      `continueUrl: ${continueUrl}`,
       `authDomain: ${authDomain ?? '(unset)'}`,
       `projectId: ${projectId ?? '(unset)'}`,
+      `apiKeyPresent: ${Boolean(options?.apiKey ?? process.env.NEXT_PUBLIC_FIREBASE_API_KEY)}`,
+      'sendMode: sendPasswordResetEmail(auth, email) — no ActionCodeSettings (BUG-004A / Console parity)',
+      'templateActionUrl (Console): https://flow.okeldijital.africa/auth/action',
     ].join('\n'),
   );
 
@@ -141,26 +147,6 @@ export function logPasswordRecoveryConfiguration(auth?: Auth | null): void {
       origin,
       NEXT_PUBLIC_APP_URL: nextPublicAppUrl,
     });
-  }
-
-  // UAT-006A §4 — flag unexpected continue hosts (localhost / firebaseapp).
-  if (continueUrl !== '(none)') {
-    try {
-      const host = new URL(continueUrl).hostname;
-      if (
-        host === 'localhost'
-        || host.endsWith('.firebaseapp.com')
-        || host.endsWith('.web.app')
-      ) {
-        console.warn(LOG, '· Continue URL host may be wrong for production', {
-          continueUrl,
-          host,
-          expectedProduction: 'https://flow.okeldijital.africa/auth/action',
-        });
-      }
-    } catch {
-      console.warn(LOG, '· Continue URL is not a valid absolute URL', { continueUrl });
-    }
   }
 }
 
@@ -425,12 +411,11 @@ export async function getSignInMethodsForEmail(email: string): Promise<SignInMet
 }
 
 /**
- * Prefer the live page origin so continue URL matches the domain the user is on
- * (must be in Firebase Authorized Domains). Fall back to env base URL.
+ * Expected Console template continue/action URL for documentation and diagnostics.
+ * BUG-004A: this is NOT passed to sendPasswordResetEmail. Firebase Console template
+ * owns the action URL when the SDK is called with (auth, email) only.
  *
- * Continue path is `/auth/action` (UAT-006A §4 / production checklist).
- * Returns null when no valid absolute URL can be built — caller omits
- * ActionCodeSettings (Firebase default handler).
+ * Production template should be: https://flow.okeldijital.africa/auth/action
  */
 export function buildActionCodeSettings(): ActionCodeSettings | null {
   const origin =
@@ -440,45 +425,71 @@ export function buildActionCodeSettings(): ActionCodeSettings | null {
     || getAppBaseUrl();
 
   if (!origin || !/^https?:\/\//i.test(origin)) {
-    console.warn(LOG, '· No absolute continue URL available — will send without ActionCodeSettings', {
-      origin,
-      envAppUrl: process.env.NEXT_PUBLIC_APP_URL,
-    });
     return null;
   }
 
-  // Production expected: https://flow.okeldijital.africa/auth/action
-  const continueUrl = `${origin.replace(/\/$/, '')}/auth/action`;
-
   return {
-    url: continueUrl,
+    url: `${origin.replace(/\/$/, '')}/auth/action`,
     handleCodeInApp: false,
   };
 }
 
-function isContinueUriError(code: string): boolean {
-  return (
-    code === 'auth/unauthorized-continue-uri'
-    || code === 'auth/invalid-continue-uri'
-  );
-}
+/** BUG-004A — result after SDK accepts the password-reset request. */
+export type PasswordResetRequestResult = {
+  email: string;
+  projectId: string | undefined;
+  authDomain: string | undefined;
+  /** Always false after BUG-004A — Console-parity path */
+  usedActionCodeSettings: boolean;
+  identityAuditInconclusive: boolean;
+  identity: SignInMethodInfo | null;
+  /** Template URL recommended in Console (not attached to this request) */
+  expectedTemplateActionUrl: string;
+};
 
 /**
  * Request a password reset email for an email/password account.
- * Blocks Google-only accounts with a clear message.
+ *
+ * BUG-004A — matches Firebase Console reset behaviour:
+ *   await sendPasswordResetEmail(auth, email)
+ * No ActionCodeSettings. No retry wrapper that can hide the original error.
+ * Action links use Authentication → Templates → Password reset action URL.
  */
-export async function requestPasswordReset(email: string): Promise<{ email: string }> {
+export async function requestPasswordReset(email: string): Promise<PasswordResetRequestResult> {
   const normalized = normalizeEmail(email);
   if (!isValidEmailFormat(normalized)) {
     throw new PasswordResetError('invalid_email', 'Please enter a valid email address.');
   }
 
   const auth = requireAuth();
+  const appOptions = auth.app.options as {
+    projectId?: string;
+    authDomain?: string;
+    apiKey?: string;
+  };
+  const projectId = appOptions.projectId ?? process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const authDomain = appOptions.authDomain ?? process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+  const origin = typeof window !== 'undefined' ? window.location.origin : undefined;
 
-  // UAT-006A §2 — always log config before send.
+  // BUG-004A Phase 2 — log exact Auth instance (no secrets beyond public apiKey presence).
+  console.log(LOG, 'Password Reset Request (auth instance)', {
+    projectId,
+    authDomain,
+    apiKeyPresent: Boolean(appOptions.apiKey),
+    origin,
+    expectedProjectId: 'releaseflow-prod',
+    projectIdMatch: projectId === 'releaseflow-prod',
+  });
+
+  if (projectId && projectId !== 'releaseflow-prod') {
+    console.error(LOG, '✗ Auth projectId is not releaseflow-prod — wrong Firebase app?', {
+      projectId,
+    });
+  }
+
   logPasswordRecoveryConfiguration(auth);
 
-  // Identity audit — do not offer password reset for Google-only accounts.
+  // Identity audit when methods are available (may be empty under enumeration protection).
   let identity: SignInMethodInfo | null = null;
   try {
     identity = await getSignInMethodsForEmail(normalized);
@@ -486,9 +497,14 @@ export async function requestPasswordReset(email: string): Promise<{ email: stri
       email: normalized,
       methods: identity.methods,
       hasPassword: identity.hasPassword,
-      hasGoogle: identity.hasGoogle,
       isGoogleOnly: identity.isGoogleOnly,
     });
+    if (identity.methods.length === 0) {
+      console.warn(
+        LOG,
+        '· Identity audit inconclusive (empty methods). Continuing send — Console template path.',
+      );
+    }
   } catch (err) {
     if (err instanceof PasswordResetError && err.code === 'invalid_email') throw err;
     logFirebaseError(err);
@@ -496,9 +512,6 @@ export async function requestPasswordReset(email: string): Promise<{ email: stri
   }
 
   if (identity?.isGoogleOnly) {
-    console.log(LOG, '· Google-only account — password reset blocked', {
-      email: normalized,
-    });
     throw new PasswordResetError(
       'google_only',
       'This account uses Google Sign-In. Please continue with Google.',
@@ -512,48 +525,38 @@ export async function requestPasswordReset(email: string): Promise<{ email: stri
     );
   }
 
-  const settings = buildActionCodeSettings();
-  console.log(LOG, '✓ ActionCodeSettings for sendPasswordResetEmail', settings);
+  const expectedTemplateActionUrl = 'https://flow.okeldijital.africa/auth/action';
 
   try {
-    console.log(LOG, '✓ Sending password reset email', {
+    // BUG-004A Phase 4 — Console parity: no ActionCodeSettings, no retry, no wrapper args.
+    console.log(LOG, '✓ sendPasswordResetEmail(auth, email) — no ActionCodeSettings', {
       email: normalized,
-      withSettings: Boolean(settings),
-      continueUrl: settings?.url ?? null,
+      projectId,
+      authDomain,
     });
 
-    await withIdentityToolkitCapture(async () => {
-      if (settings) {
-        await sendPasswordResetEmail(auth, normalized, settings);
-      } else {
-        await sendPasswordResetEmail(auth, normalized);
-      }
+    await withIdentityToolkitCapture(() =>
+      sendPasswordResetEmail(auth, normalized),
+    );
+
+    console.log(LOG, '✓ sendPasswordResetEmail resolved (SDK success)', {
+      email: normalized,
+      projectId,
+      actionCodeSettings: null,
     });
 
-    console.log(LOG, '✓ Password reset email requested successfully');
-    return { email: normalized };
+    return {
+      email: normalized,
+      projectId,
+      authDomain,
+      usedActionCodeSettings: false,
+      identityAuditInconclusive: Boolean(identity && identity.methods.length === 0),
+      identity,
+      expectedTemplateActionUrl,
+    };
   } catch (err) {
+    // Surface original Firebase error only — no alternate path.
     logFirebaseError(err);
-    const code = (err as { code?: string })?.code ?? '';
-
-    // UAT-006A §5 — retry once WITHOUT ActionCodeSettings only for continue-URI errors.
-    if (settings && isContinueUriError(code)) {
-      console.warn(LOG, '· Retrying sendPasswordResetEmail WITHOUT ActionCodeSettings', {
-        previousContinueUrl: settings.url,
-        firebaseCode: code,
-      });
-      try {
-        await withIdentityToolkitCapture(() =>
-          sendPasswordResetEmail(auth, normalized),
-        );
-        console.log(LOG, '✓ Password reset email requested (fallback without continue URL)');
-        return { email: normalized };
-      } catch (retryErr) {
-        logFirebaseError(retryErr);
-        throw mapFirebaseError(retryErr);
-      }
-    }
-
     throw mapFirebaseError(err);
   }
 }
