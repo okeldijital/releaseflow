@@ -178,6 +178,37 @@ export async function getTracksByArtist(artistId: string): Promise<TrackArtistRe
   return snap.docs.map((d) => normalizeDoc({ id: d.id, ...d.data() }));
 }
 
+/** EPIC-202 — tracks where artist is credited in a specific role */
+export async function getTracksByArtistRole(
+  artistId: string,
+  role: TrackArtistRole,
+): Promise<TrackArtistRecord[]> {
+  const all = await getTracksByArtist(artistId);
+  return all
+    .filter((l) => l.role === role)
+    .sort((a, b) => a.position - b.position);
+}
+
+export async function getTracksAsOriginalArtist(artistId: string): Promise<TrackArtistRecord[]> {
+  const all = await getTracksByArtist(artistId);
+  return all.filter(
+    (l) => l.role === 'ORIGINAL_ARTIST' || l.role === 'PRIMARY_ARTIST',
+  );
+}
+
+export async function getTracksAsFeaturedArtist(artistId: string): Promise<TrackArtistRecord[]> {
+  return getTracksByArtistRole(artistId, 'FEATURED_ARTIST');
+}
+
+export async function getTracksAsRemixArtist(artistId: string): Promise<TrackArtistRecord[]> {
+  return getTracksByArtistRole(artistId, 'REMIX_ARTIST');
+}
+
+/** Union of every role for an artist (may include same track multiple times if multi-credited). */
+export async function getAllArtistTracks(artistId: string): Promise<TrackArtistRecord[]> {
+  return getTracksByArtist(artistId);
+}
+
 export async function ensureArtistInTrack(
   trackId: string,
   artistId: string,

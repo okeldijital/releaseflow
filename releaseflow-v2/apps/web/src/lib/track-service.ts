@@ -1,5 +1,12 @@
 import { getReleasesByTrack } from './release-track-repository';
-import { getTracksByArtist } from './track-artist-repository';
+import {
+  getTracksByArtist,
+  getTracksAsOriginalArtist,
+  getTracksAsFeaturedArtist,
+  getTracksAsRemixArtist,
+  getAllArtistTracks,
+  type TrackArtistRecord,
+} from './track-artist-repository';
 import {
   createTrack, updateTrack, getTrack, getTracksByOrg, archiveTrack, deleteTrack,
 } from './track-repository';
@@ -8,6 +15,14 @@ import type {
 } from './track-repository';
 
 export type { TrackRecord, CreateTrackFields, UpdateTrackFields } from './track-repository';
+export type { TrackArtistRecord };
+
+export {
+  getTracksAsOriginalArtist,
+  getTracksAsFeaturedArtist,
+  getTracksAsRemixArtist,
+  getAllArtistTracks,
+};
 
 export async function createNewTrack(fields: CreateTrackFields): Promise<string> {
   if (!fields.title.trim()) throw new Error('Track title is required');
@@ -42,6 +57,47 @@ export async function fetchTracksByArtist(orgId: string, artistId: string): Prom
   const all = await getTracksByOrg(orgId);
   const ids = new Set(links.map((l) => l.trackId));
   return all.filter((t) => ids.has(t.id));
+}
+
+export interface ArtistTracksByRole {
+  original: TrackRecord[];
+  featured: TrackRecord[];
+  remix: TrackRecord[];
+  /** Deduped union preserving first-seen order */
+  all: TrackRecord[];
+  links: TrackArtistRecord[];
+}
+
+/** EPIC-202 — group org tracks by how this artist is credited */
+export async function fetchArtistTracksByRole(
+  orgId: string,
+  artistId: string,
+): Promise<ArtistTracksByRole> {
+  const [origLinks, featLinks, remixLinks, allLinks] = await Promise.all([
+    getTracksAsOriginalArtist(artistId),
+    getTracksAsFeaturedArtist(artistId),
+    getTracksAsRemixArtist(artistId),
+    getAllArtistTracks(artistId),
+  ]);
+  const allTracks = await getTracksByOrg(orgId);
+  const byId = new Map(allTracks.map((t) => [t.id, t]));
+
+  const mapLinks = (links: TrackArtistRecord[]) =>
+    links
+      .map((l) => byId.get(l.trackId))
+      .filter((t): t is TrackRecord => Boolean(t));
+
+  const original = mapLinks(origLinks);
+  const featured = mapLinks(featLinks);
+  const remix = mapLinks(remixLinks);
+  const seen = new Set<string>();
+  const all: TrackRecord[] = [];
+  for (const t of [...original, ...featured, ...remix, ...mapLinks(allLinks)]) {
+    if (seen.has(t.id)) continue;
+    seen.add(t.id);
+    all.push(t);
+  }
+  return { original, featured, remix, all, links: allLinks };
 }
 
 export async function fetchTrack(trackId: string): Promise<TrackRecord | null> {

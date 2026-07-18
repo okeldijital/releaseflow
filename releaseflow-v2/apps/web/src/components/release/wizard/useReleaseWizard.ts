@@ -309,7 +309,11 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
             originalArtistId: t.recordingType === 'remix' ? (t.originalArtists[0]?.artistId ?? null) : null,
             remixerArtistId: t.recordingType === 'remix' ? (t.remixArtists[0]?.artistId ?? null) : null,
             primaryArtistId: t.recordingType === 'original' ? t.primaryArtistId || null : null,
-            featuredArtistIds: t.recordingType === 'original' ? t.featuredArtistIds : null,
+            originalArtistIds: t.recordingType === 'remix'
+              ? t.originalArtists.map((e) => e.artistId).filter(Boolean)
+              : (t.primaryArtistId ? [t.primaryArtistId] : []),
+            featuredArtistIds: t.featuredArtistIds,
+            remixArtistIds: t.remixArtists.map((e) => e.artistId).filter(Boolean),
             displayTitle: t.displayTitle.trim() || null,
             displayTitleEdited: t.displayTitleEdited,
           });
@@ -322,12 +326,13 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
               const entry = t.remixArtists[idx]!;
               if (entry.artistId) await addArtistToTrack({ trackId, artistId: entry.artistId, role: 'REMIX_ARTIST', position: idx + 1 });
             }
-          } else {
-            if (t.primaryArtistId) await addArtistToTrack({ trackId, artistId: t.primaryArtistId, role: 'PRIMARY_ARTIST', position: 1, isPrimary: true });
-            for (let idx = 0; idx < t.featuredArtistIds.length; idx++) {
-              const fid = t.featuredArtistIds[idx]!;
-              if (fid) await addArtistToTrack({ trackId, artistId: fid, role: 'FEATURED_ARTIST', position: idx + 1 });
-            }
+          } else if (t.primaryArtistId) {
+            await addArtistToTrack({ trackId, artistId: t.primaryArtistId, role: 'PRIMARY_ARTIST', position: 1, isPrimary: true });
+          }
+          // EPIC-202 — Featured Artists on original and remix
+          for (let idx = 0; idx < t.featuredArtistIds.length; idx++) {
+            const fid = t.featuredArtistIds[idx]!;
+            if (fid) await addArtistToTrack({ trackId, artistId: fid, role: 'FEATURED_ARTIST', position: idx + 1 });
           }
         }
       }

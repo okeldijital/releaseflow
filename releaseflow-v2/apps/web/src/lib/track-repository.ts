@@ -33,7 +33,10 @@ export interface TrackRecord {
   originalArtistId?: string | null;
   remixerArtistId?: string | null;
   primaryArtistId?: string | null;
-  featuredArtistIds?: string[] | null;
+  /** EPIC-202 — ordered Artist entity ids (source of truth also in track_artists) */
+  originalArtistIds?: string[];
+  featuredArtistIds?: string[];
+  remixArtistIds?: string[];
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
   credits?: TrackCredit[];
@@ -62,7 +65,9 @@ export interface CreateTrackFields {
   originalArtistId?: string | null;
   remixerArtistId?: string | null;
   primaryArtistId?: string | null;
-  featuredArtistIds?: string[] | null;
+  originalArtistIds?: string[];
+  featuredArtistIds?: string[];
+  remixArtistIds?: string[];
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
   credits?: TrackCredit[];
@@ -87,10 +92,18 @@ export interface UpdateTrackFields {
   originalArtistId?: string | null;
   remixerArtistId?: string | null;
   primaryArtistId?: string | null;
-  featuredArtistIds?: string[] | null;
+  originalArtistIds?: string[];
+  featuredArtistIds?: string[];
+  remixArtistIds?: string[];
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
   credits?: TrackCredit[];
+}
+
+/** EPIC-202 — missing array fields load as []. */
+export function normalizeArtistIdArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((id): id is string => typeof id === 'string' && id.length > 0);
 }
 
 export async function createTrack(fields: CreateTrackFields): Promise<TrackRecord> {
@@ -128,7 +141,9 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     originalArtistId: fields.originalArtistId ?? null,
     remixerArtistId: fields.remixerArtistId ?? null,
     primaryArtistId: fields.primaryArtistId ?? null,
-    featuredArtistIds: fields.featuredArtistIds ?? null,
+    originalArtistIds: normalizeArtistIdArray(fields.originalArtistIds),
+    featuredArtistIds: normalizeArtistIdArray(fields.featuredArtistIds),
+    remixArtistIds: normalizeArtistIdArray(fields.remixArtistIds),
     displayTitle: fields.displayTitle ?? null,
     displayTitleEdited: fields.displayTitleEdited ?? false,
     credits: fields.credits ?? null,
@@ -167,7 +182,9 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     originalArtistId: fields.originalArtistId,
     remixerArtistId: fields.remixerArtistId,
     primaryArtistId: fields.primaryArtistId,
-    featuredArtistIds: fields.featuredArtistIds,
+    originalArtistIds: normalizeArtistIdArray(fields.originalArtistIds),
+    featuredArtistIds: normalizeArtistIdArray(fields.featuredArtistIds),
+    remixArtistIds: normalizeArtistIdArray(fields.remixArtistIds),
     displayTitle: fields.displayTitle,
     displayTitleEdited: fields.displayTitleEdited,
     credits: fields.credits,
@@ -199,7 +216,15 @@ export async function updateTrack(trackId: string, fields: UpdateTrackFields): P
   if (fields.originalArtistId !== undefined) update.originalArtistId = fields.originalArtistId;
   if (fields.remixerArtistId !== undefined) update.remixerArtistId = fields.remixerArtistId;
   if (fields.primaryArtistId !== undefined) update.primaryArtistId = fields.primaryArtistId;
-  if (fields.featuredArtistIds !== undefined) update.featuredArtistIds = fields.featuredArtistIds;
+  if (fields.originalArtistIds !== undefined) {
+    update.originalArtistIds = normalizeArtistIdArray(fields.originalArtistIds);
+  }
+  if (fields.featuredArtistIds !== undefined) {
+    update.featuredArtistIds = normalizeArtistIdArray(fields.featuredArtistIds);
+  }
+  if (fields.remixArtistIds !== undefined) {
+    update.remixArtistIds = normalizeArtistIdArray(fields.remixArtistIds);
+  }
   if (fields.displayTitle !== undefined) update.displayTitle = fields.displayTitle;
   if (fields.displayTitleEdited !== undefined) update.displayTitleEdited = fields.displayTitleEdited;
   if (fields.credits !== undefined) update.credits = fields.credits;
@@ -216,6 +241,9 @@ export async function getTrack(trackId: string): Promise<TrackRecord | null> {
     id: snap.id,
     ...data,
     recordingType: resolveRecordingType(data.recordingType),
+    originalArtistIds: normalizeArtistIdArray(data.originalArtistIds),
+    featuredArtistIds: normalizeArtistIdArray(data.featuredArtistIds),
+    remixArtistIds: normalizeArtistIdArray(data.remixArtistIds),
   } as TrackRecord;
 }
 
@@ -234,6 +262,9 @@ export async function getTracksByOrg(orgId: string): Promise<TrackRecord[]> {
       id: d.id,
       ...data,
       recordingType: resolveRecordingType(data.recordingType),
+      originalArtistIds: normalizeArtistIdArray(data.originalArtistIds),
+      featuredArtistIds: normalizeArtistIdArray(data.featuredArtistIds),
+      remixArtistIds: normalizeArtistIdArray(data.remixArtistIds),
     } as TrackRecord;
   });
 }

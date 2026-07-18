@@ -572,7 +572,9 @@ export default function ArtistDetailPage() {
 
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-content-primary">Tracks ({linkedTracks.length})</h2>
+              <h2 className="text-base font-semibold text-content-primary">
+                Tracks ({tracks.length || linkedTracks.length})
+              </h2>
               <Button variant="secondary" size="sm" onClick={() => setLinkTrackOpen(true)}>
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0H9" /></svg>
                 Link Track
@@ -580,8 +582,58 @@ export default function ArtistDetailPage() {
             </div>
             {trackLoading ? (
               <div className="text-sm text-content-label py-4">Loading tracks...</div>
-            ) : linkedTracks.length === 0 ? (
+            ) : tracks.length === 0 && linkedTracks.length === 0 ? (
               <EmptyState title="No linked tracks" description="Link tracks to associate them with this artist." />
+            ) : tracks.length > 0 ? (
+              /* EPIC-202 — group by Original / Featured / Remix role */
+              <div className="space-y-6">
+                {(
+                  [
+                    {
+                      key: 'original',
+                      label: 'Original Artist',
+                      roles: ['ORIGINAL_ARTIST', 'PRIMARY_ARTIST'] as string[],
+                    },
+                    {
+                      key: 'featured',
+                      label: 'Featured Artist',
+                      roles: ['FEATURED_ARTIST'] as string[],
+                    },
+                    {
+                      key: 'remix',
+                      label: 'Remix Artist',
+                      roles: ['REMIX_ARTIST'] as string[],
+                    },
+                  ]
+                ).map((group) => {
+                  const groupTracks = tracks.filter((t) => group.roles.includes(t.role));
+                  if (groupTracks.length === 0) return null;
+                  return (
+                    <div key={group.key}>
+                      <p className="text-xs font-semibold text-content-label uppercase tracking-wider mb-2">
+                        {group.label}
+                      </p>
+                      <TrackList>
+                        {groupTracks.map((t) => (
+                          <TrackRow key={`${t.id}-${t.role}`} onClick={() => router.push(`/tracks/${t.trackId}`)}>
+                            <div className="shrink-0">
+                              <ArtworkPlaceholder title={t.trackTitle ?? 'Untitled'} size="sm" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-content-primary truncate group-hover:text-primary-400 transition-colors">
+                                {t.trackTitle ?? 'Untitled'}
+                              </p>
+                              <p className="text-xs text-content-secondary mt-0.5">
+                                {creditRoleLabels[t.role] ?? t.role}
+                              </p>
+                            </div>
+                          </TrackRow>
+                        ))}
+                      </TrackList>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <TrackList>
                 {linkedTracks.map((t) => (

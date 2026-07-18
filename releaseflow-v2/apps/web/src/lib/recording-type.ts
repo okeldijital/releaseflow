@@ -14,12 +14,8 @@ export function releaseTypeLabel(type: string): string {
   return labels[type] ?? type;
 }
 
-export function suggestRemixDisplayTitle(trackTitle: string, remixerName: string): string {
-  const title = trackTitle.trim();
-  const remixer = remixerName.trim();
-  if (!title || !remixer) return title;
-  return `${title} (${remixer} Remix)`;
-}
+/** @deprecated Prefer generateSuggestedDisplayTitle from display-title.ts (EPIC-202) */
+export { suggestRemixDisplayTitle, generateSuggestedDisplayTitle } from './display-title';
 
 export function countRecordingTypes(
   tracks: { recordingType?: unknown; title?: string }[],

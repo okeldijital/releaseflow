@@ -3,9 +3,10 @@
 import { type Dispatch, type SetStateAction } from 'react';
 import type { WizardTrack, PersonOption, SectionStatusMap, AssignerField } from './release-wizard-types';
 import { uid } from './release-wizard-types';
-import { suggestRemixDisplayTitle } from '@/lib/recording-type';
+import { generateSuggestedDisplayTitle } from '@/lib/display-title';
 import { Nav } from './wizard-ui';
-import { ArtistFieldPicker, FeaturedArtistsPicker, RepeatableArtistPicker, type ArtistOption, type RepeatableArtistEntry } from '@/components/artist-field-picker';
+import { ArtistFieldPicker, type ArtistOption, type RepeatableArtistEntry } from '@/components/artist-field-picker';
+import { ArtistRelationshipList } from '@/components/artists/artist-relationship-list';
 
 export function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, removeTrack, addFeaturedArtist, removeFeaturedArtist, onArtistCreated, openAssigner, validateRemixTracks, people, setSectionStatus, currentStepKey, back, next }: {
   tracks: WizardTrack[];
@@ -55,81 +56,94 @@ export function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack
               </div>
             </div>
 
-            {t.recordingType === 'original' ? (
-              <div key={`${t.id}-original-artists`} className="space-y-3">
+            <div key={`${t.id}-artists`} className="space-y-3">
+              {t.recordingType === 'original' ? (
                 <ArtistFieldPicker
                   key={`${t.id}-primary-artist`}
                   instanceId={`${t.id}-primary-artist`}
-                  label="Primary Artist"
+                  label="Original Artists"
                   value={t.primaryArtistId}
                   onChange={(v) => updateTrack(t.id, 'primaryArtistId', v)}
                   artists={artists}
                   organizationId={activeOrgId}
                   onArtistCreated={onArtistCreated}
                 />
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Featuring Artists</p>
-                  {t.featuredArtistIds.map((aid) => {
-                    const name = artists.find((a) => a.id === aid)?.name ?? aid;
-                    return (
-                      <div key={aid} className="flex items-center justify-between rounded-xl border border-surface-700 bg-surface-950 px-3 py-2">
-                        <span className="text-sm text-surface-100">{name}</span>
-                        <button type="button" onClick={() => removeFeaturedArtist(t.id, aid)} className="text-xs text-danger-400">Remove</button>
-                      </div>
-                    );
-                  })}
-                  <FeaturedArtistsPicker
-                    key={`${t.id}-featuring-artists`}
-                    instanceId={`${t.id}-featuring-artists`}
+              ) : (
+                <>
+                  <ArtistRelationshipList
+                    instanceId={`${t.id}-original-artists`}
+                    role="original"
+                    entries={t.originalArtists}
                     artists={artists}
                     organizationId={activeOrgId}
-                    primaryArtistId={t.primaryArtistId}
-                    featuredArtistIds={t.featuredArtistIds}
-                    onAdd={(artistId) => addFeaturedArtist(t.id, artistId)}
+                    onAdd={(artistId) => updateTrack(t.id, 'originalArtists', [...t.originalArtists, { id: uid(), artistId }])}
+                    onRemove={(entryId) => updateTrack(t.id, 'originalArtists', t.originalArtists.filter((e) => e.id !== entryId))}
+                    onReorder={(entries) => updateTrack(t.id, 'originalArtists', entries)}
                     onArtistCreated={onArtistCreated}
                   />
-                </div>
-              </div>
-            ) : (
-              <div key={`${t.id}-remix-artists`} className="space-y-3">
-                <RepeatableArtistPicker
-                  instanceId={`${t.id}-original-artists`}
-                  label="Original Artists"
-                  addLabel="+ Add Original Artist"
-                  entries={t.originalArtists}
-                  artists={artists}
-                  organizationId={activeOrgId}
-                  onAdd={(artistId) => updateTrack(t.id, 'originalArtists', [...t.originalArtists, { id: uid(), artistId }])}
-                  onRemove={(entryId) => updateTrack(t.id, 'originalArtists', t.originalArtists.filter((e) => e.id !== entryId))}
-                  onReorder={(entries) => updateTrack(t.id, 'originalArtists', entries)}
-                  onArtistCreated={onArtistCreated}
-                />
-                {t.remixErrors.originalArtists ? <p className="text-xs text-danger-400">{t.remixErrors.originalArtists}</p> : null}
-                <RepeatableArtistPicker
-                  instanceId={`${t.id}-remix-artists`}
-                  label="Remix Artists"
-                  addLabel="+ Add Remix Artist"
-                  entries={t.remixArtists}
-                  artists={artists}
-                  organizationId={activeOrgId}
-                  onAdd={(artistId) => updateTrack(t.id, 'remixArtists', [...t.remixArtists, { id: uid(), artistId }])}
-                  onRemove={(entryId) => updateTrack(t.id, 'remixArtists', t.remixArtists.filter((e) => e.id !== entryId))}
-                  onReorder={(entries) => updateTrack(t.id, 'remixArtists', entries)}
-                  onArtistCreated={onArtistCreated}
-                />
-                {t.remixErrors.remixArtists ? <p className="text-xs text-danger-400">{t.remixErrors.remixArtists}</p> : null}
-                <div className="rounded-xl border border-surface-700 bg-surface-950 p-3 space-y-2">
-                  <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Suggested Display Title</p>
-                  <input
-                    type="text"
-                    value={t.displayTitle}
-                    onChange={(e) => updateTrack(t.id, 'displayTitle', e.target.value)}
-                    placeholder={suggestRemixDisplayTitle(t.title, artists.find((a) => a.id === (t.remixArtists[0]?.artistId ?? ''))?.name ?? '')}
-                    className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-900 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
+                  {t.remixErrors.originalArtists ? <p className="text-xs text-danger-400">{t.remixErrors.originalArtists}</p> : null}
+                  <ArtistRelationshipList
+                    instanceId={`${t.id}-remix-artists`}
+                    role="remix"
+                    entries={t.remixArtists}
+                    artists={artists}
+                    organizationId={activeOrgId}
+                    onAdd={(artistId) => updateTrack(t.id, 'remixArtists', [...t.remixArtists, { id: uid(), artistId }])}
+                    onRemove={(entryId) => updateTrack(t.id, 'remixArtists', t.remixArtists.filter((e) => e.id !== entryId))}
+                    onReorder={(entries) => updateTrack(t.id, 'remixArtists', entries)}
+                    onArtistCreated={onArtistCreated}
                   />
-                </div>
+                  {t.remixErrors.remixArtists ? <p className="text-xs text-danger-400">{t.remixErrors.remixArtists}</p> : null}
+                </>
+              )}
+
+              {/* EPIC-202 — Featured Artists (original + remix) */}
+              <div className="space-y-2">
+                {t.featuredArtistIds.map((aid) => {
+                  const name = artists.find((a) => a.id === aid)?.name ?? aid;
+                  return (
+                    <div key={aid} className="flex items-center justify-between rounded-xl border border-surface-700 bg-surface-950 px-3 py-2">
+                      <span className="text-sm text-surface-100">{name}</span>
+                      <button type="button" onClick={() => removeFeaturedArtist(t.id, aid)} className="text-xs text-danger-400">Remove</button>
+                    </div>
+                  );
+                })}
+                <ArtistRelationshipList
+                  instanceId={`${t.id}-featured-artists`}
+                  role="featured"
+                  entries={t.featuredArtistIds.map((aid) => ({ id: aid, artistId: aid }))}
+                  artists={artists}
+                  organizationId={activeOrgId}
+                  onAdd={(artistId) => addFeaturedArtist(t.id, artistId)}
+                  onRemove={(entryId) => removeFeaturedArtist(t.id, entryId)}
+                  onReorder={(entries) => updateTrack(t.id, 'featuredArtistIds', entries.map((e) => e.artistId))}
+                  onArtistCreated={onArtistCreated}
+                />
               </div>
-            )}
+
+              <div className="rounded-xl border border-surface-700 bg-surface-950 p-3 space-y-2">
+                <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Suggested Display Title</p>
+                <input
+                  type="text"
+                  value={t.displayTitle}
+                  onChange={(e) => updateTrack(t.id, 'displayTitle', e.target.value)}
+                  placeholder={generateSuggestedDisplayTitle({
+                    trackTitle: t.title,
+                    originalArtistNames: t.recordingType === 'original'
+                      ? [artists.find((a) => a.id === t.primaryArtistId)?.name ?? ''].filter(Boolean)
+                      : t.originalArtists.map((e) => artists.find((a) => a.id === e.artistId)?.name ?? '').filter(Boolean),
+                    featuredArtistNames: t.featuredArtistIds
+                      .map((id) => artists.find((a) => a.id === id)?.name ?? '')
+                      .filter(Boolean),
+                    remixArtistNames: t.remixArtists
+                      .map((e) => artists.find((a) => a.id === e.artistId)?.name ?? '')
+                      .filter(Boolean),
+                    isRemix: t.recordingType === 'remix',
+                  })}
+                  className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-900 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
+                />
+              </div>
+            </div>
 
             <div className="space-y-3">
               <div>
