@@ -240,113 +240,127 @@ export async function processNotificationEvent(
   );
 
   const recipientUserIds = await resolveRecipientUserIds(event);
+  console.log('[notification-processor] recipients', {
+    eventId: event.id,
+    type: event.type,
+    actorId: event.actorId,
+    recipientCount: recipientUserIds.length,
+    recipients: recipientUserIds,
+  });
+
   let created = 0;
 
+  // BUG-005: isolate per-recipient failures so one permission error cannot
+  // abort fan-out for remaining users or skip markEventProcessed incorrectly.
   for (const userId of recipientUserIds) {
-    const prefs = await getNotificationPreferences(userId);
-    let emailQueued = false;
-    let pushQueued = false;
+    try {
+      const prefs = await getNotificationPreferences(userId);
+      let emailQueued = false;
+      let pushQueued = false;
 
-    // In-app is the primary inbox channel
-    if (!isPreferenceEnabled(prefs, def.preferenceKey, 'inApp')) {
-      // Still allow email/push-only if in-app off? NOT-001: channels independent per prefs.
-      // Skip entire user if all channels off for this type.
-      const wantEmail =
+      if (!isPreferenceEnabled(prefs, def.preferenceKey, 'inApp')) {
+        const wantEmail =
+          def.emailImportant
+          && isPreferenceEnabled(prefs, def.preferenceKey, 'email');
+        const wantPush =
+          def.pushEligible
+          && isPreferenceEnabled(prefs, def.preferenceKey, 'push');
+        if (!wantEmail && !wantPush) continue;
+      }
+
+      const inApp = isPreferenceEnabled(prefs, def.preferenceKey, 'inApp');
+
+      const notification = await createUserNotification({
+        organizationId: event.organizationId,
+        userId,
+        eventId: event.id,
+        type: event.type,
+        title,
+        message,
+        entityType: event.entityType,
+        entityId: event.entityId,
+        assignmentId,
+        releaseId,
+        actorId: event.actorId,
+        actorName,
+        deliveryStatus: 'delivered',
+        channels: { inApp, emailQueued: false, pushQueued: false },
+      });
+      created++;
+
+      if (
         def.emailImportant
-        && isPreferenceEnabled(prefs, def.preferenceKey, 'email');
-      const wantPush =
-        def.pushEligible
-        && isPreferenceEnabled(prefs, def.preferenceKey, 'push');
-      if (!wantEmail && !wantPush) continue;
-
-      // Email/push without in-app: still create a silent inbox row so deep links / audit exist
-    }
-
-    const inApp = isPreferenceEnabled(prefs, def.preferenceKey, 'inApp');
-
-    const notification = await createUserNotification({
-      organizationId: event.organizationId,
-      userId,
-      eventId: event.id,
-      type: event.type,
-      title,
-      message,
-      entityType: event.entityType,
-      entityId: event.entityId,
-      assignmentId,
-      releaseId,
-      actorId: event.actorId,
-      actorName,
-      deliveryStatus: 'delivered',
-      channels: { inApp, emailQueued: false, pushQueued: false },
-    });
-    created++;
-
-    // Email queue — important types only (NOT-001 noise control)
-    if (
-      def.emailImportant
-      && isPreferenceEnabled(prefs, def.preferenceKey, 'email')
-    ) {
-      try {
-        let recipientEmail = '';
+        && isPreferenceEnabled(prefs, def.preferenceKey, 'email')
+      ) {
         try {
-          const person = await fetchPerson(userId);
-          recipientEmail = person?.email ?? '';
-          if (!recipientEmail) {
-            const people = await getPeopleByOrg(event.organizationId);
-            const match = people.find((p) => p.userId === userId);
-            recipientEmail = match?.email ?? '';
+          let recipientEmail = '';
+          try {
+            const person = await fetchPerson(userId);
+            recipientEmail = person?.email ?? '';
+            if (!recipientEmail) {
+              const people = await getPeopleByOrg(event.organizationId);
+              const match = people.find((p) => p.userId === userId);
+              recipientEmail = match?.email ?? '';
+            }
+          } catch { /* ignore */ }
+          if (recipientEmail) {
+            await enqueueEmailJob({
+              notificationId: notification.id,
+              recipient: recipientEmail,
+              subject: title,
+              template: def.emailTemplate,
+              payload: {
+                message,
+                entityType: event.entityType,
+                entityId: event.entityId,
+                actorName,
+                deepLink,
+              },
+            });
+            emailQueued = true;
           }
-        } catch { /* ignore */ }
-        if (recipientEmail) {
-          await enqueueEmailJob({
-            notificationId: notification.id,
-            recipient: recipientEmail,
-            subject: title,
-            template: def.emailTemplate,
-            payload: {
-              message,
-              entityType: event.entityType,
-              entityId: event.entityId,
-              actorName,
-              deepLink,
-            },
-          });
-          emailQueued = true;
+        } catch {
+          // email queue failure must not block processing
         }
-      } catch {
-        // email queue failure must not block processing
       }
-    }
 
-    // Push queue — FCM worker (NOT-001)
-    if (
-      def.pushEligible
-      && isPreferenceEnabled(prefs, def.preferenceKey, 'push')
-    ) {
-      try {
-        await enqueuePushJob({
-          notificationId: notification.id,
-          userId,
-          organizationId: event.organizationId,
-          title,
-          body: message,
-          deepLink,
-          eventType: event.type,
-        });
-        pushQueued = true;
-      } catch {
-        // push queue failure must not block processing
+      if (
+        def.pushEligible
+        && isPreferenceEnabled(prefs, def.preferenceKey, 'push')
+      ) {
+        try {
+          await enqueuePushJob({
+            notificationId: notification.id,
+            userId,
+            organizationId: event.organizationId,
+            title,
+            body: message,
+            deepLink,
+            eventType: event.type,
+          });
+          pushQueued = true;
+        } catch {
+          // push queue failure must not block processing
+        }
       }
-    }
 
-    // Best-effort channel flags update is omitted to avoid extra write;
-    // flags are set at create. If queues succeeded after create, row still useful.
-    void emailQueued;
-    void pushQueued;
+      void emailQueued;
+      void pushQueued;
+    } catch (recipientErr) {
+      console.error('[notification-processor] recipient fan-out failed', {
+        eventId: event.id,
+        userId,
+        recipientErr,
+      });
+    }
   }
 
   await markEventProcessed(event.id);
+  console.log('[notification-processor] event processed', {
+    eventId: event.id,
+    type: event.type,
+    created,
+  });
   return { created, skipped: false };
 }
 

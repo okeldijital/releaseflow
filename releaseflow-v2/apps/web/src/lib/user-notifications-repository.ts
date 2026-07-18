@@ -99,18 +99,29 @@ export async function findUserNotificationByEvent(
 ): Promise<UserNotificationRecord | null> {
   const db = getDb();
   if (!db) return null;
-  const snap = await getDocs(
-    query(
-      collection(db, 'user_notifications'),
-      where('userId', '==', userId),
-      where('eventId', '==', eventId),
-      limit(1),
-    ),
-  );
-  if (snap.empty) return null;
-  const d = snap.docs[0];
-  if (!d) return null;
-  return toRecord(d.id, d.data() as Record<string, unknown>);
+  try {
+    // Rules: list only own notifications. Actor processing for other recipients
+    // will get permission-denied — treat as "no existing row" and allow create.
+    const snap = await getDocs(
+      query(
+        collection(db, 'user_notifications'),
+        where('userId', '==', userId),
+        where('eventId', '==', eventId),
+        limit(1),
+      ),
+    );
+    if (snap.empty) return null;
+    const d = snap.docs[0];
+    if (!d) return null;
+    return toRecord(d.id, d.data() as Record<string, unknown>);
+  } catch (err) {
+    console.warn('[user_notifications] dedupe query failed (fan-out)', {
+      userId,
+      eventId,
+      err,
+    });
+    return null;
+  }
 }
 
 export async function createUserNotification(

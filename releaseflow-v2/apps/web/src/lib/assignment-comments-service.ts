@@ -105,7 +105,7 @@ export async function addAssignmentComment(
     },
   });
 
-  await generateNotificationEvent({
+  const commentEventId = await generateNotificationEvent({
     type: isReply ? 'comment.reply' : 'comment.created',
     organizationId: fields.organizationId,
     actorId: fields.authorId,
@@ -113,13 +113,12 @@ export async function addAssignmentComment(
     entityType: 'assignment',
     metadata: { commentId: comment.id, message: fields.message },
   });
-
-  try {
-    const { processPendingEvents } = await import('./notification-processor');
-    await processPendingEvents(fields.organizationId, 20);
-  } catch {
-    /* best-effort */
-  }
+  console.log('[assignment-comments] notification event created', {
+    eventId: commentEventId,
+    type: isReply ? 'comment.reply' : 'comment.created',
+    assignmentId: fields.assignmentId,
+    authorId: fields.authorId,
+  });
 
   if (mentionedUserIds.length > 0) {
     await recordActivity({
@@ -146,6 +145,18 @@ export async function addAssignmentComment(
         metadata: { commentId: comment.id, message: fields.message },
       });
     }
+  }
+
+  // BUG-005: process after all events (comment + mentions) so none sit unprocessed.
+  try {
+    const { processPendingEvents } = await import('./notification-processor');
+    const result = await processPendingEvents(fields.organizationId, 30);
+    console.log('[assignment-comments] processPendingEvents', {
+      organizationId: fields.organizationId,
+      ...result,
+    });
+  } catch (err) {
+    console.error('[assignment-comments] processPendingEvents failed', err);
   }
 
   return comment;
