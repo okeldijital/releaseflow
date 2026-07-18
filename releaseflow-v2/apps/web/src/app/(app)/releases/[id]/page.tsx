@@ -157,7 +157,12 @@ export default function ReleaseWorkspacePage() {
   const [release, setRelease] = useState<Release | null>(null);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [tracks, setTracks] = useState<(ReleaseTrackRecord & { track: TrackRecord | null })[]>([]);
-  const [trackArtistMeta, setTrackArtistMeta] = useState<Record<string, { original?: string; remixer?: string }>>({});
+  const [trackArtistMeta, setTrackArtistMeta] = useState<Record<string, {
+    original?: string;
+    remixer?: string;
+    featured?: string;
+    displayTitle?: string;
+  }>>({});
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -268,45 +273,79 @@ export default function ReleaseWorkspacePage() {
       }
 
       const { fetchArtist } = await import('@/lib/artist-service');
-      const meta: Record<string, { original?: string; remixer?: string }> = {};
+      const { resolveTrackDisplayTitle } = await import('@/lib/display-title');
+      const meta: Record<string, {
+        original?: string;
+        remixer?: string;
+        featured?: string;
+        displayTitle?: string;
+      }> = {};
       let anyArtistFailed = false;
 
       for (const rt of tracks) {
         const t = rt.track;
-        if (!t || resolveRecordingType(t.recordingType) !== 'remix') continue;
+        if (!t) continue;
 
         let originalNames: string[] = [];
         let remixerNames: string[] = [];
+        let featuredNames: string[] = [];
 
         try {
-          const originalRecs = await getArtistsByRole(t.id, 'ORIGINAL_ARTIST');
-          const remixRecs = await getArtistsByRole(t.id, 'REMIX_ARTIST');
+          const [originalRecs, primaryRecs, remixRecs, featuredRecs] = await Promise.all([
+            getArtistsByRole(t.id, 'ORIGINAL_ARTIST'),
+            getArtistsByRole(t.id, 'PRIMARY_ARTIST'),
+            getArtistsByRole(t.id, 'REMIX_ARTIST'),
+            getArtistsByRole(t.id, 'FEATURED_ARTIST'),
+          ]);
 
-          if (originalRecs.length > 0) {
-            originalNames = (await Promise.all(
-              originalRecs.map((r) => fetchArtist(activeOrgId, r.artistId)),
-            )).filter(Boolean).map((a) => a!.name);
-          } else if (t.originalArtistId) {
-            const a = await fetchArtist(activeOrgId, t.originalArtistId);
-            if (a) originalNames = [a.name];
-          }
+          const originalIds =
+            originalRecs.length > 0
+              ? originalRecs.map((r) => r.artistId)
+              : primaryRecs.length > 0
+                ? primaryRecs.map((r) => r.artistId)
+                : ([t.primaryArtistId, t.originalArtistId, ...(t.originalArtistIds ?? [])].filter(Boolean) as string[]);
 
-          if (remixRecs.length > 0) {
-            remixerNames = (await Promise.all(
-              remixRecs.map((r) => fetchArtist(activeOrgId, r.artistId)),
-            )).filter(Boolean).map((a) => a!.name);
-          } else if (t.remixerArtistId) {
-            const a = await fetchArtist(activeOrgId, t.remixerArtistId);
-            if (a) remixerNames = [a.name];
-          }
+          const remixIds =
+            remixRecs.length > 0
+              ? remixRecs.map((r) => r.artistId)
+              : ([t.remixerArtistId, ...(t.remixArtistIds ?? [])].filter(Boolean) as string[]);
+
+          const featuredIds =
+            featuredRecs.length > 0
+              ? featuredRecs.map((r) => r.artistId)
+              : (t.featuredArtistIds ?? []);
+
+          originalNames = (await Promise.all(
+            originalIds.map((id) => fetchArtist(activeOrgId, id)),
+          )).filter(Boolean).map((a) => a!.name);
+
+          remixerNames = (await Promise.all(
+            remixIds.map((id) => fetchArtist(activeOrgId, id)),
+          )).filter(Boolean).map((a) => a!.name);
+
+          featuredNames = (await Promise.all(
+            featuredIds.map((id) => fetchArtist(activeOrgId, id)),
+          )).filter(Boolean).map((a) => a!.name);
         } catch (error) {
           anyArtistFailed = true;
           console.error('[Workspace] loadArtists failed', t.id, error);
         }
 
+        const isRemix = resolveRecordingType(t.recordingType) === 'remix';
         meta[t.id] = {
-          original: originalNames.join(', '),
-          remixer: remixerNames.join(', '),
+          original: originalNames.join(', ') || undefined,
+          remixer: remixerNames.join(', ') || undefined,
+          featured: featuredNames.join(', ') || undefined,
+          displayTitle: resolveTrackDisplayTitle({
+            title: t.title,
+            displayTitle: t.displayTitle,
+            displayTitleEdited: t.displayTitleEdited,
+            originalArtistNames: originalNames,
+            featuredArtistNames: featuredNames,
+            remixArtistNames: remixerNames,
+            isRemix,
+            includeOriginalPrefix: false,
+          }),
         };
       }
 
@@ -848,11 +887,16 @@ export default function ReleaseWorkspacePage() {
                     >
                       <span className="text-sm text-content-secondary font-mono w-6 shrink-0 text-right">{rt.position}</span>
                       <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-content-primary truncate block">{t?.title ?? '—'}</span>
+                        <span className="text-sm font-medium text-content-primary truncate block">
+                          {(t && trackArtistMeta[t.id]?.displayTitle) || t?.title || '—'}
+                        </span>
                         <span className="text-xs text-content-secondary mt-0.5 block">
                           {t ? (
                             <>
                               {recordingTypeLabel(resolveRecordingType(t.recordingType), true)}
+                              {trackArtistMeta[t.id]?.featured ? (
+                                <> · feat. {trackArtistMeta[t.id]?.featured}</>
+                              ) : null}
                               {resolveRecordingType(t.recordingType) === 'remix' && trackArtistMeta[t.id]?.original && (
                                 <> · {trackArtistMeta[t.id]?.original}{trackArtistMeta[t.id]?.remixer ? ` × ${trackArtistMeta[t.id]?.remixer}` : ''}</>
                               )}

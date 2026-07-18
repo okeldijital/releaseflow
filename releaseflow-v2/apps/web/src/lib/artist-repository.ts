@@ -439,7 +439,11 @@ export async function getTrackTitle(trackId: string): Promise<string | null> {
   if (!db) return null;
   const snap = await getDoc(doc(db, 'tracks', trackId));
   if (!snap.exists()) return null;
-  return (snap.data() as { title?: string }).title ?? null;
+  // EPIC-202A — prefer generated/stored display title for list surfaces
+  const data = snap.data() as { title?: string; displayTitle?: string | null };
+  const display = data.displayTitle?.trim();
+  if (display) return display;
+  return data.title ?? null;
 }
 
 export async function getArtistUsage(organizationId: string, artistId: string): Promise<ArtistUsageResult> {

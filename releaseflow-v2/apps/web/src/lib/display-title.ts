@@ -89,3 +89,58 @@ export function findDuplicateArtistId(artistIds: string[]): string | null {
   }
   return null;
 }
+
+/**
+ * EPIC-202A — Single entry point for display titles across the app.
+ *
+ * Prefer a manually edited stored title; otherwise generate from structured
+ * artist relationships. Use includeOriginalPrefix=false for compact list rows
+ * (e.g. "Cow Song feat. Lungiswa") when original artists are shown separately.
+ */
+export function resolveTrackDisplayTitle(opts: {
+  title: string;
+  displayTitle?: string | null;
+  displayTitleEdited?: boolean;
+  originalArtistNames?: string[];
+  featuredArtistNames?: string[];
+  remixArtistNames?: string[];
+  isRemix?: boolean;
+  /** Default true. Set false for title-only rows (no "Artist – " prefix). */
+  includeOriginalPrefix?: boolean;
+}): string {
+  if (opts.displayTitleEdited && opts.displayTitle?.trim()) {
+    return opts.displayTitle.trim();
+  }
+
+  const includePrefix = opts.includeOriginalPrefix !== false;
+  return generateSuggestedDisplayTitle({
+    trackTitle: opts.title,
+    originalArtistNames: includePrefix ? opts.originalArtistNames : [],
+    featuredArtistNames: opts.featuredArtistNames,
+    remixArtistNames: opts.remixArtistNames,
+    isRemix: opts.isRemix,
+  });
+}
+
+/**
+ * Compact credit line for track cards:
+ *   Busi Mhlongo
+ *   feat. Lungiswa Plaatjies
+ *   (Osaze Remix)
+ * Returns multiline-friendly parts.
+ */
+export function formatArtistCreditLines(input: {
+  originalArtistNames?: string[];
+  featuredArtistNames?: string[];
+  remixArtistNames?: string[];
+}): { primary: string; featured?: string; remix?: string } {
+  const originals = (input.originalArtistNames ?? []).map((n) => n.trim()).filter(Boolean);
+  const featured = (input.featuredArtistNames ?? []).map((n) => n.trim()).filter(Boolean);
+  const remixers = (input.remixArtistNames ?? []).map((n) => n.trim()).filter(Boolean);
+
+  return {
+    primary: originals.length > 0 ? joinArtistNames(originals, 'ampersand') : '',
+    featured: featured.length > 0 ? `feat. ${joinArtistNames(featured, 'comma')}` : undefined,
+    remix: remixers.length > 0 ? `(${joinArtistNames(remixers, 'ampersand')} Remix)` : undefined,
+  };
+}

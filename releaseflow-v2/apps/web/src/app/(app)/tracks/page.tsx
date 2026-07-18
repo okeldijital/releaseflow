@@ -22,6 +22,38 @@ import {
   Button, EmptyState, LoadingState, Input, StatusBadge, Badge, Select,
 } from '@releaseflow/ui';
 import { AuthorizationService } from '@/lib/auth/authorization-service';
+import { resolveTrackDisplayTitle } from '@/lib/display-title';
+import { resolveRecordingType } from '@/lib/recording-type';
+
+/** EPIC-202A — prefer stored displayTitle; fall back to title + feat/remix from id presence only when names unavailable */
+function trackListTitle(track: TrackRecord): string {
+  if (track.displayTitle?.trim()) return track.displayTitle.trim();
+  return resolveTrackDisplayTitle({
+    title: track.title,
+    displayTitle: track.displayTitle,
+    displayTitleEdited: track.displayTitleEdited,
+    isRemix: resolveRecordingType(track.recordingType) === 'remix',
+    includeOriginalPrefix: false,
+  });
+}
+
+function trackListSubtitle(track: TrackRecord): string {
+  const parts: string[] = [];
+  if ((track.originalArtistIds?.length ?? 0) > 0 || track.primaryArtistId || track.originalArtistId) {
+    parts.push('Original');
+  }
+  if (track.featuredArtistIds && track.featuredArtistIds.length > 0) {
+    parts.push(
+      track.featuredArtistIds.length === 1
+        ? '1 featured artist'
+        : `${track.featuredArtistIds.length} featured artists`,
+    );
+  }
+  if ((track.remixArtistIds?.length ?? 0) > 0 || track.remixerArtistId) {
+    parts.push('Remix');
+  }
+  return parts.length === 0 ? '—' : parts.join(' · ');
+}
 
 function formatDuration(seconds?: number): string {
   if (!seconds || seconds <= 0) return '—';
@@ -636,12 +668,8 @@ export default function TracksPage() {
               </div>
               <div className="divide-y divide-divider">
                 {group.tracks.map((track) => {
-                  const parts: string[] = [];
-                  if (track.primaryArtistId) parts.push('Primary artist linked');
-                  if (track.featuredArtistIds && track.featuredArtistIds.length > 0) parts.push('Featured artists linked');
-                  if (track.originalArtistId) parts.push('Original artist linked');
-                  if (track.remixerArtistId) parts.push('Remixer linked');
-                  const artists = parts.length === 0 ? '—' : parts.join(' · ');
+                  const listTitle = trackListTitle(track);
+                  const artists = trackListSubtitle(track);
 
                   return (
                     <TrackRow
@@ -655,11 +683,11 @@ export default function TracksPage() {
                       }}
                     >
                       <div className="shrink-0">
-                        <ArtworkPlaceholder title={track.title} size="sm" />
+                        <ArtworkPlaceholder title={listTitle} size="sm" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 min-w-0">
-                          <p className="text-sm font-medium text-content-primary truncate group-hover:text-primary-400 transition-colors">{track.title}</p>
+                          <p className="text-sm font-medium text-content-primary truncate group-hover:text-primary-400 transition-colors">{listTitle}</p>
                           {track.version ? <span className="text-xs text-content-secondary shrink-0">{track.version}</span> : null}
                         </div>
                         <p className="text-xs text-content-secondary mt-0.5 truncate">{artists}</p>
@@ -681,7 +709,7 @@ export default function TracksPage() {
                           }}
                         >
                           <EntityOverflowMenu
-                            aria-label={`Actions for ${track.title}`}
+                            aria-label={`Actions for ${listTitle}`}
                             items={getTrackMenuItems(track)}
                           />
                         </span>
@@ -701,12 +729,8 @@ export default function TracksPage() {
               </div>
               <div className="divide-y divide-divider">
                 {sortedFilteredGroups.unassigned.map((track) => {
-                  const parts: string[] = [];
-                  if (track.primaryArtistId) parts.push('Primary artist linked');
-                  if (track.featuredArtistIds && track.featuredArtistIds.length > 0) parts.push('Featured artists linked');
-                  if (track.originalArtistId) parts.push('Original artist linked');
-                  if (track.remixerArtistId) parts.push('Remixer linked');
-                  const artists = parts.length === 0 ? '—' : parts.join(' · ');
+                  const listTitle = trackListTitle(track);
+                  const artists = trackListSubtitle(track);
 
                   return (
                     <TrackRow
@@ -720,11 +744,11 @@ export default function TracksPage() {
                       }}
                     >
                       <div className="shrink-0">
-                        <ArtworkPlaceholder title={track.title} size="sm" />
+                        <ArtworkPlaceholder title={listTitle} size="sm" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 min-w-0">
-                          <p className="text-sm font-medium text-content-primary truncate group-hover:text-primary-400 transition-colors">{track.title}</p>
+                          <p className="text-sm font-medium text-content-primary truncate group-hover:text-primary-400 transition-colors">{listTitle}</p>
                           {track.version ? <span className="text-xs text-content-secondary shrink-0">{track.version}</span> : null}
                         </div>
                         <p className="text-xs text-content-secondary mt-0.5 truncate">{artists}</p>
@@ -746,7 +770,7 @@ export default function TracksPage() {
                           }}
                         >
                           <EntityOverflowMenu
-                            aria-label={`Actions for ${track.title}`}
+                            aria-label={`Actions for ${listTitle}`}
                             items={getTrackMenuItems(track)}
                           />
                         </span>

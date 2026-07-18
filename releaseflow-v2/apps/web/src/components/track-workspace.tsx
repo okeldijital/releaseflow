@@ -5,7 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import type { TrackRecord } from '@/lib/track-repository';
-import { editTrack, removeTrack, archiveTrackById, duplicateTrack } from '@/lib/track-service';
+import {
+  editTrack,
+  removeTrack,
+  archiveTrackById,
+  duplicateTrack,
+  syncTrackArtistCredits,
+  areTrackArtistsReady,
+} from '@/lib/track-service';
 import { getArtistsByRole } from '@/lib/track-artist-repository';
 import { toast } from '@/stores/toast-store';
 import { fetchRelease } from '@/lib/release-service';
@@ -22,6 +29,49 @@ import { RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-
 import { AssignmentsSection } from '@/components/assignments-section';
 import { SearchableGenreSelect } from '@/components/shared/searchable-genre-select';
 import { AssignmentDialog } from '@/components/assignment-dialog';
+import {
+  ArtistRelationshipList,
+  type ArtistOption,
+  type RepeatableArtistEntry,
+} from '@/components/artists/artist-relationship-list';
+import { useArtists } from '@/hooks/useArtist';
+import {
+  generateSuggestedDisplayTitle,
+  resolveTrackDisplayTitle,
+  findDuplicateArtistId,
+} from '@/lib/display-title';
+
+/** EPIC-202A — structured performance credit with linkable artist id */
+export interface ArtistCreditEntry {
+  id: string;
+  name: string;
+}
+
+export interface ArtistCreditsState {
+  original: ArtistCreditEntry[];
+  featured: ArtistCreditEntry[];
+  remix: ArtistCreditEntry[];
+}
+
+const EMPTY_ARTIST_CREDITS: ArtistCreditsState = {
+  original: [],
+  featured: [],
+  remix: [],
+};
+
+async function resolveArtistEntries(
+  orgId: string | null,
+  artistIds: string[],
+): Promise<ArtistCreditEntry[]> {
+  if (!orgId || artistIds.length === 0) return [];
+  const entries = await Promise.all(
+    artistIds.map(async (aid) => {
+      const a = await fetchArtist(orgId, aid);
+      return a ? { id: aid, name: a.name } : null;
+    }),
+  );
+  return entries.filter((e): e is ArtistCreditEntry => Boolean(e));
+}
 
 const TAB_IDS = ['overview', 'credits', 'publishing', 'assignments', 'activity', 'edit'] as const;
 type TabId = typeof TAB_IDS[number];
@@ -34,17 +84,6 @@ const TAB_LABELS: Record<TabId, string> = {
   activity: 'Activity',
   edit: 'Edit',
 };
-
-async function resolveArtistNames(orgId: string | null, artistIds: string[]): Promise<string[]> {
-  if (!orgId || artistIds.length === 0) return [];
-  const names = await Promise.all(
-    artistIds.map(async (aid) => {
-      const a = await fetchArtist(orgId, aid);
-      return a?.name;
-    }),
-  );
-  return names.filter(Boolean) as string[];
-}
 
 interface TrackWorkspaceProps {
   track: TrackRecord;
@@ -102,9 +141,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
   const [loading, setLoading] = useState(true);
   const [credits, setCredits] = useState<TrackCredit[]>([]);
   const [linkedReleases, setLinkedReleases] = useState<LinkedRelease[]>([]);
-  const [artistSummary, setArtistSummary] = useState<string>('—');
-  const [primaryArtist, setPrimaryArtist] = useState<string | null>(null);
-  const [artistsByRole, setArtistsByRole] = useState<Record<string, string[]>>({});
+  const [artistCredits, setArtistCredits] = useState<ArtistCreditsState>(EMPTY_ARTIST_CREDITS);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
@@ -145,69 +182,53 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
       }
       setLinkedReleases(releaseList);
 
-      const originalArtists = await getArtistsByRole(trackId, 'ORIGINAL_ARTIST');
-      const remixArtists = await getArtistsByRole(trackId, 'REMIX_ARTIST');
-      const primaryArtists = await getArtistsByRole(trackId, 'PRIMARY_ARTIST');
-      const featuredArtists = await getArtistsByRole(trackId, 'FEATURED_ARTIST');
+      // EPIC-202A — load all performance roles (join table first, track doc fallback)
+      const [originalRows, primaryRows, featuredRows, remixRows] = await Promise.all([
+        getArtistsByRole(trackId, 'ORIGINAL_ARTIST'),
+        getArtistsByRole(trackId, 'PRIMARY_ARTIST'),
+        getArtistsByRole(trackId, 'FEATURED_ARTIST'),
+        getArtistsByRole(trackId, 'REMIX_ARTIST'),
+      ]);
 
-      const hasTrackArtists = originalArtists.length > 0 || remixArtists.length > 0 || primaryArtists.length > 0;
+      const originalIds =
+        originalRows.length > 0
+          ? originalRows.map((r) => r.artistId)
+          : primaryRows.length > 0
+            ? primaryRows.map((r) => r.artistId)
+            : (track.originalArtistIds?.length
+                ? track.originalArtistIds
+                : [
+                    track.primaryArtistId,
+                    track.originalArtistId,
+                  ].filter((id): id is string => Boolean(id)));
 
-      if (hasTrackArtists) {
-        if (recordingType === 'remix') {
-          const allNames = await resolveArtistNames(activeOrgId, [
-            ...originalArtists.map((a) => a.artistId),
-            ...remixArtists.map((a) => a.artistId),
-          ]);
-          setArtistSummary(allNames.join(' · ') || '—');
-          if (originalArtists.length > 0) {
-            const origNames = await resolveArtistNames(activeOrgId, originalArtists.map((a) => a.artistId));
-            setArtistsByRole((prev) => ({ ...prev, 'Original Artist': origNames }));
-          }
-          if (remixArtists.length > 0) {
-            const remixNames = await resolveArtistNames(activeOrgId, remixArtists.map((a) => a.artistId));
-            setArtistsByRole((prev) => ({ ...prev, 'Remix Artist': remixNames }));
-          }
-          setPrimaryArtist(originalArtists[0] ? (await resolveArtistNames(activeOrgId, [originalArtists[0].artistId]))[0] ?? null : null);
-        } else {
-          const allNames = await resolveArtistNames(activeOrgId, [
-            ...primaryArtists.map((a) => a.artistId),
-            ...featuredArtists.map((a) => a.artistId),
-          ]);
-          setArtistSummary(allNames.join(' · ') || '—');
-          if (primaryArtists.length > 0) {
-            const pNames = await resolveArtistNames(activeOrgId, primaryArtists.map((a) => a.artistId));
-            setArtistsByRole((prev) => ({ ...prev, 'Primary Artist': pNames }));
-            setPrimaryArtist(pNames[0] ?? null);
-          }
-          if (featuredArtists.length > 0) {
-            const fNames = await resolveArtistNames(activeOrgId, featuredArtists.map((a) => a.artistId));
-            setArtistsByRole((prev) => ({ ...prev, 'Featured Artist': fNames }));
-          }
-        }
-      } else if (recordingType === 'remix') {
-        const [orig, rem] = await Promise.all([
-          track.originalArtistId ? fetchArtist(activeOrgId, track.originalArtistId) : null,
-          track.remixerArtistId ? fetchArtist(activeOrgId, track.remixerArtistId) : null,
-        ]);
-        setArtistSummary([orig?.name, rem?.name].filter(Boolean).join(' · ') || '—');
-        if (orig?.name) setPrimaryArtist(orig.name);
-      } else {
-        const primary = track.primaryArtistId ? await fetchArtist(activeOrgId, track.primaryArtistId) : null;
-        const featured = await Promise.all(
-          (track.featuredArtistIds ?? []).map(async (aid) => {
-            const a = await fetchArtist(activeOrgId, aid);
-            return a?.name;
-          }),
-        );
-        setArtistSummary([primary?.name, ...featured.filter(Boolean)].filter(Boolean).join(' · ') || '—');
-        if (primary?.name) setPrimaryArtist(primary.name);
-      }
+      const featuredIds =
+        featuredRows.length > 0
+          ? featuredRows.map((r) => r.artistId)
+          : (track.featuredArtistIds ?? []);
+
+      const remixIds =
+        remixRows.length > 0
+          ? remixRows.map((r) => r.artistId)
+          : (track.remixArtistIds?.length
+              ? track.remixArtistIds
+              : track.remixerArtistId
+                ? [track.remixerArtistId]
+                : []);
+
+      const [original, featured, remix] = await Promise.all([
+        resolveArtistEntries(activeOrgId, originalIds),
+        resolveArtistEntries(activeOrgId, featuredIds),
+        resolveArtistEntries(activeOrgId, remixIds),
+      ]);
+
+      setArtistCredits({ original, featured, remix });
     } catch {
-      /* safe defaults */
+      setArtistCredits(EMPTY_ARTIST_CREDITS);
     } finally {
       setLoading(false);
     }
-  }, [activeOrgId, trackId, recordingType, track]);
+  }, [activeOrgId, trackId, track]);
 
   useEffect(() => { load(); }, [load, reloadToken]);
 
@@ -259,10 +280,30 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
     router.push(`/tracks/${newId}`);
   }
 
+  // EPIC-202A — Artists ready only when originals valid; remix requires remix artists; featured optional but listed must be valid
   const hasArtists = useMemo(() => {
-    return !!(track.primaryArtistId || (track.featuredArtistIds && track.featuredArtistIds.length > 0) ||
-      track.originalArtistId || track.remixerArtistId || artistSummary !== '—');
-  }, [track, artistSummary]);
+    return areTrackArtistsReady({
+      originalArtistIds: artistCredits.original.map((a) => a.id),
+      featuredArtistIds: artistCredits.featured.map((a) => a.id),
+      remixArtistIds: artistCredits.remix.map((a) => a.id),
+      isRemix: recordingType === 'remix',
+    });
+  }, [artistCredits, recordingType]);
+
+  const displayTitle = useMemo(
+    () =>
+      resolveTrackDisplayTitle({
+        title: track.title,
+        displayTitle: track.displayTitle,
+        displayTitleEdited: track.displayTitleEdited,
+        originalArtistNames: artistCredits.original.map((a) => a.name),
+        featuredArtistNames: artistCredits.featured.map((a) => a.name),
+        remixArtistNames: artistCredits.remix.map((a) => a.name),
+        isRemix: recordingType === 'remix',
+        includeOriginalPrefix: false,
+      }),
+    [track, artistCredits, recordingType],
+  );
 
   const readinessCategories = useMemo(() => [
     { label: 'Credits', done: credits.length > 0 },
@@ -310,6 +351,11 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <h1 className="text-2xl font-semibold text-content-primary tracking-tight leading-tight">{track.title}</h1>
+                {displayTitle && displayTitle !== track.title ? (
+                  <p className="text-sm text-content-secondary mt-0.5 truncate" title={displayTitle}>
+                    {displayTitle}
+                  </p>
+                ) : null}
                 {track.version ? <p className="text-sm text-content-secondary mt-0.5">{track.version}</p> : null}
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   <Badge
@@ -358,12 +404,6 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
                   <span>Link Release</span>
                 </button>
               )}
-              {primaryArtist && (
-                <div className="flex items-center gap-2">
-                  <span className="text-content-secondary">Primary Artist:</span>
-                  <span className="text-content-primary">{primaryArtist}</span>
-                </div>
-              )}
               {track.isrc && (
                 <div className="flex items-center gap-2">
                   <span className="text-content-secondary">ISRC:</span>
@@ -377,6 +417,71 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
                 </div>
               )}
             </div>
+
+            {/* EPIC-202A — structured artist credits in track header */}
+            {(artistCredits.original.length > 0 ||
+              artistCredits.featured.length > 0 ||
+              artistCredits.remix.length > 0) && (
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {artistCredits.original.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-content-label uppercase tracking-wider mb-1">
+                      Original Artist{artistCredits.original.length > 1 ? 's' : ''}
+                    </p>
+                    <ul className="space-y-0.5">
+                      {artistCredits.original.map((a) => (
+                        <li key={a.id}>
+                          <Link
+                            href={`/artists/${a.id}`}
+                            className="text-sm text-content-primary hover:text-primary-500 transition-colors"
+                          >
+                            {a.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {artistCredits.featured.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-content-label uppercase tracking-wider mb-1">
+                      Featured Artist{artistCredits.featured.length > 1 ? 's' : ''}
+                    </p>
+                    <ul className="space-y-0.5">
+                      {artistCredits.featured.map((a) => (
+                        <li key={a.id}>
+                          <Link
+                            href={`/artists/${a.id}`}
+                            className="text-sm text-content-primary hover:text-primary-500 transition-colors"
+                          >
+                            {a.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {artistCredits.remix.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-content-label uppercase tracking-wider mb-1">
+                      Remix Artist{artistCredits.remix.length > 1 ? 's' : ''}
+                    </p>
+                    <ul className="space-y-0.5">
+                      {artistCredits.remix.map((a) => (
+                        <li key={a.id}>
+                          <Link
+                            href={`/artists/${a.id}`}
+                            className="text-sm text-content-primary hover:text-primary-500 transition-colors"
+                          >
+                            {a.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -416,6 +521,76 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
       {/* ── Overview Tab ─────────────────────────────────────────────── */}
       {tab === 'overview' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* EPIC-202A — Artist Credits card */}
+          <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 flex flex-col sm:col-span-2 lg:col-span-1">
+            <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">Artist Credits</h3>
+            {artistCredits.original.length === 0 &&
+            artistCredits.featured.length === 0 &&
+            artistCredits.remix.length === 0 ? (
+              <div className="flex-1 flex flex-col">
+                <p className="text-xs text-content-label">No artist credits yet.</p>
+                <button
+                  type="button"
+                  onClick={() => setTab('edit')}
+                  className="mt-3 text-xs font-medium text-primary-500 hover:text-primary-600 text-left"
+                >
+                  Add artists →
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3 flex-1 text-sm">
+                {artistCredits.original.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-content-label uppercase tracking-wider mb-1">
+                      Original Artists
+                    </p>
+                    <ul className="space-y-1">
+                      {artistCredits.original.map((a) => (
+                        <li key={a.id}>
+                          <Link href={`/artists/${a.id}`} className="text-content-primary hover:text-primary-500">
+                            • {a.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {artistCredits.featured.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-content-label uppercase tracking-wider mb-1">
+                      Featured Artists
+                    </p>
+                    <ul className="space-y-1">
+                      {artistCredits.featured.map((a) => (
+                        <li key={a.id}>
+                          <Link href={`/artists/${a.id}`} className="text-content-primary hover:text-primary-500">
+                            • {a.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {artistCredits.remix.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-content-label uppercase tracking-wider mb-1">
+                      Remix Artists
+                    </p>
+                    <ul className="space-y-1">
+                      {artistCredits.remix.map((a) => (
+                        <li key={a.id}>
+                          <Link href={`/artists/${a.id}`} className="text-content-primary hover:text-primary-500">
+                            • {a.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 flex flex-col">
             <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">Recording</h3>
             <dl className="space-y-2 text-sm flex-1">
@@ -499,8 +674,9 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
       {tab === 'credits' && (
         <CreditsSection
           credits={credits}
-          artistsByRole={artistsByRole}
+          artistCredits={artistCredits}
           onSave={handleSaveCredits}
+          onEditArtists={() => setTab('edit')}
         />
       )}
 
@@ -545,6 +721,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
           linkedReleases={linkedReleases}
           activeOrgId={activeOrgId}
           userId={user?.uid ?? ''}
+          artistCredits={artistCredits}
           onSaved={() => { onRefresh(); setReloadToken((n) => n + 1); }}
           onLinkRelease={() => setLinkDialogOpen(true)}
         />
@@ -751,12 +928,14 @@ const CREDIT_ROLE_GROUPS: { label: string; matchRoles: string[] }[] = [
 
 function CreditsSection({
   credits,
-  artistsByRole,
+  artistCredits,
   onSave,
+  onEditArtists,
 }: {
   credits: TrackCredit[];
-  artistsByRole: Record<string, string[]>;
+  artistCredits: ArtistCreditsState;
   onSave: (credits: TrackCredit[]) => void;
+  onEditArtists: () => void;
 }) {
   const [localCredits, setLocalCredits] = useState<TrackCredit[]>(credits);
   const [saving, setSaving] = useState(false);
@@ -900,25 +1079,58 @@ function CreditsSection({
     );
   }
 
-  const hasAnyArtist = Object.values(artistsByRole).some((names) => names.length > 0);
+  const hasAnyArtist =
+    artistCredits.original.length > 0 ||
+    artistCredits.featured.length > 0 ||
+    artistCredits.remix.length > 0;
+
+  function renderArtistCreditGroup(label: string, entries: ArtistCreditEntry[]) {
+    if (entries.length === 0) return null;
+    return (
+      <div key={label}>
+        <p className="text-xs font-semibold text-content-label uppercase tracking-wider mb-1.5">{label}</p>
+        <ul className="space-y-1 mb-3">
+          {entries.map((a) => (
+            <li key={a.id}>
+              <Link
+                href={`/artists/${a.id}`}
+                className="text-sm text-content-primary hover:text-primary-500 transition-colors"
+              >
+                {a.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-20">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        {/* EPIC-202A — canonical performance credits */}
         <div className="rounded-lg border border-surface-200 bg-layer-2 shadow-sm p-4 flex flex-col sm:col-span-2">
-          <h3 className="text-sm font-semibold text-content-secondary">Artists</h3>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-content-secondary">Artist Credits</h3>
+            <button
+              type="button"
+              onClick={onEditArtists}
+              className="text-xs font-medium text-primary-500 hover:text-primary-600"
+            >
+              Edit artists
+            </button>
+          </div>
           <hr className="border-surface-200 my-3" />
           {hasAnyArtist ? (
-            <div className="space-y-2">
-              {Object.entries(artistsByRole).map(([role, names]) => (
-                <div key={role} className="flex items-center gap-2 text-sm">
-                  <span className="text-content-label text-xs w-28 shrink-0">{role}</span>
-                  <span className="text-content-primary">{names.join(', ')}</span>
-                </div>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {renderArtistCreditGroup('Original Artists', artistCredits.original)}
+              {renderArtistCreditGroup('Featured Artists', artistCredits.featured)}
+              {renderArtistCreditGroup('Remix Artists', artistCredits.remix)}
             </div>
           ) : (
-            <p className="text-sm text-content-label">No artists attached yet. Add artists to the track.</p>
+            <p className="text-sm text-content-label">
+              No performance artists yet. Add Original, Featured, or Remix artists on the Edit tab.
+            </p>
           )}
         </div>
 
@@ -1066,6 +1278,24 @@ function ActivitySection({ activities, loaded }: { activities: ActivityEventReco
   }
 
   function humaniseAction(ev: ActivityEventRecord): string | null {
+    const meta = ev.metadata as Record<string, unknown> | null | undefined;
+    const artistName = typeof meta?.artistName === 'string' ? meta.artistName : null;
+    const details = typeof meta?.details === 'string' ? meta.details : null;
+
+    if (ev.action === 'track.featured_artist_added') {
+      return artistName
+        ? `added ${artistName} as Featured Artist`
+        : (details ?? 'added a Featured Artist');
+    }
+    if (ev.action === 'track.featured_artist_removed') {
+      return artistName
+        ? `removed ${artistName} as Featured Artist`
+        : (details ?? 'removed a Featured Artist');
+    }
+    if (ev.action === 'track.featured_artists_reordered') {
+      return 'reordered Featured Artists';
+    }
+
     const labels: Record<string, string> = {
       'track.created': 'created this track',
       'track.updated': 'updated track details',
@@ -1086,7 +1316,7 @@ function ActivitySection({ activities, loaded }: { activities: ActivityEventReco
       'approval.approved': 'approved',
       'approval.rejected': 'rejected an approval',
     };
-    return labels[ev.action] ?? ev.action.replace(/[._]/g, ' ');
+    return labels[ev.action] ?? details ?? ev.action.replace(/[._]/g, ' ');
   }
 
   return (
@@ -1111,11 +1341,16 @@ function ActivitySection({ activities, loaded }: { activities: ActivityEventReco
   );
 }
 
+function entriesFromCredits(entries: ArtistCreditEntry[]): RepeatableArtistEntry[] {
+  return entries.map((a) => ({ id: a.id, artistId: a.id }));
+}
+
 function EditPanel({
   track,
   linkedReleases,
   activeOrgId,
   userId,
+  artistCredits,
   onSaved,
   onLinkRelease,
 }: {
@@ -1123,9 +1358,11 @@ function EditPanel({
   linkedReleases: LinkedRelease[];
   activeOrgId: string | null;
   userId: string;
+  artistCredits: ArtistCreditsState;
   onSaved: () => void;
   onLinkRelease: () => void;
 }) {
+  const { artistOptions, refresh: refreshArtists } = useArtists();
   const [title, setTitle] = useState(track.title);
   const [version, setVersion] = useState(track.version ?? '');
   const [subtitle, setSubtitle] = useState(track.subtitle ?? '');
@@ -1140,6 +1377,50 @@ function EditPanel({
   const [durationError, setDurationError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // EPIC-202A — shared ArtistRelationshipList state
+  const [originalEntries, setOriginalEntries] = useState<RepeatableArtistEntry[]>(() =>
+    entriesFromCredits(artistCredits.original),
+  );
+  const [featuredEntries, setFeaturedEntries] = useState<RepeatableArtistEntry[]>(() =>
+    entriesFromCredits(artistCredits.featured),
+  );
+  const [remixEntries, setRemixEntries] = useState<RepeatableArtistEntry[]>(() =>
+    entriesFromCredits(artistCredits.remix),
+  );
+  const [displayTitle, setDisplayTitle] = useState(track.displayTitle ?? '');
+  const [displayTitleEdited, setDisplayTitleEdited] = useState(track.displayTitleEdited ?? false);
+  const [artistError, setArtistError] = useState('');
+  const [extraArtists, setExtraArtists] = useState<ArtistOption[]>([]);
+
+  const artists = useMemo(() => {
+    const map = new Map<string, ArtistOption>();
+    for (const a of artistOptions) map.set(a.id, a);
+    for (const a of extraArtists) map.set(a.id, a);
+    for (const group of [artistCredits.original, artistCredits.featured, artistCredits.remix]) {
+      for (const a of group) {
+        if (!map.has(a.id)) map.set(a.id, { id: a.id, name: a.name });
+      }
+    }
+    return Array.from(map.values());
+  }, [artistOptions, extraArtists, artistCredits]);
+
+  const nameOf = useCallback(
+    (id: string) => artists.find((a) => a.id === id)?.name ?? id,
+    [artists],
+  );
+
+  const suggestedDisplayTitle = useMemo(
+    () =>
+      generateSuggestedDisplayTitle({
+        trackTitle: title,
+        originalArtistNames: originalEntries.map((e) => nameOf(e.artistId)),
+        featuredArtistNames: featuredEntries.map((e) => nameOf(e.artistId)),
+        remixArtistNames: remixEntries.map((e) => nameOf(e.artistId)),
+        isRemix: recordingType === 'remix',
+      }),
+    [title, originalEntries, featuredEntries, remixEntries, recordingType, nameOf],
+  );
+
   useEffect(() => {
     setTitle(track.title);
     setVersion(track.version ?? '');
@@ -1153,7 +1434,22 @@ function EditPanel({
     setTrackNumber(track.trackNumber?.toString() ?? '');
     setDurationStr(fmtDurationDisplay(track.duration));
     setDurationError('');
+    setDisplayTitle(track.displayTitle ?? '');
+    setDisplayTitleEdited(track.displayTitleEdited ?? false);
   }, [track]);
+
+  useEffect(() => {
+    setOriginalEntries(entriesFromCredits(artistCredits.original));
+    setFeaturedEntries(entriesFromCredits(artistCredits.featured));
+    setRemixEntries(entriesFromCredits(artistCredits.remix));
+  }, [artistCredits]);
+
+  // Auto-suggest display title unless user edited it
+  useEffect(() => {
+    if (!displayTitleEdited) {
+      setDisplayTitle(suggestedDisplayTitle);
+    }
+  }, [suggestedDisplayTitle, displayTitleEdited]);
 
   function handleDurationChange(val: string) {
     setDurationStr(val);
@@ -1166,8 +1462,46 @@ function EditPanel({
     }
   }
 
+  function addOriginal(artistId: string) {
+    const ids = originalEntries.map((e) => e.artistId);
+    if (ids.includes(artistId) || findDuplicateArtistId([...ids, artistId])) {
+      setArtistError('This artist is already listed as an Original Artist.');
+      return;
+    }
+    setArtistError('');
+    setOriginalEntries((prev) => [...prev, { id: artistId, artistId }]);
+  }
+
+  function addFeatured(artistId: string) {
+    const ids = featuredEntries.map((e) => e.artistId);
+    if (ids.includes(artistId) || findDuplicateArtistId([...ids, artistId])) {
+      setArtistError('This artist is already listed as a Featured Artist.');
+      return;
+    }
+    setArtistError('');
+    setFeaturedEntries((prev) => [...prev, { id: artistId, artistId }]);
+  }
+
+  function addRemix(artistId: string) {
+    const ids = remixEntries.map((e) => e.artistId);
+    if (ids.includes(artistId) || findDuplicateArtistId([...ids, artistId])) {
+      setArtistError('This artist is already listed as a Remix Artist.');
+      return;
+    }
+    setArtistError('');
+    setRemixEntries((prev) => [...prev, { id: artistId, artistId }]);
+  }
+
   async function handleSave() {
     if (!title.trim()) return;
+    if (originalEntries.filter((e) => e.artistId).length === 0) {
+      setArtistError('At least one Original Artist is required.');
+      return;
+    }
+    if (recordingType === 'remix' && remixEntries.filter((e) => e.artistId).length === 0) {
+      setArtistError('Remix tracks require at least one Remix Artist.');
+      return;
+    }
     let durationSeconds: number | null = null;
     if (durationStr.trim()) {
       const parsed = parseDurationInput(durationStr);
@@ -1175,20 +1509,53 @@ function EditPanel({
       durationSeconds = parsed;
     }
     setSaving(true);
-    await editTrack(track.id, {
-      title: title.trim(),
-      version: version.trim() || null,
-      subtitle: subtitle.trim() || null,
-      recordingType: recordingType as 'original' | 'remix',
-      genre: genre.trim() || null,
-      language: language.trim() || null,
-      explicit: explicit === 'true',
-      isrc: isrc.trim() || null,
-      trackNumber: trackNumber ? parseInt(trackNumber, 10) : null,
-      duration: durationSeconds,
-    });
-    setSaving(false);
-    onSaved();
+    setArtistError('');
+    try {
+      await editTrack(track.id, {
+        title: title.trim(),
+        version: version.trim() || null,
+        subtitle: subtitle.trim() || null,
+        recordingType: recordingType as 'original' | 'remix',
+        genre: genre.trim() || null,
+        language: language.trim() || null,
+        explicit: explicit === 'true',
+        isrc: isrc.trim() || null,
+        trackNumber: trackNumber ? parseInt(trackNumber, 10) : null,
+        duration: durationSeconds,
+      });
+
+      if (activeOrgId && userId) {
+        const nameMap: Record<string, string> = {};
+        for (const a of artists) nameMap[a.id] = a.name;
+        await syncTrackArtistCredits(
+          track.id,
+          {
+            originalArtistIds: originalEntries.map((e) => e.artistId).filter(Boolean),
+            featuredArtistIds: featuredEntries.map((e) => e.artistId).filter(Boolean),
+            remixArtistIds: remixEntries.map((e) => e.artistId).filter(Boolean),
+          },
+          {
+            organizationId: activeOrgId,
+            actorId: userId,
+            artistNames: nameMap,
+            trackTitle: title.trim(),
+            displayTitle: displayTitle.trim() || null,
+            displayTitleEdited,
+            isRemix: recordingType === 'remix',
+            originalArtistNames: originalEntries.map((e) => nameOf(e.artistId)),
+            featuredArtistNames: featuredEntries.map((e) => nameOf(e.artistId)),
+            remixArtistNames: remixEntries.map((e) => nameOf(e.artistId)),
+          },
+        );
+      }
+      toast.success('Track saved.');
+      onSaved();
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Failed to save track.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -1240,6 +1607,86 @@ function EditPanel({
               <option value="remix">Remix</option>
             </select>
           </div>
+        </div>
+      </div>
+
+      {/* EPIC-202A — Artist Relationships (same component as wizard / create) */}
+      <div>
+        <p className="text-xs font-semibold text-content-label uppercase tracking-wider mb-3">Artist Relationships</p>
+        <div className="space-y-5">
+          <ArtistRelationshipList
+            instanceId={`edit-${track.id}-original`}
+            role="original"
+            entries={originalEntries}
+            artists={artists}
+            organizationId={activeOrgId}
+            onAdd={addOriginal}
+            onRemove={(entryId) => setOriginalEntries((prev) => prev.filter((e) => e.id !== entryId))}
+            onReorder={setOriginalEntries}
+            onArtistCreated={(a) => {
+              setExtraArtists((prev) => [...prev, a]);
+              void refreshArtists();
+            }}
+          />
+          <ArtistRelationshipList
+            instanceId={`edit-${track.id}-featured`}
+            role="featured"
+            entries={featuredEntries}
+            artists={artists}
+            organizationId={activeOrgId}
+            onAdd={addFeatured}
+            onRemove={(entryId) => setFeaturedEntries((prev) => prev.filter((e) => e.id !== entryId))}
+            onReorder={setFeaturedEntries}
+            onArtistCreated={(a) => {
+              setExtraArtists((prev) => [...prev, a]);
+              void refreshArtists();
+            }}
+          />
+          {(recordingType === 'remix' || remixEntries.length > 0) && (
+            <ArtistRelationshipList
+              instanceId={`edit-${track.id}-remix`}
+              role="remix"
+              entries={remixEntries}
+              artists={artists}
+              organizationId={activeOrgId}
+              onAdd={addRemix}
+              onRemove={(entryId) => setRemixEntries((prev) => prev.filter((e) => e.id !== entryId))}
+              onReorder={setRemixEntries}
+              onArtistCreated={(a) => {
+                setExtraArtists((prev) => [...prev, a]);
+                void refreshArtists();
+              }}
+            />
+          )}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-content-label">Display Title</label>
+            <input
+              type="text"
+              value={displayTitle}
+              onChange={(e) => {
+                setDisplayTitle(e.target.value);
+                setDisplayTitleEdited(true);
+              }}
+              placeholder={suggestedDisplayTitle || 'Suggested display title'}
+              className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-content-primary placeholder:text-content-label focus:border-primary-500 focus:outline-none"
+            />
+            <p className="text-xs text-content-label">
+              Suggested: {suggestedDisplayTitle || '—'}
+              {displayTitleEdited ? (
+                <button
+                  type="button"
+                  className="ml-2 text-primary-500 hover:text-primary-600"
+                  onClick={() => {
+                    setDisplayTitleEdited(false);
+                    setDisplayTitle(suggestedDisplayTitle);
+                  }}
+                >
+                  Reset to suggested
+                </button>
+              ) : null}
+            </p>
+          </div>
+          {artistError ? <p className="text-xs text-danger-500">{artistError}</p> : null}
         </div>
       </div>
 

@@ -364,7 +364,50 @@ function AssignmentDetailPageInner() {
   // UX-001 — theme-token sidebar (no hard-coded light surfaces)
   const contextRailContent = (
     <div className="p-4 space-y-5 bg-layer-2 border-l border-surface-700/50 min-h-full">
-      {releaseContext ? (
+      {/* EPIC-202A — track-linked assignments show display title + structured credits */}
+      {releaseContext && (releaseContext.trackTitle || releaseContext.trackDisplayTitle) ? (
+        <div>
+          <p className="text-xs font-medium text-content-label uppercase tracking-wider mb-2">Track</p>
+          {assignment?.entityType === 'track' && assignment.entityId ? (
+            <Link
+              href={`/tracks/${assignment.entityId}`}
+              className="text-sm font-semibold text-primary-400 hover:text-primary-300 transition-colors block"
+            >
+              {releaseContext.trackDisplayTitle || releaseContext.trackTitle}
+            </Link>
+          ) : (
+            <p className="text-sm font-semibold text-content-primary">
+              {releaseContext.trackDisplayTitle || releaseContext.trackTitle}
+            </p>
+          )}
+          {(releaseContext.originalArtistNames?.length ||
+            releaseContext.featuredArtistNames?.length ||
+            releaseContext.remixArtistNames?.length) ? (
+            <dl className="mt-2 space-y-1.5 text-xs">
+              {releaseContext.originalArtistNames && releaseContext.originalArtistNames.length > 0 ? (
+                <div>
+                  <dt className="text-content-label">Original Artist</dt>
+                  <dd className="text-content-primary">{releaseContext.originalArtistNames.join(', ')}</dd>
+                </div>
+              ) : null}
+              {releaseContext.featuredArtistNames && releaseContext.featuredArtistNames.length > 0 ? (
+                <div>
+                  <dt className="text-content-label">Featured Artist</dt>
+                  <dd className="text-content-primary">{releaseContext.featuredArtistNames.join(', ')}</dd>
+                </div>
+              ) : null}
+              {releaseContext.remixArtistNames && releaseContext.remixArtistNames.length > 0 ? (
+                <div>
+                  <dt className="text-content-label">Remix Artist</dt>
+                  <dd className="text-content-primary">{releaseContext.remixArtistNames.join(', ')}</dd>
+                </div>
+              ) : null}
+            </dl>
+          ) : null}
+        </div>
+      ) : null}
+
+      {releaseContext && releaseContext.releaseId ? (
         <div>
           <p className="text-xs font-medium text-content-label uppercase tracking-wider mb-2">Release</p>
           <Link href={`/releases/${releaseContext.releaseId}`} className="block rounded-xl overflow-hidden focus-visible:ring-2 focus-visible:ring-primary-500/40">

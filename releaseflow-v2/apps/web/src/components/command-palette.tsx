@@ -10,8 +10,10 @@ import { useOrgStore } from '@/stores/org-store';
 interface SearchResult {
   id: string;
   title: string;
-  type: 'release' | 'artist' | 'campaign' | 'contributor';
+  type: 'release' | 'artist' | 'campaign' | 'contributor' | 'track';
   href: string;
+  /** EPIC-202A — secondary line (e.g. Featured Artist role) */
+  subtitle?: string;
 }
 
 export function CommandPalette() {
@@ -51,6 +53,108 @@ export function CommandPalette() {
       artists.slice(0, 5).forEach((a) => {
         all.push({ id: a.id, title: a.name, type: 'artist', href: `/artists/${a.id}` });
       });
+
+      // EPIC-202A — track search by title / displayTitle / linked artist names
+      try {
+        const { fetchTracksByOrg } = await import('@/lib/track-service');
+        const { fetchArtist } = await import('@/lib/artist-service');
+        const { resolveTrackDisplayTitle } = await import('@/lib/display-title');
+        const { resolveRecordingType } = await import('@/lib/recording-type');
+        const tracks = await fetchTracksByOrg(activeOrgId);
+        const qLower = q.toLowerCase();
+        const nameCache = new Map<string, string>();
+
+        const orgId = activeOrgId;
+        async function nameFor(id: string): Promise<string> {
+          const cached = nameCache.get(id);
+          if (cached !== undefined) return cached;
+          const a = await fetchArtist(orgId, id);
+          const n = a?.name ?? '';
+          nameCache.set(id, n);
+          return n;
+        }
+
+        for (const t of tracks) {
+          if (all.filter((r) => r.type === 'track').length >= 5) break;
+
+          const titleMatch =
+            t.title.toLowerCase().includes(qLower) ||
+            (t.displayTitle ?? '').toLowerCase().includes(qLower);
+
+          const originalIds = [
+            ...(t.originalArtistIds ?? []),
+            t.primaryArtistId,
+            t.originalArtistId,
+          ].filter(Boolean) as string[];
+          const featuredIds = t.featuredArtistIds ?? [];
+          const remixIds = [
+            ...(t.remixArtistIds ?? []),
+            t.remixerArtistId,
+          ].filter(Boolean) as string[];
+
+          let roleHit: string | null = null;
+          let originalNames: string[] = [];
+          let featuredNames: string[] = [];
+          let remixNames: string[] = [];
+
+          if (!titleMatch) {
+            for (const id of originalIds) {
+              const n = await nameFor(id);
+              if (n && n.toLowerCase().includes(qLower)) {
+                roleHit = 'Original Artist';
+                break;
+              }
+            }
+            if (!roleHit) {
+              for (const id of featuredIds) {
+                const n = await nameFor(id);
+                if (n && n.toLowerCase().includes(qLower)) {
+                  roleHit = 'Featured Artist';
+                  break;
+                }
+              }
+            }
+            if (!roleHit) {
+              for (const id of remixIds) {
+                const n = await nameFor(id);
+                if (n && n.toLowerCase().includes(qLower)) {
+                  roleHit = 'Remix Artist';
+                  break;
+                }
+              }
+            }
+            if (!roleHit) continue;
+          }
+
+          originalNames = await Promise.all(originalIds.map(nameFor));
+          featuredNames = await Promise.all(featuredIds.map(nameFor));
+          remixNames = await Promise.all(remixIds.map(nameFor));
+          originalNames = originalNames.filter(Boolean);
+          featuredNames = featuredNames.filter(Boolean);
+          remixNames = remixNames.filter(Boolean);
+
+          const display = resolveTrackDisplayTitle({
+            title: t.title,
+            displayTitle: t.displayTitle,
+            displayTitleEdited: t.displayTitleEdited,
+            originalArtistNames: originalNames,
+            featuredArtistNames: featuredNames,
+            remixArtistNames: remixNames,
+            isRemix: resolveRecordingType(t.recordingType) === 'remix',
+            includeOriginalPrefix: false,
+          });
+
+          all.push({
+            id: t.id,
+            title: display,
+            type: 'track',
+            href: `/tracks/${t.id}`,
+            subtitle: roleHit ?? undefined,
+          });
+        }
+      } catch {
+        /* track search best-effort */
+      }
     }
 
     if (activeOrgId) {
@@ -67,7 +171,7 @@ export function CommandPalette() {
       });
     }
 
-    setResults(all.slice(0, 8));
+    setResults(all.slice(0, 10));
     setSearching(false);
   }, [activeOrgId]);
 
@@ -152,7 +256,7 @@ export function CommandPalette() {
               if (e.key === 'ArrowUp') { e.preventDefault(); setSelected((s) => Math.max(s - 1, 0)); }
               if (e.key === 'Enter') { const item = display[selected]; if (item) navigate(item.href); }
             }}
-            placeholder="Search releases, artists, campaigns..."
+            placeholder="Search releases, tracks, artists..."
             className="flex-1 bg-transparent text-sm text-content-primary placeholder:text-content-label outline-none"
             role="combobox"
             aria-expanded={true}
@@ -182,9 +286,15 @@ export function CommandPalette() {
                   item.type === 'release' ? 'bg-primary-50 text-primary-500' :
                   item.type === 'artist' ? 'bg-info-50 text-info-500' :
                   item.type === 'campaign' ? 'bg-success-50 text-success-500' :
+                  item.type === 'track' ? 'bg-warning-50 text-warning-600' :
                    'bg-surface-100 text-content-secondary'
                 }`}>{item.type}</span>
-                <span className="truncate text-content-primary">{item.title}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="truncate text-content-primary block">{item.title}</span>
+                  {item.subtitle ? (
+                    <span className="truncate text-xs text-content-label block">Role: {item.subtitle}</span>
+                  ) : null}
+                </span>
               </button>
             ))}
           </div>

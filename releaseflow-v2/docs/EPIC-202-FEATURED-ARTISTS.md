@@ -1,6 +1,6 @@
-# EPIC-202 — Featured Artists
+# EPIC-202 / EPIC-202A — Featured Artists
 
-**Status:** Implemented (core domain + track create + wizard + artist workspace)  
+**Status:** Implemented (domain + create/wizard + Track Workspace read/edit surfaces)  
 **Priority:** High  
 
 ## Summary
@@ -13,6 +13,9 @@ Roles (independent):
 - Featured  
 - Remix  
 
+EPIC-202 delivered data entry (Release Wizard + Track Creation).  
+**EPIC-202A** completes integration across the Track Workspace and every display surface.
+
 ## Storage
 
 | Layer | Representation |
@@ -22,31 +25,56 @@ Roles (independent):
 
 Missing arrays load as `[]` (`normalizeArtistIdArray`).
 
+Sync on edit: `syncTrackArtistCredits()` in `track-service.ts` updates both layers and logs activity.
+
 ## Display title
 
-`lib/display-title.ts` → `generateSuggestedDisplayTitle`
+`lib/display-title.ts` — **single shared utilities**
 
-```
-Original – Title feat. Featured (Remix Artists Remix)
-```
+| Function | Use |
+|----------|-----|
+| `generateSuggestedDisplayTitle` | Full rules: `Original – Title feat. Featured (Remix Artists Remix)` |
+| `resolveTrackDisplayTitle` | Prefer edited `displayTitle`; else generate. `includeOriginalPrefix: false` for list rows |
+| `formatArtistCreditLines` | Card credit lines (`feat. …`, `(… Remix)`) |
+| `findDuplicateArtistId` | Same-role duplicate guard |
 
 - Always `feat.`  
 - Featured before remix  
 - Manual `displayTitleEdited` stops auto-regeneration  
 
-## UI
+## UI surfaces (EPIC-202A)
 
 | Surface | Implementation |
 |---------|----------------|
-| Standalone track create | `ArtistRelationshipList` for featured (+ original/remix) |
+| Track header | Structured Original / Featured / Remix credits with artist links |
+| Overview tab | **Artist Credits** card |
+| Credits tab | Canonical **Artist Credits** (performance) + publishing credit roles |
+| Edit tab | Shared `ArtistRelationshipList` for all three roles + display title |
+| Standalone track create | `ArtistRelationshipList` |
 | Release wizard | Same shared component |
-| Shared component | `components/artists/artist-relationship-list.tsx` |
+| Track library cards | `resolveTrackDisplayTitle` / stored `displayTitle` |
+| Release track lists | Display title + feat. line from resolved names |
+| Assignment workspace | Track display title + Original / Featured / Remix |
+| Activity | `track.featured_artist_added` / `_removed` / `_reordered` |
+| Global search | Tracks by title, display title, or any credited artist name (+ Role) |
+| Artist workspace | Tracks grouped by Original / Featured / Remix |
+| Readiness | Artists complete when originals valid; remix requires remix artists |
 
-Inline create-artist remains via existing `ArtistFieldPicker` / add panel.
+## Shared component
 
-## Artist workspace
+`components/artists/artist-relationship-list.tsx` — used by:
 
-Tracks grouped by role: Original / Featured / Remix (from `track_artists` links).
+- Release Wizard  
+- Track Creation  
+- Track Edit (Track Workspace)  
+
+## Activity actions
+
+| Action | Example message |
+|--------|-----------------|
+| `track.featured_artist_added` | added Lungiswa Plaatjies as Featured Artist |
+| `track.featured_artist_removed` | removed … as Featured Artist |
+| `track.featured_artists_reordered` | reordered Featured Artists |
 
 ## Queries
 
@@ -56,8 +84,11 @@ getTracksAsFeaturedArtist()
 getTracksAsRemixArtist()
 getAllArtistTracks()
 fetchArtistTracksByRole()
+syncTrackArtistCredits()
+areTrackArtistsReady()
 ```
 
 ## Tests
 
-`__tests__/epic-202-featured-artists.test.ts`
+- `__tests__/epic-202-featured-artists.test.ts`  
+- `__tests__/epic-202a-track-workspace.test.ts`  
