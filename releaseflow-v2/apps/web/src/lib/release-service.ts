@@ -8,6 +8,13 @@ import {
   getReleasesByOrganization,
   updateRelease,
   updateReleaseStatus,
+  getDraftByUser,
+  getDraftsByUser,
+  createReleaseDraft,
+  updateReleaseDraft,
+  completeDraft,
+  createWorkflowForRelease,
+  markExpiredDrafts as markExpiredDraftsRepo,
 } from './release-repository';
 import { getArtworksByReleaseIds } from './artwork/artwork-repository';
 import { getDb } from './firebase';
@@ -78,7 +85,7 @@ export async function changeReleaseStatus(
   reason?: string,
 ): Promise<void> {
   const validStatuses: ReleaseStatus[] = [
-    'draft', 'planning', 'in_production', 'on_hold',
+    'planning', 'in_production', 'on_hold',
     'ready_for_distribution', 'released', 'cancelled', 'archived',
   ];
   if (!validStatuses.includes(status)) throw new Error(`Invalid status: ${status}`);
@@ -191,4 +198,57 @@ export async function fetchReleasesByArtist(orgId: string, artistId: string): Pr
     if (!map.has(a.releaseId)) map.set(a.releaseId, a);
   }
   return matched.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+}
+
+export async function fetchDraftByUser(orgId: string, userId: string) {
+  const release = await getDraftByUser(orgId, userId);
+  if (!release) return null;
+  return release;
+}
+
+export async function fetchDraftsByUser(orgId: string, userId: string) {
+  return getDraftsByUser(orgId, userId);
+}
+
+export async function saveReleaseDraft(
+  releaseId: string,
+  wizardData: Record<string, unknown>,
+  actorId: string,
+  expectedVersion?: number,
+): Promise<void> {
+  return updateReleaseDraft(releaseId, wizardData, actorId, expectedVersion);
+}
+
+export async function createNewReleaseDraft(
+  fields: CreateReleaseFields,
+  wizardData: Record<string, unknown>,
+  actorId: string,
+): Promise<string> {
+  if (!fields.title.trim()) throw new Error('Release title is required');
+  if (!fields.organizationId) throw new Error('Organization is required');
+  const { AuthorizationService } = await import('@/lib/auth/authorization-service');
+  await AuthorizationService.requireCreateRelease(fields.organizationId, actorId);
+  return createReleaseDraft(fields, wizardData, actorId);
+}
+
+export async function finalizeDraft(releaseId: string, actorId: string): Promise<void> {
+  return completeDraft(releaseId, actorId);
+}
+
+export async function addWorkflowToRelease(
+  releaseId: string,
+  stageTemplates: { name: string; order: number; assignedRole?: string }[],
+  requirementNames: string[],
+  actorId: string,
+): Promise<{ workflowId: string | null }> {
+  const existing = await getRelease(releaseId);
+  if (existing?.organizationId) {
+    const { AuthorizationService } = await import('@/lib/auth/authorization-service');
+    await AuthorizationService.requireEditRelease(existing.organizationId, actorId);
+  }
+  return createWorkflowForRelease(releaseId, stageTemplates, requirementNames, actorId);
+}
+
+export async function markExpiredDrafts(olderThanDays = 180): Promise<{ marked: number }> {
+  return markExpiredDraftsRepo(olderThanDays);
 }

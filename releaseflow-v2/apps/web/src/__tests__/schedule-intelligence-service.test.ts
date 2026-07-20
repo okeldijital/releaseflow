@@ -4,7 +4,7 @@ import type { ReleaseRecord } from '@/lib/release-repository';
 import type { MilestoneRecord } from '@/lib/milestone-repository';
 
 const mkRelease = (overrides: Partial<ReleaseRecord>): ReleaseRecord => ({
-  id: 'r1', title: 'Test Release', releaseType: 'single', status: 'draft',
+  id: 'r1', title: 'Test Release', releaseType: 'single', status: 'planning', lifecycle: 'draft',
   organizationId: 'org1', createdBy: 'u1',
   estimatedReleaseDate: new Date('2026-06-15'),
   upc: '123456789012', label: 'Test Label', genre: 'Pop',

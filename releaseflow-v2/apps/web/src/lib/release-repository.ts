@@ -4,7 +4,7 @@ import {
 } from '@firebase/firestore';
 import { getDb } from './firebase';
 import { recordActivity } from './activity-service';
-import type { ReleaseStatus, ReleaseType } from '@/app/(app)/types';
+import type { ReleaseStatus, ReleaseLifecycle, ReleaseType } from '@/app/(app)/types';
 import type { Artwork } from '@/lib/artwork/artwork-types';
 
 export interface ReleaseRecord {
@@ -13,6 +13,7 @@ export interface ReleaseRecord {
   displayTitle?: string;
   releaseType: ReleaseType;
   status: ReleaseStatus;
+  lifecycle: ReleaseLifecycle;
   organizationId: string;
   createdBy: string;
   targetReleaseDate?: unknown;
@@ -31,12 +32,15 @@ export interface ReleaseRecord {
   createdAt: unknown;
   updatedAt?: unknown;
   artwork: Artwork | null;
+  wizardData?: Record<string, unknown> | null;
+  version?: number;
 }
 
 export interface CreateReleaseFields {
   title: string;
   releaseType: ReleaseType;
   status: ReleaseStatus;
+  lifecycle: ReleaseLifecycle;
   organizationId: string;
   createdBy: string;
   targetReleaseDate?: Date | null;
@@ -51,6 +55,7 @@ export interface UpdateReleaseFields {
   title?: string;
   releaseType?: ReleaseType;
   status?: ReleaseStatus;
+  lifecycle?: ReleaseLifecycle;
   targetReleaseDate?: Date | null;
   estimatedReleaseDate?: Date | null;
   upc?: string | null;
@@ -321,4 +326,270 @@ export async function deleteRelease(releaseId: string, organizationId?: string, 
   const db = getDb();
   if (!db) throw new Error('Firestore unavailable');
   await deleteDoc(doc(db, 'releases', releaseId));
+}
+
+export async function getDraftByUser(orgId: string, userId: string): Promise<ReleaseRecord | null> {
+  const db = getDb();
+  if (!db) return null;
+  const q = query(
+    collection(db, 'releases'),
+    where('organizationId', '==', orgId),
+    where('createdBy', '==', userId),
+    where('lifecycle', '==', 'draft'),
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const doc = snap.docs[0]!;
+  return { id: doc.id, ...doc.data(), artwork: null } as ReleaseRecord;
+}
+
+export async function getDraftsByUser(orgId: string, userId: string): Promise<ReleaseRecord[]> {
+  const db = getDb();
+  if (!db) return [];
+  const q = query(
+    collection(db, 'releases'),
+    where('organizationId', '==', orgId),
+    where('createdBy', '==', userId),
+    where('lifecycle', '==', 'draft'),
+    orderBy('updatedAt', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+}
+
+export async function createReleaseDraft(
+  fields: CreateReleaseFields,
+  wizardData: Record<string, unknown>,
+  actorId: string,
+): Promise<string> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore unavailable');
+  const ref = await addDoc(collection(db, 'releases'), {
+    ...fields,
+    status: 'planning',
+    lifecycle: 'draft',
+    version: 1,
+    wizardData,
+    targetReleaseDate: fields.targetReleaseDate
+      ? Timestamp.fromDate(fields.targetReleaseDate)
+      : null,
+    estimatedReleaseDate: fields.estimatedReleaseDate
+      ? Timestamp.fromDate(fields.estimatedReleaseDate)
+      : null,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  await recordActivity({
+    entityType: 'release',
+    entityId: ref.id,
+    organizationId: fields.organizationId,
+    actorId,
+    action: 'release.draft_saved',
+    metadata: { title: fields.title, releaseType: fields.releaseType },
+    details: 'Draft created',
+  });
+  return ref.id;
+}
+
+export async function updateReleaseDraft(
+  releaseId: string,
+  wizardData: Record<string, unknown>,
+  actorId: string,
+  expectedVersion?: number,
+): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore unavailable');
+  const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
+  if (!releaseSnap.exists()) throw new Error('Draft not found');
+  const currentVersion = (releaseSnap.data() as Record<string, unknown> | undefined)?.version as number | undefined ?? 0;
+  if (expectedVersion !== undefined && expectedVersion !== currentVersion) {
+    throw new Error('Draft was updated elsewhere. Please reload.');
+  }
+  const nextVersion = currentVersion + 1;
+  await updateDoc(doc(db, 'releases', releaseId), {
+    wizardData,
+    version: nextVersion,
+    updatedAt: Timestamp.now(),
+  });
+  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined ?? '';
+  await recordActivity({
+    entityType: 'release',
+    entityId: releaseId,
+    organizationId,
+    actorId,
+    action: 'release.draft_saved',
+    metadata: { version: nextVersion },
+    details: 'Draft saved',
+  });
+}
+
+export async function completeDraft(
+  releaseId: string,
+  actorId: string,
+): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore unavailable');
+  const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
+  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined ?? '';
+  const { AuthorizationService } = await import('@/lib/auth/authorization-service');
+  if (organizationId) {
+    await AuthorizationService.requireEditRelease(organizationId, actorId);
+  }
+  await updateDoc(doc(db, 'releases', releaseId), {
+    lifecycle: 'active',
+    wizardData: null,
+    version: 0,
+    updatedAt: Timestamp.now(),
+  });
+  await recordActivity({
+    entityType: 'release',
+    entityId: releaseId,
+    organizationId,
+    actorId,
+    action: 'release.status.changed',
+    metadata: { newStatus: 'planning' },
+    details: 'Draft completed',
+  });
+}
+
+export async function markExpiredDrafts(olderThanDays = 180): Promise<{ marked: number }> {
+  const db = getDb();
+  if (!db) return { marked: 0 };
+  const cutoff = Timestamp.fromDate(new Date(Date.now() - olderThanDays * 86400000));
+  const q = query(
+    collection(db, 'releases'),
+    where('lifecycle', '==', 'draft'),
+    where('updatedAt', '<', cutoff),
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return { marked: 0 };
+  const batch = writeBatch(db);
+  let count = 0;
+  for (const docSnap of snap.docs) {
+    batch.update(docSnap.ref, {
+      lifecycle: 'expired',
+      updatedAt: Timestamp.now(),
+    });
+    count++;
+  }
+  await batch.commit();
+  return { marked: count };
+}
+
+export async function updateReleaseLifecycle(
+  releaseId: string,
+  lifecycle: ReleaseLifecycle,
+  actorId: string,
+): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore unavailable');
+  await updateDoc(doc(db, 'releases', releaseId), {
+    lifecycle,
+    updatedAt: Timestamp.now(),
+  });
+  const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
+  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined ?? '';
+  await recordActivity({
+    entityType: 'release',
+    entityId: releaseId,
+    organizationId,
+    actorId,
+    action: 'release.lifecycle.changed',
+    metadata: { newLifecycle: lifecycle },
+  });
+}
+
+export async function migrateDraftsToLifecycle(): Promise<{ migrated: number }> {
+  const db = getDb();
+  if (!db) return { migrated: 0 };
+  const q = query(
+    collection(db, 'releases'),
+    where('status', '==', 'draft'),
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return { migrated: 0 };
+  const batch = writeBatch(db);
+  let count = 0;
+  for (const docSnap of snap.docs) {
+    batch.update(docSnap.ref, {
+      lifecycle: 'draft',
+      status: 'planning',
+      updatedAt: Timestamp.now(),
+    });
+    count++;
+  }
+  await batch.commit();
+  return { migrated: count };
+}
+
+export async function createWorkflowForRelease(
+  releaseId: string,
+  stageTemplates: { name: string; order: number; assignedRole?: string }[],
+  requirementNames: string[],
+  actorId: string,
+): Promise<{ workflowId: string | null }> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore unavailable');
+  const now = Timestamp.now();
+  const batch = writeBatch(db);
+
+  const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
+  const releaseType = (releaseSnap.data() as Record<string, unknown> | undefined)?.releaseType as string | undefined ?? 'single';
+
+  const workflowRef = doc(collection(db, 'workflows'));
+  const workflowId = workflowRef.id;
+  batch.set(workflowRef, {
+    releaseId,
+    templateId: releaseType,
+    status: 'in_progress',
+    progress: 0,
+    currentStageId: null,
+    startedAt: now,
+    updatedAt: now,
+  });
+
+  let firstStageId: string | null = null;
+
+  for (const tpl of stageTemplates) {
+    const stageRef = doc(collection(db, 'stages'));
+    if (tpl.order === 1) firstStageId = stageRef.id;
+    batch.set(stageRef, {
+      workflowId: workflowRef.id,
+      name: tpl.name,
+      order: tpl.order,
+      status: tpl.order === 1 ? 'in_progress' : 'not_started',
+      startedAt: tpl.order === 1 ? now : null,
+      dueDate: null,
+      assignedRole: tpl.assignedRole ?? null,
+      completedAt: null,
+    });
+  }
+  if (firstStageId) {
+    batch.update(workflowRef, { currentStageId: firstStageId });
+  }
+
+  for (const reqName of requirementNames) {
+    const reqRef = doc(collection(db, 'release_requirements'));
+    batch.set(reqRef, {
+      releaseId,
+      name: reqName,
+      status: 'required',
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined ?? '';
+  await recordActivity({
+    entityType: 'release',
+    entityId: releaseId,
+    organizationId,
+    actorId,
+    action: 'workflow.generated',
+    metadata: { stageCount: stageTemplates.length },
+    batch,
+  });
+
+  await batch.commit();
+  return { workflowId };
 }

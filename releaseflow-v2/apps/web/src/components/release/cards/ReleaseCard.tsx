@@ -12,6 +12,40 @@ import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { ArtworkDisplay } from '@/components/release/artwork-display';
 import { RELEASE_STATUS_CONFIG, RELEASE_TYPE_LABELS } from '../status/release-status-config';
 import type { Release } from '@/app/(app)/types';
+import type { WizardDraftData } from '@/components/release/wizard/release-wizard-types';
+
+function getDraftCompletion(wizardData: Record<string, unknown> | null | undefined): number {
+  if (!wizardData) return 0;
+  const wd = wizardData as Partial<WizardDraftData>;
+  let completed = 0;
+  const total = 7;
+  if (wd.releaseTitle?.trim()) completed++;
+  if (wd.hasArtwork !== null || wd.commissionArtwork !== null) completed++;
+  if (wd.tracks?.some((t: { title: string }) => t.title.trim())) completed++;
+  if (wd.primaryArtist || wd.featuredArtists?.length) completed++;
+  if (wd.recordLabel || wd.upc || wd.primaryGenre) completed++;
+  if (wd.promoAssets?.length || wd.socialRows?.some((r: { url: string }) => r.url)) completed++;
+  if (wd.hasEmail !== null) completed++;
+  return Math.round((completed / total) * 100);
+}
+
+function getDraftStepLabel(wizardData: Record<string, unknown> | null | undefined): string {
+  if (!wizardData) return 'Draft';
+  const wd = wizardData as Partial<WizardDraftData>;
+  const idx = typeof wd.currentStep === 'number' ? wd.currentStep : 0;
+  const keys = ['type', 'details', 'artwork', 'tracks', 'release_info', 'promotion', 'email', 'review'];
+  const labels: Record<string, string> = {
+    type: 'Release Type',
+    details: 'Details',
+    artwork: 'Artwork',
+    tracks: 'Tracks',
+    release_info: 'Release Info',
+    promotion: 'Promotion',
+    email: 'Email',
+    review: 'Review',
+  };
+  return labels[keys[idx] ?? ''] ?? 'Draft';
+}
 
 interface ReleaseCardProps {
   release: Release;
@@ -58,6 +92,8 @@ export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardP
   }
 
   if (view === 'list') {
+    const isDraft = release.lifecycle === 'draft';
+    const draftPct = isDraft ? getDraftCompletion(release.wizardData) : 0;
     return (
       <>
         <div className="flex items-center gap-4 px-4 py-3 hover:bg-surface-50/80 transition-colors group border-b border-surface-100 last:border-b-0">
@@ -66,14 +102,24 @@ export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardP
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-semibold text-primary-400 truncate">{release.title}</span>
-                <StatusBadge status={release.status} />
+                {isDraft ? (
+                  <Badge label={`Draft ${draftPct}%`} color="bg-surface-100 text-text-500" size="sm" />
+                ) : (
+                  <StatusBadge status={release.status} />
+                )}
                 {trackCount !== undefined && (
                   <span className="text-xs text-text-400">{trackCount} track{trackCount !== 1 ? 's' : ''}</span>
                 )}
               </div>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-text-500 capitalize">{RELEASE_TYPE_LABELS[release.releaseType] ?? release.releaseType}</span>
-                {release.targetReleaseDate ? (
+                {isDraft && (
+                  <>
+                    <span className="text-text-300">·</span>
+                    <span className="text-xs text-text-400">{getDraftStepLabel(release.wizardData)}</span>
+                  </>
+                )}
+                {release.targetReleaseDate && !isDraft ? (
                   <>
                     <span className="text-text-300">·</span>
                     <span className="text-xs text-text-400">{fmtDate(release.targetReleaseDate)}</span>
@@ -105,17 +151,22 @@ export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardP
     );
   }
 
+  const isDraft = release.lifecycle === 'draft';
+  const draftPct = isDraft ? getDraftCompletion(release.wizardData) : 0;
+
   return (
     <>
       <div className="group relative rounded-xl border border-surface-200 bg-layer-2 shadow-card hover:shadow-card-hover transition-all duration-200 overflow-hidden">
         <Link href={`/releases/${release.id}`} className="block">
           <div className="relative overflow-hidden">
             <ArtworkDisplay artwork={release.artwork} releaseTitle={release.title} size="lg" />
-            {statusMeta && (
-              <div className="absolute top-3 right-3">
+            <div className="absolute top-3 right-3">
+              {isDraft ? (
+                <Badge label={`Draft ${draftPct}%`} color="bg-surface-100 text-text-500" size="sm" />
+              ) : statusMeta ? (
                 <StatusBadge status={release.status} />
-              </div>
-            )}
+              ) : null}
+            </div>
             {release.releaseType && (
               <div className="absolute top-3 left-3">
                 <Badge label={RELEASE_TYPE_LABELS[release.releaseType] ?? release.releaseType} color="bg-black/30 text-surface-50" size="sm" />
@@ -128,14 +179,28 @@ export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardP
               {trackCount !== undefined && (
                 <span>{trackCount} track{trackCount !== 1 ? 's' : ''}</span>
               )}
-              {release.targetReleaseDate ? (
+              {isDraft && getDraftStepLabel(release.wizardData) !== 'Draft' && (
+                <>
+                  <span className="text-text-300">·</span>
+                  <span>{getDraftStepLabel(release.wizardData)}</span>
+                </>
+              )}
+              {release.targetReleaseDate && !isDraft ? (
                 <>
                   {trackCount !== undefined && <span className="text-text-300">·</span>}
                   <span>{fmtDate(release.targetReleaseDate)}</span>
                 </>
               ) : null}
             </div>
-            {statusMeta && (
+            {isDraft ? (
+              <div className="pt-1">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-text-400">Progress</span>
+                  <span className="font-medium text-text-600">{draftPct}%</span>
+                </div>
+                <ProgressBar value={draftPct} />
+              </div>
+            ) : statusMeta ? (
               <div className="pt-1">
                 <div className="flex items-center justify-between text-xs mb-1">
                   <span className="text-text-400">Progress</span>
@@ -143,7 +208,7 @@ export function ReleaseCard({ release, trackCount, view = 'grid' }: ReleaseCardP
                 </div>
                 <ProgressBar value={statusMeta.progress} />
               </div>
-            )}
+            ) : null}
           </div>
         </Link>
 

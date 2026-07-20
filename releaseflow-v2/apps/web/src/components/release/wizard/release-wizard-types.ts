@@ -77,3 +77,44 @@ export type SocialRow = { id: string; platform: string; url: string; personId: s
 export type SectionStatusMap = Record<string, 'complete' | 'incomplete' | 'skipped'>;
 export type AssignerField = 'mixingEngineer' | 'masteringEngineer' | 'emailManager';
 export type InviteTarget = { type: string; key?: string } | null;
+
+export interface WizardDraftData {
+  currentStep: number;
+  releaseType: ReleaseTypeVal;
+  releaseTitle: string;
+  releaseLink: string;
+  releaseNotes: string;
+  targetReleaseDate: string;
+  estimatedReleaseDate: string;
+  hasArtwork: boolean | null;
+  commissionArtwork: boolean | null;
+  artworkDesigner: string;
+  tracks: WizardTrack[];
+  promoAssets: string[];
+  assetDesigners: Record<string, string>;
+  socialRows: SocialRow[];
+  hasEmail: boolean | null;
+  emailSubject: string;
+  emailPreviewText: string;
+  emailBody: string;
+  emailCampaignManager: string;
+  emailSendDate: string;
+  emailSendTime: string;
+  emailTimezone: string;
+  primaryArtist: string;
+  featuredArtists: string[];
+  recordLabel: string;
+  catalogueNumber: string;
+  upc: string;
+  primaryGenre: string;
+  secondaryGenre: string;
+  language: string;
+  copyrightOwner: string;
+  copyrightYear: string;
+  releaseOwner: string;
+  inviteName: string;
+  inviteEmail: string;
+  inviteRole: string;
+  showInviteForm: boolean;
+  inviteTarget: InviteTarget;
+}

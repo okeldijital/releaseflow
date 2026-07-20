@@ -1,24 +1,32 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { useArtists } from '@/hooks/useArtist';
 import { getPeopleByOrg } from '@/lib/people-repository';
-import { createReleaseWithFullWorkflow, fetchRelease, editRelease, validateReleaseLink } from '@/lib/release-service';
+import { createReleaseWithFullWorkflow, fetchRelease, editRelease, validateReleaseLink, saveReleaseDraft, createNewReleaseDraft, finalizeDraft, addWorkflowToRelease } from '@/lib/release-service';
 import { createNewTrack } from '@/lib/track-service';
 import { getStageTemplatesForReleaseType } from '@/lib/workflow-templates';
 import { getRequirementNamesForReleaseType } from '@/lib/requirement-templates';
 import { getLabelsByOrganization } from '@/lib/label-repository';
 import { invitePerson } from '@/lib/invitation-service';
 import { suggestRemixDisplayTitle } from '@/lib/recording-type';
+import { toast } from '@/stores/toast-store';
 import type { LabelOption } from '@/components/label-field-picker';
 import type { ReleaseRecord } from '@/lib/release-repository';
-import type { ReleaseTypeVal, WizardTrack, PersonOption, SocialRow, SectionStatusMap, AssignerField, InviteTarget } from './release-wizard-types';
+import type { ReleaseTypeVal, WizardTrack, PersonOption, SocialRow, SectionStatusMap, AssignerField, InviteTarget, WizardDraftData } from './release-wizard-types';
 import { createEmptyTrack } from './release-wizard-types';
 
-export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: { mode?: 'create' | 'edit'; releaseId?: string } = {}) {
+export type SaveState = 'idle' | 'saving' | 'saved' | 'offline' | 'conflict';
+
+function dirty<T>(setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>, setter: Dispatch<SetStateAction<T>>, value: SetStateAction<T>) {
+  setHasUnsavedChanges(true);
+  setter(value);
+}
+
+export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, draftId: resumeDraftId }: { mode?: 'create' | 'edit'; releaseId?: string; draftId?: string } = {}) {
   const { user } = useAuth();
   const { activeOrgId } = useOrgStore();
   const { artistOptions: artists, onArtistCreated } = useArtists();
@@ -26,8 +34,15 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
 
   const [step, setStep] = useState(0);
   const [launching, setLaunching] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState('');
   const [people, setPeople] = useState<PersonOption[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [saveVersion, setSaveVersion] = useState(0);
+  const [offlineQueue, setOfflineQueue] = useState<Array<{ data: WizardDraftData; version: number }>>([]);
+  const [conflictData, setConflictData] = useState<{ server: WizardDraftData; local: WizardDraftData } | null>(null);
 
   const [releaseType, setReleaseType] = useState<ReleaseTypeVal>('single');
   const [releaseTitle, setReleaseTitle] = useState('');
@@ -87,6 +102,12 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
 
   const [loadingEdit, setLoadingEdit] = useState(mode === 'edit');
   const [editForbidden, setEditForbidden] = useState(false);
+
+  const currentDraftId = useRef<string | undefined>(resumeDraftId);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const lastSavedData = useRef<string>('');
+  const isOnline = useRef(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const previousStep = useRef(step);
 
   function openAssigner(label: string, role: string, trackId: string, field: AssignerField, cb?: (r: { personId?: string }) => void) {
     setAssignerLabel(label); setAssignerRole(role); setAssignerTrackId(trackId); setAssignerField(field);
@@ -150,6 +171,424 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
     }
     load();
   }, [mode, editReleaseId, activeOrgId]);
+
+  // Draft resume mode: hydrate from persisted draft data
+  useEffect(() => {
+    if (mode !== 'create' || !resumeDraftId) return;
+    async function load() {
+      if (!resumeDraftId) return;
+      const data = await fetchRelease(resumeDraftId);
+      if (!data || !data.wizardData) { setLoadingEdit(false); return; }
+      const wd = data.wizardData as unknown as WizardDraftData;
+      setReleaseTitle(wd.releaseTitle ?? '');
+      setReleaseType(wd.releaseType ?? 'single');
+      setReleaseLink(wd.releaseLink ?? '');
+      setReleaseNotes(wd.releaseNotes ?? '');
+      setTargetReleaseDate(wd.targetReleaseDate ?? '');
+      setEstimatedReleaseDate(wd.estimatedReleaseDate ?? '');
+      setHasArtwork(wd.hasArtwork ?? null);
+      setCommissionArtwork(wd.commissionArtwork ?? null);
+      setArtworkDesigner(wd.artworkDesigner ?? '');
+      setTracks(wd.tracks ?? [createEmptyTrack('1')]);
+      setPromoAssets(wd.promoAssets ?? []);
+      setAssetDesigners(wd.assetDesigners ?? {});
+      setSocialRows(wd.socialRows ?? []);
+      setHasEmail(wd.hasEmail ?? null);
+      setEmailSubject(wd.emailSubject ?? '');
+      setEmailPreviewText(wd.emailPreviewText ?? '');
+      setEmailBody(wd.emailBody ?? '');
+      setEmailCampaignManager(wd.emailCampaignManager ?? '');
+      setEmailSendDate(wd.emailSendDate ?? '');
+      setEmailSendTime(wd.emailSendTime ?? '');
+      setEmailTimezone(wd.emailTimezone ?? '');
+      setPrimaryArtist(wd.primaryArtist ?? '');
+      setFeaturedArtists(wd.featuredArtists ?? []);
+      setRecordLabel(wd.recordLabel ?? '');
+      setCatalogueNumber(wd.catalogueNumber ?? '');
+      setUpc(wd.upc ?? '');
+      setPrimaryGenre(wd.primaryGenre ?? '');
+      setSecondaryGenre(wd.secondaryGenre ?? '');
+      setLanguage(wd.language ?? '');
+      setCopyrightOwner(wd.copyrightOwner ?? '');
+      setCopyrightYear(wd.copyrightYear ?? String(new Date().getFullYear()));
+      setReleaseOwner(wd.releaseOwner ?? '');
+      setInviteName(wd.inviteName ?? '');
+      setInviteEmail(wd.inviteEmail ?? '');
+      setInviteRole(wd.inviteRole ?? '');
+      setShowInviteForm(wd.showInviteForm ?? false);
+      setInviteTarget(wd.inviteTarget ?? null);
+      if (typeof wd.currentStep === 'number') setStep(wd.currentStep);
+      if (data.version !== undefined) setSaveVersion(data.version);
+      setLoadingEdit(false);
+    }
+    load();
+  }, [mode, resumeDraftId]);
+
+  // Track online status
+  useEffect(() => {
+    const goOnline = () => { isOnline.current = true; processOfflineQueue(); };
+    const goOffline = () => { isOnline.current = false; setSaveState('offline'); };
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  // Process offline queue when back online
+  async function processOfflineQueue() {
+    if (offlineQueue.length === 0 || !user || !activeOrgId) return;
+    const queue = [...offlineQueue];
+    setOfflineQueue([]);
+    for (const item of queue) {
+      try {
+        if (currentDraftId.current) {
+          await saveReleaseDraft(currentDraftId.current, item.data as unknown as Record<string, unknown>, user.uid, item.version);
+        }
+        setSaveState('saved');
+        setLastSavedAt(new Date());
+      } catch {
+        setOfflineQueue((p) => [...p, item]);
+        setSaveState('offline');
+        break;
+      }
+    }
+  }
+
+  // Auto-save on dirty state changes (debounced)
+  useEffect(() => {
+    if (!hasUnsavedChanges || mode !== 'create') return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      triggerAutoSave();
+    }, 30000);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, [hasUnsavedChanges, step, tracks, promoAssets, socialRows, hasArtwork, mode]);
+
+  // Auto-save on step change
+  useEffect(() => {
+    if (mode !== 'create' || !hasUnsavedChanges || !currentDraftId.current) return;
+    if (previousStep.current === step) return;
+    previousStep.current = step;
+    triggerAutoSave();
+  }, [step]);
+
+  // Auto-save on visibility change
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'hidden' && hasUnsavedChanges && mode === 'create') {
+        triggerAutoSave(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, [hasUnsavedChanges, mode]);
+
+  // Auto-save on beforeunload
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && mode === 'create') {
+        triggerAutoSave(true);
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsavedChanges, mode]);
+
+  function serializeWizardState(): { data: WizardDraftData; raw: string } {
+    const data: WizardDraftData = {
+      currentStep: step,
+      releaseType,
+      releaseTitle,
+      releaseLink,
+      releaseNotes,
+      targetReleaseDate,
+      estimatedReleaseDate,
+      hasArtwork,
+      commissionArtwork,
+      artworkDesigner,
+      tracks,
+      promoAssets,
+      assetDesigners,
+      socialRows,
+      hasEmail,
+      emailSubject,
+      emailPreviewText,
+      emailBody,
+      emailCampaignManager,
+      emailSendDate,
+      emailSendTime,
+      emailTimezone,
+      primaryArtist,
+      featuredArtists,
+      recordLabel,
+      catalogueNumber,
+      upc,
+      primaryGenre,
+      secondaryGenre,
+      language,
+      copyrightOwner,
+      copyrightYear,
+      releaseOwner,
+      inviteName,
+      inviteEmail,
+      inviteRole,
+      showInviteForm,
+      inviteTarget: inviteTarget ?? null,
+    };
+    return { data, raw: JSON.stringify(data) };
+  }
+
+  function calculateCompletionPercentage(): number {
+    let completed = 0;
+    const total = 7;
+    if (releaseTitle.trim()) completed++;
+    if (hasArtwork !== null || commissionArtwork !== null) completed++;
+    if (tracks.some((t) => t.title.trim())) completed++;
+    if (primaryArtist || featuredArtists.length > 0) completed++;
+    if (recordLabel || upc || primaryGenre) completed++;
+    if (promoAssets.length > 0 || socialRows.some((r) => r.url)) completed++;
+    if (hasEmail !== null) completed++;
+    return Math.round((completed / total) * 100);
+  }
+
+  async function triggerAutoSave(isBestEffort = false) {
+    if (!user || !activeOrgId || savingDraft) return;
+    if (!releaseTitle.trim()) return;
+    const snapshot = serializeWizardState();
+    if (snapshot.raw === lastSavedData.current && currentDraftId.current) return;
+    setSaveState('saving');
+    try {
+      if (currentDraftId.current) {
+        await saveReleaseDraft(currentDraftId.current, snapshot.data as unknown as Record<string, unknown>, user.uid, saveVersion);
+      } else {
+        const rt = releaseType as 'single' | 'ep' | 'album';
+        const labelValue = recordLabel === '__org__' ? (orgName || undefined) : (recordLabel ? (labelOptions.find((l) => l.id === recordLabel)?.name || recordLabel) : undefined);
+        currentDraftId.current = await createNewReleaseDraft({
+          title: releaseTitle,
+          releaseType: rt,
+          status: 'planning',
+          lifecycle: 'draft',
+          organizationId: activeOrgId,
+          createdBy: user.uid,
+          targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null,
+          estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null,
+          label: labelValue,
+          releaseLink: releaseLink.trim() || null,
+        }, snapshot.data as unknown as Record<string, unknown>, user.uid);
+      }
+      lastSavedData.current = snapshot.raw;
+      setSaveVersion((v) => v + 1);
+      setHasUnsavedChanges(false);
+      setSaveState('saved');
+      setLastSavedAt(new Date());
+    } catch (err) {
+      if (isBestEffort || !isOnline.current) {
+        setOfflineQueue((p) => [...p, { data: snapshot.data, version: saveVersion }]);
+        setSaveState('offline');
+      } else if ((err as Error).message?.includes('updated elsewhere')) {
+        setSaveState('conflict');
+        setConflictData({ server: {} as WizardDraftData, local: snapshot.data });
+      } else {
+        setSaveState('idle');
+      }
+    }
+  }
+
+  async function saveDraft() {
+    if (!user || !activeOrgId) return;
+    if (!releaseTitle.trim()) {
+      setError('Release title is required to save a draft.');
+      return;
+    }
+    setSavingDraft(true);
+    setError('');
+    setSaveState('saving');
+
+    const snapshot = serializeWizardState();
+
+    try {
+      const rt = releaseType as 'single' | 'ep' | 'album';
+      const labelValue = recordLabel === '__org__' ? (orgName || undefined) : (recordLabel ? (labelOptions.find((l) => l.id === recordLabel)?.name || recordLabel) : undefined);
+      const fields = {
+        title: releaseTitle,
+        releaseType: rt,
+        status: 'planning' as const,
+        lifecycle: 'draft' as const,
+        organizationId: activeOrgId,
+        createdBy: user.uid,
+        targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null,
+        estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null,
+        label: labelValue,
+        releaseLink: releaseLink.trim() || null,
+      };
+
+      if (currentDraftId.current) {
+        await saveReleaseDraft(currentDraftId.current, snapshot.data as unknown as Record<string, unknown>, user.uid, saveVersion);
+      } else {
+        currentDraftId.current = await createNewReleaseDraft(fields, snapshot.data as unknown as Record<string, unknown>, user.uid);
+      }
+      lastSavedData.current = snapshot.raw;
+      setSaveVersion((v) => v + 1);
+      setHasUnsavedChanges(false);
+      setSaveState('saved');
+      setLastSavedAt(new Date());
+      toast.success('Draft saved successfully.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      if ((err as Error).message?.includes('updated elsewhere')) {
+        setSaveState('conflict');
+      } else if (!isOnline.current) {
+        setOfflineQueue((p) => [...p, { data: snapshot.data, version: saveVersion }]);
+        setSaveState('offline');
+      } else {
+        setSaveState('idle');
+      }
+    } finally {
+      setSavingDraft(false);
+    }
+  }
+
+  async function handleConflictReload() {
+    if (!conflictData || !currentDraftId.current || !user) return;
+    try {
+      await saveReleaseDraft(currentDraftId.current, conflictData.local as unknown as Record<string, unknown>, user.uid, saveVersion);
+      setSaveState('saved');
+      setLastSavedAt(new Date());
+      setConflictData(null);
+      setHasUnsavedChanges(false);
+    } catch {
+      setError('Could not resolve conflict. Please try again.');
+    }
+  }
+
+  function handleConflictDiscard() {
+    setConflictData(null);
+    setSaveState('idle');
+  }
+
+  async function handleLaunch() {
+    if (!user || !activeOrgId || !releaseTitle.trim()) return;
+    if (!validateRemixTracks()) return;
+    const linkError = validateReleaseLink(releaseLink);
+    if (linkError) { setError(linkError); return; }
+    setLaunching(true); setError('');
+
+    const trimmedReleaseLink = releaseLink.trim() || null;
+
+    if (mode === 'edit' && editReleaseId) {
+      try {
+        await editRelease(editReleaseId, {
+          title: releaseTitle,
+          releaseType: releaseType as ReleaseRecord['releaseType'],
+          targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null,
+          estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null,
+          upc: upc || null,
+          catalogNumber: catalogueNumber || null,
+          label: recordLabel || null,
+          copyright: copyrightOwner || null,
+          genre: primaryGenre || null,
+          subgenre: secondaryGenre || null,
+          language: language || null,
+          releaseLink: trimmedReleaseLink,
+        }, user.uid);
+        router.push(`/releases/${editReleaseId}`);
+      } catch (err) {
+        setError((err as Error).message);
+        setLaunching(false);
+      }
+      return;
+    }
+
+    // Create mode — supports both fresh creation and draft finalization
+    const releaseIdToUse = currentDraftId.current ?? editReleaseId;
+    try {
+      const rt = releaseType as 'single' | 'ep' | 'album';
+      const labelValue = recordLabel === '__org__' ? (orgName || undefined) : (recordLabel ? (labelOptions.find((l) => l.id === recordLabel)?.name || recordLabel) : undefined);
+
+      if (releaseIdToUse) {
+        await editRelease(releaseIdToUse, {
+          title: releaseTitle,
+          releaseType: rt,
+          targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null,
+          estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null,
+          upc: upc || null,
+          catalogNumber: catalogueNumber || null,
+          label: labelValue || null,
+          copyright: copyrightOwner || null,
+          genre: primaryGenre || null,
+          subgenre: secondaryGenre || null,
+          language: language || null,
+          releaseLink: trimmedReleaseLink,
+        }, user.uid);
+        await finalizeDraft(releaseIdToUse, user.uid);
+        await addWorkflowToRelease(releaseIdToUse, getStageTemplatesForReleaseType(rt), getRequirementNamesForReleaseType(rt), user.uid);
+      } else {
+        const { releaseId: newId } = await createReleaseWithFullWorkflow(
+          { title: releaseTitle, releaseType: rt, status: 'planning', lifecycle: 'active', organizationId: activeOrgId, createdBy: user.uid, targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null, estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null, label: labelValue, releaseLink: trimmedReleaseLink },
+          getStageTemplatesForReleaseType(rt), getRequirementNamesForReleaseType(rt), user.uid,
+        );
+        currentDraftId.current = newId;
+      }
+
+      const finalReleaseId = currentDraftId.current!;
+      const validTracks = tracks.filter((t) => t.title.trim());
+      if (validTracks.length > 0) {
+        const { addArtistToTrack } = await import('@/lib/track-artist-repository');
+        for (let i = 0; i < validTracks.length; i++) {
+          const t = validTracks[i]!;
+          const trackTitle = t.recordingType === 'remix' && t.displayTitle.trim()
+            ? t.displayTitle.trim()
+            : t.title.trim();
+          const trackId = await createNewTrack({
+            releaseId: finalReleaseId,
+            position: i + 1,
+            title: trackTitle,
+            organizationId: activeOrgId,
+            createdBy: user.uid,
+            version: t.version.trim() || undefined,
+            recordingType: t.recordingType,
+            originalArtistId: t.recordingType === 'remix' ? (t.originalArtists[0]?.artistId ?? null) : null,
+            remixerArtistId: t.recordingType === 'remix' ? (t.remixArtists[0]?.artistId ?? null) : null,
+            primaryArtistId: t.recordingType === 'original' ? t.primaryArtistId || null : null,
+            originalArtistIds: t.recordingType === 'remix'
+              ? t.originalArtists.map((e) => e.artistId).filter(Boolean)
+              : (t.primaryArtistId ? [t.primaryArtistId] : []),
+            featuredArtistIds: t.featuredArtistIds,
+            remixArtistIds: t.remixArtists.map((e) => e.artistId).filter(Boolean),
+            displayTitle: t.displayTitle.trim() || null,
+            displayTitleEdited: t.displayTitleEdited,
+          });
+          if (t.recordingType === 'remix') {
+            for (let idx = 0; idx < t.originalArtists.length; idx++) {
+              const entry = t.originalArtists[idx]!;
+              if (entry.artistId) await addArtistToTrack({ trackId, artistId: entry.artistId, role: 'ORIGINAL_ARTIST', position: idx + 1 });
+            }
+            for (let idx = 0; idx < t.remixArtists.length; idx++) {
+              const entry = t.remixArtists[idx]!;
+              if (entry.artistId) await addArtistToTrack({ trackId, artistId: entry.artistId, role: 'REMIX_ARTIST', position: idx + 1 });
+            }
+          } else if (t.primaryArtistId) {
+            await addArtistToTrack({ trackId, artistId: t.primaryArtistId, role: 'PRIMARY_ARTIST', position: 1, isPrimary: true });
+          }
+          for (let idx = 0; idx < t.featuredArtistIds.length; idx++) {
+            const fid = t.featuredArtistIds[idx]!;
+            if (fid) await addArtistToTrack({ trackId, artistId: fid, role: 'FEATURED_ARTIST', position: idx + 1 });
+          }
+        }
+      }
+      router.push(`/releases/${finalReleaseId}`);
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : String(error);
+      setError(message);
+      setLaunching(false);
+    }
+  }
 
   const STEPS = ['type', 'details', 'artwork', 'tracks', 'release_info', 'promotion', 'email', 'review'];
   const totalSteps = STEPS.length;
@@ -238,7 +677,6 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
       organizationName: orgName,
       inviteeName: inviteName.trim(),
       inviteeEmail: inviteEmail.trim(),
-      // DOM-001: invite with platform security role only.
       platformRole: 'collaborator',
       professionalRole: '',
       invitedByUserId: user!.uid,
@@ -248,145 +686,48 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
     setShowInviteForm(false); setInviteName(''); setInviteEmail(''); setInviteRole(''); setInviteTarget(null);
   }
 
-  async function handleLaunch() {
-    if (!user || !activeOrgId || !releaseTitle.trim()) return;
-    if (!validateRemixTracks()) return;
-    const linkError = validateReleaseLink(releaseLink);
-    if (linkError) { setError(linkError); return; }
-    setLaunching(true); setError('');
-
-    const trimmedReleaseLink = releaseLink.trim() || null;
-
-    if (mode === 'edit' && editReleaseId) {
-      // Edit mode
-      try {
-        await editRelease(editReleaseId, {
-          title: releaseTitle,
-          releaseType: releaseType as ReleaseRecord['releaseType'],
-          targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null,
-          estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null,
-          upc: upc || null,
-          catalogNumber: catalogueNumber || null,
-          label: recordLabel || null,
-          copyright: copyrightOwner || null,
-          genre: primaryGenre || null,
-          subgenre: secondaryGenre || null,
-          language: language || null,
-          releaseLink: trimmedReleaseLink,
-        }, user.uid);
-        router.push(`/releases/${editReleaseId}`);
-      } catch (err) {
-        setError((err as Error).message);
-        setLaunching(false);
-      }
-      return;
-    }
-
-    // Create mode
-    try {
-      const rt = releaseType as 'single' | 'ep' | 'album';
-      const labelValue = recordLabel === '__org__' ? (orgName || undefined) : (recordLabel ? (labelOptions.find((l) => l.id === recordLabel)?.name || recordLabel) : undefined);
-      const { releaseId } = await createReleaseWithFullWorkflow(
-        { title: releaseTitle, releaseType: rt, status: 'planning', organizationId: activeOrgId, createdBy: user.uid, targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null, estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null, label: labelValue, releaseLink: trimmedReleaseLink },
-        getStageTemplatesForReleaseType(rt), getRequirementNamesForReleaseType(rt), user.uid,
-      );
-      const validTracks = tracks.filter((t) => t.title.trim());
-      if (validTracks.length > 0) {
-        const { addArtistToTrack } = await import('@/lib/track-artist-repository');
-        for (let i = 0; i < validTracks.length; i++) {
-          const t = validTracks[i]!;
-          const trackTitle = t.recordingType === 'remix' && t.displayTitle.trim()
-            ? t.displayTitle.trim()
-            : t.title.trim();
-          const trackId = await createNewTrack({
-            releaseId,
-            position: i + 1,
-            title: trackTitle,
-            organizationId: activeOrgId,
-            createdBy: user.uid,
-            version: t.version.trim() || undefined,
-            recordingType: t.recordingType,
-            originalArtistId: t.recordingType === 'remix' ? (t.originalArtists[0]?.artistId ?? null) : null,
-            remixerArtistId: t.recordingType === 'remix' ? (t.remixArtists[0]?.artistId ?? null) : null,
-            primaryArtistId: t.recordingType === 'original' ? t.primaryArtistId || null : null,
-            originalArtistIds: t.recordingType === 'remix'
-              ? t.originalArtists.map((e) => e.artistId).filter(Boolean)
-              : (t.primaryArtistId ? [t.primaryArtistId] : []),
-            featuredArtistIds: t.featuredArtistIds,
-            remixArtistIds: t.remixArtists.map((e) => e.artistId).filter(Boolean),
-            displayTitle: t.displayTitle.trim() || null,
-            displayTitleEdited: t.displayTitleEdited,
-          });
-          if (t.recordingType === 'remix') {
-            for (let idx = 0; idx < t.originalArtists.length; idx++) {
-              const entry = t.originalArtists[idx]!;
-              if (entry.artistId) await addArtistToTrack({ trackId, artistId: entry.artistId, role: 'ORIGINAL_ARTIST', position: idx + 1 });
-            }
-            for (let idx = 0; idx < t.remixArtists.length; idx++) {
-              const entry = t.remixArtists[idx]!;
-              if (entry.artistId) await addArtistToTrack({ trackId, artistId: entry.artistId, role: 'REMIX_ARTIST', position: idx + 1 });
-            }
-          } else if (t.primaryArtistId) {
-            await addArtistToTrack({ trackId, artistId: t.primaryArtistId, role: 'PRIMARY_ARTIST', position: 1, isPrimary: true });
-          }
-          // EPIC-202 — Featured Artists on original and remix
-          for (let idx = 0; idx < t.featuredArtistIds.length; idx++) {
-            const fid = t.featuredArtistIds[idx]!;
-            if (fid) await addArtistToTrack({ trackId, artistId: fid, role: 'FEATURED_ARTIST', position: idx + 1 });
-          }
-        }
-      }
-      router.push(`/releases/${releaseId}`);
-    } catch (error) {
-      console.error(error);
-      const message = error instanceof Error ? error.message : String(error);
-      setError(message);
-      setLaunching(false);
-    }
-  }
-
   const stepProps = {
-    releaseType, setReleaseType,
-    releaseTitle, setReleaseTitle,
-    releaseLink, setReleaseLink,
-    releaseNotes, setReleaseNotes,
-    targetReleaseDate, setTargetReleaseDate,
-    estimatedReleaseDate, setEstimatedReleaseDate,
-    hasArtwork, setHasArtwork,
-    commissionArtwork, setCommissionArtwork,
-    artworkDesigner, setArtworkDesigner,
+    releaseType, setReleaseType: (v: SetStateAction<ReleaseTypeVal>) => dirty(setHasUnsavedChanges, setReleaseType, v),
+    releaseTitle, setReleaseTitle: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setReleaseTitle, v),
+    releaseLink, setReleaseLink: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setReleaseLink, v),
+    releaseNotes, setReleaseNotes: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setReleaseNotes, v),
+    targetReleaseDate, setTargetReleaseDate: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setTargetReleaseDate, v),
+    estimatedReleaseDate, setEstimatedReleaseDate: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setEstimatedReleaseDate, v),
+    hasArtwork, setHasArtwork: (v: SetStateAction<boolean | null>) => dirty(setHasUnsavedChanges, setHasArtwork, v),
+    commissionArtwork, setCommissionArtwork: (v: SetStateAction<boolean | null>) => dirty(setHasUnsavedChanges, setCommissionArtwork, v),
+    artworkDesigner, setArtworkDesigner: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setArtworkDesigner, v),
     tracks,
-    promoAssets, setPromoAssets,
-    assetDesigners, setAssetDesigners,
-    socialRows, setSocialRows,
-    hasEmail, setHasEmail,
-    emailSubject, setEmailSubject,
-    emailPreviewText, setEmailPreviewText,
-    emailBody, setEmailBody,
-    emailCampaignManager, setEmailCampaignManager,
-    emailSendDate, setEmailSendDate,
-    emailSendTime, setEmailSendTime,
-    emailTimezone, setEmailTimezone,
-    primaryArtist, setPrimaryArtist,
-    featuredArtists, setFeaturedArtists,
-    recordLabel, setRecordLabel,
-    catalogueNumber, setCatalogueNumber,
-    upc, setUpc,
-    primaryGenre, setPrimaryGenre,
-    secondaryGenre, setSecondaryGenre,
-    language, setLanguage,
-    copyrightOwner, setCopyrightOwner,
-    copyrightYear, setCopyrightYear,
-    releaseOwner, setReleaseOwner,
+    promoAssets, setPromoAssets: (v: SetStateAction<string[]>) => dirty(setHasUnsavedChanges, setPromoAssets, v),
+    assetDesigners, setAssetDesigners: (v: SetStateAction<Record<string, string>>) => dirty(setHasUnsavedChanges, setAssetDesigners, v),
+    socialRows, setSocialRows: (v: SetStateAction<SocialRow[]>) => dirty(setHasUnsavedChanges, setSocialRows, v),
+    hasEmail, setHasEmail: (v: SetStateAction<boolean | null>) => dirty(setHasUnsavedChanges, setHasEmail, v),
+    emailSubject, setEmailSubject: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setEmailSubject, v),
+    emailPreviewText, setEmailPreviewText: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setEmailPreviewText, v),
+    emailBody, setEmailBody: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setEmailBody, v),
+    emailCampaignManager, setEmailCampaignManager: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setEmailCampaignManager, v),
+    emailSendDate, setEmailSendDate: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setEmailSendDate, v),
+    emailSendTime, setEmailSendTime: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setEmailSendTime, v),
+    emailTimezone, setEmailTimezone: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setEmailTimezone, v),
+    primaryArtist, setPrimaryArtist: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setPrimaryArtist, v),
+    featuredArtists, setFeaturedArtists: (v: SetStateAction<string[]>) => dirty(setHasUnsavedChanges, setFeaturedArtists, v),
+    recordLabel, setRecordLabel: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setRecordLabel, v),
+    catalogueNumber, setCatalogueNumber: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setCatalogueNumber, v),
+    upc, setUpc: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setUpc, v),
+    primaryGenre, setPrimaryGenre: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setPrimaryGenre, v),
+    secondaryGenre, setSecondaryGenre: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setSecondaryGenre, v),
+    language, setLanguage: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setLanguage, v),
+    copyrightOwner, setCopyrightOwner: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setCopyrightOwner, v),
+    copyrightYear, setCopyrightYear: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setCopyrightYear, v),
+    releaseOwner, setReleaseOwner: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setReleaseOwner, v),
     people,
-    inviteName, setInviteName,
-    inviteEmail, setInviteEmail,
-    inviteRole, setInviteRole,
-    showInviteForm, setShowInviteForm,
-    inviteTarget, setInviteTarget,
+    inviteName, setInviteName: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setInviteName, v),
+    inviteEmail, setInviteEmail: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setInviteEmail, v),
+    inviteRole, setInviteRole: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setInviteRole, v),
+    showInviteForm, setShowInviteForm: (v: SetStateAction<boolean>) => dirty(setHasUnsavedChanges, setShowInviteForm, v),
+    inviteTarget, setInviteTarget: (v: SetStateAction<InviteTarget>) => dirty(setHasUnsavedChanges, setInviteTarget, v),
     artists,
     activeOrgId,
-    labelOptions, setLabelOptions,
+    labelOptions, setLabelOptions: (v: SetStateAction<LabelOption[]>) => dirty(setHasUnsavedChanges, setLabelOptions, v),
     orgName,
     onArtistCreated,
     sectionStatus, setSectionStatus,
@@ -413,6 +754,9 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
     removeSocialRow,
     openAssigner,
     handleLaunch,
+    saveDraft,
+    handleConflictReload,
+    handleConflictDiscard,
     onLabelCreated,
   };
 
@@ -437,5 +781,14 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId }: 
     loadingEdit,
     editForbidden,
     mode,
+    hasUnsavedChanges,
+    savingDraft,
+    draftId: currentDraftId.current,
+    saveState,
+    lastSavedAt,
+    saveVersion,
+    offlineQueue,
+    conflictData,
+    calculateCompletionPercentage,
   };
 }

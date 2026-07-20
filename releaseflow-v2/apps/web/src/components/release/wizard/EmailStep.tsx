@@ -3,7 +3,7 @@
 import type { AssignerField } from './release-wizard-types';
 import { Nav } from './wizard-ui';
 
-export function EmailStep({ hasEmail, setHasEmail, emailSubject, setEmailSubject, emailPreviewText, setEmailPreviewText, emailBody, setEmailBody, emailCampaignManager, setEmailCampaignManager, emailSendDate, setEmailSendDate, emailSendTime, setEmailSendTime, emailTimezone, setEmailTimezone, openAssigner, back, next, onLater }: {
+export function EmailStep({ hasEmail, setHasEmail, emailSubject, setEmailSubject, emailPreviewText, setEmailPreviewText, emailBody, setEmailBody, emailCampaignManager, setEmailCampaignManager, emailSendDate, setEmailSendDate, emailSendTime, setEmailSendTime, emailTimezone, setEmailTimezone, openAssigner, back, next }: {
   hasEmail: boolean | null;
   setHasEmail: (v: boolean) => void;
   emailSubject: string;
@@ -23,13 +23,12 @@ export function EmailStep({ hasEmail, setHasEmail, emailSubject, setEmailSubject
   openAssigner: (label: string, role: string, trackId: string, field: AssignerField, cb?: (r: { personId?: string }) => void) => void;
   back: () => void;
   next: () => void;
-  onLater?: () => void;
 }) {
   return (
     <>
       <div className="mt-8 space-y-3">
         <button onClick={() => setHasEmail(true)} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-body font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98] transition-all duration-150">Yes</button>
-        <button onClick={() => { setHasEmail(false); if (onLater) onLater(); next(); }} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-body font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98] transition-all duration-150">Not now</button>
+        <button onClick={() => { setHasEmail(false); next(); }} className="w-full h-14 rounded-xl border border-surface-700 bg-surface-900 text-body font-medium text-surface-100 hover:border-surface-600 active:scale-[0.98] transition-all duration-150">Not now</button>
       </div>
       {hasEmail && (
         <div className="mt-6 space-y-5">
@@ -87,7 +86,7 @@ export function EmailStep({ hasEmail, setHasEmail, emailSubject, setEmailSubject
           </div>
         </div>
       )}
-      <Nav back={back} next={next} canNext={hasEmail !== null} optional onLater={() => { if (onLater) onLater(); }} />
+      <Nav back={back} next={next} canNext={hasEmail !== null} />
     </>
   );
 }

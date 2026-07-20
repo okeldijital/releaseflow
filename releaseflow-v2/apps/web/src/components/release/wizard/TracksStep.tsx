@@ -1,14 +1,13 @@
 'use client';
 
-import { type Dispatch, type SetStateAction } from 'react';
-import type { WizardTrack, PersonOption, SectionStatusMap, AssignerField } from './release-wizard-types';
+import type { WizardTrack, PersonOption, AssignerField } from './release-wizard-types';
 import { uid } from './release-wizard-types';
 import { generateSuggestedDisplayTitle } from '@/lib/display-title';
 import { Nav } from './wizard-ui';
 import { ArtistFieldPicker, type ArtistOption, type RepeatableArtistEntry } from '@/components/artist-field-picker';
 import { ArtistRelationshipList } from '@/components/artists/artist-relationship-list';
 
-export function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, removeTrack, addFeaturedArtist, removeFeaturedArtist, onArtistCreated, openAssigner, validateRemixTracks, people, setSectionStatus, currentStepKey, back, next }: {
+export function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack, removeTrack, addFeaturedArtist, removeFeaturedArtist, onArtistCreated, openAssigner, validateRemixTracks, people, back, next }: {
   tracks: WizardTrack[];
   artists: ArtistOption[];
   activeOrgId: string | null;
@@ -21,8 +20,6 @@ export function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack
   openAssigner: (label: string, role: string, trackId: string, field: AssignerField, cb?: (r: { personId?: string }) => void) => void;
   validateRemixTracks: () => boolean;
   people?: PersonOption[];
-  setSectionStatus?: Dispatch<SetStateAction<SectionStatusMap>>;
-  currentStepKey?: string;
   back: () => void;
   next: () => void;
 }) {
@@ -186,7 +183,7 @@ export function TracksStep({ tracks, artists, activeOrgId, addTrack, updateTrack
         ))}
         <button onClick={addTrack} className="w-full h-12 rounded-xl border border-dashed border-surface-600 bg-transparent text-sm font-medium text-text-500 hover:text-text-300 active:scale-[0.98] transition-all">+ Add another track</button>
       </div>
-      <Nav back={back} next={handleNext} canNext={tracks.some((t) => t.title.trim())} optional onLater={() => setSectionStatus?.((p) => ({ ...p, [currentStepKey ?? '']: 'skipped' }))} />
+      <Nav back={back} next={handleNext} canNext={tracks.some((t) => t.title.trim())} />
     </>
   );
 }

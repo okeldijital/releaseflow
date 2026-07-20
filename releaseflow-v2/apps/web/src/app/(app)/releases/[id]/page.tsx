@@ -447,7 +447,7 @@ export default function ReleaseWorkspacePage() {
     if (!user) return;
     setRestoring(true);
     try {
-      await editRelease(releaseId, { status: 'draft' }, user.uid);
+      await editRelease(releaseId, { lifecycle: 'draft' }, user.uid);
       toast.success('Release restored.');
       window.location.reload();
     } catch {

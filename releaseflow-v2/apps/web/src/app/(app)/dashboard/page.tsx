@@ -182,7 +182,7 @@ export default function DashboardPage() {
   }, [readinessRows]);
 
   const stats = useMemo(() => {
-    const planning = releases.filter((r) => r.status === 'draft' || r.status === 'planning').length;
+    const planning = releases.filter((r) => (r as unknown as { lifecycle?: string }).lifecycle === 'draft' || r.status === 'planning').length;
     const recording = releases.filter((r) => r.status === 'in_production').length;
     const ready = releases.filter((r) => r.status === 'ready_for_distribution').length;
     const released = releases.filter((r) => r.status === 'released').length;

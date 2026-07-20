@@ -11,7 +11,8 @@ export interface Organization {
 export type ReleaseType = 'single' | 'ep' | 'album' | 'remix' | 'compilation';
 
 export type RecordingType = 'original' | 'remix';
-export type ReleaseStatus = 'draft' | 'planning' | 'in_production' | 'on_hold' | 'ready_for_distribution' | 'released' | 'cancelled' | 'archived';
+export type ReleaseLifecycle = 'draft' | 'active' | 'archived' | 'cancelled';
+export type ReleaseStatus = 'planning' | 'in_production' | 'on_hold' | 'ready_for_distribution' | 'released' | 'archived' | 'cancelled';
 
 export interface Release {
   id: string;
@@ -19,6 +20,7 @@ export interface Release {
   displayTitle?: string;
   releaseType: ReleaseType;
   status: ReleaseStatus;
+  lifecycle: ReleaseLifecycle;
   organizationId: string;
   createdBy: string;
   targetReleaseDate?: unknown;
@@ -37,6 +39,7 @@ export interface Release {
   createdAt: unknown;
   updatedAt?: unknown;
   artwork: Artwork | null;
+  wizardData?: Record<string, unknown> | null;
 }
 
 export type WorkflowStatus = 'not_started' | 'in_progress' | 'blocked' | 'review' | 'approved' | 'completed';

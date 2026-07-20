@@ -753,10 +753,11 @@ function Btn({ label = 'Continue', onClick, disabled, secondary }: { label?: str
 }
 
 function Nav({ back, next, canNext = true, optional, onLater }: { back: () => void; next: () => void; canNext?: boolean; optional?: boolean; onLater?: () => void }) {
+  function later() { if (onLater) onLater(); next(); }
   return (
     <div className="flex items-center gap-3 mt-8">
       <Btn label="Back" onClick={back} secondary />
-      {optional && onLater ? <Btn label="Complete Later" onClick={onLater} secondary /> : null}
+      {optional && onLater ? <Btn label="Complete Later" onClick={later} secondary /> : null}
       <Btn onClick={next} disabled={optional ? false : !canNext} />
     </div>
   );

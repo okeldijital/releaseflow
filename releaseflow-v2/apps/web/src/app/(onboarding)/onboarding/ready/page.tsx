@@ -38,6 +38,7 @@ export default function ReleaseReadyPage() {
           title: name,
           releaseType: rt as 'single' | 'ep' | 'album' | 'compilation' | 'remix',
           status: 'planning',
+          lifecycle: 'active',
           organizationId: activeOrgId ?? '',
           createdBy: user.uid,
           targetReleaseDate: date ? new Date(date) : null,
