@@ -120,12 +120,19 @@ export interface ReleaseQueryOptions {
   sort?: 'newest' | 'oldest' | 'releaseDate' | 'alpha' | 'status';
   pagination?: { limit: number; offset: number };
   userId?: string;
+  owner?: string;
+  updatedAfter?: Date;
+  releaseBefore?: Date;
+  readiness?: string[];
+  hasArtwork?: boolean;
+  hasTracks?: boolean;
+  needsAttention?: boolean;
 }
 
 export async function getReleases(orgId: string, options: ReleaseQueryOptions = {}): Promise<ReleaseRecord[]> {
   const db = getDb();
   if (!db) return [];
-  const { lifecycle, status, userId } = options;
+  const { lifecycle, status, userId, owner, updatedAfter, releaseBefore, readiness, hasArtwork, hasTracks, needsAttention, search, sort, pagination } = options;
 
   let q = query(
     collection(db, 'releases'),
@@ -151,8 +158,9 @@ export async function getReleases(orgId: string, options: ReleaseQueryOptions = 
     }
   }
 
-  if (userId) {
-    q = query(collection(db, 'releases'), where('organizationId', '==', orgId), where('createdBy', '==', userId));
+  const ownerFilter = userId || owner;
+  if (ownerFilter) {
+    q = query(collection(db, 'releases'), where('organizationId', '==', orgId), where('createdBy', '==', ownerFilter));
   }
 
   const snap = await getDocs(q);
@@ -166,8 +174,8 @@ export async function getReleases(orgId: string, options: ReleaseQueryOptions = 
     results = results.filter((r) => status.includes(r.status));
   }
 
-  if (options.search) {
-    const term = options.search.toLowerCase();
+  if (search) {
+    const term = search.toLowerCase();
     results = results.filter((r) =>
       (r.title ?? '').toLowerCase().includes(term) ||
       (r.upc ?? '').toLowerCase().includes(term) ||
@@ -175,8 +183,51 @@ export async function getReleases(orgId: string, options: ReleaseQueryOptions = 
     );
   }
 
-  if (options.sort) {
-    switch (options.sort) {
+  if (updatedAfter) {
+    const cutoff = updatedAfter.getTime();
+    results = results.filter((r) => getDateValue(r.updatedAt) > cutoff);
+  }
+
+  if (releaseBefore) {
+    const cutoff = releaseBefore.getTime();
+    results = results.filter((r) => {
+      const ts = getDateValue(r.targetReleaseDate);
+      return ts > 0 && ts < cutoff;
+    });
+  }
+
+  if (readiness && readiness.length > 0) {
+    results = results.filter((r) => {
+      const rd = (r.wizardData as Record<string, unknown> | null | undefined)?.readiness as string | undefined;
+      return readiness.includes(rd ?? 'ready');
+    });
+  }
+
+  if (hasArtwork === true) {
+    results = results.filter((r) => r.artwork !== null && r.artwork !== undefined);
+  } else if (hasArtwork === false) {
+    results = results.filter((r) => !r.artwork);
+  }
+
+  if (hasTracks === true) {
+    const tracks = (tracksArg: string) => (r: ReleaseRecord) => (r.wizardData as Record<string, unknown> | null | undefined)?.tracks && Array.isArray((r.wizardData as Record<string, unknown>).tracks) && ((r.wizardData as Record<string, unknown>).tracks as unknown[]).length > 0;
+    results = results.filter((r) => {
+      const wd = r.wizardData as Record<string, unknown> | null | undefined;
+      return wd?.tracks && Array.isArray(wd.tracks) && wd.tracks.length > 0;
+    });
+  } else if (hasTracks === false) {
+    results = results.filter((r) => {
+      const wd = r.wizardData as Record<string, unknown> | null | undefined;
+      return !wd?.tracks || !Array.isArray(wd.tracks) || wd.tracks.length === 0;
+    });
+  }
+
+  if (needsAttention) {
+    results = results.filter((r) => isReleaseNeedingAttention(r));
+  }
+
+  if (sort) {
+    switch (sort) {
       case 'newest':
         results.sort((a, b) => getDateValue(b.createdAt) - getDateValue(a.createdAt));
         break;
@@ -199,12 +250,76 @@ export async function getReleases(orgId: string, options: ReleaseQueryOptions = 
     }
   }
 
-  if (options.pagination) {
-    const { limit, offset } = options.pagination;
+  if (pagination) {
+    const { limit, offset } = pagination;
     results = results.slice(offset, offset + limit);
   }
 
   return results;
+}
+
+function isReleaseNeedingAttention(r: ReleaseRecord): boolean {
+  if (!r.artwork) return true;
+  const wd = r.wizardData as Record<string, unknown> | null | undefined;
+  if (wd?.assignments && Array.isArray(wd.assignments)) {
+    const blocked = (wd.assignments as unknown[]).some((a) => {
+      const obj = a as Record<string, unknown>;
+      return obj.status === 'blocked';
+    });
+    if (blocked) return true;
+  }
+  const requiredFields = ['releaseTitle', 'primaryArtist', 'upc', 'genre'];
+  const missingMeta = requiredFields.some((f) => !(wd as Record<string, unknown> | null | undefined)?.[f]);
+  if (missingMeta) return true;
+  if (wd?.validationErrors && Array.isArray(wd.validationErrors) && (wd.validationErrors as unknown[]).length > 0) return true;
+  return false;
+}
+
+export async function getReleasesNeedingAttention(orgId: string, userId?: string): Promise<ReleaseRecord[]> {
+  const db = getDb();
+  if (!db) return [];
+  let q = query(
+    collection(db, 'releases'),
+    where('organizationId', '==', orgId),
+  );
+  if (userId) {
+    q = query(collection(db, 'releases'), where('organizationId', '==', orgId), where('createdBy', '==', userId));
+  }
+  const snap = await getDocs(q);
+  const all = snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+  return all.filter((r) => isReleaseNeedingAttention(r)).slice(0, 5);
+}
+
+export async function getContinueWorkingReleases(orgId: string, userId: string): Promise<ReleaseRecord[]> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const all = await getReleasesByOrganization(orgId);
+  return all
+    .filter((r) => {
+      if (r.lifecycle === 'draft' && r.createdBy === userId) return true;
+      if (r.lifecycle === 'active' && getDateValue(r.updatedAt) > sevenDaysAgo.getTime()) return true;
+      return false;
+    })
+    .sort((a, b) => getDateValue(b.updatedAt) - getDateValue(a.updatedAt));
+}
+
+export async function getUpcomingReleases(orgId: string, withinDays = 30): Promise<ReleaseRecord[]> {
+  const now = Date.now();
+  const cutoff = now + withinDays * 24 * 60 * 60 * 1000;
+  const all = await getReleasesByOrganization(orgId);
+  return all
+    .filter((r) => {
+      const ts = getDateValue(r.targetReleaseDate);
+      return ts > 0 && ts >= now && ts <= cutoff;
+    })
+    .sort((a, b) => getDateValue(a.targetReleaseDate) - getDateValue(b.targetReleaseDate))
+    .slice(0, 10);
+}
+
+export async function getRecentlyUpdatedReleases(orgId: string, limit = 10): Promise<ReleaseRecord[]> {
+  const all = await getReleasesByOrganization(orgId);
+  return all
+    .sort((a, b) => getDateValue(b.updatedAt) - getDateValue(a.updatedAt))
+    .slice(0, limit);
 }
 
 export async function getDraftReleases(orgId: string, userId?: string): Promise<ReleaseRecord[]> {
