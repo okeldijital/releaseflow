@@ -6,13 +6,17 @@ import { useRouter } from 'next/navigation';
 import { useOrgStore } from '@/stores/org-store';
 import { useReleases } from '@/hooks/useRelease';
 import { useNeedsAttentionReleases, useContinueWorking, useUpcomingReleases, useRecentlyUpdated } from '@/hooks/useRelease';
-import { Button, EmptyState, Input, StatusBadge, Badge } from '@releaseflow/ui';
-import { ReleaseCard, type ReleaseCardVariant } from '@/components/release/cards/ReleaseCard';
+import { Button, EmptyState, Input, StatusBadge, Badge, LoadingState } from '@releaseflow/ui';
+import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
 import { RELEASE_STATUS_CONFIG, RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-config';
 import type { Release } from '@/app/(app)/types';
 import { useDebounce } from '@/hooks/useDebounce';
 import { AuthorizationService } from '@/lib/auth/authorization-service';
 import { fmtDate } from '@/lib/utils';
+import {
+  buildReleaseWorkspace,
+  resolveReleaseCardVariant,
+} from '@/lib/release-workspace';
 
 type ViewMode = 'grid' | 'list';
 
@@ -134,10 +138,84 @@ function SectionSkeleton() {
   );
 }
 
+/** Stable component identity — must not be defined inside ReleasesPage (remount bug). */
+function CollapsibleSection({
+  title,
+  count,
+  defaultOpen,
+  children,
+  error: sectionError,
+}: {
+  title: string;
+  count: number;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+  error?: string | null;
+}) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  return (
+    <section className="mb-8" data-section={title}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 mb-4 group"
+      >
+        <svg className={`h-4 w-4 text-text-400 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <h2 className="text-sm font-semibold text-text-500 uppercase tracking-widest">{title}</h2>
+        <span className="text-xs text-text-400 bg-surface-100 px-2 py-0.5 rounded-full">{count}</span>
+        {sectionError && <span className="text-xs text-danger-500 ml-2">Failed to load</span>}
+      </button>
+      {open && <div className="animate-fade-in">{children}</div>}
+    </section>
+  );
+}
+
+function ReleaseCardGrid({
+  releases,
+  view,
+  mode = 'compact',
+}: {
+  releases: Release[];
+  view: ViewMode;
+  mode?: 'workspace' | 'compact';
+}) {
+  if (view === 'list') {
+    return (
+      <div className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden divide-y divide-surface-100">
+        {releases.map((release) => (
+          <ReleaseCard
+            key={release.id}
+            release={release}
+            view="list"
+            variant={resolveReleaseCardVariant(release)}
+            mode="table-row"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {releases.map((release) => (
+        <ReleaseCard
+          key={release.id}
+          release={release}
+          view="grid"
+          variant={resolveReleaseCardVariant(release)}
+          mode={mode}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function ReleasesPage() {
   const { activeOrgId } = useOrgStore();
   const router = useRouter();
-  const { releases, error, refresh } = useReleases();
+  const { releases, loading, error, refresh } = useReleases();
   const canCreate = AuthorizationService.canCreateRelease();
   const isCollab = AuthorizationService.isCollaboratorWorkspace();
   const [search, setSearch] = useState('');
@@ -162,9 +240,22 @@ export default function ReleasesPage() {
   }, [view]);
 
   const filteredAll = useMemo(() => {
-    const searched = filterReleases(releases, debouncedSearch, filterStatus, filterType, filterLifecycle, filterReadiness);
+    const searched = filterReleases(releases as Release[], debouncedSearch, filterStatus, filterType, filterLifecycle, filterReadiness);
     return sortReleases(searched, 'newest');
   }, [releases, debouncedSearch, filterStatus, filterType, filterLifecycle, filterReadiness]);
+
+  // BUG-008A — workspace builder: catalogue (filteredAll) always feeds All Releases.
+  const workspaceSections = useMemo(
+    () =>
+      buildReleaseWorkspace({
+        all: filteredAll,
+        needsAttention: needsAttention.data,
+        continueWorking: continueWorking.data,
+        upcoming: upcomingReleases.data,
+        recentlyUpdated: recentlyUpdated.data,
+      }),
+    [filteredAll, needsAttention.data, continueWorking.data, upcomingReleases.data, recentlyUpdated.data],
+  );
 
   const hasActiveFilters = debouncedSearch || filterStatus.length > 0 || filterType.length > 0 || filterLifecycle.length > 0 || filterReadiness.length > 0;
 
@@ -178,6 +269,14 @@ export default function ReleasesPage() {
 
   function toggleFilter(arr: string[], value: string): string[] {
     return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <LoadingState />
+      </div>
+    );
   }
 
   if (!activeOrgId) {
@@ -220,26 +319,6 @@ export default function ReleasesPage() {
       </div>
     );
   }
-
-  const CollapsibleSection = ({ title, count, defaultOpen, children, error: sectionError }: { title: string; count: number; defaultOpen?: boolean; children: React.ReactNode; error?: string | null }) => {
-    const [open, setOpen] = useState(defaultOpen ?? false);
-    return (
-      <section className="mb-8">
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-2 mb-4 group"
-        >
-          <svg className={`h-4 w-4 text-text-400 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          <h2 className="text-sm font-semibold text-text-500 uppercase tracking-widest">{title}</h2>
-          <span className="text-xs text-text-400 bg-surface-100 px-2 py-0.5 rounded-full">{count}</span>
-          {sectionError && <span className="text-xs text-danger-500 ml-2">Failed to load</span>}
-        </button>
-        {open && <div className="animate-fade-in">{children}</div>}
-      </section>
-    );
-  };
 
   return (
     <div className="mx-auto max-w-7xl px-5 sm:px-7 py-8 page-transition">
@@ -416,40 +495,30 @@ export default function ReleasesPage() {
         </div>
       )}
 
-      {/* Workspace Sections */}
-      <div className="space-y-2">
-        {/* Needs Attention */}
-        <CollapsibleSection title="Needs Attention" count={needsAttention.data.length} defaultOpen>
+      {/* Workspace Sections — every filtered release reaches ReleaseCard via All Releases */}
+      <div className="space-y-2" data-workspace-sections={workspaceSections.length}>
+        <CollapsibleSection title="Needs Attention" count={needsAttention.data.length} defaultOpen error={needsAttention.error}>
           {needsAttention.loading ? (
             <SectionSkeleton />
           ) : needsAttention.data.length === 0 ? (
             <p className="text-sm text-text-500 py-4">No releases need attention right now.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {needsAttention.data.slice(0, 5).map((release) => (
-                <ReleaseCard key={release.id} release={release} view="grid" variant={release.lifecycle as ReleaseCardVariant} mode="compact" />
-              ))}
-            </div>
+            <ReleaseCardGrid releases={needsAttention.data.slice(0, 5) as Release[]} view={view} mode="compact" />
           )}
         </CollapsibleSection>
 
-        {/* Continue Working */}
-        <CollapsibleSection title="Continue Working" count={continueWorking.data.length} defaultOpen>
+        <CollapsibleSection title="Continue Working" count={continueWorking.data.length} defaultOpen error={continueWorking.error}>
           {continueWorking.loading ? (
             <SectionSkeleton />
           ) : continueWorking.data.length === 0 ? (
             <p className="text-sm text-text-500 py-4">No active work. Start a new release or resume a draft.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {continueWorking.data.map((release) => (
-                <ReleaseCard key={release.id} release={release} view="grid" variant={release.lifecycle === 'draft' ? 'draft' : 'active'} mode="workspace" />
-              ))}
-            </div>
+            <ReleaseCardGrid releases={continueWorking.data as Release[]} view={view} mode="workspace" />
           )}
         </CollapsibleSection>
 
-        {/* Upcoming Releases */}
-        <CollapsibleSection title="Upcoming Releases" count={upcomingReleases.data.length} defaultOpen>
+        {/* Upcoming — custom countdown rows (projection; catalogue is All Releases) */}
+        <CollapsibleSection title="Upcoming Releases" count={upcomingReleases.data.length} defaultOpen error={upcomingReleases.error}>
           {upcomingReleases.loading ? (
             <SectionSkeleton />
           ) : upcomingReleases.data.length === 0 ? (
@@ -465,10 +534,10 @@ export default function ReleasesPage() {
                     href={`/releases/${release.id}`}
                     className="flex items-center gap-4 rounded-xl border border-surface-200 bg-layer-2 p-3 hover:border-primary-500/40 transition-colors group"
                   >
-                    <ArtworkDisplay artwork={release.artwork} releaseTitle={release.title} size="sm" />
+                    <UpcomingArtwork artwork={release.artwork} releaseTitle={release.title} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-primary-400 truncate group-hover:text-primary-300 transition-colors">{release.title}</p>
-                      <p className="text-xs text-text-500 mt-0.5 capitalize">{release.releaseType.replace(/_/g, ' ')}</p>
+                      <p className="text-xs text-text-500 mt-0.5 capitalize">{(release.releaseType ?? '').replace(/_/g, ' ')}</p>
                     </div>
                     <div className="text-right shrink-0">
                       {release.targetReleaseDate ? (
@@ -482,7 +551,7 @@ export default function ReleasesPage() {
                         <p className="text-xs text-text-500">No date set</p>
                       )}
                       {isDraft ? (
-                        <Badge label={`Draft`} color="bg-surface-100 text-text-500" size="sm" />
+                        <Badge label="Draft" color="bg-surface-100 text-text-500" size="sm" />
                       ) : (
                         <StatusBadge status={release.status} />
                       )}
@@ -494,76 +563,22 @@ export default function ReleasesPage() {
           )}
         </CollapsibleSection>
 
-        {/* Recently Updated */}
-        <CollapsibleSection title="Recently Updated" count={recentlyUpdated.data.length} defaultOpen>
+        <CollapsibleSection title="Recently Updated" count={recentlyUpdated.data.length} defaultOpen error={recentlyUpdated.error}>
           {recentlyUpdated.loading ? (
             <SectionSkeleton />
           ) : recentlyUpdated.data.length === 0 ? (
             <p className="text-sm text-text-500 py-4">No recently updated releases.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {recentlyUpdated.data.map((release) => (
-                <ReleaseCard key={release.id} release={release} view="grid" variant={release.lifecycle === 'draft' ? 'draft' : release.lifecycle === 'archived' ? 'archived' : release.lifecycle === 'expired' ? 'archived' : release.status === 'released' ? 'released' : 'active'} mode="compact" />
-              ))}
-            </div>
+            <ReleaseCardGrid releases={recentlyUpdated.data as Release[]} view={view} mode="compact" />
           )}
         </CollapsibleSection>
 
-        {/* All Releases */}
+        {/* All Releases — BUG-008A: catalogue source of truth; every filtered release mounts ReleaseCard */}
         <CollapsibleSection title="All Releases" count={filteredAll.length} defaultOpen>
           {filteredAll.length === 0 ? (
             <p className="text-sm text-text-500 py-4">No releases match your filters.</p>
           ) : (
-            <div className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden">
-              <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-surface-50 border-b border-surface-200 text-xs font-semibold text-text-500 uppercase tracking-wider">
-                <div className="col-span-1">Artwork</div>
-                <div className="col-span-4">Release</div>
-                <div className="col-span-2">Lifecycle</div>
-                <div className="col-span-2">Status</div>
-                <div className="col-span-1">Date</div>
-                <div className="col-span-2">Updated</div>
-                <div className="col-span-1 text-right">Actions</div>
-              </div>
-              {filteredAll.map((release) => {
-                const statusMeta = RELEASE_STATUS_CONFIG[release.status];
-                return (
-                  <div key={release.id} className="grid grid-cols-12 gap-4 px-4 py-3 hover:bg-surface-50/80 transition-colors border-b border-surface-100 last:border-b-0 items-center">
-                    <div className="col-span-1">
-                      <ArtworkDisplay artwork={release.artwork} releaseTitle={release.title} size="sm" />
-                    </div>
-                    <div className="col-span-4 min-w-0">
-                      <Link href={`/releases/${release.id}`} className="text-sm font-medium text-primary-400 truncate hover:text-primary-300 block">
-                        {release.title}
-                      </Link>
-                      <span className="text-xs text-text-500 capitalize">{release.releaseType.replace(/_/g, ' ')}</span>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-xs font-medium text-text-600 capitalize">{release.lifecycle.replace(/_/g, ' ')}</span>
-                    </div>
-                    <div className="col-span-2">
-                      {statusMeta ? (
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${statusMeta.color}`}>
-                          {statusMeta.label}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-text-500 capitalize">{release.status.replace(/_/g, ' ')}</span>
-                      )}
-                    </div>
-                    <div className="col-span-1">
-                      <span className="text-xs text-text-500">{release.targetReleaseDate ? fmtDate(release.targetReleaseDate) : '—'}</span>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-xs text-text-500">{fmtDate(release.updatedAt)}</span>
-                    </div>
-                    <div className="col-span-1 text-right">
-                      <Link href={`/releases/${release.id}`} className="text-xs text-primary-500 hover:text-primary-400 font-medium">
-                        Open
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ReleaseCardGrid releases={filteredAll} view={view} mode="workspace" />
           )}
         </CollapsibleSection>
       </div>
@@ -571,18 +586,18 @@ export default function ReleasesPage() {
   );
 }
 
-function ArtworkDisplay({ artwork, releaseTitle, size }: { artwork: { secureUrl: string } | null | undefined; releaseTitle: string; size: string }) {
+function UpcomingArtwork({ artwork, releaseTitle }: { artwork: { secureUrl: string } | null | undefined; releaseTitle: string }) {
   if (artwork?.secureUrl) {
     return (
       <img
         src={artwork.secureUrl}
         alt={releaseTitle}
-        className={`rounded-md object-cover ${size === 'sm' ? 'w-10 h-10' : 'w-12 h-12'}`}
+        className="rounded-md object-cover w-10 h-10"
       />
     );
   }
   return (
-    <div className={`rounded-md bg-surface-200 flex items-center justify-center ${size === 'sm' ? 'w-10 h-10' : 'w-12 h-12'}`}>
+    <div className="rounded-md bg-surface-200 flex items-center justify-center w-10 h-10">
       <span className="text-xs text-text-500 font-medium">{releaseTitle.charAt(0).toUpperCase()}</span>
     </div>
   );
