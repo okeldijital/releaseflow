@@ -3,7 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useOrgStore } from '@/stores/org-store';
 import { fetchRelease, fetchReleasesByOrg } from '@/lib/release-service';
+import type { ReleaseQueryOptions } from '@/lib/release-repository';
 import type { ReleaseRecord } from '@/lib/release-repository';
+
+interface UseReleaseOptions extends ReleaseQueryOptions {
+  sort?: ReleaseQueryOptions['sort'];
+}
 
 interface UseReleaseResult {
   release: ReleaseRecord | null;
@@ -49,7 +54,7 @@ export function useRelease(releaseId: string): UseReleaseResult {
   return { release, loading, error, refresh: load };
 }
 
-export function useReleases(): UseReleasesResult {
+export function useReleases(options: UseReleaseOptions = {}): UseReleasesResult {
   const { activeOrgId, orgVersion } = useOrgStore();
   const [releases, setReleases] = useState<ReleaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +68,7 @@ export function useReleases(): UseReleasesResult {
     }
     setLoading(true);
     try {
-      const data = await fetchReleasesByOrg(activeOrgId);
+      const data = await fetchReleasesByOrg(activeOrgId, options);
       setReleases(data);
       setError(null);
     } catch (err) {
@@ -72,7 +77,7 @@ export function useReleases(): UseReleasesResult {
     } finally {
       setLoading(false);
     }
-  }, [activeOrgId, orgVersion]);
+  }, [activeOrgId, orgVersion, options.lifecycle?.join(','), options.status?.join(','), options.search, options.sort]);
 
   useEffect(() => { load(); }, [load]);
 

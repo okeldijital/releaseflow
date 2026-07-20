@@ -7,6 +7,28 @@ import { recordActivity } from './activity-service';
 import type { ReleaseStatus, ReleaseLifecycle, ReleaseType } from '@/app/(app)/types';
 import type { Artwork } from '@/lib/artwork/artwork-types';
 
+const LIFECYCLE_ORDER: Record<string, number> = {
+  draft: 0,
+  planning: 1,
+  in_production: 2,
+  ready_for_distribution: 3,
+  released: 4,
+  archived: 5,
+  on_hold: 6,
+  cancelled: 7,
+};
+
+function getDateValue(date: unknown): number {
+  if (!date) return 0;
+  if (typeof date === 'object' && date !== null) {
+    const d = date as { seconds?: number; toDate?: () => Date };
+    if (typeof d.toDate === 'function') return d.toDate().getTime();
+    if (typeof d.seconds === 'number') return new Date(d.seconds * 1000).getTime();
+  }
+  if (typeof date === 'string' || typeof date === 'number') return new Date(date).getTime();
+  return 0;
+}
+
 export interface ReleaseRecord {
   id: string;
   title: string;
@@ -91,72 +113,118 @@ export async function getAllReleases(orgId: string): Promise<ReleaseRecord[]> {
   return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
 }
 
-export async function getDraftReleases(orgId: string, userId?: string): Promise<ReleaseRecord[]> {
+export interface ReleaseQueryOptions {
+  lifecycle?: string[];
+  status?: string[];
+  search?: string;
+  sort?: 'newest' | 'oldest' | 'releaseDate' | 'alpha' | 'status';
+  pagination?: { limit: number; offset: number };
+  userId?: string;
+}
+
+export async function getReleases(orgId: string, options: ReleaseQueryOptions = {}): Promise<ReleaseRecord[]> {
   const db = getDb();
   if (!db) return [];
-  let q;
+  const { lifecycle, status, userId } = options;
+
+  let q = query(
+    collection(db, 'releases'),
+    where('organizationId', '==', orgId),
+  );
+
+  if (lifecycle && lifecycle.length > 0) {
+    if (lifecycle.length === 1) {
+      const lifecycleValue = lifecycle[0];
+      if (lifecycleValue) {
+        q = query(collection(db, 'releases'), where('organizationId', '==', orgId), where('lifecycle', '==', lifecycleValue));
+      }
+    } else {
+      const all = await getReleasesByOrganization(orgId);
+      return all.filter((r) => lifecycle.includes(r.lifecycle));
+    }
+  }
+
+  if (status && status.length === 1) {
+    const statusValue = status[0];
+    if (statusValue) {
+      q = query(collection(db, 'releases'), where('organizationId', '==', orgId), where('status', '==', statusValue));
+    }
+  }
+
   if (userId) {
-    q = query(
-      collection(db, 'releases'),
-      where('organizationId', '==', orgId),
-      where('createdBy', '==', userId),
-      where('lifecycle', '==', 'draft'),
-      orderBy('updatedAt', 'desc'),
-    );
-  } else {
-    q = query(
-      collection(db, 'releases'),
-      where('organizationId', '==', orgId),
-      where('lifecycle', '==', 'draft'),
-      orderBy('updatedAt', 'desc'),
+    q = query(collection(db, 'releases'), where('organizationId', '==', orgId), where('createdBy', '==', userId));
+  }
+
+  const snap = await getDocs(q);
+  let results = snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+
+  if (lifecycle && lifecycle.length > 1) {
+    results = results.filter((r) => lifecycle.includes(r.lifecycle));
+  }
+
+  if (status && status.length > 1) {
+    results = results.filter((r) => status.includes(r.status));
+  }
+
+  if (options.search) {
+    const term = options.search.toLowerCase();
+    results = results.filter((r) =>
+      (r.title ?? '').toLowerCase().includes(term) ||
+      (r.upc ?? '').toLowerCase().includes(term) ||
+      (r.catalogNumber ?? '').toLowerCase().includes(term)
     );
   }
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+
+  if (options.sort) {
+    switch (options.sort) {
+      case 'newest':
+        results.sort((a, b) => getDateValue(b.createdAt) - getDateValue(a.createdAt));
+        break;
+      case 'oldest':
+        results.sort((a, b) => getDateValue(a.createdAt) - getDateValue(b.createdAt));
+        break;
+      case 'releaseDate':
+        results.sort((a, b) => getDateValue(b.targetReleaseDate) - getDateValue(a.targetReleaseDate));
+        break;
+      case 'alpha':
+        results.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''));
+        break;
+      case 'status':
+        results.sort((a, b) => {
+          const aOrder = LIFECYCLE_ORDER[a.lifecycle] ?? LIFECYCLE_ORDER[a.status] ?? 99;
+          const bOrder = LIFECYCLE_ORDER[b.lifecycle] ?? LIFECYCLE_ORDER[b.status] ?? 99;
+          return aOrder - bOrder;
+        });
+        break;
+    }
+  }
+
+  if (options.pagination) {
+    const { limit, offset } = options.pagination;
+    results = results.slice(offset, offset + limit);
+  }
+
+  return results;
+}
+
+export async function getDraftReleases(orgId: string, userId?: string): Promise<ReleaseRecord[]> {
+  return getReleases(orgId, { lifecycle: ['draft'], userId });
 }
 
 export async function getActiveReleases(orgId: string): Promise<ReleaseRecord[]> {
-  const db = getDb();
-  if (!db) return [];
-  const q = query(
-    collection(db, 'releases'),
-    where('organizationId', '==', orgId),
-    where('lifecycle', '==', 'active'),
-    orderBy('createdAt', 'desc'),
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+  return getReleases(orgId, { lifecycle: ['active'] });
 }
 
 export async function getArchivedReleases(orgId: string): Promise<ReleaseRecord[]> {
-  const db = getDb();
-  if (!db) return [];
-  const q = query(
-    collection(db, 'releases'),
-    where('organizationId', '==', orgId),
-    where('lifecycle', '==', 'archived'),
-    orderBy('createdAt', 'desc'),
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+  return getReleases(orgId, { lifecycle: ['archived'] });
 }
 
 export async function getReleasedReleases(orgId: string): Promise<ReleaseRecord[]> {
-  const all = await getAllReleases(orgId);
-  return all.filter((r) => r.status === 'released');
+  return getReleases(orgId, { status: ['released'] });
 }
 
 export async function getExpiredReleases(orgId: string): Promise<ReleaseRecord[]> {
-  const db = getDb();
-  if (!db) return [];
-  const q = query(
-    collection(db, 'releases'),
-    where('organizationId', '==', orgId),
-    where('lifecycle', '==', 'expired'),
-    orderBy('createdAt', 'desc'),
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+  return getReleases(orgId, { lifecycle: ['expired'] });
 }
 
 export async function duplicateRelease(releaseId: string, actorId: string): Promise<string> {
@@ -168,7 +236,8 @@ export async function duplicateRelease(releaseId: string, actorId: string): Prom
   const organizationId = src.organizationId as string;
   const now = Timestamp.now();
   const newRef = doc(collection(db, 'releases'));
-  const { id: _omit, version, ...rest } = src as Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _omit, ...rest } = src as Record<string, unknown>;
   const payload: Record<string, unknown> = {
     ...rest,
     title: `Copy of ${src.title as string}`,

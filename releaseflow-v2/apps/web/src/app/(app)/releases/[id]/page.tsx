@@ -608,13 +608,22 @@ export default function ReleaseWorkspacePage() {
     );
   }
 
-  if (!release) {
-    return (
-      <div className="flex items-center justify-center min-h-96">
-        <EmptyState title="Release not found" description="This release doesn't exist or has been removed." action={{ label: 'Back to Releases', onClick: () => router.push('/releases') }} />
-      </div>
-    );
-  }
+   if (!release) {
+     return (
+       <div className="flex items-center justify-center min-h-96">
+         <EmptyState title="Release not found" description="This release doesn't exist or has been removed." action={{ label: 'Back to Releases', onClick: () => router.push('/releases') }} />
+       </div>
+     );
+   }
+
+   if (release.lifecycle === 'draft') {
+     router.replace(`/releases/new?draftId=${releaseId}`);
+     return (
+       <div className="flex items-center justify-center min-h-96">
+         <LoadingState text="Opening draft in wizard..." />
+       </div>
+     );
+   }
 
   const artistName = fieldValue(release, ['artistName', 'artist', 'primaryArtist']) ?? 'No primary artist';
   const meaningfulActivities = activities.filter((ev) => humaniseActivity(ev) !== null);

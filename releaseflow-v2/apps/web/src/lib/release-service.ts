@@ -18,9 +18,8 @@ import {
   getAllReleases,
   getDraftReleases,
   getActiveReleases,
-  getArchivedReleases,
   getReleasedReleases,
-  getExpiredReleases,
+  getReleases,
   duplicateRelease,
   renameDraft,
   deleteDraft,
@@ -177,8 +176,12 @@ export async function fetchRelease(releaseId: string) {
   return { ...release, artwork: artworks[0] ?? null };
 }
 
-export async function fetchReleasesByOrg(orgId: string) {
-  const releases = await getReleasesByOrganization(orgId);
+import type { ReleaseQueryOptions } from './release-repository';
+
+export async function fetchReleasesByOrg(orgId: string, options?: Omit<ReleaseQueryOptions, 'pagination'>) {
+  const releases = options
+    ? await getReleases(orgId, options)
+    : await getReleasesByOrganization(orgId);
   if (releases.length === 0) return releases;
   const ids = releases.map((r) => r.id);
   const artworks = await getArtworksByReleaseIds(orgId, ids);

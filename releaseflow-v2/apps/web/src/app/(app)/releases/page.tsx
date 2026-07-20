@@ -6,10 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useOrgStore } from '@/stores/org-store';
 import { useReleases } from '@/hooks/useRelease';
 import { Button, LoadingState, EmptyState, Input } from '@releaseflow/ui';
-import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
-import { DraftCard } from '@/components/release/cards/DraftCard';
+import { ReleaseCard, type ReleaseCardVariant } from '@/components/release/cards/ReleaseCard';
 import { RELEASE_STATUS_CONFIG, RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-config';
-import type { Release } from '@/app/(app)/types';
+import type { Release, ReleaseStatus } from '@/app/(app)/types';
 import { useDebounce } from '@/hooks/useDebounce';
 import { AuthorizationService } from '@/lib/auth/authorization-service';
 
@@ -52,6 +51,16 @@ const LIFECYCLE_OPTIONS = [
   { value: 'archived', label: 'Archived' },
   { value: 'expired', label: 'Expired' },
 ];
+
+const ACTIVE_STATUS_GROUPS: { key: string; label: string; statuses: ReleaseStatus[] }[] = [
+  { key: 'planning', label: 'Planning', statuses: ['planning'] },
+  { key: 'recording', label: 'Recording', statuses: ['in_production'] },
+  { key: 'mixing', label: 'Mixing', statuses: ['on_hold'] },
+  { key: 'mastering', label: 'Mastering', statuses: ['ready_for_distribution'] },
+  { key: 'publishing', label: 'Publishing', statuses: ['released'] },
+] as const;
+
+type LifecycleSection = 'draft' | 'active' | 'archived' | 'expired' | 'released';
 
 function filterReleases(releases: Release[], search: string, statuses: string[], types: string[], years: string[], lifecycles: string[]): Release[] {
   return releases.filter((r) => {
@@ -127,6 +136,44 @@ function getAvailableYears(releases: Release[]): string[] {
   return Array.from(years).sort((a, b) => parseInt(b) - parseInt(a));
 }
 
+function groupByLifecycle(releases: Release[]): Record<LifecycleSection, Release[]> {
+  const groups: Record<LifecycleSection, Release[]> = {
+    draft: [],
+    active: [],
+    archived: [],
+    expired: [],
+    released: [],
+  };
+  for (const r of releases) {
+    if (r.lifecycle === 'draft') {
+      groups.draft.push(r);
+    } else if (r.lifecycle === 'active') {
+      if (r.status === 'released') {
+        groups.released.push(r);
+      } else {
+        groups.active.push(r);
+      }
+    } else if (r.lifecycle === 'archived') {
+      groups.archived.push(r);
+    } else if (r.lifecycle === 'expired') {
+      groups.expired.push(r);
+    } else if (r.status === 'released') {
+      groups.released.push(r);
+    }
+  }
+  return groups;
+}
+
+function groupActiveByStatus(releases: Release[]): Record<string, Release[]> {
+  const groups: Record<string, Release[]> = {};
+  for (const r of releases) {
+    const key = r.status;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  }
+  return groups;
+}
+
 export default function ReleasesPage() {
   const { activeOrgId } = useOrgStore();
   const router = useRouter();
@@ -156,6 +203,8 @@ export default function ReleasesPage() {
     const searched = filterReleases(releases, debouncedSearch, filterStatus, filterType, filterYear, filterLifecycle);
     return sortReleases(searched, sort);
   }, [releases, debouncedSearch, filterStatus, filterType, filterYear, filterLifecycle, sort]);
+
+  const grouped = useMemo(() => groupByLifecycle(filtered), [filtered]);
 
   const hasActiveFilters = debouncedSearch || filterStatus.length > 0 || filterType.length > 0 || filterYear.length > 0 || filterLifecycle.length > 0;
 
@@ -304,14 +353,14 @@ export default function ReleasesPage() {
               </div>
               <div className="flex flex-wrap gap-6">
                 <div className="space-y-1.5">
-                  <span className="text-xs text-text-500 font-medium">Status</span>
+                  <span className="text-xs text-text-500 font-medium">Lifecycle</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {STATUS_OPTIONS.map((opt) => (
+                    {LIFECYCLE_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
-                        onClick={() => setFilterStatus((p) => toggleFilter(p, opt.value))}
+                        onClick={() => setFilterLifecycle((p) => toggleFilter(p, opt.value))}
                         className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                          filterStatus.includes(opt.value)
+                          filterLifecycle.includes(opt.value)
                             ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
                             : 'bg-surface-100 text-text-500 border border-transparent hover:border-surface-300'
                         }`}
@@ -322,14 +371,14 @@ export default function ReleasesPage() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <span className="text-xs text-text-500 font-medium">Lifecycle</span>
+                  <span className="text-xs text-text-500 font-medium">Status</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {LIFECYCLE_OPTIONS.map((opt) => (
+                    {STATUS_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
-                        onClick={() => setFilterLifecycle((p) => toggleFilter(p, opt.value))}
+                        onClick={() => setFilterStatus((p) => toggleFilter(p, opt.value))}
                         className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                          filterLifecycle.includes(opt.value)
+                          filterStatus.includes(opt.value)
                             ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
                             : 'bg-surface-100 text-text-500 border border-transparent hover:border-surface-300'
                         }`}
@@ -381,7 +430,7 @@ export default function ReleasesPage() {
             </div>
           )}
 
-          {/* Results */}
+          {/* Results grouped by lifecycle */}
           {filtered.length === 0 ? (
             <div className="py-20">
               <EmptyState
@@ -390,25 +439,99 @@ export default function ReleasesPage() {
                 action={hasActiveFilters ? { label: 'Clear Filters', onClick: clearFilters } : undefined}
               />
             </div>
-          ) : view === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {filtered.map((release) => (
-                release.lifecycle === 'draft'
-                  ? <DraftCard key={release.id} release={release} view="grid" />
-                  : <ReleaseCard key={release.id} release={release} view="grid" />
-              ))}
-            </div>
           ) : (
-            <div className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden divide-y divide-surface-100">
-              {filtered.map((release) => (
-                release.lifecycle === 'draft'
-                  ? <DraftCard key={release.id} release={release} view="list" />
-                  : <ReleaseCard key={release.id} release={release} view="list" />
-              ))}
+            <div className="space-y-8">
+              {(['draft', 'active', 'archived', 'released', 'expired'] as LifecycleSection[]).map((section) => {
+                const items = grouped[section];
+                if (items.length === 0) return null;
+                if (section === 'active') {
+                  const activeGroups = groupActiveByStatus(items);
+                  return (
+                    <LifecycleSection key={section} title="Active Releases" count={items.length} defaultOpen>
+                      {ACTIVE_STATUS_GROUPS.map((group) => {
+                        const groupItems = items.filter((r) => group.statuses.includes(r.status));
+                        if (groupItems.length === 0) return null;
+                        return (
+                          <div key={group.key} className="mb-6">
+                            <h3 className="text-xs font-semibold text-text-500 uppercase tracking-widest mb-3">{group.label}</h3>
+                            {view === 'grid' ? (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                                {groupItems.map((release) => (
+                                  <ReleaseCard key={release.id} release={release} view="grid" variant="active" />
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden divide-y divide-surface-100">
+                                {groupItems.map((release) => (
+                                  <ReleaseCard key={release.id} release={release} view="list" variant="active" />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {Object.keys(activeGroups).filter((k) => !ACTIVE_STATUS_GROUPS.some((g) => g.key === k)).length > 0 && (
+                        <div className="mb-6">
+                          <h3 className="text-xs font-semibold text-text-500 uppercase tracking-widest mb-3">Other</h3>
+                          {view === 'grid' ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                              {items.filter((r) => !ACTIVE_STATUS_GROUPS.some((g) => g.statuses.includes(r.status))).map((release) => (
+                                <ReleaseCard key={release.id} release={release} view="grid" variant="active" />
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden divide-y divide-surface-100">
+                              {items.filter((r) => !ACTIVE_STATUS_GROUPS.some((g) => g.statuses.includes(r.status))).map((release) => (
+                                <ReleaseCard key={release.id} release={release} view="list" variant="active" />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </LifecycleSection>
+                  );
+                }
+                return (
+                  <LifecycleSection key={section} title={section === 'released' ? 'Released' : section === 'expired' ? 'Expired' : `${section.charAt(0).toUpperCase() + section.slice(1)} Releases`} count={items.length} defaultOpen={section === 'draft'}>
+                    {view === 'grid' ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                        {items.map((release) => (
+                          <ReleaseCard key={release.id} release={release} view="grid" variant={section === 'draft' ? 'draft' : section === 'released' ? 'released' : section as ReleaseCardVariant} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden divide-y divide-surface-100">
+                        {items.map((release) => (
+                          <ReleaseCard key={release.id} release={release} view="list" variant={section === 'draft' ? 'draft' : section === 'released' ? 'released' : section as ReleaseCardVariant} />
+                        ))}
+                      </div>
+                    )}
+                  </LifecycleSection>
+                );
+              })}
             </div>
           )}
         </>
       )}
     </div>
+  );
+}
+
+function LifecycleSection({ title, count, defaultOpen, children }: { title: string; count: number; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  return (
+    <section>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 mb-4 group"
+      >
+        <svg className={`h-4 w-4 text-text-400 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <h2 className="text-sm font-semibold text-text-500 uppercase tracking-widest">{title}</h2>
+        <span className="text-xs text-text-400 bg-surface-100 px-2 py-0.5 rounded-full">{count}</span>
+      </button>
+      {open && <div className="animate-fade-in">{children}</div>}
+    </section>
   );
 }

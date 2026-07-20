@@ -14,9 +14,10 @@ import {
 } from '@/lib/assignment-identity';
 import { EmptyState, LoadingState, Button, StatusBadge, Badge } from '@releaseflow/ui';
 import { ArtworkDisplay } from '@/components/release/artwork-display';
-import { DraftCard } from '@/components/release/cards/DraftCard';
+import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
 import { getOrgReadinessSummaries } from '@/lib/release-readiness-service';
-import { fetchDraftReleases } from '@/lib/release-service';
+import { fetchReleasesByOrg } from '@/lib/release-service';
+import type { Release } from '@/app/(app)/types';
 
 function timeAgo(d: Date): string {
   const m = Math.floor((Date.now() - d.getTime()) / (1000 * 60));
@@ -85,6 +86,10 @@ function humaniseActivity(action: string, metadata?: Record<string, unknown>): s
     'comment.added': 'Left a comment',
     'release.status.changed': `Changed status to ${metadata?.newStatus ?? ''}`,
     'campaign.created': 'Created a campaign',
+    'release.draft.created': 'Draft created',
+    'release.draft.saved': 'Draft saved',
+    'release.draft.completed': 'Draft completed',
+    'release.lifecycle.changed': `Lifecycle changed to ${metadata?.newLifecycle ?? ''}`,
   };
   return labels[action] ?? action.replace(/[._]/g, ' ');
 }
@@ -98,7 +103,7 @@ export default function DashboardPage() {
   const [identityKeys, setIdentityKeys] = useState<Set<string>>(new Set());
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [loadingExtras, setLoadingExtras] = useState(true);
-  const [drafts, setDrafts] = useState<Awaited<ReturnType<typeof fetchDraftReleases>>>([]);
+  const [drafts, setDrafts] = useState<Release[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(true);
 
   useEffect(() => {
@@ -112,8 +117,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user || !activeOrgId) { setDrafts([]); setDraftsLoading(false); return; }
     setDraftsLoading(true);
-    void fetchDraftReleases(activeOrgId, user.uid).then(setDrafts).catch(() => setDrafts([])).finally(() => setDraftsLoading(false));
-  }, [user, activeOrgId]);
+    void fetchReleasesByOrg(activeOrgId).then((all) => {
+      const draftReleases = all.filter((r) => r.lifecycle === 'draft').slice(0, 5);
+      setDrafts(draftReleases);
+    }).catch(() => setDrafts([])).finally(() => setDraftsLoading(false));
+  }, [user, activeOrgId, releases.length]);
 
   useEffect(() => {
     if (!user || !activeOrgId) { setLoadingExtras(false); return; }
@@ -165,7 +173,7 @@ export default function DashboardPage() {
   }, [readinessRows]);
 
   const stats = useMemo(() => {
-    const active = releases.filter((r) => (r as unknown as { lifecycle?: string }).lifecycle === 'active');
+    const active = releases.filter((r) => r.lifecycle === 'active');
     const planning = active.filter((r) => r.status === 'planning').length;
     const recording = active.filter((r) => r.status === 'in_production').length;
     const ready = active.filter((r) => r.status === 'ready_for_distribution').length;
@@ -180,7 +188,7 @@ export default function DashboardPage() {
 
   const upcomingReleases = useMemo(() => {
     return [...releases]
-      .filter((r) => r.status !== 'released' && r.status !== 'cancelled' && r.status !== 'archived')
+      .filter((r) => r.lifecycle === 'active' && r.status !== 'released' && r.status !== 'cancelled' && r.status !== 'archived')
       .sort((a, b) => {
         const aDate = toDate(a.estimatedReleaseDate || a.targetReleaseDate);
         const bDate = toDate(b.estimatedReleaseDate || b.targetReleaseDate);
@@ -235,10 +243,13 @@ export default function DashboardPage() {
         <div className="mb-10"><LoadingState /></div>
       ) : drafts.length > 0 ? (
         <div className="mb-10">
-          <p className="text-xs font-semibold text-text-500 uppercase tracking-widest mb-4">Draft Releases</p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-semibold text-text-500 uppercase tracking-widest">Draft Releases</p>
+            <Link href="/releases?lifecycle=draft" className="text-xs text-primary-400 hover:text-primary-300 font-medium">View All Drafts</Link>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {drafts.map((d) => (
-              <DraftCard key={d.id} release={d} view="grid" />
+              <ReleaseCard key={d.id} release={d} view="grid" variant="draft" />
             ))}
           </div>
         </div>
@@ -344,7 +355,7 @@ export default function DashboardPage() {
                 <Link
                   key={r.id}
                   href={`/releases/${r.id}`}
-                  className="flex items-center gap-3 rounded-xl border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-500/40 transition-all duration-150 group"
+                  className="flex items-center gap-3 rounded-xl border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-500/40 transition-colors group"
                 >
                   <ArtworkDisplay
                     artwork={r.artwork ?? null}

@@ -38,14 +38,19 @@ export function CommandPalette() {
         collection(db, 'releases'),
         where('organizationId', '==', activeOrgId),
         orderBy('title'),
-        limit(5),
+        limit(10),
       ));
-      relSnap.docs.forEach((d) => {
+      for (const d of relSnap.docs) {
         const data = d.data();
-        if ((data.title as string)?.toLowerCase().includes(q.toLowerCase())) {
-          all.push({ id: d.id, title: data.title as string, type: 'release', href: `/releases/${d.id}` });
+        const title = data.title as string;
+        if (!title) continue;
+        const lifecycle = data.lifecycle as string;
+        const actionLabel = lifecycle === 'draft' ? 'Continue Editing' : 'Open Release';
+        const href = `/releases/${d.id}`;
+        if ((q.toLowerCase()).length === 0 || title.toLowerCase().includes(q.toLowerCase())) {
+          all.push({ id: d.id, title, type: 'release', href, subtitle: actionLabel });
         }
-      });
+      }
     }
 
     if (activeOrgId) {
