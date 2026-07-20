@@ -7,41 +7,35 @@ import { useOrgStore } from '@/stores/org-store';
 import { fetchAssignmentsByEntity } from '@/lib/assignment-service';
 import { getRelease } from '@/lib/release-repository';
 import { Container, LoadingState, EmptyState } from '@releaseflow/ui';
+import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
+import { resolveReleaseCardVariant } from '@/lib/release-workspace';
+import type { Release } from '@/app/(app)/types';
 
-interface ReleaseInfo {
-  id: string;
-  title: string;
-  role: string;
-  status: string;
-}
-
+/**
+ * BUG-008B — Person → Releases list uses ReleaseCard only.
+ * Assignment role is not a separate release summary renderer.
+ */
 export default function PersonReleasesPage() {
   const params = useParams();
   const id = params.id as string;
   const { activeOrgId } = useOrgStore();
   const { person, loading } = usePerson(id);
 
-  const [releases, setReleases] = useState<ReleaseInfo[]>([]);
+  const [releases, setReleases] = useState<Release[]>([]);
   const [loadingReleases, setLoadingReleases] = useState(true);
 
   useEffect(() => {
     if (!id || !activeOrgId) return;
     setLoadingReleases(true);
     fetchAssignmentsByEntity('release', id).then(async (assignments) => {
-      const uniqueIds = [...new Set(assignments.map(a => a.entityId))];
+      const uniqueIds = [...new Set(assignments.map((a) => a.entityId))];
       const details = await Promise.all(
         uniqueIds.map(async (rid) => {
           const release = await getRelease(rid);
-          const assignment = assignments.find(a => a.entityId === rid);
-          return {
-            id: rid,
-            title: release?.title ?? rid,
-            role: assignment?.role ?? '',
-            status: assignment?.status ?? '',
-          };
-        })
+          return release as Release | null;
+        }),
       );
-      setReleases(details);
+      setReleases(details.filter((r): r is Release => r != null));
       setLoadingReleases(false);
     }).catch(() => {
       setReleases([]);
@@ -84,15 +78,15 @@ export default function PersonReleasesPage() {
       ) : releases.length === 0 ? (
         <EmptyState title="No releases" description={`${person.displayName} has not been assigned to any releases yet.`} />
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2" data-release-card-grid data-count={releases.length}>
           {releases.map((r) => (
-            <a key={r.id} href={`/releases/${r.id}`} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3 hover:border-primary-200 transition-colors">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-primary-400 truncate">{r.title}</p>
-                <p className="text-xs text-text-500">{r.role || 'Collaborator'}</p>
-              </div>
-              <span className="text-xs text-text-500 capitalize">{r.status.replace(/_/g, ' ')}</span>
-            </a>
+            <ReleaseCard
+              key={r.id}
+              release={r}
+              view="list"
+              variant={resolveReleaseCardVariant(r)}
+              mode="table"
+            />
           ))}
         </div>
       )}

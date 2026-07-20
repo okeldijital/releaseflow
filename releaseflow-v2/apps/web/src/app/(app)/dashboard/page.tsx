@@ -12,9 +12,9 @@ import {
   resolveActorIdentityKeys,
   assignmentMatchesIdentity,
 } from '@/lib/assignment-identity';
-import { EmptyState, LoadingState, Button, StatusBadge, Badge } from '@releaseflow/ui';
-import { ArtworkDisplay } from '@/components/release/artwork-display';
+import { EmptyState, LoadingState, Button, Badge } from '@releaseflow/ui';
 import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
+import { resolveReleaseCardVariant } from '@/lib/release-workspace';
 import { getOrgReadinessSummaries } from '@/lib/release-readiness-service';
 import { fetchReleasesByOrg } from '@/lib/release-service';
 import type { Release } from '@/app/(app)/types';
@@ -348,31 +348,16 @@ export default function DashboardPage() {
         {upcomingReleases.length === 0 ? (
           <p className="text-sm text-text-500">No upcoming releases.</p>
         ) : (
-          <div className="space-y-2">
-            {upcomingReleases.map((r) => {
-              const date = toDate(r.estimatedReleaseDate || r.targetReleaseDate);
-              return (
-                <Link
-                  key={r.id}
-                  href={`/releases/${r.id}`}
-                  className="flex items-center gap-3 rounded-xl border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-500/40 transition-colors group"
-                >
-                  <ArtworkDisplay
-                    artwork={r.artwork ?? null}
-                    releaseTitle={r.title}
-                    size="sm"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-primary-400 truncate group-hover:text-primary-300 transition-colors">{r.title}</p>
-                    <p className="text-xs text-text-500 mt-0.5 capitalize">{r.releaseType.replace(/_/g, ' ')}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs text-text-400">{date ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</p>
-                    <StatusBadge status={r.status} />
-                  </div>
-                </Link>
-              );
-            })}
+          <div className="space-y-2" data-release-card-grid data-count={upcomingReleases.length}>
+            {upcomingReleases.map((r) => (
+              <ReleaseCard
+                key={r.id}
+                release={r}
+                view="list"
+                variant={resolveReleaseCardVariant(r)}
+                mode="table"
+              />
+            ))}
           </div>
         )}
       </div>

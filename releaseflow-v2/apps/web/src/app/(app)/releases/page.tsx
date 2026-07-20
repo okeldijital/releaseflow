@@ -6,13 +6,12 @@ import { useRouter } from 'next/navigation';
 import { useOrgStore } from '@/stores/org-store';
 import { useReleases } from '@/hooks/useRelease';
 import { useNeedsAttentionReleases, useContinueWorking, useUpcomingReleases, useRecentlyUpdated } from '@/hooks/useRelease';
-import { Button, EmptyState, Input, StatusBadge, Badge, LoadingState } from '@releaseflow/ui';
-import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
+import { Button, EmptyState, Input, LoadingState } from '@releaseflow/ui';
+import { ReleaseCard, type ReleaseCardMode } from '@/components/release/cards/ReleaseCard';
 import { RELEASE_STATUS_CONFIG, RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-config';
 import type { Release } from '@/app/(app)/types';
 import { useDebounce } from '@/hooks/useDebounce';
 import { AuthorizationService } from '@/lib/auth/authorization-service';
-import { fmtDate } from '@/lib/utils';
 import {
   buildReleaseWorkspace,
   resolveReleaseCardVariant,
@@ -117,17 +116,6 @@ function sortReleases(releases: Release[], sort: string): Release[] {
   }
 }
 
-function getCountdown(targetDate: unknown): string {
-  const ts = getDateValue(targetDate);
-  if (!ts) return '';
-  const diff = ts - Date.now();
-  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-  if (days < 0) return 'Overdue';
-  if (days === 0) return 'Today';
-  if (days === 1) return '1 day';
-  return `${days} days`;
-}
-
 function SectionSkeleton() {
   return (
     <div className="animate-pulse space-y-3">
@@ -172,6 +160,10 @@ function CollapsibleSection({
   );
 }
 
+/**
+ * BUG-008B — Canonical layout shell.
+ * Tables/grids control layout only; every item mounts ReleaseCard.
+ */
 function ReleaseCardGrid({
   releases,
   view,
@@ -179,18 +171,22 @@ function ReleaseCardGrid({
 }: {
   releases: Release[];
   view: ViewMode;
-  mode?: 'workspace' | 'compact';
+  mode?: ReleaseCardMode;
 }) {
-  if (view === 'list') {
+  if (view === 'list' || mode === 'table' || mode === 'table-row') {
     return (
-      <div className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden divide-y divide-surface-100">
+      <div
+        className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden divide-y divide-surface-100"
+        data-release-card-grid
+        data-count={releases.length}
+      >
         {releases.map((release) => (
           <ReleaseCard
             key={release.id}
             release={release}
             view="list"
             variant={resolveReleaseCardVariant(release)}
-            mode="table-row"
+            mode="table"
           />
         ))}
       </div>
@@ -198,7 +194,11 @@ function ReleaseCardGrid({
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+      data-release-card-grid
+      data-count={releases.length}
+    >
       {releases.map((release) => (
         <ReleaseCard
           key={release.id}
@@ -244,11 +244,11 @@ export default function ReleasesPage() {
     return sortReleases(searched, 'newest');
   }, [releases, debouncedSearch, filterStatus, filterType, filterLifecycle, filterReadiness]);
 
-  // BUG-008A — workspace builder: catalogue (filteredAll) always feeds All Releases.
+  // BUG-008B — workspace builder organizes only; catalogue integrity asserted in development.
   const workspaceSections = useMemo(
     () =>
       buildReleaseWorkspace({
-        all: filteredAll,
+        catalogue: filteredAll,
         needsAttention: needsAttention.data,
         continueWorking: continueWorking.data,
         upcoming: upcomingReleases.data,
@@ -495,8 +495,13 @@ export default function ReleasesPage() {
         </div>
       )}
 
-      {/* Workspace Sections — every filtered release reaches ReleaseCard via All Releases */}
-      <div className="space-y-2" data-workspace-sections={workspaceSections.length}>
+      {/*
+        BUG-008B — Canonical pipeline:
+        filtered catalogue → workspace sections → ReleaseCard only (no bespoke rows).
+        Section collapse hides UI; section.items are never mutated.
+      */}
+      <div className="space-y-2" data-workspace-sections={workspaceSections.length} data-catalogue-count={filteredAll.length}>
+        {/* Needs Attention */}
         <CollapsibleSection title="Needs Attention" count={needsAttention.data.length} defaultOpen error={needsAttention.error}>
           {needsAttention.loading ? (
             <SectionSkeleton />
@@ -507,6 +512,7 @@ export default function ReleasesPage() {
           )}
         </CollapsibleSection>
 
+        {/* Continue Working */}
         <CollapsibleSection title="Continue Working" count={continueWorking.data.length} defaultOpen error={continueWorking.error}>
           {continueWorking.loading ? (
             <SectionSkeleton />
@@ -517,52 +523,18 @@ export default function ReleasesPage() {
           )}
         </CollapsibleSection>
 
-        {/* Upcoming — custom countdown rows (projection; catalogue is All Releases) */}
+        {/* Upcoming Releases — ReleaseCard only (mode table for date-forward layout) */}
         <CollapsibleSection title="Upcoming Releases" count={upcomingReleases.data.length} defaultOpen error={upcomingReleases.error}>
           {upcomingReleases.loading ? (
             <SectionSkeleton />
           ) : upcomingReleases.data.length === 0 ? (
             <p className="text-sm text-text-500 py-4">No upcoming releases.</p>
           ) : (
-            <div className="space-y-2">
-              {upcomingReleases.data.map((release) => {
-                const countdown = getCountdown(release.targetReleaseDate);
-                const isDraft = release.lifecycle === 'draft';
-                return (
-                  <Link
-                    key={release.id}
-                    href={`/releases/${release.id}`}
-                    className="flex items-center gap-4 rounded-xl border border-surface-200 bg-layer-2 p-3 hover:border-primary-500/40 transition-colors group"
-                  >
-                    <UpcomingArtwork artwork={release.artwork} releaseTitle={release.title} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-primary-400 truncate group-hover:text-primary-300 transition-colors">{release.title}</p>
-                      <p className="text-xs text-text-500 mt-0.5 capitalize">{(release.releaseType ?? '').replace(/_/g, ' ')}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      {release.targetReleaseDate ? (
-                        <>
-                          <p className="text-xs font-medium text-text-600">{fmtDate(release.targetReleaseDate)}</p>
-                          <p className={`text-xs mt-0.5 ${countdown === 'Overdue' ? 'text-danger-500' : countdown === 'Today' ? 'text-warning-600' : 'text-text-500'}`}>
-                            {countdown}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-xs text-text-500">No date set</p>
-                      )}
-                      {isDraft ? (
-                        <Badge label="Draft" color="bg-surface-100 text-text-500" size="sm" />
-                      ) : (
-                        <StatusBadge status={release.status} />
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+            <ReleaseCardGrid releases={upcomingReleases.data as Release[]} view="list" mode="table" />
           )}
         </CollapsibleSection>
 
+        {/* Recently Updated */}
         <CollapsibleSection title="Recently Updated" count={recentlyUpdated.data.length} defaultOpen error={recentlyUpdated.error}>
           {recentlyUpdated.loading ? (
             <SectionSkeleton />
@@ -573,32 +545,19 @@ export default function ReleasesPage() {
           )}
         </CollapsibleSection>
 
-        {/* All Releases — BUG-008A: catalogue source of truth; every filtered release mounts ReleaseCard */}
+        {/* All Releases — canonical catalogue; every filtered release mounts exactly one ReleaseCard here */}
         <CollapsibleSection title="All Releases" count={filteredAll.length} defaultOpen>
           {filteredAll.length === 0 ? (
             <p className="text-sm text-text-500 py-4">No releases match your filters.</p>
           ) : (
-            <ReleaseCardGrid releases={filteredAll} view={view} mode="workspace" />
+            <ReleaseCardGrid
+              releases={filteredAll}
+              view={view}
+              mode={view === 'list' ? 'table' : 'workspace'}
+            />
           )}
         </CollapsibleSection>
       </div>
-    </div>
-  );
-}
-
-function UpcomingArtwork({ artwork, releaseTitle }: { artwork: { secureUrl: string } | null | undefined; releaseTitle: string }) {
-  if (artwork?.secureUrl) {
-    return (
-      <img
-        src={artwork.secureUrl}
-        alt={releaseTitle}
-        className="rounded-md object-cover w-10 h-10"
-      />
-    );
-  }
-  return (
-    <div className="rounded-md bg-surface-200 flex items-center justify-center w-10 h-10">
-      <span className="text-xs text-text-500 font-medium">{releaseTitle.charAt(0).toUpperCase()}</span>
     </div>
   );
 }

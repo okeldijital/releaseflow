@@ -3,12 +3,14 @@
  *
  * Proves: Repository Release[] → workspace builder → section items → ReleaseCard slots.
  * Every release returned by the repository must reach a ReleaseCard via All Releases.
+ *
+ * Superseded in spirit by BUG-008B; kept as focused regression for the EPIC-206 break.
  */
 import { describe, it, expect } from 'vitest';
 import {
   buildReleaseWorkspace,
   resolveReleaseCardVariant,
-  countReleaseCardSlots,
+  countCanonicalReleaseCards,
   uniqueCardReleaseIds,
   assertCatalogueFullyRendered,
   type WorkspaceRelease,
@@ -37,52 +39,52 @@ describe('BUG-008A resolveReleaseCardVariant', () => {
 
 describe('BUG-008A workspace pipeline', () => {
   it('Test 1: repository returns 1 Release → All Releases renders 1 ReleaseCard slot', () => {
-    const all = [makeRelease({ id: 'r1', title: 'Lefa EP', lifecycle: 'active', status: 'planning' })];
+    const catalogue = [makeRelease({ id: 'r1', title: 'Lefa EP', lifecycle: 'active', status: 'planning' })];
 
     const sections = buildReleaseWorkspace({
-      all,
+      catalogue,
       needsAttention: [],
       continueWorking: [],
       upcoming: [],
       recentlyUpdated: [],
     });
 
-    const allSection = sections.find((s) => s.id === 'all');
-    expect(allSection?.items).toHaveLength(1);
-    expect(allSection?.items[0]?.title).toBe('Lefa EP');
-    expect(allSection?.rendersCards).toBe(true);
+    const allSection = sections.find((s) => s.id === 'all')!;
+    expect(allSection.items).toHaveLength(1);
+    expect(allSection.items[0]!.title).toBe('Lefa EP');
+    expect(allSection.rendersCards).toBe(true);
 
-    const guarantee = assertCatalogueFullyRendered(all, sections);
+    const guarantee = assertCatalogueFullyRendered(catalogue, sections);
     expect(guarantee.ok).toBe(true);
     expect(guarantee.missingIds).toEqual([]);
 
-    expect(countReleaseCardSlots(sections)).toBe(1);
+    expect(countCanonicalReleaseCards(sections)).toBe(1);
     expect(uniqueCardReleaseIds(sections)).toEqual(['r1']);
   });
 
   it('Test 2: repository returns 5 Releases → workspace renders 5 unique ReleaseCards in All Releases', () => {
-    const all = Array.from({ length: 5 }, (_, i) =>
+    const catalogue = Array.from({ length: 5 }, (_, i) =>
       makeRelease({ id: `r${i + 1}`, title: `Release ${i + 1}` }),
     );
 
     const sections = buildReleaseWorkspace({
-      all,
-      needsAttention: all.slice(0, 2),
-      continueWorking: all.slice(0, 1),
+      catalogue,
+      needsAttention: catalogue.slice(0, 2),
+      continueWorking: [catalogue[0]!],
       upcoming: [],
-      recentlyUpdated: all.slice(0, 3),
+      recentlyUpdated: catalogue.slice(0, 3),
     });
 
-    const allSection = sections.find((s) => s.id === 'all');
-    expect(allSection?.items).toHaveLength(5);
+    const allSection = sections.find((s) => s.id === 'all')!;
+    expect(allSection.items).toHaveLength(5);
 
-    const guarantee = assertCatalogueFullyRendered(all, sections);
+    const guarantee = assertCatalogueFullyRendered(catalogue, sections);
     expect(guarantee.ok).toBe(true);
-    expect(uniqueCardReleaseIds(sections).sort()).toEqual(all.map((r) => r.id).sort());
+    expect(uniqueCardReleaseIds(sections).sort()).toEqual(catalogue.map((r) => r.id).sort());
   });
 
   it('Test 3: mixed lifecycles — every release renders exactly once in All Releases (no omissions)', () => {
-    const all = [
+    const catalogue = [
       makeRelease({ id: 'd1', title: 'Draft One', lifecycle: 'draft', status: 'planning' }),
       makeRelease({ id: 'a1', title: 'Active One', lifecycle: 'active', status: 'planning' }),
       makeRelease({ id: 'ar1', title: 'Archived One', lifecycle: 'archived', status: 'archived' }),
@@ -90,36 +92,36 @@ describe('BUG-008A workspace pipeline', () => {
     ];
 
     const sections = buildReleaseWorkspace({
-      all,
-      needsAttention: all.slice(0, 1),
-      continueWorking: all.slice(0, 2),
+      catalogue,
+      needsAttention: [catalogue[0]!],
+      continueWorking: [catalogue[0]!, catalogue[1]!],
       upcoming: [],
-      recentlyUpdated: all,
+      recentlyUpdated: catalogue,
     });
 
-    const allSection = sections.find((s) => s.id === 'all');
-    expect(allSection?.items).toHaveLength(4);
+    const allSection = sections.find((s) => s.id === 'all')!;
+    expect(allSection.items).toHaveLength(4);
 
-    const ids = allSection?.items.map((r) => r.id) ?? [];
+    const ids = allSection.items.map((r) => r.id);
     expect(ids).toEqual(['d1', 'a1', 'ar1', 'rel1']);
     expect(new Set(ids).size).toBe(4);
 
-    for (const r of all) {
+    for (const r of catalogue) {
       expect(resolveReleaseCardVariant(r)).toBeTruthy();
     }
-    expect(resolveReleaseCardVariant(all[0]!)).toBe('draft');
-    expect(resolveReleaseCardVariant(all[1]!)).toBe('active');
-    expect(resolveReleaseCardVariant(all[2]!)).toBe('archived');
-    expect(resolveReleaseCardVariant(all[3]!)).toBe('released');
+    expect(resolveReleaseCardVariant(catalogue[0]!)).toBe('draft');
+    expect(resolveReleaseCardVariant(catalogue[1]!)).toBe('active');
+    expect(resolveReleaseCardVariant(catalogue[2]!)).toBe('archived');
+    expect(resolveReleaseCardVariant(catalogue[3]!)).toBe('released');
 
-    const guarantee = assertCatalogueFullyRendered(all, sections);
+    const guarantee = assertCatalogueFullyRendered(catalogue, sections);
     expect(guarantee.ok).toBe(true);
     expect(guarantee.missingIds).toEqual([]);
   });
 
   it('Test 4: empty repository → empty workspace sections (empty state path)', () => {
     const sections = buildReleaseWorkspace({
-      all: [],
+      catalogue: [],
       needsAttention: [],
       continueWorking: [],
       upcoming: [],
@@ -127,7 +129,7 @@ describe('BUG-008A workspace pipeline', () => {
     });
 
     expect(sections.every((s) => s.items.length === 0)).toBe(true);
-    expect(countReleaseCardSlots(sections)).toBe(0);
+    expect(countCanonicalReleaseCards(sections)).toBe(0);
     expect(uniqueCardReleaseIds(sections)).toEqual([]);
 
     const guarantee = assertCatalogueFullyRendered([], sections);
@@ -135,10 +137,10 @@ describe('BUG-008A workspace pipeline', () => {
   });
 
   it('regression: productivity sections empty must not hide catalogue ReleaseCard', () => {
-    const all = [makeRelease({ id: 'lefa', title: 'Lefa EP', lifecycle: 'active', status: 'planning' })];
+    const catalogue = [makeRelease({ id: 'lefa', title: 'Lefa EP', lifecycle: 'active', status: 'planning' })];
 
     const sections = buildReleaseWorkspace({
-      all,
+      catalogue,
       needsAttention: [],
       continueWorking: [],
       upcoming: [],
@@ -154,30 +156,35 @@ describe('BUG-008A workspace pipeline', () => {
       all: 1,
     });
 
-    expect(assertCatalogueFullyRendered(all, sections).ok).toBe(true);
-    expect(countReleaseCardSlots(sections)).toBe(1);
+    expect(assertCatalogueFullyRendered(catalogue, sections).ok).toBe(true);
+    expect(countCanonicalReleaseCards(sections)).toBe(1);
   });
 
   it('section inventory reports every section item count', () => {
-    const all = [
+    const catalogue = [
       makeRelease({ id: 'r1', title: 'A' }),
       makeRelease({ id: 'r2', title: 'B' }),
     ];
     const sections = buildReleaseWorkspace({
-      all,
-      needsAttention: all.slice(0, 1),
-      continueWorking: all.slice(0, 1),
+      catalogue,
+      needsAttention: [catalogue[0]!],
+      continueWorking: [catalogue[0]!],
       upcoming: [],
-      recentlyUpdated: all,
+      recentlyUpdated: catalogue,
     });
 
-    const inventory = sections.map((s) => ({ name: s.title, count: s.items.length, cards: s.rendersCards }));
+    const inventory = sections.map((s) => ({
+      name: s.title,
+      count: s.items.length,
+      cards: s.rendersCards,
+      role: s.role,
+    }));
     expect(inventory).toEqual([
-      { name: 'Needs Attention', count: 1, cards: true },
-      { name: 'Continue Working', count: 1, cards: true },
-      { name: 'Upcoming Releases', count: 0, cards: false },
-      { name: 'Recently Updated', count: 2, cards: true },
-      { name: 'All Releases', count: 2, cards: true },
+      { name: 'Needs Attention', count: 1, cards: true, role: 'projection' },
+      { name: 'Continue Working', count: 1, cards: true, role: 'projection' },
+      { name: 'Upcoming Releases', count: 0, cards: true, role: 'projection' },
+      { name: 'Recently Updated', count: 2, cards: true, role: 'projection' },
+      { name: 'All Releases', count: 2, cards: true, role: 'canonical' },
     ]);
   });
 });

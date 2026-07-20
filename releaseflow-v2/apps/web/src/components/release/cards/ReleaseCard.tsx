@@ -14,9 +14,24 @@ import { RELEASE_STATUS_CONFIG, RELEASE_TYPE_LABELS } from '../status/release-st
 import type { Release } from '@/app/(app)/types';
 import type { WizardDraftData } from '@/components/release/wizard/release-wizard-types';
 
+/**
+ * BUG-008B — Canonical Release summary presentation.
+ *
+ * Every Release summary in the application must render through this component.
+ * Modes change layout only; they do not fork presentation ownership.
+ *
+ * Pipeline: Repository → Service → Workspace Builder → Section → ReleaseCard → DOM
+ */
 export type ReleaseCardVariant = 'draft' | 'active' | 'archived' | 'released';
 
-export type ReleaseCardMode = 'workspace' | 'compact' | 'table-row' | 'detailed';
+/** Layout-only. Prefer `table` over `table-row` (alias kept for back-compat). */
+export type ReleaseCardMode =
+  | 'workspace'
+  | 'compact'
+  | 'table'
+  | 'table-row'
+  | 'detailed'
+  | 'search';
 
 function getDraftCompletion(wizardData: Record<string, unknown> | null | undefined): number {
   if (!wizardData) return 0;
@@ -76,8 +91,9 @@ export function ReleaseCard({ release, trackCount, view = 'grid', variant = 'act
   const draftPct = isDraft ? getDraftCompletion(release.wizardData) : 0;
   const stepLabel = isDraft ? getDraftStepLabel(release.wizardData) : '';
   const statusMeta = !isDraft ? RELEASE_STATUS_CONFIG[release.status] : undefined;
-  const isCompact = mode === 'compact';
-  const isTableRow = mode === 'table-row';
+  // Modes: layout only. `table` / `table-row` / `search` are layout aliases of existing shells.
+  const isCompact = mode === 'compact' || mode === 'search';
+  const isTableRow = mode === 'table' || mode === 'table-row';
   const isDetailed = mode === 'detailed';
 
   async function handleDelete() {
@@ -494,9 +510,18 @@ export function ReleaseCard({ release, trackCount, view = 'grid', variant = 'act
     );
   };
 
+  // Never return null — every variant/mode mounts a visible summary.
   if (view === 'list' || isTableRow) {
-    return renderTableRow();
+    return (
+      <div data-release-card data-release-id={release.id} data-mode={isTableRow ? 'table' : mode} data-variant={variant}>
+        {renderTableRow()}
+      </div>
+    );
   }
 
-  return renderWorkspaceCard();
+  return (
+    <div data-release-card data-release-id={release.id} data-mode={mode} data-variant={variant}>
+      {renderWorkspaceCard()}
+    </div>
+  );
 }

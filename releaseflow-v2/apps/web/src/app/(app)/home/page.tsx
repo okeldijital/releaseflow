@@ -29,7 +29,8 @@ import { AssignmentCard, SectionHeader } from '@/components/mobile/assignment-ca
 import type { AssignmentCardModel } from '@/components/mobile/assignment-card';
 import { humanizeAssignmentActivity } from '@/lib/assignment-activity-humanize';
 import { useNotificationBadge } from '@/hooks/useNotificationBadge';
-import { ArtworkPlaceholder } from '@/components/release/artwork-display';
+import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
+import { resolveReleaseCardVariant } from '@/lib/release-workspace';
 import type { Release } from '@/app/(app)/types';
 
 function timeAgo(d: Date): string {
@@ -359,7 +360,7 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* Upcoming releases */}
+      {/* Upcoming releases — BUG-008B: ReleaseCard only */}
       <section className="mb-7" aria-label="Upcoming releases">
         <SectionHeader title="Upcoming releases" href="/releases" count={upcomingReleases.length} />
         {releasesLoading ? (
@@ -367,28 +368,15 @@ export default function HomePage() {
         ) : upcomingReleases.length === 0 ? (
           <p className="text-sm text-content-label px-1">No upcoming releases scheduled.</p>
         ) : (
-          <ul className="space-y-2">
-            {upcomingReleases.map(({ release, date }) => (
+          <ul className="space-y-2" data-release-card-grid data-count={upcomingReleases.length}>
+            {upcomingReleases.map(({ release }) => (
               <li key={release.id}>
-                <Link
-                  href={`/releases/${release.id}`}
-                  className="flex items-center gap-3 rounded-2xl border border-surface-700/50 bg-surface-900/70 px-3 py-3 min-h-[64px] active:scale-[0.99] transition-transform"
-                >
-                  <div className="h-12 w-12 rounded-xl overflow-hidden bg-surface-800 shrink-0">
-                    {release.artwork?.secureUrl ? (
-                      <img src={release.artwork.secureUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
-                    ) : (
-                      <ArtworkPlaceholder title={release.title} size="sm" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-content-primary truncate">{release.title}</p>
-                    <p className="text-xs text-content-label mt-0.5 capitalize">
-                      {release.status.replace(/_/g, ' ')}
-                      {date ? ` · ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}
-                    </p>
-                  </div>
-                </Link>
+                <ReleaseCard
+                  release={release}
+                  view="list"
+                  variant={resolveReleaseCardVariant(release)}
+                  mode="compact"
+                />
               </li>
             ))}
           </ul>
