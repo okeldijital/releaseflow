@@ -1,5 +1,5 @@
 import {
-  doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+  doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, setDoc,
   collection, query, where, orderBy, writeBatch, Timestamp,
 } from '@firebase/firestore';
 import { getDb } from './firebase';
@@ -79,7 +79,7 @@ export async function getRelease(releaseId: string): Promise<ReleaseRecord | nul
   return { id: snap.id, ...snap.data(), artwork: null } as ReleaseRecord;
 }
 
-export async function getReleasesByOrganization(orgId: string): Promise<ReleaseRecord[]> {
+export async function getAllReleases(orgId: string): Promise<ReleaseRecord[]> {
   const db = getDb();
   if (!db) return [];
   const q = query(
@@ -89,6 +89,158 @@ export async function getReleasesByOrganization(orgId: string): Promise<ReleaseR
   );
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+}
+
+export async function getDraftReleases(orgId: string, userId?: string): Promise<ReleaseRecord[]> {
+  const db = getDb();
+  if (!db) return [];
+  let q;
+  if (userId) {
+    q = query(
+      collection(db, 'releases'),
+      where('organizationId', '==', orgId),
+      where('createdBy', '==', userId),
+      where('lifecycle', '==', 'draft'),
+      orderBy('updatedAt', 'desc'),
+    );
+  } else {
+    q = query(
+      collection(db, 'releases'),
+      where('organizationId', '==', orgId),
+      where('lifecycle', '==', 'draft'),
+      orderBy('updatedAt', 'desc'),
+    );
+  }
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+}
+
+export async function getActiveReleases(orgId: string): Promise<ReleaseRecord[]> {
+  const db = getDb();
+  if (!db) return [];
+  const q = query(
+    collection(db, 'releases'),
+    where('organizationId', '==', orgId),
+    where('lifecycle', '==', 'active'),
+    orderBy('createdAt', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+}
+
+export async function getArchivedReleases(orgId: string): Promise<ReleaseRecord[]> {
+  const db = getDb();
+  if (!db) return [];
+  const q = query(
+    collection(db, 'releases'),
+    where('organizationId', '==', orgId),
+    where('lifecycle', '==', 'archived'),
+    orderBy('createdAt', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+}
+
+export async function getReleasedReleases(orgId: string): Promise<ReleaseRecord[]> {
+  const all = await getAllReleases(orgId);
+  return all.filter((r) => r.status === 'released');
+}
+
+export async function getExpiredReleases(orgId: string): Promise<ReleaseRecord[]> {
+  const db = getDb();
+  if (!db) return [];
+  const q = query(
+    collection(db, 'releases'),
+    where('organizationId', '==', orgId),
+    where('lifecycle', '==', 'expired'),
+    orderBy('createdAt', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+}
+
+export async function duplicateRelease(releaseId: string, actorId: string): Promise<string> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore unavailable');
+  const srcSnap = await getDoc(doc(db, 'releases', releaseId));
+  if (!srcSnap.exists()) throw new Error('Release not found');
+  const src = srcSnap.data() as Record<string, unknown>;
+  const organizationId = src.organizationId as string;
+  const now = Timestamp.now();
+  const newRef = doc(collection(db, 'releases'));
+  const { id: _omit, version, ...rest } = src as Record<string, unknown>;
+  const payload: Record<string, unknown> = {
+    ...rest,
+    title: `Copy of ${src.title as string}`,
+    lifecycle: 'draft',
+    status: 'planning',
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+    wizardData: src.wizardData ?? null,
+  };
+  await setDoc(newRef, payload);
+  await recordActivity({
+    entityType: 'release',
+    entityId: newRef.id,
+    organizationId,
+    actorId,
+    action: 'release.draft.duplicated',
+    metadata: { sourceReleaseId: releaseId },
+    details: 'Draft duplicated',
+  });
+  return newRef.id;
+}
+
+export async function renameDraft(
+  releaseId: string,
+  newTitle: string,
+  actorId: string,
+): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore unavailable');
+  const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
+  if (!releaseSnap.exists()) throw new Error('Draft not found');
+  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined ?? '';
+  await updateDoc(doc(db, 'releases', releaseId), {
+    title: newTitle.trim(),
+    updatedAt: Timestamp.now(),
+  });
+  await recordActivity({
+    entityType: 'release',
+    entityId: releaseId,
+    organizationId,
+    actorId,
+    action: 'release.draft.renamed',
+    metadata: { newTitle: newTitle.trim() },
+    details: 'Draft renamed',
+  });
+}
+
+export async function deleteDraft(
+  releaseId: string,
+  actorId: string,
+): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('Firestore unavailable');
+  const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
+  if (!releaseSnap.exists()) return;
+  const data = releaseSnap.data() as Record<string, unknown>;
+  const organizationId = (data.organizationId as string | undefined) ?? '';
+  await deleteDoc(doc(db, 'releases', releaseId));
+  await recordActivity({
+    entityType: 'release',
+    entityId: releaseId,
+    organizationId,
+    actorId,
+    action: 'release.draft.deleted',
+    metadata: { title: data.title as string },
+    details: 'Draft deleted',
+  });
+}
+
+export async function getReleasesByOrganization(orgId: string): Promise<ReleaseRecord[]> {
+  return getAllReleases(orgId);
 }
 
 export async function getReleasesByArtist(artistId: string): Promise<ReleaseRecord[]> {
@@ -384,7 +536,7 @@ export async function createReleaseDraft(
     entityId: ref.id,
     organizationId: fields.organizationId,
     actorId,
-    action: 'release.draft_saved',
+    action: 'release.draft.created',
     metadata: { title: fields.title, releaseType: fields.releaseType },
     details: 'Draft created',
   });
@@ -417,7 +569,7 @@ export async function updateReleaseDraft(
     entityId: releaseId,
     organizationId,
     actorId,
-    action: 'release.draft_saved',
+    action: 'release.draft.saved',
     metadata: { version: nextVersion },
     details: 'Draft saved',
   });
@@ -446,7 +598,7 @@ export async function completeDraft(
     entityId: releaseId,
     organizationId,
     actorId,
-    action: 'release.status.changed',
+    action: 'release.draft.completed',
     metadata: { newStatus: 'planning' },
     details: 'Draft completed',
   });

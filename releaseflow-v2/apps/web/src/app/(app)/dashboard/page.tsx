@@ -14,7 +14,9 @@ import {
 } from '@/lib/assignment-identity';
 import { EmptyState, LoadingState, Button, StatusBadge, Badge } from '@releaseflow/ui';
 import { ArtworkDisplay } from '@/components/release/artwork-display';
+import { DraftCard } from '@/components/release/cards/DraftCard';
 import { getOrgReadinessSummaries } from '@/lib/release-readiness-service';
+import { fetchDraftReleases } from '@/lib/release-service';
 
 function timeAgo(d: Date): string {
   const m = Math.floor((Date.now() - d.getTime()) / (1000 * 60));
@@ -96,6 +98,8 @@ export default function DashboardPage() {
   const [identityKeys, setIdentityKeys] = useState<Set<string>>(new Set());
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [loadingExtras, setLoadingExtras] = useState(true);
+  const [drafts, setDrafts] = useState<Awaited<ReturnType<typeof fetchDraftReleases>>>([]);
+  const [draftsLoading, setDraftsLoading] = useState(true);
 
   useEffect(() => {
     if (!user?.uid || !activeOrgId) {
@@ -104,6 +108,12 @@ export default function DashboardPage() {
     }
     void resolveActorIdentityKeys(activeOrgId, user.uid).then(setIdentityKeys);
   }, [user?.uid, activeOrgId]);
+
+  useEffect(() => {
+    if (!user || !activeOrgId) { setDrafts([]); setDraftsLoading(false); return; }
+    setDraftsLoading(true);
+    void fetchDraftReleases(activeOrgId, user.uid).then(setDrafts).catch(() => setDrafts([])).finally(() => setDraftsLoading(false));
+  }, [user, activeOrgId]);
 
   useEffect(() => {
     if (!user || !activeOrgId) { setLoadingExtras(false); return; }
@@ -119,33 +129,6 @@ export default function DashboardPage() {
       (a) => assignmentMatchesIdentity(a, identityKeys) && open.has(a.status),
     );
   }, [assignments, identityKeys]);
-
-  const continueRelease = useMemo(() => {
-    const unfinished = releases.filter((r) => !['released', 'cancelled', 'archived'].includes(r.status));
-    if (unfinished.length === 0) return null;
-
-    const sortedByRecent = [...unfinished].sort((a, b) => {
-      const aTime = (a.updatedAt as { seconds: number })?.seconds ?? 0;
-      const bTime = (b.updatedAt as { seconds: number })?.seconds ?? 0;
-      return bTime - aTime;
-    });
-
-    const mostRecent = sortedByRecent[0];
-    if (mostRecent && mostRecent.status !== 'planning') return mostRecent;
-
-    const planning = sortedByRecent.find((r) => r.status === 'planning');
-    if (planning) return planning;
-
-    const activeStatuses = ['draft', 'in_production', 'on_hold', 'ready_for_distribution'];
-    const active = sortedByRecent.find((r) => activeStatuses.includes(r.status));
-    return active ?? mostRecent ?? null;
-  }, [releases]);
-
-  const nextStep = useMemo(() => {
-    if (!continueRelease) return null;
-    if (!continueRelease.artwork) return 'Upload artwork';
-    return 'Review release';
-  }, [continueRelease]);
 
   const greeting = useMemo(() => getGreeting(), []);
   const firstName = useMemo(() => getFirstName(user), [user]);
@@ -182,10 +165,11 @@ export default function DashboardPage() {
   }, [readinessRows]);
 
   const stats = useMemo(() => {
-    const planning = releases.filter((r) => (r as unknown as { lifecycle?: string }).lifecycle === 'draft' || r.status === 'planning').length;
-    const recording = releases.filter((r) => r.status === 'in_production').length;
-    const ready = releases.filter((r) => r.status === 'ready_for_distribution').length;
-    const released = releases.filter((r) => r.status === 'released').length;
+    const active = releases.filter((r) => (r as unknown as { lifecycle?: string }).lifecycle === 'active');
+    const planning = active.filter((r) => r.status === 'planning').length;
+    const recording = active.filter((r) => r.status === 'in_production').length;
+    const ready = active.filter((r) => r.status === 'ready_for_distribution').length;
+    const released = active.filter((r) => r.status === 'released').length;
     return [
       { count: planning, label: 'Planning' },
       { count: recording, label: 'Recording' },
@@ -247,41 +231,23 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {continueRelease && (
+      {draftsLoading ? (
+        <div className="mb-10"><LoadingState /></div>
+      ) : drafts.length > 0 ? (
         <div className="mb-10">
-          <p className="text-xs font-semibold text-text-500 uppercase tracking-widest mb-4">Continue Working</p>
-          <Link href={`/releases/${continueRelease.id}`} className="block rounded-2xl border border-surface-700/60 bg-surface-900 hover:border-surface-600 transition-all duration-200 overflow-hidden group">
-            <div className="flex flex-col sm:flex-row">
-              <div className="sm:w-48 shrink-0 flex items-center justify-center p-8 bg-surface-800/50">
-                <ArtworkDisplay
-                  artwork={continueRelease.artwork ?? null}
-                  releaseTitle={continueRelease.title}
-                  size="lg"
-                  className="h-32 w-32 shadow-lg"
-                />
-              </div>
-              <div className="flex-1 p-6 flex flex-col sm:flex-row gap-6">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xl font-semibold text-primary-400 tracking-tight">{continueRelease.title}</p>
-                  <p className="text-sm text-text-400 mt-0.5 capitalize">{continueRelease.releaseType.replace(/_/g, ' ')}</p>
-                  <div className="mt-4 space-y-1">
-                    <p className="text-xs text-text-500">Last edited {timeAgo(toDate(continueRelease.updatedAt) ?? new Date())}</p>
-                  </div>
-                  <div className="mt-5">
-                    <span className="text-sm font-medium text-primary-400 group-hover:text-primary-300 transition-colors">Continue Release →</span>
-                  </div>
-                </div>
-                <div className="sm:w-48 shrink-0 border-l border-surface-700/60 pl-6 flex flex-col justify-center">
-                  {nextStep && (
-                    <>
-                      <p className="text-xs font-semibold text-text-500 uppercase tracking-wider mb-2">Next step</p>
-                      <p className="text-sm text-surface-200">{nextStep}</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </Link>
+          <p className="text-xs font-semibold text-text-500 uppercase tracking-widest mb-4">Draft Releases</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {drafts.map((d) => (
+              <DraftCard key={d.id} release={d} view="grid" />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="mb-10">
+          <p className="text-xs font-semibold text-text-500 uppercase tracking-widest mb-4">Draft Releases</p>
+          <div className="rounded-2xl border border-surface-700/60 bg-surface-900 p-8 text-center">
+            <p className="text-sm text-text-400">No draft releases. Start creating a release to continue working later.</p>
+          </div>
         </div>
       )}
 

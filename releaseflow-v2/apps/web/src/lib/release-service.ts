@@ -15,6 +15,15 @@ import {
   completeDraft,
   createWorkflowForRelease,
   markExpiredDrafts as markExpiredDraftsRepo,
+  getAllReleases,
+  getDraftReleases,
+  getActiveReleases,
+  getArchivedReleases,
+  getReleasedReleases,
+  getExpiredReleases,
+  duplicateRelease,
+  renameDraft,
+  deleteDraft,
 } from './release-repository';
 import { getArtworksByReleaseIds } from './artwork/artwork-repository';
 import { getDb } from './firebase';
@@ -251,4 +260,86 @@ export async function addWorkflowToRelease(
 
 export async function markExpiredDrafts(olderThanDays = 180): Promise<{ marked: number }> {
   return markExpiredDraftsRepo(olderThanDays);
+}
+
+export async function fetchAllReleases(orgId: string) {
+  const releases = await getAllReleases(orgId);
+  if (releases.length === 0) return releases;
+  const ids = releases.map((r) => r.id);
+  const artworks = await getArtworksByReleaseIds(orgId, ids);
+  const map = new Map<string, Artwork>();
+  for (const a of artworks) {
+    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
+  }
+  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+}
+
+export async function fetchDraftReleases(orgId: string, userId?: string) {
+  const releases = await getDraftReleases(orgId, userId);
+  if (releases.length === 0) return releases;
+  const ids = releases.map((r) => r.id);
+  const artworks = await getArtworksByReleaseIds(orgId, ids);
+  const map = new Map<string, Artwork>();
+  for (const a of artworks) {
+    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
+  }
+  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+}
+
+export async function fetchActiveReleases(orgId: string) {
+  const releases = await getActiveReleases(orgId);
+  if (releases.length === 0) return releases;
+  const ids = releases.map((r) => r.id);
+  const artworks = await getArtworksByReleaseIds(orgId, ids);
+  const map = new Map<string, Artwork>();
+  for (const a of artworks) {
+    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
+  }
+  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+}
+
+export async function fetchReleasedReleases(orgId: string) {
+  const releases = await getReleasedReleases(orgId);
+  if (releases.length === 0) return releases;
+  const ids = releases.map((r) => r.id);
+  const artworks = await getArtworksByReleaseIds(orgId, ids);
+  const map = new Map<string, Artwork>();
+  for (const a of artworks) {
+    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
+  }
+  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+}
+
+export async function duplicateDraft(releaseId: string, actorId: string): Promise<string> {
+  const existing = await getRelease(releaseId);
+  if (existing?.organizationId) {
+    const { AuthorizationService } = await import('@/lib/auth/authorization-service');
+    await AuthorizationService.requireEditRelease(existing.organizationId, actorId);
+  }
+  return duplicateRelease(releaseId, actorId);
+}
+
+export async function renameReleaseDraft(
+  releaseId: string,
+  newTitle: string,
+  actorId: string,
+): Promise<void> {
+  const existing = await getRelease(releaseId);
+  if (existing?.organizationId) {
+    const { AuthorizationService } = await import('@/lib/auth/authorization-service');
+    await AuthorizationService.requireEditRelease(existing.organizationId, actorId);
+  }
+  return renameDraft(releaseId, newTitle, actorId);
+}
+
+export async function deleteReleaseDraft(
+  releaseId: string,
+  actorId: string,
+): Promise<void> {
+  const existing = await getRelease(releaseId);
+  if (existing?.organizationId) {
+    const { AuthorizationService } = await import('@/lib/auth/authorization-service');
+    await AuthorizationService.requireDeleteRelease(existing.organizationId, actorId);
+  }
+  return deleteDraft(releaseId, actorId);
 }

@@ -469,7 +469,14 @@ export type ActivityType =
   | 'campaign.completed'
   | 'campaign.task.created'
   | 'campaign.task.completed'
-  | 'release.status.changed';
+  | 'release.status.changed'
+  | 'release.draft.created'
+  | 'release.draft.saved'
+  | 'release.draft.renamed'
+  | 'release.draft.resumed'
+  | 'release.draft.completed'
+  | 'release.draft.deleted'
+  | 'release.draft.duplicated';
 
 export interface Activity {
   id: string;

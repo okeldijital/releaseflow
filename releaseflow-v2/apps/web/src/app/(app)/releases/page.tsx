@@ -7,6 +7,7 @@ import { useOrgStore } from '@/stores/org-store';
 import { useReleases } from '@/hooks/useRelease';
 import { Button, LoadingState, EmptyState, Input } from '@releaseflow/ui';
 import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
+import { DraftCard } from '@/components/release/cards/DraftCard';
 import { RELEASE_STATUS_CONFIG, RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-config';
 import type { Release } from '@/app/(app)/types';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -14,6 +15,17 @@ import { AuthorizationService } from '@/lib/auth/authorization-service';
 
 type ViewMode = 'grid' | 'list';
 type SortKey = 'newest' | 'oldest' | 'releaseDate' | 'alpha' | 'status';
+
+const LIFECYCLE_ORDER: Record<string, number> = {
+  draft: 0,
+  planning: 1,
+  in_production: 2,
+  ready_for_distribution: 3,
+  released: 4,
+  archived: 5,
+  on_hold: 6,
+  cancelled: 7,
+};
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'newest', label: 'Newest' },
@@ -33,11 +45,38 @@ const TYPE_OPTIONS = Object.entries(RELEASE_TYPE_LABELS).map(([value, label]) =>
   label,
 }));
 
-function filterReleases(releases: Release[], search: string, statuses: string[], types: string[], years: string[]): Release[] {
+const LIFECYCLE_OPTIONS = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'active', label: 'Active' },
+  { value: 'released', label: 'Released' },
+  { value: 'archived', label: 'Archived' },
+  { value: 'expired', label: 'Expired' },
+];
+
+function filterReleases(releases: Release[], search: string, statuses: string[], types: string[], years: string[], lifecycles: string[]): Release[] {
   return releases.filter((r) => {
-    if (search && !r.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search) {
+      const term = search.toLowerCase();
+      const haystack = [
+        r.title,
+        r.upc ?? '',
+        r.catalogNumber ?? '',
+      ].join(' ').toLowerCase();
+      if (!haystack.includes(term)) return false;
+    }
     if (statuses.length > 0 && !statuses.includes(r.status)) return false;
     if (types.length > 0 && !types.includes(r.releaseType)) return false;
+    if (lifecycles.length > 0) {
+      const matchesLifecycle = lifecycles.some((lc) => {
+        if (lc === 'draft') return r.lifecycle === 'draft';
+        if (lc === 'active') return r.lifecycle === 'active';
+        if (lc === 'archived') return r.lifecycle === 'archived';
+        if (lc === 'expired') return r.lifecycle === 'expired';
+        if (lc === 'released') return r.status === 'released';
+        return false;
+      });
+      if (!matchesLifecycle) return false;
+    }
     if (years.length > 0) {
       const ts = getDateValue(r.targetReleaseDate || r.createdAt);
       if (!ts || !years.includes(new Date(ts).getFullYear().toString())) return false;
@@ -70,8 +109,8 @@ function sortReleases(releases: Release[], sort: SortKey): Release[] {
       return sorted.sort((a, b) => a.title.localeCompare(b.title));
     case 'status':
       return sorted.sort((a, b) => {
-        const aOrder = RELEASE_STATUS_CONFIG[a.status]?.order ?? 99;
-        const bOrder = RELEASE_STATUS_CONFIG[b.status]?.order ?? 99;
+        const aOrder = LIFECYCLE_ORDER[a.lifecycle] ?? LIFECYCLE_ORDER[a.status] ?? 99;
+        const bOrder = LIFECYCLE_ORDER[b.lifecycle] ?? LIFECYCLE_ORDER[b.status] ?? 99;
         return aOrder - bOrder;
       });
     default:
@@ -105,6 +144,7 @@ export default function ReleasesPage() {
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterType, setFilterType] = useState<string[]>([]);
   const [filterYear, setFilterYear] = useState<string[]>([]);
+  const [filterLifecycle, setFilterLifecycle] = useState<string[]>([]);
 
   useEffect(() => {
     localStorage.setItem('rf-releases-view', view);
@@ -113,17 +153,18 @@ export default function ReleasesPage() {
   const availableYears = useMemo(() => getAvailableYears(releases), [releases]);
 
   const filtered = useMemo(() => {
-    const searched = filterReleases(releases, debouncedSearch, filterStatus, filterType, filterYear);
+    const searched = filterReleases(releases, debouncedSearch, filterStatus, filterType, filterYear, filterLifecycle);
     return sortReleases(searched, sort);
-  }, [releases, debouncedSearch, filterStatus, filterType, filterYear, sort]);
+  }, [releases, debouncedSearch, filterStatus, filterType, filterYear, filterLifecycle, sort]);
 
-  const hasActiveFilters = debouncedSearch || filterStatus.length > 0 || filterType.length > 0 || filterYear.length > 0;
+  const hasActiveFilters = debouncedSearch || filterStatus.length > 0 || filterType.length > 0 || filterYear.length > 0 || filterLifecycle.length > 0;
 
   function clearFilters() {
     setSearch('');
     setFilterStatus([]);
     setFilterType([]);
     setFilterYear([]);
+    setFilterLifecycle([]);
   }
 
   function toggleFilter(arr: string[], value: string): string[] {
@@ -281,6 +322,24 @@ export default function ReleasesPage() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
+                  <span className="text-xs text-text-500 font-medium">Lifecycle</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {LIFECYCLE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setFilterLifecycle((p) => toggleFilter(p, opt.value))}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                          filterLifecycle.includes(opt.value)
+                            ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+                            : 'bg-surface-100 text-text-500 border border-transparent hover:border-surface-300'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
                   <span className="text-xs text-text-500 font-medium">Type</span>
                   <div className="flex flex-wrap gap-1.5">
                     {TYPE_OPTIONS.map((opt) => (
@@ -334,13 +393,17 @@ export default function ReleasesPage() {
           ) : view === 'grid' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {filtered.map((release) => (
-                <ReleaseCard key={release.id} release={release} view="grid" />
+                release.lifecycle === 'draft'
+                  ? <DraftCard key={release.id} release={release} view="grid" />
+                  : <ReleaseCard key={release.id} release={release} view="grid" />
               ))}
             </div>
           ) : (
             <div className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden divide-y divide-surface-100">
               {filtered.map((release) => (
-                <ReleaseCard key={release.id} release={release} view="list" />
+                release.lifecycle === 'draft'
+                  ? <DraftCard key={release.id} release={release} view="list" />
+                  : <ReleaseCard key={release.id} release={release} view="list" />
               ))}
             </div>
           )}
