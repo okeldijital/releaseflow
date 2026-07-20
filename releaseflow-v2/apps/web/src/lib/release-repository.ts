@@ -210,7 +210,6 @@ export async function getReleases(orgId: string, options: ReleaseQueryOptions = 
   }
 
   if (hasTracks === true) {
-    const tracks = (tracksArg: string) => (r: ReleaseRecord) => (r.wizardData as Record<string, unknown> | null | undefined)?.tracks && Array.isArray((r.wizardData as Record<string, unknown>).tracks) && ((r.wizardData as Record<string, unknown>).tracks as unknown[]).length > 0;
     results = results.filter((r) => {
       const wd = r.wizardData as Record<string, unknown> | null | undefined;
       return wd?.tracks && Array.isArray(wd.tracks) && wd.tracks.length > 0;
