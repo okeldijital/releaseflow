@@ -256,8 +256,65 @@ export async function updateAssignment(assignmentId: string, fields: UpdateAssig
 }
 
 export async function listAssignments(orgId: string, opts?: { includeArchived?: boolean }): Promise<AssignmentRecord[]> {
+  return getAssignments({
+    organizationId: orgId,
+    includeArchived: opts?.includeArchived,
+  });
+}
+
+/**
+ * BUILD-001 — Composable assignment query API.
+ * Returns Assignment records only. No Needs Attention / Work Score / UI filters.
+ * Implicit filtering is forbidden beyond explicit options.
+ */
+export interface AssignmentQueryOptions {
+  organizationId: string;
+  assigneeId?: string;
+  assignerId?: string;
+  releaseId?: string;
+  trackId?: string;
+  entityType?: AssignmentEntityType;
+  entityId?: string;
+  status?: AssignmentStatus | AssignmentStatus[];
+  stageId?: string;
+  priority?: AssignmentPriority | AssignmentPriority[];
+  blocked?: boolean;
+  dueBefore?: Date;
+  dueAfter?: Date;
+  review?: boolean;
+  search?: string;
+  /** When true, include archived/cancelled/declined. Default false (active only). */
+  includeArchived?: boolean;
+  page?: number;
+  pageSize?: number;
+  sort?: 'newest' | 'oldest' | 'dueAsc' | 'dueDesc' | 'priority' | 'updated';
+}
+
+function getDateMs(value: unknown): number {
+  if (!value) return 0;
+  if (typeof value === 'object' && value !== null) {
+    const d = value as { seconds?: number; toDate?: () => Date };
+    if (typeof d.toDate === 'function') return d.toDate().getTime();
+    if (typeof d.seconds === 'number') return d.seconds * 1000;
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const t = new Date(value).getTime();
+    return Number.isNaN(t) ? 0 : t;
+  }
+  return 0;
+}
+
+const PRIORITY_ORDER: Record<string, number> = {
+  urgent: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
+export async function getAssignments(options: AssignmentQueryOptions): Promise<AssignmentRecord[]> {
   const db = getDb();
   if (!db) return [];
+  const orgId = options.organizationId;
   if (!orgId) return [];
 
   let docs: AssignmentRecord[];
@@ -271,24 +328,120 @@ export async function listAssignments(orgId: string, opts?: { includeArchived?: 
     );
     docs = snap.docs.map((d) => toRecord(d.id, d.data() as Record<string, unknown>));
   } catch (err) {
-    // ARS-003: index missing or orderBy failure — degrade to equality-only query.
-    console.error('[assignments] listAssignments ordered query failed; falling back', err);
+    console.error('[assignments] getAssignments ordered query failed; falling back', err);
     const snap = await getDocs(
       query(collection(db, 'assignments'), where('organizationId', '==', orgId)),
     );
     docs = snap.docs
       .map((d) => toRecord(d.id, d.data() as Record<string, unknown>))
-      .sort((a, b) => {
-        const at = (a.createdAt as { seconds?: number })?.seconds ?? 0;
-        const bt = (b.createdAt as { seconds?: number })?.seconds ?? 0;
-        return bt - at;
-      });
+      .sort((a, b) => getDateMs(b.createdAt) - getDateMs(a.createdAt));
   }
 
-  return docs.filter((a) => {
-    if (opts?.includeArchived) return true;
-    return isActiveAssignmentStatus(a.status);
-  });
+  let results = docs;
+
+  if (!options.includeArchived) {
+    results = results.filter((a) => isActiveAssignmentStatus(a.status));
+  }
+
+  if (options.assigneeId) {
+    results = results.filter(
+      (a) => a.assigneeId === options.assigneeId || a.assigneeUserId === options.assigneeId,
+    );
+  }
+  if (options.assignerId) {
+    results = results.filter(
+      (a) => a.assignerId === options.assignerId || a.assignerUserId === options.assignerId,
+    );
+  }
+  if (options.releaseId) {
+    results = results.filter(
+      (a) =>
+        a.releaseId === options.releaseId
+        || (a.entityType === 'release' && a.entityId === options.releaseId),
+    );
+  }
+  if (options.trackId) {
+    results = results.filter(
+      (a) => a.entityType === 'track' && a.entityId === options.trackId,
+    );
+  }
+  if (options.entityType) {
+    results = results.filter((a) => a.entityType === options.entityType);
+  }
+  if (options.entityId) {
+    results = results.filter((a) => a.entityId === options.entityId);
+  }
+  if (options.status) {
+    const statuses = Array.isArray(options.status) ? options.status : [options.status];
+    results = results.filter((a) => statuses.includes(a.status));
+  }
+  if (options.stageId) {
+    results = results.filter((a) => a.stageId === options.stageId);
+  }
+  if (options.priority) {
+    const prios = Array.isArray(options.priority) ? options.priority : [options.priority];
+    results = results.filter((a) => prios.includes(a.priority));
+  }
+  if (options.blocked === true) {
+    results = results.filter((a) => a.status === 'blocked');
+  } else if (options.blocked === false) {
+    results = results.filter((a) => a.status !== 'blocked');
+  }
+  if (options.review === true) {
+    results = results.filter((a) => a.status === 'review');
+  } else if (options.review === false) {
+    results = results.filter((a) => a.status !== 'review');
+  }
+  if (options.dueBefore) {
+    const cutoff = options.dueBefore.getTime();
+    results = results.filter((a) => {
+      const ms = getDateMs(a.dueDate);
+      return ms > 0 && ms < cutoff;
+    });
+  }
+  if (options.dueAfter) {
+    const cutoff = options.dueAfter.getTime();
+    results = results.filter((a) => {
+      const ms = getDateMs(a.dueDate);
+      return ms > 0 && ms >= cutoff;
+    });
+  }
+  if (options.search?.trim()) {
+    const term = options.search.trim().toLowerCase();
+    results = results.filter((a) => (a.title ?? '').toLowerCase().includes(term));
+  }
+
+  switch (options.sort) {
+    case 'oldest':
+      results = [...results].sort((a, b) => getDateMs(a.createdAt) - getDateMs(b.createdAt));
+      break;
+    case 'dueAsc':
+      results = [...results].sort((a, b) => getDateMs(a.dueDate) - getDateMs(b.dueDate));
+      break;
+    case 'dueDesc':
+      results = [...results].sort((a, b) => getDateMs(b.dueDate) - getDateMs(a.dueDate));
+      break;
+    case 'priority':
+      results = [...results].sort(
+        (a, b) => (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9),
+      );
+      break;
+    case 'updated':
+      results = [...results].sort((a, b) => getDateMs(b.updatedAt) - getDateMs(a.updatedAt));
+      break;
+    case 'newest':
+    default:
+      results = [...results].sort((a, b) => getDateMs(b.createdAt) - getDateMs(a.createdAt));
+      break;
+  }
+
+  if (options.page != null && options.pageSize != null && options.pageSize > 0) {
+    const page = Math.max(0, options.page);
+    const start = page * options.pageSize;
+    results = results.slice(start, start + options.pageSize);
+  }
+
+  return results;
 }
 
 export async function getAssignmentsByAssignee(personId: string, orgId?: string): Promise<AssignmentRecord[]> {

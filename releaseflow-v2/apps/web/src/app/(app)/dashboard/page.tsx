@@ -7,14 +7,18 @@ import { useOrgStore } from '@/stores/org-store';
 import { useReleases } from '@/hooks/useRelease';
 import { useAuth } from '@/contexts/auth-context';
 import { getRecentActivity, type ActivityEventRecord } from '@/lib/activity-service';
-import { useAssignments } from '@/hooks/useAssignment';
 import {
   resolveActorIdentityKeys,
-  assignmentMatchesIdentity,
 } from '@/lib/assignment-identity';
 import { EmptyState, LoadingState, Button, Badge } from '@releaseflow/ui';
 import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
+import { AssignmentCard } from '@/components/assignments/cards/AssignmentCard';
 import { resolveReleaseCardVariant } from '@/lib/release-workspace';
+import {
+  loadAssignmentWorkspaceRecords,
+  type AssignmentWorkspaceRecord,
+} from '@/lib/assignment-workspace-service';
+import { buildAssignmentWorkspace } from '@/lib/assignment-workspace';
 import { getOrgReadinessSummaries } from '@/lib/release-readiness-service';
 import { fetchReleasesByOrg } from '@/lib/release-service';
 import type { Release } from '@/app/(app)/types';
@@ -99,12 +103,13 @@ export default function DashboardPage() {
   const { activeOrgId, orgsLoaded } = useOrgStore();
   const router = useRouter();
   const { releases, loading: releasesLoading } = useReleases();
-  const { assignments, loading: assignmentsLoading } = useAssignments();
   const [identityKeys, setIdentityKeys] = useState<Set<string>>(new Set());
   const [activities, setActivities] = useState<ActivityEventRecord[]>([]);
   const [loadingExtras, setLoadingExtras] = useState(true);
   const [drafts, setDrafts] = useState<Release[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(true);
+  const [myWorkRecords, setMyWorkRecords] = useState<AssignmentWorkspaceRecord[]>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(true);
 
   useEffect(() => {
     if (!user?.uid || !activeOrgId) {
@@ -113,6 +118,35 @@ export default function DashboardPage() {
     }
     void resolveActorIdentityKeys(activeOrgId, user.uid).then(setIdentityKeys);
   }, [user?.uid, activeOrgId]);
+
+  // BUILD-016 — Dashboard My Work reuses assignment-service + workspace builder
+  useEffect(() => {
+    if (!activeOrgId || identityKeys.size === 0) {
+      setMyWorkRecords([]);
+      setAssignmentsLoading(false);
+      return;
+    }
+    setAssignmentsLoading(true);
+    void loadAssignmentWorkspaceRecords({
+      organizationId: activeOrgId,
+      meIdentityKeys: identityKeys,
+      sort: 'newest',
+    })
+      .then((all) => {
+        const mine = all.filter((r) => r.isAssignedToMe && !['completed', 'cancelled', 'archived', 'declined'].includes(r.assignment.status));
+        const workspace = buildAssignmentWorkspace({ catalogue: mine });
+        const needs = workspace.sections.find((s) => s.id === 'needs_attention');
+        const due = workspace.sections.find((s) => s.id === 'due_today');
+        // Prefer needs attention + due today; fall back to catalogue slice
+        const pin = [
+          ...(needs?.items ?? []),
+          ...(due?.items ?? []).filter((r) => !(needs?.items ?? []).some((n) => n.assignment.id === r.assignment.id)),
+        ];
+        setMyWorkRecords(pin.length > 0 ? pin.slice(0, 8) : mine.slice(0, 8));
+      })
+      .catch(() => setMyWorkRecords([]))
+      .finally(() => setAssignmentsLoading(false));
+  }, [activeOrgId, identityKeys]);
 
   useEffect(() => {
     if (!user || !activeOrgId) { setDrafts([]); setDraftsLoading(false); return; }
@@ -130,13 +164,6 @@ export default function DashboardPage() {
       .catch(() => setActivities([]))
       .finally(() => setLoadingExtras(false));
   }, [user, activeOrgId]);
-
-  const myOpenAssignments = useMemo(() => {
-    const open = new Set(['assigned', 'accepted', 'in_progress', 'review', 'blocked']);
-    return assignments.filter(
-      (a) => assignmentMatchesIdentity(a, identityKeys) && open.has(a.status),
-    );
-  }, [assignments, identityKeys]);
 
   const greeting = useMemo(() => getGreeting(), []);
   const firstName = useMemo(() => getFirstName(user), [user]);
@@ -199,13 +226,6 @@ export default function DashboardPage() {
       })
       .slice(0, 5);
   }, [releases]);
-
-  const priorityStyles: Record<string, string> = {
-    low: 'bg-surface-800 text-text-400',
-    medium: 'bg-info-500/15 text-info-400',
-    high: 'bg-warning-500/15 text-warning-400',
-    critical: 'bg-danger-500/15 text-danger-400',
-  };
 
   if (!orgsLoaded || releasesLoading) {
     return <div className="flex items-center justify-center py-32"><LoadingState /></div>;
@@ -364,27 +384,19 @@ export default function DashboardPage() {
 
       <div className="grid gap-8 sm:grid-cols-2">
         <div>
-          <h2 className="text-sm font-semibold text-primary-400 mb-4">Waiting for You</h2>
-          {assignmentsLoading ? <LoadingState /> : myOpenAssignments.length === 0 ? (
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-primary-400">My Work</h2>
+            <Link href="/assignments" className="text-xs text-primary-400 hover:text-primary-300 font-medium">
+              Open workspace
+            </Link>
+          </div>
+          {assignmentsLoading ? <LoadingState /> : myWorkRecords.length === 0 ? (
             <p className="text-sm text-text-500">No assignments require your attention.<br/>You&apos;re all caught up.</p>
           ) : (
-            <div className="space-y-2">
-              {myOpenAssignments.slice(0, 8).map((a) => {
-                const dueDate = toDate(a.dueDate);
-                return (
-                  <Link
-                    key={a.id}
-                    href={`/assignments/${a.id}`}
-                    className="block rounded-xl border border-surface-700/60 bg-surface-900 px-4 py-3 hover:border-primary-500/40 transition-all duration-150"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-surface-100 truncate">{a.title}</p>
-                      <span className={`text-caption font-medium px-2 py-0.5 rounded-full ${priorityStyles[a.priority] ?? 'bg-surface-800 text-text-400'}`}>{a.priority}</span>
-                    </div>
-                    {dueDate && <p className="text-xs text-text-500 mt-1">Due {timeAgo(dueDate)}</p>}
-                  </Link>
-                );
-              })}
+            <div className="space-y-2" data-assignment-card-grid data-count={myWorkRecords.length}>
+              {myWorkRecords.map((r) => (
+                <AssignmentCard key={r.assignment.id} record={r} mode="compact" />
+              ))}
             </div>
           )}
         </div>
