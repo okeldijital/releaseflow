@@ -131,9 +131,14 @@ service cloud.firestore {
       allow create: if isAuth()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.organizationId is string
-        && isManagerOrAbove(request.resource.data.organizationId);
+        && isManagerOrAbove(request.resource.data.organizationId)
+        && request.resource.data.lifecycle in ['draft', 'active', 'archived', 'cancelled', 'expired']
+        && request.resource.data.version == 1;
       allow update: if isAuth()
-        && isManagerOrAbove(resource.data.organizationId);
+        && isManagerOrAbove(resource.data.organizationId)
+        && request.resource.data.organizationId == resource.data.organizationId
+        && request.resource.data.lifecycle in ['draft', 'active', 'archived', 'cancelled', 'expired']
+        && (resource.data.version == null || request.resource.data.version is int && request.resource.data.version >= resource.data.version);
       allow delete: if isAuth()
         && isAdminOrAbove(resource.data.organizationId);
     }

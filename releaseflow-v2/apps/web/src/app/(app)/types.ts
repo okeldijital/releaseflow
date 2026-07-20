@@ -11,7 +11,7 @@ export interface Organization {
 export type ReleaseType = 'single' | 'ep' | 'album' | 'remix' | 'compilation';
 
 export type RecordingType = 'original' | 'remix';
-export type ReleaseLifecycle = 'draft' | 'active' | 'archived' | 'cancelled';
+export type ReleaseLifecycle = 'draft' | 'active' | 'archived' | 'cancelled' | 'expired';
 export type ReleaseStatus = 'planning' | 'in_production' | 'on_hold' | 'ready_for_distribution' | 'released' | 'archived' | 'cancelled';
 
 export interface Release {
