@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { ReleaseWizard } from '@/components/release/wizard/ReleaseWizard';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
-import { fetchDraftsByUser } from '@/lib/release-service';
+import { fetchOrganizationDrafts } from '@/lib/release-service';
 import { deleteRelease } from '@/lib/release-repository';
+import { resolveDraftDisplayTitle } from '@/lib/draft-discovery';
 import { LoadingState } from '@releaseflow/ui';
 import { RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-config';
 import type { ReleaseRecord } from '@/lib/release-repository';
@@ -63,39 +64,53 @@ export default function NewReleasePage() {
   const [checkingDraft, setCheckingDraft] = useState(true);
   const [drafts, setDrafts] = useState<ReleaseRecord[]>([]);
   const [resumeDraftId, setResumeDraftId] = useState<string | undefined>(undefined);
+  const [urlDraftResolved, setUrlDraftResolved] = useState(false);
   const [discarding, setDiscarding] = useState(false);
 
+  // BUG-009B: honour ?draftId= from ReleaseCard / detail redirect so Continue resumes the same draft.
   useEffect(() => {
-    async function check() {
-      if (!user || !activeOrgId) {
-        setCheckingDraft(false);
-        return;
-      }
-      try {
-        const allDrafts = await fetchDraftsByUser(activeOrgId, user.uid);
-        setDrafts(allDrafts);
-      } catch {
-        // ignore
-      } finally {
-        setCheckingDraft(false);
-      }
+    const id = new URLSearchParams(window.location.search).get('draftId');
+    if (id) setResumeDraftId(id);
+    setUrlDraftResolved(true);
+  }, []);
+
+  const loadDrafts = async () => {
+    if (!user || !activeOrgId) {
+      setDrafts([]);
+      setCheckingDraft(false);
+      return;
     }
-    check();
+    try {
+      // BUG-009: org-scoped lifecycle==draft only (no owner/readiness filters).
+      const allDrafts = await fetchOrganizationDrafts(activeOrgId);
+      setDrafts(allDrafts);
+    } catch (err) {
+      console.error('[drafts] failed to load draft list', err);
+      setDrafts([]);
+    } finally {
+      setCheckingDraft(false);
+    }
+  };
+
+  useEffect(() => {
+    setCheckingDraft(true);
+    void loadDrafts();
   }, [user, activeOrgId]);
 
   async function handleDiscard(id: string) {
     setDiscarding(true);
     try {
       await deleteRelease(id);
+      // Immediate local update — no browser refresh required
       setDrafts((p) => p.filter((d) => d.id !== id));
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[drafts] delete failed', err);
     } finally {
       setDiscarding(false);
     }
   }
 
-  if (checkingDraft) {
+  if (checkingDraft || !urlDraftResolved) {
     return (
       <div className="mx-auto max-w-lg px-5 sm:px-7 py-12 page-transition">
         <div className="flex items-center justify-center py-20"><LoadingState /></div>
@@ -113,14 +128,16 @@ export default function NewReleasePage() {
               <div key={draft.id} className="p-5 space-y-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <h3 className="font-semibold text-primary-400 truncate">{draft.title || 'Untitled Draft'}</h3>
+                    <h3 className="font-semibold text-primary-400 truncate">
+                      {resolveDraftDisplayTitle(draft)}
+                    </h3>
                     <p className="text-xs text-text-500 mt-0.5">{RELEASE_TYPE_LABELS[wd.releaseType as string] ?? '—'}</p>
                   </div>
                   <span className="text-xs font-medium text-text-500 whitespace-nowrap">{getCompletionLabel(wd)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-text-500">
                   <span>Current step: {getCurrentStepLabel(wd)}</span>
-                  <span>Updated {fmtDate(draft.updatedAt)}</span>
+                  <span>Last saved {fmtDate(draft.updatedAt)}</span>
                 </div>
                 <div className="flex items-center gap-2 pt-1">
                   <button
@@ -136,7 +153,7 @@ export default function NewReleasePage() {
                     disabled={discarding}
                     className="h-10 px-4 rounded-lg border border-surface-700 bg-transparent text-text-400 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 transition-all"
                   >
-                    {discarding ? 'Deleting...' : 'Delete'}
+                    {discarding ? 'Deleting...' : 'Delete Draft'}
                   </button>
                 </div>
               </div>

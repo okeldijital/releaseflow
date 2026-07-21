@@ -175,8 +175,11 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
   // Draft resume mode: hydrate from persisted draft data
   useEffect(() => {
     if (mode !== 'create' || !resumeDraftId) return;
+    // BUG-009: always bind resume id so Continue updates the same draft (never creates a new one).
+    currentDraftId.current = resumeDraftId;
     async function load() {
       if (!resumeDraftId) return;
+      setLoadingEdit(true);
       const data = await fetchRelease(resumeDraftId);
       if (!data || !data.wizardData) { setLoadingEdit(false); return; }
       const wd = data.wizardData as unknown as WizardDraftData;
@@ -399,7 +402,15 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
   }
 
   async function saveDraft() {
-    if (!user || !activeOrgId) return;
+    // BUG-009B: never silently no-op — user must know why draft is not discoverable.
+    if (!user) {
+      setError('You must be signed in to save a draft.');
+      return;
+    }
+    if (!activeOrgId) {
+      setError('Select an organisation before saving a draft.');
+      return;
+    }
     if (!releaseTitle.trim()) {
       setError('Release title is required to save a draft.');
       return;

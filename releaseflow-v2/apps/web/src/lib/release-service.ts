@@ -10,6 +10,7 @@ import {
   updateReleaseStatus,
   getDraftByUser,
   getDraftsByUser,
+  getOrganizationDrafts,
   createReleaseDraft,
   updateReleaseDraft,
   completeDraft,
@@ -224,6 +225,11 @@ export async function fetchDraftByUser(orgId: string, userId: string) {
 
 export async function fetchDraftsByUser(orgId: string, userId: string) {
   return getDraftsByUser(orgId, userId);
+}
+
+/** BUG-009 — org-scoped draft list for Draft Releases page + Dashboard widget. */
+export async function fetchOrganizationDrafts(orgId: string) {
+  return getOrganizationDrafts(orgId);
 }
 
 export async function saveReleaseDraft(

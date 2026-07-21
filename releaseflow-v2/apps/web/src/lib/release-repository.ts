@@ -166,11 +166,13 @@ export async function getReleases(orgId: string, options: ReleaseQueryOptions = 
   const snap = await getDocs(q);
   let results = snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
 
-  if (lifecycle && lifecycle.length > 1) {
+  // BUG-009: always re-apply lifecycle/status in memory. Combining lifecycle + userId
+  // previously overwrote the Firestore query and dropped the lifecycle constraint.
+  if (lifecycle && lifecycle.length > 0) {
     results = results.filter((r) => lifecycle.includes(r.lifecycle));
   }
 
-  if (status && status.length > 1) {
+  if (status && status.length > 0) {
     results = results.filter((r) => status.includes(r.status));
   }
 
@@ -322,7 +324,9 @@ export async function getRecentlyUpdatedReleases(orgId: string, limit = 10): Pro
 }
 
 export async function getDraftReleases(orgId: string, userId?: string): Promise<ReleaseRecord[]> {
-  return getReleases(orgId, { lifecycle: ['draft'], userId });
+  // BUG-009: dedicated draft queries with fallbacks (not getReleases, which dropped lifecycle when userId set).
+  if (userId) return getDraftsByUser(orgId, userId);
+  return getOrganizationDrafts(orgId);
 }
 
 export async function getActiveReleases(orgId: string): Promise<ReleaseRecord[]> {
@@ -681,15 +685,93 @@ export async function getDraftByUser(orgId: string, userId: string): Promise<Rel
 export async function getDraftsByUser(orgId: string, userId: string): Promise<ReleaseRecord[]> {
   const db = getDb();
   if (!db) return [];
-  const q = query(
-    collection(db, 'releases'),
-    where('organizationId', '==', orgId),
-    where('createdBy', '==', userId),
-    where('lifecycle', '==', 'draft'),
-    orderBy('updatedAt', 'desc'),
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+
+  const mapDocs = (docs: { id: string; data: () => Record<string, unknown> }[]) =>
+    docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, 'releases'),
+        where('organizationId', '==', orgId),
+        where('createdBy', '==', userId),
+        where('lifecycle', '==', 'draft'),
+        orderBy('updatedAt', 'desc'),
+      ),
+    );
+    return mapDocs(snap.docs);
+  } catch (err) {
+    // BUG-009A Option A: primary path needs composite index
+    // (organizationId, createdBy, lifecycle, updatedAt). Index is defined in
+    // firestore.indexes.json. Fallback only if that query throws (undeployed index).
+    // Membership filter is identical: org + lifecycle draft + createdBy (client-side).
+    console.error('[drafts] getDraftsByUser ordered query failed; falling back', err);
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, 'releases'),
+          where('organizationId', '==', orgId),
+          where('lifecycle', '==', 'draft'),
+        ),
+      );
+      return mapDocs(snap.docs)
+        .filter((r) => r.createdBy === userId)
+        .sort((a, b) => getDateValue(b.updatedAt) - getDateValue(a.updatedAt));
+    } catch (err2) {
+      console.error('[drafts] getDraftsByUser fallback failed', err2);
+      return [];
+    }
+  }
+}
+
+/**
+ * BUG-009 — Org-scoped draft discovery (lifecycle == draft only).
+ * No owner / readiness / assignment filters. Safe for Draft list + Dashboard.
+ */
+export async function getOrganizationDrafts(orgId: string): Promise<ReleaseRecord[]> {
+  const db = getDb();
+  if (!db || !orgId) return [];
+
+  const mapDocs = (docs: { id: string; data: () => Record<string, unknown> }[]) =>
+    docs.map((d) => ({ id: d.id, ...d.data(), artwork: null }) as ReleaseRecord);
+
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, 'releases'),
+        where('organizationId', '==', orgId),
+        where('lifecycle', '==', 'draft'),
+        orderBy('updatedAt', 'desc'),
+      ),
+    );
+    return mapDocs(snap.docs);
+  } catch (err) {
+    // BUG-009A Option A: primary path needs composite index
+    // (organizationId ASC, lifecycle ASC, updatedAt DESC) — present in firestore.indexes.json.
+    // Fallback: equality-only (org + lifecycle==draft) + client sort by updatedAt.
+    // Document set membership is identical to the ordered query.
+    console.error('[drafts] getOrganizationDrafts ordered query failed; falling back', err);
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, 'releases'),
+          where('organizationId', '==', orgId),
+          where('lifecycle', '==', 'draft'),
+        ),
+      );
+      return mapDocs(snap.docs).sort(
+        (a, b) => getDateValue(b.updatedAt) - getDateValue(a.updatedAt),
+      );
+    } catch (err2) {
+      console.error('[drafts] getOrganizationDrafts fallback failed', err2);
+      return [];
+    }
+  }
+}
+
+/** BUG-009B: Firestore rejects `undefined` field values — strip before write. */
+function sanitizeForFirestore<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 export async function createReleaseDraft(
@@ -699,30 +781,43 @@ export async function createReleaseDraft(
 ): Promise<string> {
   const db = getDb();
   if (!db) throw new Error('Firestore unavailable');
+  const safeWizard = sanitizeForFirestore(wizardData);
   const ref = await addDoc(collection(db, 'releases'), {
-    ...fields,
+    title: fields.title,
+    releaseType: fields.releaseType,
     status: 'planning',
     lifecycle: 'draft',
+    organizationId: fields.organizationId,
+    createdBy: fields.createdBy,
     version: 1,
-    wizardData,
+    wizardData: safeWizard,
     targetReleaseDate: fields.targetReleaseDate
       ? Timestamp.fromDate(fields.targetReleaseDate)
       : null,
     estimatedReleaseDate: fields.estimatedReleaseDate
       ? Timestamp.fromDate(fields.estimatedReleaseDate)
       : null,
+    upc: fields.upc ?? null,
+    label: fields.label ?? null,
+    genre: fields.genre ?? null,
+    releaseLink: fields.releaseLink ?? null,
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
-  await recordActivity({
-    entityType: 'release',
-    entityId: ref.id,
-    organizationId: fields.organizationId,
-    actorId,
-    action: 'release.draft.created',
-    metadata: { title: fields.title, releaseType: fields.releaseType },
-    details: 'Draft created',
-  });
+  try {
+    await recordActivity({
+      entityType: 'release',
+      entityId: ref.id,
+      organizationId: fields.organizationId,
+      actorId,
+      action: 'release.draft.created',
+      metadata: { title: fields.title, releaseType: fields.releaseType },
+      details: 'Draft created',
+    });
+  } catch (activityErr) {
+    // Draft is already written — do not fail Save Draft if activity logging fails.
+    console.error('[drafts] createReleaseDraft activity log failed (non-blocking)', activityErr);
+  }
   return ref.id;
 }
 
@@ -741,21 +836,28 @@ export async function updateReleaseDraft(
     throw new Error('Draft was updated elsewhere. Please reload.');
   }
   const nextVersion = currentVersion + 1;
-  await updateDoc(doc(db, 'releases', releaseId), {
-    wizardData,
-    version: nextVersion,
+  // BUG-009: keep document title in sync with wizard so draft lists show the current name.
+  const { buildDraftSavePatch } = await import('@/lib/draft-discovery');
+  const safeWizard = sanitizeForFirestore(wizardData);
+  const patch = {
+    ...buildDraftSavePatch(safeWizard, nextVersion),
     updatedAt: Timestamp.now(),
-  });
+  };
+  await updateDoc(doc(db, 'releases', releaseId), patch);
   const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined ?? '';
-  await recordActivity({
-    entityType: 'release',
-    entityId: releaseId,
-    organizationId,
-    actorId,
-    action: 'release.draft.saved',
-    metadata: { version: nextVersion },
-    details: 'Draft saved',
-  });
+  try {
+    await recordActivity({
+      entityType: 'release',
+      entityId: releaseId,
+      organizationId,
+      actorId,
+      action: 'release.draft.saved',
+      metadata: { version: nextVersion },
+      details: 'Draft saved',
+    });
+  } catch (activityErr) {
+    console.error('[drafts] updateReleaseDraft activity log failed (non-blocking)', activityErr);
+  }
 }
 
 export async function completeDraft(
@@ -765,26 +867,34 @@ export async function completeDraft(
   const db = getDb();
   if (!db) throw new Error('Firestore unavailable');
   const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
-  const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined ?? '';
+  const existing = (releaseSnap.data() as Record<string, unknown> | undefined) ?? {};
+  const organizationId = (existing.organizationId as string | undefined) ?? '';
+  const currentVersion = typeof existing.version === 'number' ? existing.version : 0;
   const { AuthorizationService } = await import('@/lib/auth/authorization-service');
   if (organizationId) {
     await AuthorizationService.requireEditRelease(organizationId, actorId);
   }
+  // Firestore rules require request.resource.data.version >= resource.data.version.
+  // Do not reset version to 0 — that rejects the complete write (BUG-009B live verify).
   await updateDoc(doc(db, 'releases', releaseId), {
     lifecycle: 'active',
     wizardData: null,
-    version: 0,
+    version: currentVersion + 1,
     updatedAt: Timestamp.now(),
   });
-  await recordActivity({
-    entityType: 'release',
-    entityId: releaseId,
-    organizationId,
-    actorId,
-    action: 'release.draft.completed',
-    metadata: { newStatus: 'planning' },
-    details: 'Draft completed',
-  });
+  try {
+    await recordActivity({
+      entityType: 'release',
+      entityId: releaseId,
+      organizationId,
+      actorId,
+      action: 'release.draft.completed',
+      metadata: { newStatus: 'planning' },
+      details: 'Draft completed',
+    });
+  } catch (activityErr) {
+    console.error('[drafts] completeDraft activity log failed (non-blocking)', activityErr);
+  }
 }
 
 export async function markExpiredDrafts(olderThanDays = 180): Promise<{ marked: number }> {

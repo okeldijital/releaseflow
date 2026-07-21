@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { completeUserOnboarding } from '@/lib/user-profile-repository';
+import { useOrgStore } from '@/stores/org-store';
 import { OnboardingBrandBar } from '@/components/branding/onboarding-brand-bar';
 
 export default function CompletePage() {
@@ -32,6 +33,12 @@ export default function CompletePage() {
         defaultOrganizationId: companyId || null,
       });
     } catch { /* best effort */ }
+
+    // BUG-009B: bind active org so Save Draft / draft list work immediately after onboarding.
+    if (companyId) {
+      useOrgStore.getState().setActiveOrgId(companyId);
+      useOrgStore.getState().setOrgsLoaded(true);
+    }
 
     setTimeout(() => router.replace('/dashboard'), 1500);
   }

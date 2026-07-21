@@ -20,7 +20,6 @@ import {
 } from '@/lib/assignment-workspace-service';
 import { buildAssignmentWorkspace } from '@/lib/assignment-workspace';
 import { getOrgReadinessSummaries } from '@/lib/release-readiness-service';
-import { fetchReleasesByOrg } from '@/lib/release-service';
 import type { Release } from '@/app/(app)/types';
 
 function timeAgo(d: Date): string {
@@ -148,13 +147,17 @@ export default function DashboardPage() {
       .finally(() => setAssignmentsLoading(false));
   }, [activeOrgId, identityKeys]);
 
+  // BUG-009: load drafts via dedicated draft query (lifecycle == draft), not full catalogue filter.
   useEffect(() => {
     if (!user || !activeOrgId) { setDrafts([]); setDraftsLoading(false); return; }
     setDraftsLoading(true);
-    void fetchReleasesByOrg(activeOrgId).then((all) => {
-      const draftReleases = all.filter((r) => r.lifecycle === 'draft').slice(0, 5);
-      setDrafts(draftReleases);
-    }).catch(() => setDrafts([])).finally(() => setDraftsLoading(false));
+    void import('@/lib/release-service')
+      .then(({ fetchOrganizationDrafts }) => fetchOrganizationDrafts(activeOrgId))
+      .then((draftReleases) => {
+        setDrafts(draftReleases.slice(0, 5) as Release[]);
+      })
+      .catch(() => setDrafts([]))
+      .finally(() => setDraftsLoading(false));
   }, [user, activeOrgId, releases.length]);
 
   useEffect(() => {
@@ -239,7 +242,9 @@ export default function DashboardPage() {
     );
   }
 
-  if (releases.length === 0) {
+  // BUG-009B: do not hide the Draft widget when the only releases are drafts.
+  // Empty catalogue still shows draft section below (or empty-state with draft path).
+  if (releases.length === 0 && drafts.length === 0 && !draftsLoading) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-24 text-center page-transition">
         <EmptyState title="Welcome to ReleaseFlow" description="Create your first release to begin managing production, legal, distribution and collaboration." action={{ label: 'New Release', onClick: () => router.push('/releases/new') }} />
