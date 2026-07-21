@@ -178,6 +178,10 @@ export default function NewTrackPage() {
   const [title, setTitle] = useState('');
   const [version, setVersion] = useState('');
   const [recordingType, setRecordingType] = useState<RecordingType>('original');
+  // BUILD-011 — Original Work (song being remixed); kept in memory when switching type away from remix
+  const [originalWorkTitle, setOriginalWorkTitle] = useState('');
+  const [originalWorkPrimaryArtistId, setOriginalWorkPrimaryArtistId] = useState('');
+  const [originalWorkFeaturedArtists, setOriginalWorkFeaturedArtists] = useState<RepeatableArtistEntry[]>([]);
   const [primaryArtistId, setPrimaryArtistId] = useState('');
   const [featuredArtists, setFeaturedArtists] = useState<RepeatableArtistEntry[]>([]);
   const [originalArtists, setOriginalArtists] = useState<RepeatableArtistEntry[]>([]);
@@ -188,6 +192,8 @@ export default function NewTrackPage() {
     originalArtists?: string;
     remixArtists?: string;
     featuredArtists?: string;
+    originalWorkTitle?: string;
+    originalWorkPrimaryArtist?: string;
   }>({});
 
   const [productionStage, setProductionStage] = useState<ProductionStage>('demo');
@@ -328,11 +334,24 @@ export default function NewTrackPage() {
   function validateBasics(): boolean {
     if (!title.trim()) return false;
     if (recordingType !== 'remix') return true;
-    const errors: { originalArtists?: string; remixArtists?: string } = {};
+    const errors: {
+      originalArtists?: string;
+      remixArtists?: string;
+      originalWorkTitle?: string;
+      originalWorkPrimaryArtist?: string;
+    } = {};
+    // BUILD-011 — Original Work required for remix
+    if (!originalWorkTitle.trim()) {
+      errors.originalWorkTitle = 'Original Song Title is required for remix tracks.';
+    }
+    if (!originalWorkPrimaryArtistId.trim()) {
+      errors.originalWorkPrimaryArtist = 'Original Primary Artist is required for remix tracks.';
+    }
     if (originalArtists.length === 0) errors.originalArtists = 'At least one Original Artist is required for remix recordings.';
     if (remixArtists.length === 0) errors.remixArtists = 'At least one Remix Artist is required for remix recordings.';
     setRemixErrors(errors);
-    return !errors.originalArtists && !errors.remixArtists;
+    return !errors.originalArtists && !errors.remixArtists
+      && !errors.originalWorkTitle && !errors.originalWorkPrimaryArtist;
   }
 
   function addCredit(role: CreditRoleKey, name: string) {
@@ -446,6 +465,14 @@ export default function NewTrackPage() {
         originalArtistIds: originalIds,
         featuredArtistIds: featuredIds,
         remixArtistIds: remixIds,
+        // BUILD-011 — only persist nested originalWork for remix
+        originalWork: recordingType === 'remix'
+          ? {
+              title: originalWorkTitle.trim(),
+              primaryArtistId: originalWorkPrimaryArtistId,
+              featuredArtistIds: originalWorkFeaturedArtists.map((e) => e.artistId).filter(Boolean),
+            }
+          : null,
         displayTitle: displayTitle.trim() || null,
         displayTitleEdited,
         isrc: isrc.trim() || undefined,
@@ -574,6 +601,12 @@ export default function NewTrackPage() {
           setVersion={setVersion}
           recordingType={recordingType}
           setRecordingType={setRecordingType}
+          originalWorkTitle={originalWorkTitle}
+          setOriginalWorkTitle={setOriginalWorkTitle}
+          originalWorkPrimaryArtistId={originalWorkPrimaryArtistId}
+          setOriginalWorkPrimaryArtistId={setOriginalWorkPrimaryArtistId}
+          originalWorkFeaturedArtists={originalWorkFeaturedArtists}
+          setOriginalWorkFeaturedArtists={setOriginalWorkFeaturedArtists}
           primaryArtistId={primaryArtistId}
           setPrimaryArtistId={setPrimaryArtistId}
           featuredArtists={featuredArtists}
@@ -797,6 +830,9 @@ function SectionStatusBadge({ status }: { status?: SectionStatus }) {
 
 function BasicsStep({
   title, setTitle, version, setVersion, recordingType, setRecordingType,
+  originalWorkTitle, setOriginalWorkTitle,
+  originalWorkPrimaryArtistId, setOriginalWorkPrimaryArtistId,
+  originalWorkFeaturedArtists, setOriginalWorkFeaturedArtists,
   primaryArtistId, setPrimaryArtistId, featuredArtists, setFeaturedArtists,
   originalArtists, setOriginalArtists, remixArtists, setRemixArtists,
   displayTitle, setDisplayTitle, setDisplayTitleEdited, remixErrors, setRemixErrors,
@@ -808,6 +844,12 @@ function BasicsStep({
   setVersion: (v: string) => void;
   recordingType: RecordingType;
   setRecordingType: (v: RecordingType) => void;
+  originalWorkTitle: string;
+  setOriginalWorkTitle: (v: string) => void;
+  originalWorkPrimaryArtistId: string;
+  setOriginalWorkPrimaryArtistId: (v: string) => void;
+  originalWorkFeaturedArtists: RepeatableArtistEntry[];
+  setOriginalWorkFeaturedArtists: Dispatch<SetStateAction<RepeatableArtistEntry[]>>;
   primaryArtistId: string;
   setPrimaryArtistId: (v: string) => void;
   featuredArtists: RepeatableArtistEntry[];
@@ -819,8 +861,20 @@ function BasicsStep({
   displayTitle: string;
   setDisplayTitle: (v: string) => void;
   setDisplayTitleEdited: (v: boolean) => void;
-  remixErrors: { originalArtists?: string; remixArtists?: string; featuredArtists?: string };
-  setRemixErrors: Dispatch<SetStateAction<{ originalArtists?: string; remixArtists?: string; featuredArtists?: string }>>;
+  remixErrors: {
+    originalArtists?: string;
+    remixArtists?: string;
+    featuredArtists?: string;
+    originalWorkTitle?: string;
+    originalWorkPrimaryArtist?: string;
+  };
+  setRemixErrors: Dispatch<SetStateAction<{
+    originalArtists?: string;
+    remixArtists?: string;
+    featuredArtists?: string;
+    originalWorkTitle?: string;
+    originalWorkPrimaryArtist?: string;
+  }>>;
   artists: ArtistOption[];
   activeOrgId: string | null;
   onArtistCreated: (a: ArtistOption) => void;
@@ -865,7 +919,12 @@ function BasicsStep({
             checked={recordingType === 'original'}
             onChange={() => {
               setRecordingType('original');
-              setRemixErrors({});
+              // Keep Original Work values in memory; only hide section (BUILD-011)
+              setRemixErrors((p) => ({
+                ...p,
+                originalWorkTitle: undefined,
+                originalWorkPrimaryArtist: undefined,
+              }));
               setDisplayTitleEdited(false);
               regenerateDisplayTitle({ nextType: 'original' });
             }}
@@ -886,6 +945,66 @@ function BasicsStep({
           Remix
         </label>
       </div>
+
+      {/* BUILD-011 — Original Work (song being remixed); only when Type = Remix */}
+      {recordingType === 'remix' ? (
+        <div className="mt-4 rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-4">
+          <div>
+            <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Original Work</p>
+            <p className="text-xs text-text-500 mt-1">Information about the original song being remixed.</p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-text-400">Original Song Title</label>
+            <input
+              type="text"
+              value={originalWorkTitle}
+              onChange={(e) => {
+                setOriginalWorkTitle(e.target.value);
+                setRemixErrors((p) => ({ ...p, originalWorkTitle: undefined }));
+              }}
+              placeholder="e.g. Dreams"
+              className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
+            />
+            {remixErrors.originalWorkTitle ? (
+              <p className="text-xs text-danger-400">{remixErrors.originalWorkTitle}</p>
+            ) : null}
+          </div>
+          <ArtistFieldPicker
+            key="track-original-work-primary"
+            instanceId="track-original-work-primary"
+            label="Original Primary Artist"
+            value={originalWorkPrimaryArtistId}
+            onChange={(id) => {
+              setOriginalWorkPrimaryArtistId(id);
+              setRemixErrors((p) => ({ ...p, originalWorkPrimaryArtist: undefined }));
+            }}
+            artists={artists}
+            organizationId={activeOrgId}
+            onArtistCreated={onArtistCreated}
+          />
+          {remixErrors.originalWorkPrimaryArtist ? (
+            <p className="text-xs text-danger-400">{remixErrors.originalWorkPrimaryArtist}</p>
+          ) : null}
+          <ArtistRelationshipList
+            instanceId="track-original-work-featured"
+            role="featured"
+            entries={originalWorkFeaturedArtists}
+            artists={artists}
+            organizationId={activeOrgId}
+            onAdd={(artistId) => {
+              setOriginalWorkFeaturedArtists((p) => {
+                if (p.some((e) => e.artistId === artistId)) return p;
+                return [...p, { id: uid(), artistId }];
+              });
+            }}
+            onRemove={(entryId) => {
+              setOriginalWorkFeaturedArtists((p) => p.filter((e) => e.id !== entryId));
+            }}
+            onReorder={setOriginalWorkFeaturedArtists}
+            onArtistCreated={onArtistCreated}
+          />
+        </div>
+      ) : null}
 
       <div className="mt-4 space-y-3">
         {recordingType === 'original' ? (

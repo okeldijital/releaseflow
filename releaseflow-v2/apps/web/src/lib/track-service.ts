@@ -13,15 +13,19 @@ import {
 } from './track-artist-repository';
 import {
   createTrack, updateTrack, getTrack, getTracksByOrg, archiveTrack, deleteTrack,
+  serializeOriginalWork,
+  type OriginalWork,
 } from './track-repository';
 import type {
   CreateTrackFields, UpdateTrackFields, TrackRecord,
 } from './track-repository';
 import { recordActivity } from './activity-service';
 import { generateSuggestedDisplayTitle } from './display-title';
+import { resolveRecordingType } from './recording-type';
 
-export type { TrackRecord, CreateTrackFields, UpdateTrackFields } from './track-repository';
+export type { TrackRecord, CreateTrackFields, UpdateTrackFields, OriginalWork } from './track-repository';
 export type { TrackArtistRecord };
+export { normalizeOriginalWork, serializeOriginalWork } from './track-repository';
 
 export {
   getTracksAsOriginalArtist,
@@ -30,16 +34,50 @@ export {
   getAllArtistTracks,
 };
 
+/** BUILD-011 — remix-only Original Work validation. Non-remix: always ok. */
+export function validateOriginalWorkForRecordingType(
+  recordingType: CreateTrackFields['recordingType'] | UpdateTrackFields['recordingType'],
+  originalWork: OriginalWork | null | undefined,
+): string | null {
+  if (resolveRecordingType(recordingType) !== 'remix') return null;
+  if (!originalWork?.title?.trim()) {
+    return 'Original Song Title is required for remix tracks.';
+  }
+  if (!originalWork.primaryArtistId?.trim()) {
+    return 'Original Primary Artist is required for remix tracks.';
+  }
+  return null;
+}
+
 export async function createNewTrack(fields: CreateTrackFields): Promise<string> {
   if (!fields.title.trim()) throw new Error('Track title is required');
   if (!fields.organizationId) throw new Error('Organization ID is required');
   if (!fields.createdBy) throw new Error('Creator is required');
   if (!fields.releaseId) throw new Error('Track must belong to a release');
-  const track = await createTrack(fields);
+  const owError = validateOriginalWorkForRecordingType(fields.recordingType, fields.originalWork);
+  if (owError) throw new Error(owError);
+  const track = await createTrack({
+    ...fields,
+    originalWork: serializeOriginalWork(fields.recordingType, fields.originalWork),
+  });
   return track.id;
 }
 
 export async function editTrack(trackId: string, fields: UpdateTrackFields): Promise<void> {
+  // When originalWork is included, validate against recording type on the payload (or existing track).
+  if (fields.originalWork !== undefined || fields.recordingType !== undefined) {
+    let type = fields.recordingType;
+    if (type === undefined) {
+      const existing = await getTrack(trackId);
+      type = existing?.recordingType;
+    }
+    const work =
+      fields.originalWork !== undefined
+        ? fields.originalWork
+        : (await getTrack(trackId))?.originalWork;
+    const owError = validateOriginalWorkForRecordingType(type, work);
+    if (owError) throw new Error(owError);
+  }
   return updateTrack(trackId, fields);
 }
 
@@ -137,6 +175,7 @@ export async function duplicateTrack(trackId: string, createdBy: string): Promis
     originalArtistIds: original.originalArtistIds,
     featuredArtistIds: original.featuredArtistIds,
     remixArtistIds: original.remixArtistIds,
+    originalWork: original.originalWork ?? null,
     displayTitle: original.displayTitle,
     displayTitleEdited: original.displayTitleEdited,
     credits: original.credits,

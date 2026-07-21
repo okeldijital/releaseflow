@@ -13,6 +13,13 @@ export class TrackCreationError extends Error {
   }
 }
 
+/** BUILD-011 — song being remixed (only for recordingType === remix). */
+export interface OriginalWork {
+  title: string;
+  primaryArtistId: string;
+  featuredArtistIds: string[];
+}
+
 export interface TrackRecord {
   id: string;
   organizationId: string;
@@ -37,6 +44,8 @@ export interface TrackRecord {
   originalArtistIds?: string[];
   featuredArtistIds?: string[];
   remixArtistIds?: string[];
+  /** BUILD-011 — nested original song metadata; null/omitted when not a remix */
+  originalWork?: OriginalWork | null;
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
   credits?: TrackCredit[];
@@ -68,6 +77,7 @@ export interface CreateTrackFields {
   originalArtistIds?: string[];
   featuredArtistIds?: string[];
   remixArtistIds?: string[];
+  originalWork?: OriginalWork | null;
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
   credits?: TrackCredit[];
@@ -95,6 +105,7 @@ export interface UpdateTrackFields {
   originalArtistIds?: string[];
   featuredArtistIds?: string[];
   remixArtistIds?: string[];
+  originalWork?: OriginalWork | null;
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
   credits?: TrackCredit[];
@@ -104,6 +115,39 @@ export interface UpdateTrackFields {
 export function normalizeArtistIdArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((id): id is string => typeof id === 'string' && id.length > 0);
+}
+
+/** BUILD-011 — hydrate nested originalWork; empty/missing → null. */
+export function normalizeOriginalWork(value: unknown): OriginalWork | null {
+  if (!value || typeof value !== 'object') return null;
+  const v = value as Record<string, unknown>;
+  const title = typeof v.title === 'string' ? v.title : '';
+  const primaryArtistId = typeof v.primaryArtistId === 'string' ? v.primaryArtistId : '';
+  const featuredArtistIds = normalizeArtistIdArray(v.featuredArtistIds);
+  if (!title.trim() && !primaryArtistId && featuredArtistIds.length === 0) return null;
+  return {
+    title,
+    primaryArtistId,
+    featuredArtistIds,
+  };
+}
+
+/**
+ * BUILD-011 — persist shape for originalWork.
+ * Non-remix → null (clears prior remix original work on type change).
+ * Remix → nested object (never an empty placeholder without remix type).
+ */
+export function serializeOriginalWork(
+  recordingType: RecordingType | undefined,
+  originalWork: OriginalWork | null | undefined,
+): OriginalWork | null {
+  if (resolveRecordingType(recordingType) !== 'remix') return null;
+  if (!originalWork) return null;
+  return {
+    title: originalWork.title.trim(),
+    primaryArtistId: originalWork.primaryArtistId || '',
+    featuredArtistIds: normalizeArtistIdArray(originalWork.featuredArtistIds),
+  };
 }
 
 export async function createTrack(fields: CreateTrackFields): Promise<TrackRecord> {
@@ -122,6 +166,9 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
 
   const batch = writeBatch(db);
 
+  const recordingType = fields.recordingType ?? 'original';
+  const originalWork = serializeOriginalWork(recordingType, fields.originalWork);
+
   const trackRef = doc(collection(db, 'tracks'));
   batch.set(trackRef, {
     organizationId: fields.organizationId,
@@ -137,13 +184,15 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     genre: fields.genre ?? null,
     bpm: fields.bpm ?? null,
     musicalKey: fields.musicalKey ?? null,
-    recordingType: fields.recordingType ?? 'original',
+    recordingType,
     originalArtistId: fields.originalArtistId ?? null,
     remixerArtistId: fields.remixerArtistId ?? null,
     primaryArtistId: fields.primaryArtistId ?? null,
     originalArtistIds: normalizeArtistIdArray(fields.originalArtistIds),
     featuredArtistIds: normalizeArtistIdArray(fields.featuredArtistIds),
     remixArtistIds: normalizeArtistIdArray(fields.remixArtistIds),
+    // BUILD-011: only store nested object for remix; null for other types
+    originalWork,
     displayTitle: fields.displayTitle ?? null,
     displayTitleEdited: fields.displayTitleEdited ?? false,
     credits: fields.credits ?? null,
@@ -178,13 +227,14 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     genre: fields.genre,
     bpm: fields.bpm,
     musicalKey: fields.musicalKey,
-    recordingType: fields.recordingType ?? 'original',
+    recordingType,
     originalArtistId: fields.originalArtistId,
     remixerArtistId: fields.remixerArtistId,
     primaryArtistId: fields.primaryArtistId,
     originalArtistIds: normalizeArtistIdArray(fields.originalArtistIds),
     featuredArtistIds: normalizeArtistIdArray(fields.featuredArtistIds),
     remixArtistIds: normalizeArtistIdArray(fields.remixArtistIds),
+    originalWork,
     displayTitle: fields.displayTitle,
     displayTitleEdited: fields.displayTitleEdited,
     credits: fields.credits,
@@ -225,6 +275,19 @@ export async function updateTrack(trackId: string, fields: UpdateTrackFields): P
   if (fields.remixArtistIds !== undefined) {
     update.remixArtistIds = normalizeArtistIdArray(fields.remixArtistIds);
   }
+  if (fields.originalWork !== undefined) {
+    if (fields.originalWork === null) {
+      update.originalWork = null;
+    } else {
+      // Explicit originalWork payload is always the remix nested shape; honour recordingType when provided.
+      const typeForSerialize =
+        fields.recordingType !== undefined ? fields.recordingType : 'remix';
+      update.originalWork = serializeOriginalWork(typeForSerialize, fields.originalWork);
+    }
+  } else if (fields.recordingType !== undefined && resolveRecordingType(fields.recordingType) !== 'remix') {
+    // Leaving remix without explicit originalWork payload → clear nested object.
+    update.originalWork = null;
+  }
   if (fields.displayTitle !== undefined) update.displayTitle = fields.displayTitle;
   if (fields.displayTitleEdited !== undefined) update.displayTitleEdited = fields.displayTitleEdited;
   if (fields.credits !== undefined) update.credits = fields.credits;
@@ -237,13 +300,16 @@ export async function getTrack(trackId: string): Promise<TrackRecord | null> {
   const snap = await getDoc(doc(db, 'tracks', trackId));
   if (!snap.exists()) return null;
   const data = snap.data();
+  const recordingType = resolveRecordingType(data.recordingType);
   return {
     id: snap.id,
     ...data,
-    recordingType: resolveRecordingType(data.recordingType),
+    recordingType,
     originalArtistIds: normalizeArtistIdArray(data.originalArtistIds),
     featuredArtistIds: normalizeArtistIdArray(data.featuredArtistIds),
     remixArtistIds: normalizeArtistIdArray(data.remixArtistIds),
+    originalWork:
+      recordingType === 'remix' ? normalizeOriginalWork(data.originalWork) : null,
   } as TrackRecord;
 }
 
@@ -258,13 +324,16 @@ export async function getTracksByOrg(orgId: string): Promise<TrackRecord[]> {
   const snap = await getDocs(q);
   return snap.docs.map((d) => {
     const data = d.data();
+    const recordingType = resolveRecordingType(data.recordingType);
     return {
       id: d.id,
       ...data,
-      recordingType: resolveRecordingType(data.recordingType),
+      recordingType,
       originalArtistIds: normalizeArtistIdArray(data.originalArtistIds),
       featuredArtistIds: normalizeArtistIdArray(data.featuredArtistIds),
       remixArtistIds: normalizeArtistIdArray(data.remixArtistIds),
+      originalWork:
+        recordingType === 'remix' ? normalizeOriginalWork(data.originalWork) : null,
     } as TrackRecord;
   });
 }

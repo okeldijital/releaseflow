@@ -34,6 +34,7 @@ import {
   type ArtistOption,
   type RepeatableArtistEntry,
 } from '@/components/artists/artist-relationship-list';
+import { ArtistFieldPicker } from '@/components/artist-field-picker';
 import { useArtists } from '@/hooks/useArtist';
 import {
   generateSuggestedDisplayTitle,
@@ -118,6 +119,26 @@ function fmtDurationDisplay(seconds?: number): string {
 function formatDuration(seconds?: number): string {
   if (!seconds) return '—';
   return fmtDurationDisplay(seconds);
+}
+
+/** BUILD-011 — resolve artist name for Original Work display without new picker UI. */
+function OriginalWorkArtistName({
+  artistId,
+  organizationId,
+}: {
+  artistId: string;
+  organizationId: string | null;
+}) {
+  const [name, setName] = useState<string>(artistId);
+  useEffect(() => {
+    let cancelled = false;
+    if (!organizationId || !artistId) return;
+    void fetchArtist(organizationId, artistId).then((a) => {
+      if (!cancelled && a?.name) setName(a.name);
+    }).catch(() => { /* keep id fallback */ });
+    return () => { cancelled = true; };
+  }, [artistId, organizationId]);
+  return <>{name}</>;
 }
 
 const GENRE_PRESETS = [
@@ -418,7 +439,63 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
               )}
             </div>
 
-            {/* EPIC-202A — structured artist credits in track header */}
+            {/* BUILD-011 — Original Work (remix only), before remix recording metadata */}
+            {recordingType === 'remix' && track.originalWork ? (
+              <div className="mt-4 rounded-xl border border-surface-200 bg-layer-1 p-4 space-y-3">
+                <p className="text-[10px] font-semibold text-content-label uppercase tracking-wider">
+                  Original Work
+                </p>
+                <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <dt className="text-content-secondary text-xs mb-0.5">Original Song</dt>
+                    <dd className="text-content-primary font-medium">
+                      {track.originalWork.title || '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-content-secondary text-xs mb-0.5">Original Artist</dt>
+                    <dd className="text-content-primary font-medium">
+                      {track.originalWork.primaryArtistId ? (
+                        <Link
+                          href={`/artists/${track.originalWork.primaryArtistId}`}
+                          className="hover:text-primary-500 transition-colors"
+                        >
+                          <OriginalWorkArtistName
+                            artistId={track.originalWork.primaryArtistId}
+                            organizationId={activeOrgId}
+                          />
+                        </Link>
+                      ) : (
+                        '—'
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-content-secondary text-xs mb-0.5">Original Featured Artists</dt>
+                    <dd className="text-content-primary font-medium">
+                      {(track.originalWork.featuredArtistIds?.length ?? 0) > 0 ? (
+                        <ul className="space-y-0.5">
+                          {track.originalWork.featuredArtistIds.map((id) => (
+                            <li key={id}>
+                              <Link
+                                href={`/artists/${id}`}
+                                className="hover:text-primary-500 transition-colors"
+                              >
+                                <OriginalWorkArtistName artistId={id} organizationId={activeOrgId} />
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        '—'
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            ) : null}
+
+            {/* EPIC-202A — structured artist credits in track header (remix recording metadata) */}
             {(artistCredits.original.length > 0 ||
               artistCredits.featured.length > 0 ||
               artistCredits.remix.length > 0) && (
@@ -1377,6 +1454,15 @@ function EditPanel({
   const [durationError, setDurationError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // BUILD-011 — Original Work (in-memory retained when switching away from remix)
+  const [originalWorkTitle, setOriginalWorkTitle] = useState(track.originalWork?.title ?? '');
+  const [originalWorkPrimaryArtistId, setOriginalWorkPrimaryArtistId] = useState(
+    track.originalWork?.primaryArtistId ?? '',
+  );
+  const [originalWorkFeaturedEntries, setOriginalWorkFeaturedEntries] = useState<RepeatableArtistEntry[]>(() =>
+    (track.originalWork?.featuredArtistIds ?? []).map((id) => ({ id, artistId: id })),
+  );
+
   // EPIC-202A — shared ArtistRelationshipList state
   const [originalEntries, setOriginalEntries] = useState<RepeatableArtistEntry[]>(() =>
     entriesFromCredits(artistCredits.original),
@@ -1436,6 +1522,11 @@ function EditPanel({
     setDurationError('');
     setDisplayTitle(track.displayTitle ?? '');
     setDisplayTitleEdited(track.displayTitleEdited ?? false);
+    setOriginalWorkTitle(track.originalWork?.title ?? '');
+    setOriginalWorkPrimaryArtistId(track.originalWork?.primaryArtistId ?? '');
+    setOriginalWorkFeaturedEntries(
+      (track.originalWork?.featuredArtistIds ?? []).map((id) => ({ id, artistId: id })),
+    );
   }, [track]);
 
   useEffect(() => {
@@ -1502,6 +1593,17 @@ function EditPanel({
       setArtistError('Remix tracks require at least one Remix Artist.');
       return;
     }
+    // BUILD-011 — Original Work required only for remix
+    if (recordingType === 'remix') {
+      if (!originalWorkTitle.trim()) {
+        setArtistError('Original Song Title is required for remix tracks.');
+        return;
+      }
+      if (!originalWorkPrimaryArtistId.trim()) {
+        setArtistError('Original Primary Artist is required for remix tracks.');
+        return;
+      }
+    }
     let durationSeconds: number | null = null;
     if (durationStr.trim()) {
       const parsed = parseDurationInput(durationStr);
@@ -1522,6 +1624,13 @@ function EditPanel({
         isrc: isrc.trim() || null,
         trackNumber: trackNumber ? parseInt(trackNumber, 10) : null,
         duration: durationSeconds,
+        originalWork: recordingType === 'remix'
+          ? {
+              title: originalWorkTitle.trim(),
+              primaryArtistId: originalWorkPrimaryArtistId,
+              featuredArtistIds: originalWorkFeaturedEntries.map((e) => e.artistId).filter(Boolean),
+            }
+          : null,
       });
 
       if (activeOrgId && userId) {
@@ -1609,6 +1718,60 @@ function EditPanel({
           </div>
         </div>
       </div>
+
+      {/* BUILD-011 — Original Work (only when Recording Type = Remix) */}
+      {recordingType === 'remix' ? (
+        <div>
+          <p className="text-xs font-semibold text-content-label uppercase tracking-wider mb-1">Original Work</p>
+          <p className="text-xs text-content-label mb-3">Information about the original song being remixed.</p>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-content-label">Original Song Title</label>
+              <input
+                type="text"
+                value={originalWorkTitle}
+                onChange={(e) => setOriginalWorkTitle(e.target.value)}
+                placeholder="e.g. Dreams"
+                className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-content-primary placeholder:text-content-label focus:border-primary-500 focus:outline-none"
+              />
+            </div>
+            <ArtistFieldPicker
+              key={`edit-${track.id}-ow-primary`}
+              instanceId={`edit-${track.id}-ow-primary`}
+              label="Original Primary Artist"
+              value={originalWorkPrimaryArtistId}
+              onChange={setOriginalWorkPrimaryArtistId}
+              artists={artists}
+              organizationId={activeOrgId}
+              onArtistCreated={(a) => {
+                setExtraArtists((prev) => [...prev, a]);
+                void refreshArtists();
+              }}
+            />
+            <ArtistRelationshipList
+              instanceId={`edit-${track.id}-ow-featured`}
+              role="featured"
+              entries={originalWorkFeaturedEntries}
+              artists={artists}
+              organizationId={activeOrgId}
+              onAdd={(artistId) => {
+                setOriginalWorkFeaturedEntries((prev) => {
+                  if (prev.some((e) => e.artistId === artistId)) return prev;
+                  return [...prev, { id: artistId, artistId }];
+                });
+              }}
+              onRemove={(entryId) =>
+                setOriginalWorkFeaturedEntries((prev) => prev.filter((e) => e.id !== entryId))
+              }
+              onReorder={setOriginalWorkFeaturedEntries}
+              onArtistCreated={(a) => {
+                setExtraArtists((prev) => [...prev, a]);
+                void refreshArtists();
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {/* EPIC-202A — Artist Relationships (same component as wizard / create) */}
       <div>
