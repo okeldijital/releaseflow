@@ -2,7 +2,7 @@
  * BUILD-011 — Remix Original Work Metadata
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   normalizeOriginalWork,
@@ -106,8 +106,7 @@ describe('BUILD-011 — source contracts', () => {
   });
 
   it('does not introduce a separate original-work repository or service file', () => {
-    const fs = require('node:fs') as typeof import('node:fs');
-    expect(fs.existsSync(resolve(root, 'lib/original-work-repository.ts'))).toBe(false);
-    expect(fs.existsSync(resolve(root, 'lib/original-work-service.ts'))).toBe(false);
+    expect(existsSync(resolve(root, 'lib/original-work-repository.ts'))).toBe(false);
+    expect(existsSync(resolve(root, 'lib/original-work-service.ts'))).toBe(false);
   });
 });
