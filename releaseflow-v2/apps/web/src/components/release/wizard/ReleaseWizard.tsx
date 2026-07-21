@@ -123,6 +123,14 @@ export function ReleaseWizard({ mode = 'create', releaseId, draftId }: { mode?: 
           showInviteForm={stepProps.showInviteForm}
           setShowInviteForm={stepProps.setShowInviteForm}
           handleInvite={stepProps.handleInvite}
+          releaseTitle={stepProps.releaseTitle}
+          artwork={stepProps.wizardArtwork}
+          artworkUploadState={stepProps.artworkUploadState}
+          artworkFileName={stepProps.artworkFileName}
+          onArtworkUpload={stepProps.handleArtworkUpload}
+          onArtworkUploadStateChange={stepProps.setArtworkUploadState}
+          onArtworkRemove={stepProps.handleArtworkRemove}
+          artworkRemoving={stepProps.artworkRemoving}
           back={handlers.back}
           next={handlers.next}
         />

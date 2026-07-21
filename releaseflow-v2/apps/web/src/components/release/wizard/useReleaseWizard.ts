@@ -13,6 +13,9 @@ import { getRequirementNamesForReleaseType } from '@/lib/requirement-templates';
 import { getLabelsByOrganization } from '@/lib/label-repository';
 import { invitePerson } from '@/lib/invitation-service';
 import { suggestRemixDisplayTitle } from '@/lib/recording-type';
+import { uploadArtwork, getArtworkByRelease, removeArtwork, replaceArtwork } from '@/lib/artwork/artwork-service';
+import type { Artwork } from '@/lib/artwork/artwork-types';
+import type { UploadState } from '@/components/release/ReleaseArtwork';
 import { toast } from '@/stores/toast-store';
 import type { LabelOption } from '@/components/label-field-picker';
 import type { ReleaseRecord } from '@/lib/release-repository';
@@ -56,6 +59,11 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
   const [hasArtwork, setHasArtwork] = useState<boolean | null>(null);
   const [commissionArtwork, setCommissionArtwork] = useState<boolean | null>(null);
   const [artworkDesigner, setArtworkDesigner] = useState('');
+  // BUILD-010 — wizard artwork step only (persisted via existing artwork service on release/draft id)
+  const [wizardArtwork, setWizardArtwork] = useState<Artwork | null>(null);
+  const [artworkUploadState, setArtworkUploadState] = useState<UploadState>('idle');
+  const [artworkFileName, setArtworkFileName] = useState<string | null>(null);
+  const [artworkRemoving, setArtworkRemoving] = useState(false);
 
   const [tracks, setTracks] = useState<WizardTrack[]>([createEmptyTrack('1')]);
 
@@ -104,6 +112,10 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
   const [editForbidden, setEditForbidden] = useState(false);
 
   const currentDraftId = useRef<string | undefined>(resumeDraftId);
+  /** BUILD-010A: single-flight draft create — prevents a second Release when upload/save race. */
+  const draftCreateInFlight = useRef<Promise<string | null> | null>(null);
+  const wizardArtworkRef = useRef<Artwork | null>(null);
+  wizardArtworkRef.current = wizardArtwork;
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastSavedData = useRef<string>('');
   const isOnline = useRef(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -226,6 +238,20 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     }
     load();
   }, [mode, resumeDraftId]);
+
+  // BUILD-010: load existing release artwork for draft resume / edit (artwork is not in wizardData).
+  useEffect(() => {
+    const releaseId = mode === 'edit' ? editReleaseId : resumeDraftId;
+    if (!activeOrgId || !releaseId) return;
+    let cancelled = false;
+    void getArtworkByRelease(activeOrgId, releaseId).then((art) => {
+      if (cancelled || !art) return;
+      setWizardArtwork(art);
+      setArtworkUploadState('complete');
+      setArtworkFileName(null);
+    });
+    return () => { cancelled = true; };
+  }, [mode, editReleaseId, resumeDraftId, activeOrgId]);
 
   // Track online status
   useEffect(() => {
@@ -358,6 +384,60 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     return Math.round((completed / total) * 100);
   }
 
+  /**
+   * BUILD-010A — create at most one draft for this wizard session.
+   * Shared by Save Draft, auto-save, and artwork upload so concurrent paths
+   * cannot mint a second Release document.
+   * On first create: writes wizard snapshot and bumps local saveVersion once.
+   */
+  async function ensureSingleDraftId(): Promise<string | null> {
+    if (mode === 'edit' && editReleaseId) return editReleaseId;
+    if (currentDraftId.current) return currentDraftId.current;
+    if (draftCreateInFlight.current) return draftCreateInFlight.current;
+    if (!user || !activeOrgId || !releaseTitle.trim()) return null;
+
+    draftCreateInFlight.current = (async () => {
+      try {
+        if (currentDraftId.current) return currentDraftId.current;
+        const rt = releaseType as 'single' | 'ep' | 'album';
+        const labelValue = recordLabel === '__org__'
+          ? (orgName || undefined)
+          : (recordLabel ? (labelOptions.find((l) => l.id === recordLabel)?.name || recordLabel) : undefined);
+        const fields = {
+          title: releaseTitle,
+          releaseType: rt,
+          status: 'planning' as const,
+          lifecycle: 'draft' as const,
+          organizationId: activeOrgId,
+          createdBy: user.uid,
+          targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null,
+          estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null,
+          label: labelValue,
+          releaseLink: releaseLink.trim() || null,
+        };
+        const snapshot = serializeWizardState();
+        const id = await createNewReleaseDraft(
+          fields,
+          snapshot.data as unknown as Record<string, unknown>,
+          user.uid,
+        );
+        currentDraftId.current = id;
+        lastSavedData.current = snapshot.raw;
+        setSaveVersion((v) => v + 1);
+        setHasUnsavedChanges(false);
+        setSaveState('saved');
+        setLastSavedAt(new Date());
+        return id;
+      } catch {
+        return null;
+      } finally {
+        draftCreateInFlight.current = null;
+      }
+    })();
+
+    return draftCreateInFlight.current;
+  }
+
   async function triggerAutoSave(isBestEffort = false) {
     if (!user || !activeOrgId || savingDraft) return;
     if (!releaseTitle.trim()) return;
@@ -367,24 +447,18 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     try {
       if (currentDraftId.current) {
         await saveReleaseDraft(currentDraftId.current, snapshot.data as unknown as Record<string, unknown>, user.uid, saveVersion);
+        lastSavedData.current = snapshot.raw;
+        setSaveVersion((v) => v + 1);
       } else {
-        const rt = releaseType as 'single' | 'ep' | 'album';
-        const labelValue = recordLabel === '__org__' ? (orgName || undefined) : (recordLabel ? (labelOptions.find((l) => l.id === recordLabel)?.name || recordLabel) : undefined);
-        currentDraftId.current = await createNewReleaseDraft({
-          title: releaseTitle,
-          releaseType: rt,
-          status: 'planning',
-          lifecycle: 'draft',
-          organizationId: activeOrgId,
-          createdBy: user.uid,
-          targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null,
-          estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null,
-          label: labelValue,
-          releaseLink: releaseLink.trim() || null,
-        }, snapshot.data as unknown as Record<string, unknown>, user.uid);
+        // BUILD-010A: single-flight create (shared with artwork upload).
+        const id = await ensureSingleDraftId();
+        if (!id) throw new Error('Could not create draft');
+        if (snapshot.raw !== lastSavedData.current) {
+          await saveReleaseDraft(id, snapshot.data as unknown as Record<string, unknown>, user.uid, saveVersion);
+          lastSavedData.current = snapshot.raw;
+          setSaveVersion((v) => v + 1);
+        }
       }
-      lastSavedData.current = snapshot.raw;
-      setSaveVersion((v) => v + 1);
       setHasUnsavedChanges(false);
       setSaveState('saved');
       setLastSavedAt(new Date());
@@ -422,28 +496,20 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     const snapshot = serializeWizardState();
 
     try {
-      const rt = releaseType as 'single' | 'ep' | 'album';
-      const labelValue = recordLabel === '__org__' ? (orgName || undefined) : (recordLabel ? (labelOptions.find((l) => l.id === recordLabel)?.name || recordLabel) : undefined);
-      const fields = {
-        title: releaseTitle,
-        releaseType: rt,
-        status: 'planning' as const,
-        lifecycle: 'draft' as const,
-        organizationId: activeOrgId,
-        createdBy: user.uid,
-        targetReleaseDate: targetReleaseDate ? new Date(targetReleaseDate) : null,
-        estimatedReleaseDate: estimatedReleaseDate ? new Date(estimatedReleaseDate) : null,
-        label: labelValue,
-        releaseLink: releaseLink.trim() || null,
-      };
-
       if (currentDraftId.current) {
         await saveReleaseDraft(currentDraftId.current, snapshot.data as unknown as Record<string, unknown>, user.uid, saveVersion);
+        lastSavedData.current = snapshot.raw;
+        setSaveVersion((v) => v + 1);
       } else {
-        currentDraftId.current = await createNewReleaseDraft(fields, snapshot.data as unknown as Record<string, unknown>, user.uid);
+        // BUILD-010A: create once (or wait for in-flight artwork/auto-save create).
+        const id = await ensureSingleDraftId();
+        if (!id) throw new Error('Could not create draft');
+        if (snapshot.raw !== lastSavedData.current) {
+          await saveReleaseDraft(id, snapshot.data as unknown as Record<string, unknown>, user.uid, saveVersion);
+          lastSavedData.current = snapshot.raw;
+          setSaveVersion((v) => v + 1);
+        }
       }
-      lastSavedData.current = snapshot.raw;
-      setSaveVersion((v) => v + 1);
       setHasUnsavedChanges(false);
       setSaveState('saved');
       setLastSavedAt(new Date());
@@ -461,6 +527,102 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
       }
     } finally {
       setSavingDraft(false);
+    }
+  }
+
+  /** BUILD-010: resolve release/draft id for artwork upload (create draft if needed). */
+  async function resolveArtworkReleaseId(): Promise<string | null> {
+    if (mode === 'edit' && editReleaseId) return editReleaseId;
+    if (currentDraftId.current) return currentDraftId.current;
+    if (!user || !activeOrgId) {
+      toast.error('Cannot upload artwork', 'You must be signed in to an organisation.');
+      return null;
+    }
+    if (!releaseTitle.trim()) {
+      toast.error('Cannot upload artwork', 'Release title is required before uploading artwork.');
+      return null;
+    }
+    // BUILD-010A: single-flight — never creates a second Release if one already exists / is creating.
+    const id = await ensureSingleDraftId();
+    if (!id) {
+      toast.error('Cannot upload artwork', 'Could not create draft for artwork upload.');
+      return null;
+    }
+    return id;
+  }
+
+  async function handleArtworkUpload(file: File) {
+    if (!user || !activeOrgId) {
+      toast.error('Cannot upload artwork', 'You must be signed in to an organisation.');
+      setArtworkUploadState('idle');
+      return;
+    }
+    setArtworkUploadState('uploading');
+    setArtworkFileName(file.name);
+    try {
+      const releaseId = await resolveArtworkReleaseId();
+      if (!releaseId) {
+        setArtworkUploadState('idle');
+        return;
+      }
+      // BUILD-010A: replace updates the same artwork doc (no second Release, no orphan).
+      const existing = wizardArtworkRef.current;
+      if (existing) {
+        const replaced = await replaceArtwork(existing.id, file, activeOrgId, user.uid);
+        if ('error' in replaced) {
+          throw new Error(replaced.error);
+        }
+        const refreshed = await getArtworkByRelease(activeOrgId, releaseId);
+        if (!refreshed) {
+          throw new Error('Artwork not found after replace');
+        }
+        if (refreshed.releaseId !== releaseId) {
+          throw new Error('Artwork release identity mismatch after replace');
+        }
+        setWizardArtwork(refreshed);
+      } else {
+        const result = await uploadArtwork(file, releaseId, activeOrgId, user.uid);
+        if (result.releaseId !== releaseId) {
+          throw new Error('Artwork release identity mismatch after upload');
+        }
+        setWizardArtwork(result);
+      }
+      setArtworkUploadState('complete');
+      toast.success('Artwork uploaded successfully.');
+    } catch (err) {
+      setArtworkUploadState('idle');
+      toast.error('Artwork upload failed', err instanceof Error ? err.message : 'Please try again.');
+    }
+  }
+
+  async function handleArtworkRemove() {
+    if (!wizardArtwork || !user || !activeOrgId) return;
+    const releaseIdBefore = wizardArtwork.releaseId;
+    setArtworkRemoving(true);
+    try {
+      const result = await removeArtwork(wizardArtwork.id, activeOrgId, user.uid);
+      if ('error' in result) {
+        toast.error('Could not remove artwork', result.error);
+        return;
+      }
+      // BUILD-010A: release identity must remain; only artwork is cleared.
+      if (currentDraftId.current && releaseIdBefore && currentDraftId.current !== releaseIdBefore && mode !== 'edit') {
+        console.error('[BUILD-010A] release identity drift on remove', {
+          draftId: currentDraftId.current,
+          artworkReleaseId: releaseIdBefore,
+        });
+      }
+      setWizardArtwork(null);
+      setArtworkFileName(null);
+      setArtworkUploadState('idle');
+      toast.success('Artwork removed.');
+    } catch (err) {
+      toast.error(
+        'Could not remove artwork',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
+    } finally {
+      setArtworkRemoving(false);
     }
   }
 
@@ -707,6 +869,13 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     hasArtwork, setHasArtwork: (v: SetStateAction<boolean | null>) => dirty(setHasUnsavedChanges, setHasArtwork, v),
     commissionArtwork, setCommissionArtwork: (v: SetStateAction<boolean | null>) => dirty(setHasUnsavedChanges, setCommissionArtwork, v),
     artworkDesigner, setArtworkDesigner: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setArtworkDesigner, v),
+    wizardArtwork,
+    artworkUploadState,
+    setArtworkUploadState,
+    artworkFileName,
+    artworkRemoving,
+    handleArtworkUpload,
+    handleArtworkRemove,
     tracks,
     promoAssets, setPromoAssets: (v: SetStateAction<string[]>) => dirty(setHasUnsavedChanges, setPromoAssets, v),
     assetDesigners, setAssetDesigners: (v: SetStateAction<Record<string, string>>) => dirty(setHasUnsavedChanges, setAssetDesigners, v),
