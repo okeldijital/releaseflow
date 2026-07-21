@@ -60,8 +60,9 @@ export async function POST(request: Request) {
     }
 
     const timestamp = Math.floor(Date.now() / 1000);
+    // Cloudinary destroy string-to-sign is only public_id + timestamp (not api_key).
+    // BUG-010: including api_key produced Invalid Signature (500) on Remove Artwork.
     const paramPairs = [
-      `api_key=${cfg.apiKey}`,
       `public_id=${body.publicId}`,
       `timestamp=${timestamp}`,
     ];
