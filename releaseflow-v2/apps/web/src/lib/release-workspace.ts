@@ -18,14 +18,20 @@
 
 export type ReleaseCardVariant = 'draft' | 'active' | 'archived' | 'released';
 
-/** Layout-only modes. Never fork presentation logic outside ReleaseCard. */
+/** BUILD-015 size variants (dimensions only). */
+export type ReleaseCardSize = 'compact' | 'standard' | 'large';
+
+/**
+ * @deprecated Prefer `ReleaseCardSize`. Legacy mode names map to sizes.
+ */
 export type ReleaseCardMode =
   | 'workspace'
   | 'compact'
   | 'table'
-  | 'table-row' // alias of table (back-compat)
+  | 'table-row'
   | 'detailed'
-  | 'search';
+  | 'search'
+  | ReleaseCardSize;
 
 export interface WorkspaceRelease {
   id: string;
@@ -89,11 +95,24 @@ export function resolveReleaseCardVariant(release: {
 }
 
 /**
- * Normalize mode aliases so callers may use `table` or `table-row`.
+ * BUILD-015 — Map legacy mode / size props to canonical size.
+ * compact/search → compact; large → large; everything else → standard.
  */
-export function resolveReleaseCardMode(mode: ReleaseCardMode | undefined): Exclude<ReleaseCardMode, 'table-row'> {
-  if (!mode || mode === 'table-row' || mode === 'table') return 'table';
-  return mode;
+export function resolveReleaseCardSize(
+  sizeOrMode: ReleaseCardSize | ReleaseCardMode | undefined,
+): ReleaseCardSize {
+  if (sizeOrMode === 'compact' || sizeOrMode === 'search') return 'compact';
+  if (sizeOrMode === 'large') return 'large';
+  return 'standard';
+}
+
+/**
+ * @deprecated Use resolveReleaseCardSize. Returns size as mode-compatible string.
+ */
+export function resolveReleaseCardMode(
+  mode: ReleaseCardMode | undefined,
+): ReleaseCardSize {
+  return resolveReleaseCardSize(mode);
 }
 
 /**

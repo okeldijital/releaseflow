@@ -78,14 +78,17 @@ export default function PersonReleasesPage() {
       ) : releases.length === 0 ? (
         <EmptyState title="No releases" description={`${person.displayName} has not been assigned to any releases yet.`} />
       ) : (
-        <div className="space-y-2" data-release-card-grid data-count={releases.length}>
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          data-release-card-grid
+          data-count={releases.length}
+        >
           {releases.map((r) => (
             <ReleaseCard
               key={r.id}
               release={r}
-              view="list"
+              size="standard"
               variant={resolveReleaseCardVariant(r)}
-              mode="table"
             />
           ))}
         </div>

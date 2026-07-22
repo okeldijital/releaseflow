@@ -368,14 +368,17 @@ export default function HomePage() {
         ) : upcomingReleases.length === 0 ? (
           <p className="text-sm text-content-label px-1">No upcoming releases scheduled.</p>
         ) : (
-          <ul className="space-y-2" data-release-card-grid data-count={upcomingReleases.length}>
+          <ul
+            className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+            data-release-card-grid
+            data-count={upcomingReleases.length}
+          >
             {upcomingReleases.map(({ release }) => (
               <li key={release.id}>
                 <ReleaseCard
                   release={release}
-                  view="list"
+                  size="compact"
                   variant={resolveReleaseCardVariant(release)}
-                  mode="compact"
                 />
               </li>
             ))}

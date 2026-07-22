@@ -7,7 +7,7 @@ import { useOrgStore } from '@/stores/org-store';
 import { useReleases } from '@/hooks/useRelease';
 import { useNeedsAttentionReleases, useContinueWorking, useUpcomingReleases, useRecentlyUpdated } from '@/hooks/useRelease';
 import { Button, EmptyState, Input, LoadingState } from '@releaseflow/ui';
-import { ReleaseCard, type ReleaseCardMode } from '@/components/release/cards/ReleaseCard';
+import { ReleaseCard, type ReleaseCardSize } from '@/components/release/cards/ReleaseCard';
 import { RELEASE_STATUS_CONFIG, RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-config';
 import type { Release } from '@/app/(app)/types';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -161,51 +161,40 @@ function CollapsibleSection({
 }
 
 /**
- * BUG-008B — Canonical layout shell.
- * Tables/grids control layout only; every item mounts ReleaseCard.
+ * BUILD-015 — Canonical grid shell. Responsive columns only; card layout is fixed.
+ * list view = single column of standard cards (not a separate table layout).
  */
 function ReleaseCardGrid({
   releases,
   view,
-  mode = 'compact',
+  size = 'standard',
 }: {
   releases: Release[];
   view: ViewMode;
-  mode?: ReleaseCardMode;
+  size?: ReleaseCardSize;
 }) {
-  if (view === 'list' || mode === 'table' || mode === 'table-row') {
-    return (
-      <div
-        className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden divide-y divide-surface-100"
-        data-release-card-grid
-        data-count={releases.length}
-      >
-        {releases.map((release) => (
-          <ReleaseCard
-            key={release.id}
-            release={release}
-            view="list"
-            variant={resolveReleaseCardVariant(release)}
-            mode="table"
-          />
-        ))}
-      </div>
-    );
-  }
+  const gridClass =
+    view === 'list'
+      ? 'grid grid-cols-1 gap-4 max-w-md'
+      : size === 'compact'
+        ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+        : size === 'large'
+          ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5'
+          : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
 
   return (
     <div
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+      className={gridClass}
       data-release-card-grid
       data-count={releases.length}
+      data-size={size}
     >
       {releases.map((release) => (
         <ReleaseCard
           key={release.id}
           release={release}
-          view="grid"
+          size={size}
           variant={resolveReleaseCardVariant(release)}
-          mode={mode}
         />
       ))}
     </div>
@@ -508,7 +497,7 @@ export default function ReleasesPage() {
           ) : needsAttention.data.length === 0 ? (
             <p className="text-sm text-text-500 py-4">No releases need attention right now.</p>
           ) : (
-            <ReleaseCardGrid releases={needsAttention.data.slice(0, 5) as Release[]} view={view} mode="compact" />
+            <ReleaseCardGrid releases={needsAttention.data.slice(0, 5) as Release[]} view={view} size="compact" />
           )}
         </CollapsibleSection>
 
@@ -519,18 +508,18 @@ export default function ReleasesPage() {
           ) : continueWorking.data.length === 0 ? (
             <p className="text-sm text-text-500 py-4">No active work. Start a new release or resume a draft.</p>
           ) : (
-            <ReleaseCardGrid releases={continueWorking.data as Release[]} view={view} mode="workspace" />
+            <ReleaseCardGrid releases={continueWorking.data as Release[]} view={view} size="standard" />
           )}
         </CollapsibleSection>
 
-        {/* Upcoming Releases — ReleaseCard only (mode table for date-forward layout) */}
+        {/* Upcoming Releases */}
         <CollapsibleSection title="Upcoming Releases" count={upcomingReleases.data.length} defaultOpen error={upcomingReleases.error}>
           {upcomingReleases.loading ? (
             <SectionSkeleton />
           ) : upcomingReleases.data.length === 0 ? (
             <p className="text-sm text-text-500 py-4">No upcoming releases.</p>
           ) : (
-            <ReleaseCardGrid releases={upcomingReleases.data as Release[]} view="list" mode="table" />
+            <ReleaseCardGrid releases={upcomingReleases.data as Release[]} view={view} size="standard" />
           )}
         </CollapsibleSection>
 
@@ -541,7 +530,7 @@ export default function ReleasesPage() {
           ) : recentlyUpdated.data.length === 0 ? (
             <p className="text-sm text-text-500 py-4">No recently updated releases.</p>
           ) : (
-            <ReleaseCardGrid releases={recentlyUpdated.data as Release[]} view={view} mode="compact" />
+            <ReleaseCardGrid releases={recentlyUpdated.data as Release[]} view={view} size="compact" />
           )}
         </CollapsibleSection>
 
@@ -553,7 +542,7 @@ export default function ReleasesPage() {
             <ReleaseCardGrid
               releases={filteredAll}
               view={view}
-              mode={view === 'list' ? 'table' : 'workspace'}
+              size="standard"
             />
           )}
         </CollapsibleSection>

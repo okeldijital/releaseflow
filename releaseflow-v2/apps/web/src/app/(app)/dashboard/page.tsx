@@ -294,9 +294,8 @@ export default function DashboardPage() {
               <ReleaseCard
                 key={d.id}
                 release={d}
-                view="grid"
+                size="compact"
                 variant="draft"
-                mode="compact"
                 onDeleted={(releaseId) => {
                   setDrafts((prev) => prev.filter((x) => x.id !== releaseId));
                 }}
@@ -431,14 +430,17 @@ export default function DashboardPage() {
         {upcomingReleases.length === 0 ? (
           <p className="text-sm text-text-500">No upcoming releases.</p>
         ) : (
-          <div className="space-y-2" data-release-card-grid data-count={upcomingReleases.length}>
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+            data-release-card-grid
+            data-count={upcomingReleases.length}
+          >
             {upcomingReleases.map((r) => (
               <ReleaseCard
                 key={r.id}
                 release={r}
-                view="list"
+                size="standard"
                 variant={resolveReleaseCardVariant(r)}
-                mode="table"
               />
             ))}
           </div>

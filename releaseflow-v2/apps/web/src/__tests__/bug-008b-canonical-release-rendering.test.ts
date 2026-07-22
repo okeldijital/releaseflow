@@ -38,12 +38,14 @@ function makeN(n: number): WorkspaceRelease[] {
   );
 }
 
-describe('BUG-008B modes', () => {
-  it('resolves table-row as table (layout alias only)', () => {
-    expect(resolveReleaseCardMode('table')).toBe('table');
-    expect(resolveReleaseCardMode('table-row')).toBe('table');
-    expect(resolveReleaseCardMode('search')).toBe('search');
-    expect(resolveReleaseCardMode('workspace')).toBe('workspace');
+describe('BUG-008B / BUILD-015 sizes', () => {
+  it('maps legacy modes to size variants', () => {
+    expect(resolveReleaseCardMode('table')).toBe('standard');
+    expect(resolveReleaseCardMode('table-row')).toBe('standard');
+    expect(resolveReleaseCardMode('search')).toBe('compact');
+    expect(resolveReleaseCardMode('workspace')).toBe('standard');
+    expect(resolveReleaseCardMode('compact')).toBe('compact');
+    expect(resolveReleaseCardMode('large')).toBe('large');
   });
 
   it('variants cover all lifecycles without null', () => {
@@ -205,8 +207,9 @@ describe('BUG-008B source contracts', () => {
     );
     expect(src.match(/return\s+null\s*;/g) ?? []).toHaveLength(0);
     expect(src).toContain('data-release-card');
-    expect(src).toMatch(/mode.*table|table.*mode/);
-    expect(src).toContain("'search'");
+    expect(src).toContain('data-size');
+    expect(src).toContain("'compact'");
+    expect(src).toContain("'standard'");
   });
 
   it('Releases page has no bespoke All Releases table cells', async () => {
@@ -220,8 +223,8 @@ describe('BUG-008B source contracts', () => {
     expect(src).toContain('buildReleaseWorkspace');
     expect(src).toContain('catalogue:');
     expect(src).not.toMatch(/All Releases[\s\S]{0,500}col-span-4">Release</);
-    // Upcoming must use ReleaseCard path
-    expect(src).toContain('mode="table"');
+    // Upcoming must use ReleaseCard path (BUILD-015 size API)
+    expect(src).toMatch(/size="(compact|standard|large)"/);
     expect(src).not.toContain('UpcomingArtwork');
   });
 

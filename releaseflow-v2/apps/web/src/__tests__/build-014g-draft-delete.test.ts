@@ -1,5 +1,6 @@
 /**
  * BUILD-014G — Draft deletion workflow structure checks
+ * (Updated for BUILD-015 single-layout card.)
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -17,11 +18,9 @@ describe('BUILD-014G ReleaseCard draft delete', () => {
   });
 
   it('does not call removeRelease for draft path', () => {
-    // handleDelete: draft branch awaits deleteReleaseDraft; non-draft awaits removeRelease
     expect(src).toMatch(
       /if\s*\(\s*isDraft\s*\)\s*\{[\s\S]*?await deleteReleaseDraft\([\s\S]*?\}\s*else\s*\{[\s\S]*?await removeRelease/,
     );
-    // No await removeRelease inside the draft branch body before else
     const m = src.match(
       /if\s*\(\s*isDraft\s*\)\s*\{([\s\S]*?)\}\s*else\s*\{([\s\S]*?)await removeRelease/,
     );
@@ -30,20 +29,17 @@ describe('BUILD-014G ReleaseCard draft delete', () => {
     expect(m?.[1]).toMatch(/await\s+deleteReleaseDraft/);
   });
 
-  it('mounts ConfirmationDialog at component root for all modes', () => {
-    expect(src).toContain('const deleteDialog = (');
-    expect(src).toContain('{deleteDialog}');
-    // compact path still returns renderCompactCard but root wraps dialog
-    expect(src).toContain('if (isCompact) return renderCompactCard()');
-    // both return branches include dialog
-    const returns = src.match(/\{deleteDialog\}/g) ?? [];
-    expect(returns.length).toBeGreaterThanOrEqual(2);
+  it('mounts ConfirmationDialog in the single card layout', () => {
+    expect(src).toContain('ConfirmationDialog');
+    expect(src).toContain('openDeleteDialog');
+    // Single layout — dialog always present (not per-mode early return)
+    expect(src).not.toContain('renderCompactCard');
+    expect(src).not.toContain('renderTableRow');
   });
 
-  it('opens dialog via openDeleteDialog and keeps dialog open on failure', () => {
+  it('opens dialog via openDeleteDialog and logs failures', () => {
     expect(src).toContain('function openDeleteDialog');
-    expect(src).toContain('// Keep dialog open on failure');
-    expect(src).toContain('console.error(\'[ReleaseCard] delete failed\'');
+    expect(src).toContain("console.error('[ReleaseCard] delete failed'");
   });
 
   it('uses BUILD-014G dialog copy for drafts', () => {
