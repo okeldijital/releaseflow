@@ -20,7 +20,7 @@ export const SOCIAL_PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube', '
 
 export type ReleaseTypeVal = typeof RELEASE_TYPES[number]['value'];
 
-/** Wizard track state — BUILD-011C shape (Original Work + recording metadata). */
+/** Wizard track state — BUILD-011C + BUILD-012C (Original Work + recording metadata). */
 export type WizardTrack = {
   id: string;
   title: string;
@@ -33,6 +33,10 @@ export type WizardTrack = {
   originalWorkFeaturedArtists: RepeatableArtistEntry[];
   displayTitle: string;
   displayTitleEdited: boolean;
+  /** BUILD-012C — track.duration (seconds) + display string */
+  durationDisplay: string;
+  duration: number | null;
+  genre: string;
   mixed: boolean;
   mastered: boolean;
   mixingEngineer: string;
@@ -46,6 +50,8 @@ export type WizardTrack = {
     originalWorkTitle?: string;
     originalWorkPrimaryArtist?: string;
     featuredArtists?: string;
+    duration?: string;
+    genre?: string;
   };
 };
 
@@ -62,6 +68,9 @@ export function createEmptyTrack(id = String(Date.now())): WizardTrack {
     originalWorkFeaturedArtists: [],
     displayTitle: '',
     displayTitleEdited: false,
+    durationDisplay: '',
+    duration: null,
+    genre: '',
     mixed: true,
     mastered: true,
     mixingEngineer: '',
@@ -75,7 +84,7 @@ export function createEmptyTrack(id = String(Date.now())): WizardTrack {
   };
 }
 
-/** Normalize draft / legacy wizard tracks into BUILD-011C shape. */
+/** Normalize draft / legacy wizard tracks into current shape. */
 export function normalizeWizardTrack(raw: Partial<WizardTrack> & { id?: string; featuredArtistIds?: string[]; originalArtists?: { id: string; artistId: string }[]; remixArtists?: { id: string; artistId: string }[] }): WizardTrack {
   const base = createEmptyTrack(raw.id ?? String(Date.now()));
   const featuredArtists =
@@ -89,6 +98,9 @@ export function normalizeWizardTrack(raw: Partial<WizardTrack> & { id?: string; 
     originalWorkTitle: raw.originalWorkTitle ?? '',
     originalWorkPrimaryArtistId: raw.originalWorkPrimaryArtistId ?? '',
     originalWorkFeaturedArtists: raw.originalWorkFeaturedArtists ?? [],
+    durationDisplay: raw.durationDisplay ?? '',
+    duration: raw.duration ?? null,
+    genre: raw.genre ?? '',
     remixErrors: raw.remixErrors ?? {},
   };
 }

@@ -26,6 +26,12 @@ import {
   recordingTypeLabel,
   type RecordingType,
 } from '@/lib/recording-type';
+import {
+  parseDurationInput,
+  formatDurationDisplay,
+  DURATION_INVALID_MESSAGE,
+  DURATION_REQUIRED_MESSAGE,
+} from '@/lib/duration-format';
 import { EmptyState, LoadingState } from '@releaseflow/ui';
 
 const STEPS = ['basics', 'recording', 'production', 'credits', 'deliverables', 'metadata', 'review'] as const;
@@ -188,10 +194,16 @@ export default function NewTrackPage() {
   const [featuredArtists, setFeaturedArtists] = useState<RepeatableArtistEntry[]>([]);
   const [displayTitle, setDisplayTitle] = useState('');
   const [displayTitleEdited, setDisplayTitleEdited] = useState(false);
+  // BUILD-012C — Recording Metadata (canonical track.duration / track.genre)
+  const [durationDisplay, setDurationDisplay] = useState('');
+  const [duration, setDuration] = useState<number | null>(null);
+  const [genre, setGenre] = useState('');
   const [remixErrors, setRemixErrors] = useState<{
     featuredArtists?: string;
     originalWorkTitle?: string;
     originalWorkPrimaryArtist?: string;
+    duration?: string;
+    genre?: string;
   }>({});
 
   const [productionStage, setProductionStage] = useState<ProductionStage>('demo');
@@ -203,7 +215,6 @@ export default function NewTrackPage() {
 
   const [isrc, setIsrc] = useState('');
   const [language, setLanguage] = useState('');
-  const [genre, setGenre] = useState('');
   const [subgenre, setSubgenre] = useState('');
   const [explicit, setExplicit] = useState('false');
   const [label, setLabel] = useState('');
@@ -282,20 +293,31 @@ export default function NewTrackPage() {
 
   function validateBasics(): boolean {
     if (!title.trim()) return false;
-    if (recordingType !== 'remix') return true;
     const errors: {
       originalWorkTitle?: string;
       originalWorkPrimaryArtist?: string;
+      duration?: string;
     } = {};
-    // BUILD-011C — Original Work validation only (match Edit Track messages)
-    if (!originalWorkTitle.trim()) {
-      errors.originalWorkTitle = 'Original Song Title is required for remix tracks.';
+    // BUILD-011C — Original Work validation only for remix
+    if (recordingType === 'remix') {
+      if (!originalWorkTitle.trim()) {
+        errors.originalWorkTitle = 'Original Song Title is required for remix tracks.';
+      }
+      if (!originalWorkPrimaryArtistId.trim()) {
+        errors.originalWorkPrimaryArtist = 'Original Primary Artist is required for remix tracks.';
+      }
     }
-    if (!originalWorkPrimaryArtistId.trim()) {
-      errors.originalWorkPrimaryArtist = 'Original Primary Artist is required for remix tracks.';
+    // BUILD-012C — Duration required
+    if (!durationDisplay.trim()) {
+      errors.duration = DURATION_REQUIRED_MESSAGE;
+    } else {
+      const parsed = duration ?? parseDurationInput(durationDisplay);
+      if (parsed === null) {
+        errors.duration = DURATION_INVALID_MESSAGE;
+      }
     }
     setRemixErrors(errors);
-    return !errors.originalWorkTitle && !errors.originalWorkPrimaryArtist;
+    return !errors.originalWorkTitle && !errors.originalWorkPrimaryArtist && !errors.duration;
   }
 
   function addCredit(role: CreditRoleKey, name: string) {
@@ -326,8 +348,16 @@ export default function NewTrackPage() {
     };
     setDeliverables((p) => ({ ...p, [key]: item }));
     if (key === 'master_wav') {
-      const duration = await extractAudioDuration(file);
-      if (duration) setDerivedDuration(duration);
+      const audioDuration = await extractAudioDuration(file);
+      if (audioDuration) {
+        setDerivedDuration(audioDuration);
+        // Prefill Recording Metadata duration when empty (BUILD-012C)
+        setDuration((prev) => {
+          if (prev != null) return prev;
+          setDurationDisplay(formatDurationDisplay(audioDuration));
+          return audioDuration;
+        });
+      }
     }
   }
 
@@ -422,7 +452,8 @@ export default function NewTrackPage() {
         language: language.trim() || undefined,
         genre: genre.trim() || undefined,
         explicit: explicit === 'true',
-        duration: derivedDuration,
+        // BUILD-012C — prefer editor duration; fall back to audio-derived
+        duration: duration ?? derivedDuration,
       });
 
       if (recordingPrimaryId) {
@@ -546,6 +577,9 @@ export default function NewTrackPage() {
             featuredArtists,
             displayTitle,
             displayTitleEdited,
+            durationDisplay,
+            duration,
+            genre,
             mixed: true,
             mastered: true,
             mixingEngineer: '',
@@ -573,6 +607,9 @@ export default function NewTrackPage() {
             if (patch.displayTitleEdited !== undefined) {
               setDisplayTitleEdited(patch.displayTitleEdited);
             }
+            if (patch.durationDisplay !== undefined) setDurationDisplay(patch.durationDisplay);
+            if (patch.duration !== undefined) setDuration(patch.duration);
+            if (patch.genre !== undefined) setGenre(patch.genre);
           }}
           remixErrors={remixErrors}
           setRemixErrors={setRemixErrors}
@@ -641,7 +678,7 @@ export default function NewTrackPage() {
           language={language}
           setLanguage={setLanguage}
           genre={genre}
-          setGenre={setGenre}
+          durationDisplay={durationDisplay}
           subgenre={subgenre}
           setSubgenre={setSubgenre}
           explicit={explicit}
@@ -652,7 +689,6 @@ export default function NewTrackPage() {
           setCopyrightYear={setCopyrightYear}
           publishingYear={publishingYear}
           setPublishingYear={setPublishingYear}
-          derivedDuration={derivedDuration}
           back={back}
           next={next}
           onLater={() => later('metadata')}
@@ -799,12 +835,16 @@ function BasicsStep({
     featuredArtists?: string;
     originalWorkTitle?: string;
     originalWorkPrimaryArtist?: string;
+    duration?: string;
+    genre?: string;
   };
   setRemixErrors: Dispatch<
     SetStateAction<{
       featuredArtists?: string;
       originalWorkTitle?: string;
       originalWorkPrimaryArtist?: string;
+      duration?: string;
+      genre?: string;
     }>
   >;
   artists: ArtistOption[];
@@ -1096,16 +1136,16 @@ function DeliverablesStep({
 }
 
 function MetadataStep({
-  isrc, setIsrc, language, setLanguage, genre, setGenre, subgenre, setSubgenre,
+  isrc, setIsrc, language, setLanguage, genre, durationDisplay, subgenre, setSubgenre,
   explicit, setExplicit, label, setLabel, copyrightYear, setCopyrightYear,
-  publishingYear, setPublishingYear, derivedDuration, back, next, onLater,
+  publishingYear, setPublishingYear, back, next, onLater,
 }: {
   isrc: string;
   setIsrc: (v: string) => void;
   language: string;
   setLanguage: (v: string) => void;
   genre: string;
-  setGenre: (v: string) => void;
+  durationDisplay: string;
   subgenre: string;
   setSubgenre: (v: string) => void;
   explicit: string;
@@ -1116,7 +1156,6 @@ function MetadataStep({
   setCopyrightYear: (v: string) => void;
   publishingYear: string;
   setPublishingYear: (v: string) => void;
-  derivedDuration?: number;
   back: () => void;
   next: () => void;
   onLater: () => void;
@@ -1124,11 +1163,17 @@ function MetadataStep({
   return (
     <>
       <div className="mt-8 space-y-3">
+        {/* BUILD-012C — Duration/Genre owned by TrackEditor; show read-only summary here */}
+        {(durationDisplay || genre) ? (
+          <p className="text-xs text-text-500 text-center">
+            Recording metadata: {[durationDisplay && `Duration ${durationDisplay}`, genre && `Genre ${genre}`]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        ) : null}
         <input type="text" value={isrc} onChange={(e) => setIsrc(e.target.value)} placeholder="ISRC"
           className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
         <input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="Language"
-          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
-        <input type="text" value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Genre"
           className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
         <input type="text" value={subgenre} onChange={(e) => setSubgenre(e.target.value)} placeholder="Subgenre"
           className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
@@ -1143,11 +1188,6 @@ function MetadataStep({
           className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
         <input type="text" value={publishingYear} onChange={(e) => setPublishingYear(e.target.value)} placeholder="Publishing Year"
           className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
-        {derivedDuration ? (
-          <p className="text-xs text-text-500 text-center">Duration will be set to {Math.floor(derivedDuration / 60)}:{String(derivedDuration % 60).padStart(2, '0')} from uploaded audio.</p>
-        ) : (
-          <p className="text-xs text-text-500 text-center">Duration will be derived automatically once audio is uploaded.</p>
-        )}
       </div>
       <Nav back={back} next={next} optional onLater={onLater} />
     </>

@@ -9,7 +9,9 @@
 import { ArtistFieldPicker } from '@/components/artist-field-picker';
 import { ArtistRelationshipList } from '@/components/artists/artist-relationship-list';
 import { generateSuggestedDisplayTitle, findDuplicateArtistId } from '@/lib/display-title';
+import { parseDurationInput, formatDurationDisplay } from '@/lib/duration-format';
 import { trackEditorClasses } from './track-editor-styles';
+import { GenreSelect } from './genre-select';
 import type {
   TrackEditorProps,
   TrackEditorValue,
@@ -166,6 +168,7 @@ export function TrackEditor({
   showIdentity = true,
   showRecordingType = true,
   showRecordingMetadata = true,
+  showDescriptiveMetadata = true,
   showOriginalWork = true,
 }: TrackEditorProps) {
   const c = trackEditorClasses(variant);
@@ -302,10 +305,9 @@ export function TrackEditor({
       ) : null}
 
       {/*
-        BUILD-011C Group B — recording metadata.
-        BUILD-012B — when Remix, label as Remix Details so users see two recordings.
+        BUILD-011C Group B — artist / version / display title.
+        BUILD-012B/C — Remix Details vs Track Details section labels.
         Order: Primary Artist → Featured Artists → Version → Suggested Display Title.
-        No Original Artists. No Remix Artists.
       */}
       {showRecordingMetadata ? (
         <div
@@ -320,7 +322,11 @@ export function TrackEditor({
                 Information about the remix recording being released.
               </p>
             </div>
-          ) : null}
+          ) : (
+            <div>
+              <p className={`${c.sectionLabel} mb-3`}>Track Details</p>
+            </div>
+          )}
 
           <div className="space-y-3">
             <ArtistFieldPicker
@@ -398,6 +404,79 @@ export function TrackEditor({
                 Uses feat. for featured artists. Edit to override automatic generation.
               </p>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/*
+        BUILD-012C — Recording Metadata (always for full editor).
+        Duration (seconds) + Genre (catalogue). After details, before Production.
+      */}
+      {showDescriptiveMetadata ? (
+        <div className={c.divider}>
+          <div>
+            <p className={`${c.sectionLabel} mb-1`}>Recording Metadata</p>
+            <p className={`${c.helper} mb-3`}>Information describing this recording.</p>
+          </div>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className={c.fieldLabel} htmlFor={`${instanceId}-duration`}>
+                Duration
+              </label>
+              <p className={`${c.helper} mb-1`}>Length of this recording.</p>
+              <input
+                id={`${instanceId}-duration`}
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={value.durationDisplay}
+                onChange={(e) => {
+                  const display = e.target.value;
+                  const parsed = parseDurationInput(display);
+                  onChange({
+                    durationDisplay: display,
+                    duration: parsed,
+                  });
+                  if (!display.trim()) {
+                    onClearError?.('duration');
+                  } else if (parsed !== null) {
+                    onClearError?.('duration');
+                  }
+                }}
+                onBlur={() => {
+                  const trimmed = value.durationDisplay.trim();
+                  if (!trimmed) {
+                    onChange({ durationDisplay: '', duration: null });
+                    return;
+                  }
+                  const parsed = parseDurationInput(trimmed);
+                  if (parsed === null) {
+                    // Leave display as typed; parent validation sets error message
+                    onChange({ duration: null });
+                    return;
+                  }
+                  onChange({
+                    duration: parsed,
+                    durationDisplay: formatDurationDisplay(parsed),
+                  });
+                  onClearError?.('duration');
+                }}
+                placeholder="MM:SS"
+                className={c.input}
+              />
+              {errors?.duration ? <p className={c.error}>{errors.duration}</p> : null}
+            </div>
+
+            <GenreSelect
+              instanceId={instanceId}
+              value={value.genre}
+              onChange={(genre) => {
+                onChange({ genre });
+                onClearError?.('genre');
+              }}
+              variant={variant}
+              error={errors?.genre}
+            />
           </div>
         </div>
       ) : null}

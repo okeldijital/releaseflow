@@ -20,6 +20,11 @@ import type { LabelOption } from '@/components/label-field-picker';
 import type { ReleaseRecord } from '@/lib/release-repository';
 import type { ReleaseTypeVal, WizardTrack, PersonOption, SocialRow, SectionStatusMap, AssignerField, InviteTarget, WizardDraftData } from './release-wizard-types';
 import { createEmptyTrack, normalizeWizardTrack } from './release-wizard-types';
+import {
+  parseDurationInput,
+  DURATION_INVALID_MESSAGE,
+  DURATION_REQUIRED_MESSAGE,
+} from '@/lib/duration-format';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'offline' | 'conflict';
 
@@ -749,6 +754,8 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
                 : null,
             displayTitle: t.displayTitle.trim() || null,
             displayTitleEdited: t.displayTitleEdited,
+            duration: t.duration ?? undefined,
+            genre: t.genre.trim() || undefined,
           });
           if (recordingPrimaryId) {
             await addArtistToTrack({
@@ -808,17 +815,30 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     let valid = true;
     setTracks((p) =>
       p.map((t) => {
-        if (!t.title.trim() || t.recordingType !== 'remix') return t;
+        if (!t.title.trim()) return t;
         const remixErrors: WizardTrack['remixErrors'] = {};
-        // BUILD-011C — match Edit Track / TrackEditor messages
-        if (!t.originalWorkTitle.trim()) {
-          remixErrors.originalWorkTitle = 'Original Song Title is required for remix tracks.';
-          valid = false;
+        // BUILD-011C — Original Work only for remix
+        if (t.recordingType === 'remix') {
+          if (!t.originalWorkTitle.trim()) {
+            remixErrors.originalWorkTitle = 'Original Song Title is required for remix tracks.';
+            valid = false;
+          }
+          if (!t.originalWorkPrimaryArtistId.trim()) {
+            remixErrors.originalWorkPrimaryArtist =
+              'Original Primary Artist is required for remix tracks.';
+            valid = false;
+          }
         }
-        if (!t.originalWorkPrimaryArtistId.trim()) {
-          remixErrors.originalWorkPrimaryArtist =
-            'Original Primary Artist is required for remix tracks.';
+        // BUILD-012C — Duration required for all titled tracks
+        if (!t.durationDisplay.trim()) {
+          remixErrors.duration = DURATION_REQUIRED_MESSAGE;
           valid = false;
+        } else {
+          const parsed = t.duration ?? parseDurationInput(t.durationDisplay);
+          if (parsed === null) {
+            remixErrors.duration = DURATION_INVALID_MESSAGE;
+            valid = false;
+          }
         }
         return { ...t, remixErrors };
       }),

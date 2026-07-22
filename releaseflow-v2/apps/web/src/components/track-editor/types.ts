@@ -1,7 +1,7 @@
 import type { RecordingType } from '@/lib/recording-type';
 import type { ArtistOption, RepeatableArtistEntry } from '@/components/artist-field-picker';
 
-/** Controlled track metadata edited by TrackEditor (BUILD-011C shape). */
+/** Controlled track metadata edited by TrackEditor (BUILD-011C + BUILD-012C). */
 export type TrackEditorValue = {
   title: string;
   version: string;
@@ -15,6 +15,10 @@ export type TrackEditorValue = {
   featuredArtists: RepeatableArtistEntry[];
   displayTitle: string;
   displayTitleEdited: boolean;
+  /** BUILD-012C — Recording Metadata (track.duration seconds, track.genre) */
+  durationDisplay: string;
+  duration: number | null;
+  genre: string;
   /** Production (optional sections) */
   mixed: boolean;
   mastered: boolean;
@@ -32,6 +36,8 @@ export type TrackEditorErrors = {
   featuredArtists?: string;
   originalWorkTitle?: string;
   originalWorkPrimaryArtist?: string;
+  duration?: string;
+  genre?: string;
 };
 
 export type TrackEditorPersonOption = { id: string; displayName: string };
@@ -54,7 +60,7 @@ export type TrackEditorProps = {
   titlePlaceholder?: string;
   titleAutoFocus?: boolean;
   titleCentered?: boolean;
-  /** Optional sections beyond BUILD-011C identity + original work + recording metadata */
+  /** Optional sections beyond identity + original work + recording metadata */
   showProduction?: boolean;
   showPublishing?: boolean;
   people?: TrackEditorPersonOption[];
@@ -63,7 +69,10 @@ export type TrackEditorProps = {
   /** When false, only Original Work fields (for embedding in edit forms) */
   showIdentity?: boolean;
   showRecordingType?: boolean;
+  /** Group B: artists / version / display title */
   showRecordingMetadata?: boolean;
+  /** BUILD-012C — Duration + Genre (always on for full create editor) */
+  showDescriptiveMetadata?: boolean;
   showOriginalWork?: boolean;
 };
 
@@ -81,6 +90,9 @@ export function emptyTrackEditorValue(
     featuredArtists: [],
     displayTitle: '',
     displayTitleEdited: false,
+    durationDisplay: '',
+    duration: null,
+    genre: '',
     mixed: true,
     mastered: true,
     mixingEngineer: '',
