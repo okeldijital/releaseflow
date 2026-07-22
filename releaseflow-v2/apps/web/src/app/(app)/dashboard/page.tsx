@@ -108,6 +108,7 @@ export default function DashboardPage() {
   const [loadingExtras, setLoadingExtras] = useState(true);
   const [drafts, setDrafts] = useState<Release[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(true);
+  // drafts are ReleaseCardModel from fetchOrganizationDrafts (BUILD-015A)
   const [myWorkRecords, setMyWorkRecords] = useState<AssignmentWorkspaceRecord[]>([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
   const [taskSummary, setTaskSummary] = useState<TaskDashboardSummary | null>(null);

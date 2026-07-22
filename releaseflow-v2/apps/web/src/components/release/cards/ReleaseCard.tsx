@@ -29,6 +29,7 @@ import { Badge, ConfirmationDialog, ProgressBar } from '@releaseflow/ui';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { ArtworkDisplay } from '@/components/release/artwork-display';
 import type { Release } from '@/app/(app)/types';
+import type { ReleaseCardModel } from '@/lib/release-card-model';
 import type { WizardDraftData } from '@/components/release/wizard/release-wizard-types';
 
 export type ReleaseCardVariant = 'draft' | 'active' | 'archived' | 'released';
@@ -173,7 +174,11 @@ const SIZE_STYLES: Record<
 };
 
 export interface ReleaseCardProps {
-  release: Release;
+  /**
+   * Canonical view model (BUILD-015A). Prefer `ReleaseCardModel` from release-service
+   * / toReleaseCardModels — never a page-built partial.
+   */
+  release: Release | ReleaseCardModel;
   /** Preferred BUILD-015 API */
   size?: ReleaseCardSize;
   /**
@@ -217,9 +222,20 @@ export function ReleaseCard({
   const styles = SIZE_STYLES[size];
   const isDraft = variant === 'draft' || release.lifecycle === 'draft';
   const draftPct = isDraft ? getDraftCompletion(release.wizardData) : 0;
-  const stepLabel = isDraft ? getDraftStepLabel(release.wizardData) : '';
-  const progress = releaseProgress(release, isDraft, draftPct);
-  const meta = metadataLine(release, isDraft, stepLabel);
+  const stepLabel =
+    'cardStageLabel' in release && typeof release.cardStageLabel === 'string'
+      ? release.cardStageLabel
+      : isDraft
+        ? getDraftStepLabel(release.wizardData)
+        : '';
+  const progress =
+    'cardProgress' in release && typeof release.cardProgress === 'number'
+      ? release.cardProgress
+      : releaseProgress(release, isDraft, draftPct);
+  const meta =
+    isDraft && stepLabel
+      ? `${stepLabel} · Last saved ${fmtDate(release.updatedAt)}`
+      : metadataLine(release, isDraft, stepLabel);
   const badgeLabel = statusBadgeLabel(variant, isDraft);
   const badgeColor = statusBadgeColor(isDraft, variant);
 

@@ -29,14 +29,20 @@ import {
   getUpcomingReleases,
   getRecentlyUpdatedReleases,
 } from './release-repository';
-import { getArtworksByReleaseIds } from './artwork/artwork-repository';
 import { getDb } from './firebase';
 import type {
   ReleaseStatus,
   Release,
 } from '@/app/(app)/types';
-import type { Artwork } from './artwork/artwork-types';
 import type { CreateReleaseFields, UpdateReleaseFields } from './release-repository';
+import {
+  toReleaseCardModel,
+  toReleaseCardModels,
+  type ReleaseCardModel,
+} from './release-card-model';
+
+export type { ReleaseCardModel };
+export { toReleaseCardModel, toReleaseCardModels } from './release-card-model';
 
 export type {
   CreateReleaseFields,
@@ -177,8 +183,8 @@ export async function removeRelease(
 export async function fetchRelease(releaseId: string) {
   const release = await getRelease(releaseId);
   if (!release) return null;
-  const artworks = await getArtworksByReleaseIds(release.organizationId, [releaseId]);
-  return { ...release, artwork: artworks[0] ?? null };
+  const models = await toReleaseCardModels(release.organizationId, [release]);
+  return models[0] ?? null;
 }
 
 import type { ReleaseQueryOptions } from './release-repository';
@@ -187,17 +193,10 @@ export async function fetchReleasesByOrg(orgId: string, options?: Omit<ReleaseQu
   const releases = options
     ? await getReleases(orgId, options)
     : await getReleasesByOrganization(orgId);
-  if (releases.length === 0) return releases;
-  const ids = releases.map((r) => r.id);
-  const artworks = await getArtworksByReleaseIds(orgId, ids);
-  const map = new Map<string, Artwork>();
-  for (const a of artworks) {
-    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
-  }
-  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+  return toReleaseCardModels(orgId, releases);
 }
 
-export async function fetchReleasesByArtist(orgId: string, artistId: string): Promise<Release[]> {
+export async function fetchReleasesByArtist(orgId: string, artistId: string): Promise<ReleaseCardModel[]> {
   const db = getDb();
   if (!db) return [];
   const relSnap = await getDocs(
@@ -207,29 +206,28 @@ export async function fetchReleasesByArtist(orgId: string, artistId: string): Pr
   if (releaseIds.length === 0) return [];
   const releases = await getReleasesByOrganization(orgId);
   const matched = releases.filter((r) => releaseIds.includes(r.id));
-  if (matched.length === 0) return matched;
-  const ids = matched.map((r) => r.id);
-  const artworks = await getArtworksByReleaseIds(orgId, ids);
-  const map = new Map<string, Artwork>();
-  for (const a of artworks) {
-    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
-  }
-  return matched.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+  return toReleaseCardModels(orgId, matched);
 }
 
 export async function fetchDraftByUser(orgId: string, userId: string) {
   const release = await getDraftByUser(orgId, userId);
   if (!release) return null;
-  return release;
+  const models = await toReleaseCardModels(orgId, [release]);
+  return models[0] ?? null;
 }
 
 export async function fetchDraftsByUser(orgId: string, userId: string) {
-  return getDraftsByUser(orgId, userId);
+  const releases = await getDraftsByUser(orgId, userId);
+  return toReleaseCardModels(orgId, releases);
 }
 
-/** BUG-009 — org-scoped draft list for Draft Releases page + Dashboard widget. */
-export async function fetchOrganizationDrafts(orgId: string) {
-  return getOrganizationDrafts(orgId);
+/**
+ * BUG-009 / BUILD-015A — org-scoped drafts with canonical ReleaseCardModel
+ * (same artwork + progress enrichment as Releases page).
+ */
+export async function fetchOrganizationDrafts(orgId: string): Promise<ReleaseCardModel[]> {
+  const releases = await getOrganizationDrafts(orgId);
+  return toReleaseCardModels(orgId, releases);
 }
 
 export async function saveReleaseDraft(
@@ -276,51 +274,19 @@ export async function markExpiredDrafts(olderThanDays = 180): Promise<{ marked: 
 }
 
 export async function fetchAllReleases(orgId: string) {
-  const releases = await getAllReleases(orgId);
-  if (releases.length === 0) return releases;
-  const ids = releases.map((r) => r.id);
-  const artworks = await getArtworksByReleaseIds(orgId, ids);
-  const map = new Map<string, Artwork>();
-  for (const a of artworks) {
-    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
-  }
-  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+  return toReleaseCardModels(orgId, await getAllReleases(orgId));
 }
 
 export async function fetchDraftReleases(orgId: string, userId?: string) {
-  const releases = await getDraftReleases(orgId, userId);
-  if (releases.length === 0) return releases;
-  const ids = releases.map((r) => r.id);
-  const artworks = await getArtworksByReleaseIds(orgId, ids);
-  const map = new Map<string, Artwork>();
-  for (const a of artworks) {
-    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
-  }
-  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+  return toReleaseCardModels(orgId, await getDraftReleases(orgId, userId));
 }
 
 export async function fetchActiveReleases(orgId: string) {
-  const releases = await getActiveReleases(orgId);
-  if (releases.length === 0) return releases;
-  const ids = releases.map((r) => r.id);
-  const artworks = await getArtworksByReleaseIds(orgId, ids);
-  const map = new Map<string, Artwork>();
-  for (const a of artworks) {
-    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
-  }
-  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+  return toReleaseCardModels(orgId, await getActiveReleases(orgId));
 }
 
 export async function fetchReleasedReleases(orgId: string) {
-  const releases = await getReleasedReleases(orgId);
-  if (releases.length === 0) return releases;
-  const ids = releases.map((r) => r.id);
-  const artworks = await getArtworksByReleaseIds(orgId, ids);
-  const map = new Map<string, Artwork>();
-  for (const a of artworks) {
-    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
-  }
-  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+  return toReleaseCardModels(orgId, await getReleasedReleases(orgId));
 }
 
 export async function duplicateDraft(releaseId: string, actorId: string): Promise<string> {
@@ -358,49 +324,17 @@ export async function deleteReleaseDraft(
 }
 
 export async function fetchReleasesNeedingAttention(orgId: string, userId?: string) {
-  const releases = await getReleasesNeedingAttention(orgId, userId);
-  if (releases.length === 0) return releases;
-  const ids = releases.map((r) => r.id);
-  const artworks = await getArtworksByReleaseIds(orgId, ids);
-  const map = new Map<string, Artwork>();
-  for (const a of artworks) {
-    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
-  }
-  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+  return toReleaseCardModels(orgId, await getReleasesNeedingAttention(orgId, userId));
 }
 
 export async function fetchContinueWorking(orgId: string, userId: string) {
-  const releases = await getContinueWorkingReleases(orgId, userId);
-  if (releases.length === 0) return releases;
-  const ids = releases.map((r) => r.id);
-  const artworks = await getArtworksByReleaseIds(orgId, ids);
-  const map = new Map<string, Artwork>();
-  for (const a of artworks) {
-    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
-  }
-  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+  return toReleaseCardModels(orgId, await getContinueWorkingReleases(orgId, userId));
 }
 
 export async function fetchUpcomingReleases(orgId: string, withinDays = 30) {
-  const releases = await getUpcomingReleases(orgId, withinDays);
-  if (releases.length === 0) return releases;
-  const ids = releases.map((r) => r.id);
-  const artworks = await getArtworksByReleaseIds(orgId, ids);
-  const map = new Map<string, Artwork>();
-  for (const a of artworks) {
-    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
-  }
-  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+  return toReleaseCardModels(orgId, await getUpcomingReleases(orgId, withinDays));
 }
 
 export async function fetchRecentlyUpdated(orgId: string, limit = 10) {
-  const releases = await getRecentlyUpdatedReleases(orgId, limit);
-  if (releases.length === 0) return releases;
-  const ids = releases.map((r) => r.id);
-  const artworks = await getArtworksByReleaseIds(orgId, ids);
-  const map = new Map<string, Artwork>();
-  for (const a of artworks) {
-    if (!map.has(a.releaseId)) map.set(a.releaseId, a);
-  }
-  return releases.map((r) => ({ ...r, artwork: map.get(r.id) ?? null }));
+  return toReleaseCardModels(orgId, await getRecentlyUpdatedReleases(orgId, limit));
 }
