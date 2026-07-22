@@ -302,7 +302,8 @@ export function TrackEditor({
       ) : null}
 
       {/*
-        BUILD-011C Group B — existing Track metadata (not a new section heading).
+        BUILD-011C Group B — recording metadata.
+        BUILD-012B — when Remix, label as Remix Details so users see two recordings.
         Order: Primary Artist → Featured Artists → Version → Suggested Display Title.
         No Original Artists. No Remix Artists.
       */}
@@ -312,80 +313,91 @@ export function TrackEditor({
             value.recordingType === 'remix' && showOriginalWork ? c.divider : c.stack
           }
         >
-          <ArtistFieldPicker
-            key={`${instanceId}-primary`}
-            instanceId={`${instanceId}-primary`}
-            label="Primary Artist"
-            value={value.primaryArtistId}
-            onChange={(id) =>
-              patchWithDisplayTitle({ primaryArtistId: id }, { nextPrimaryId: id })
-            }
-            artists={artists}
-            organizationId={organizationId}
-            onArtistCreated={onArtistCreated}
-          />
+          {value.recordingType === 'remix' ? (
+            <div>
+              <p className={`${c.sectionLabel} mb-1`}>Remix Details</p>
+              <p className={`${c.helper} mb-3`}>
+                Information about the remix recording being released.
+              </p>
+            </div>
+          ) : null}
 
-          <ArtistRelationshipList
-            instanceId={`${instanceId}-featured`}
-            role="featured"
-            entries={value.featuredArtists}
-            artists={artists}
-            organizationId={organizationId}
-            onAdd={(artistId) => {
-              if (value.featuredArtists.some((e) => e.artistId === artistId)) {
-                return;
+          <div className="space-y-3">
+            <ArtistFieldPicker
+              key={`${instanceId}-primary`}
+              instanceId={`${instanceId}-primary`}
+              label="Primary Artist"
+              value={value.primaryArtistId}
+              onChange={(id) =>
+                patchWithDisplayTitle({ primaryArtistId: id }, { nextPrimaryId: id })
               }
-              const next = [
-                ...value.featuredArtists,
-                { id: `${Date.now()}-${artistId}`, artistId },
-              ];
-              patchWithDisplayTitle({ featuredArtists: next }, { nextFeatured: next });
-            }}
-            onRemove={(entryId) => {
-              const next = value.featuredArtists.filter((e) => e.id !== entryId);
-              patchWithDisplayTitle({ featuredArtists: next }, { nextFeatured: next });
-            }}
-            onReorder={(entries) => {
-              const dup = findDuplicateArtistId(entries.map((e) => e.artistId));
-              if (dup) return;
-              patchWithDisplayTitle(
-                { featuredArtists: entries },
-                { nextFeatured: entries },
-              );
-            }}
-            onArtistCreated={onArtistCreated}
-            error={errors?.featuredArtists}
-          />
+              artists={artists}
+              organizationId={organizationId}
+              onArtistCreated={onArtistCreated}
+            />
 
-          <input
-            type="text"
-            value={value.version}
-            onChange={(e) => onChange({ version: e.target.value })}
-            placeholder="Version (optional)"
-            className={
-              titleCentered
-                ? 'block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-5 text-sm text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none'
-                : c.inputLg
-            }
-          />
+            <ArtistRelationshipList
+              instanceId={`${instanceId}-featured`}
+              role="featured"
+              entries={value.featuredArtists}
+              artists={artists}
+              organizationId={organizationId}
+              onAdd={(artistId) => {
+                if (value.featuredArtists.some((e) => e.artistId === artistId)) {
+                  return;
+                }
+                const next = [
+                  ...value.featuredArtists,
+                  { id: `${Date.now()}-${artistId}`, artistId },
+                ];
+                patchWithDisplayTitle({ featuredArtists: next }, { nextFeatured: next });
+              }}
+              onRemove={(entryId) => {
+                const next = value.featuredArtists.filter((e) => e.id !== entryId);
+                patchWithDisplayTitle({ featuredArtists: next }, { nextFeatured: next });
+              }}
+              onReorder={(entries) => {
+                const dup = findDuplicateArtistId(entries.map((e) => e.artistId));
+                if (dup) return;
+                patchWithDisplayTitle(
+                  { featuredArtists: entries },
+                  { nextFeatured: entries },
+                );
+              }}
+              onArtistCreated={onArtistCreated}
+              error={errors?.featuredArtists}
+            />
 
-          <div className={c.panelMuted}>
-            <p className={c.sectionLabel}>Suggested Display Title</p>
             <input
               type="text"
-              value={value.displayTitle}
-              onChange={(e) =>
-                onChange({
-                  displayTitle: e.target.value,
-                  displayTitleEdited: true,
-                })
+              value={value.version}
+              onChange={(e) => onChange({ version: e.target.value })}
+              placeholder="Version (optional)"
+              className={
+                titleCentered
+                  ? 'block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-5 text-sm text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none'
+                  : c.inputLg
               }
-              placeholder="Auto-generated from artists and title"
-              className={c.input}
             />
-            <p className={c.micro}>
-              Uses feat. for featured artists. Edit to override automatic generation.
-            </p>
+
+            <div className={c.panelMuted}>
+              <p className={c.sectionLabel}>Suggested Display Title</p>
+              <input
+                type="text"
+                value={value.displayTitle}
+                onChange={(e) =>
+                  onChange({
+                    displayTitle: e.target.value,
+                    displayTitleEdited: true,
+                  })
+                }
+                placeholder="Auto-generated from artists and title"
+                className={c.input}
+              />
+              <p className={c.micro}>
+                Uses feat. for featured artists. Edit to override automatic generation.
+              </p>
+            </div>
           </div>
         </div>
       ) : null}

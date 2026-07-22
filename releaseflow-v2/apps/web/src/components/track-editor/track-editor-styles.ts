@@ -13,7 +13,8 @@ export function trackEditorClasses(variant: TrackEditorVariant = 'dark') {
         'block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-content-primary placeholder:text-content-label focus:border-primary-500 focus:outline-none',
       panel: 'rounded-xl border border-surface-200 bg-surface-50 p-5 space-y-3',
       panelMuted: 'rounded-xl border border-surface-200 bg-surface-50 p-3 space-y-2',
-      divider: 'mt-6 border-t border-surface-200 pt-6 space-y-3',
+      // BUILD-012B — clearer break between Original Work and Remix Details (mt-8 ≈ 32px, pt-6 ≈ 24px)
+      divider: 'mt-8 border-t border-surface-200 pt-6 space-y-3',
       stack: 'mt-4 space-y-3',
       radioLabel: 'flex items-center gap-2 text-sm text-content-secondary',
       error: 'text-xs text-danger-500',
@@ -35,7 +36,8 @@ export function trackEditorClasses(variant: TrackEditorVariant = 'dark') {
       'block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-5 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none',
     panel: 'rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-3',
     panelMuted: 'rounded-xl border border-surface-700 bg-surface-950 p-3 space-y-2',
-    divider: 'mt-6 border-t border-surface-700 pt-6 space-y-3',
+    // BUILD-012B — clearer break between Original Work and Remix Details (mt-8 ≈ 32px, pt-6 ≈ 24px)
+    divider: 'mt-8 border-t border-surface-700 pt-6 space-y-3',
     stack: 'mt-4 space-y-3',
     radioLabel: 'flex items-center gap-2 text-sm text-text-300',
     error: 'text-xs text-danger-400',
