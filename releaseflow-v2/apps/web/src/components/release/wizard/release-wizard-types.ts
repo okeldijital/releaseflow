@@ -1,4 +1,5 @@
 import type { RecordingType } from '@/lib/recording-type';
+import type { RepeatableArtistEntry } from '@/components/artist-field-picker';
 
 export const RELEASE_TYPES = [
   { value: 'single', label: 'Single', description: 'One track release' },
@@ -19,15 +20,17 @@ export const SOCIAL_PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube', '
 
 export type ReleaseTypeVal = typeof RELEASE_TYPES[number]['value'];
 
+/** Wizard track state — BUILD-011C shape (Original Work + recording metadata). */
 export type WizardTrack = {
   id: string;
   title: string;
   version: string;
   recordingType: RecordingType;
   primaryArtistId: string;
-  featuredArtistIds: string[];
-  originalArtists: { id: string; artistId: string }[];
-  remixArtists: { id: string; artistId: string }[];
+  featuredArtists: RepeatableArtistEntry[];
+  originalWorkTitle: string;
+  originalWorkPrimaryArtistId: string;
+  originalWorkFeaturedArtists: RepeatableArtistEntry[];
   displayTitle: string;
   displayTitleEdited: boolean;
   mixed: boolean;
@@ -39,7 +42,11 @@ export type WizardTrack = {
   lyricist: string;
   iswc: string;
   pubOpen: boolean;
-  remixErrors: { originalArtists?: string; remixArtists?: string };
+  remixErrors: {
+    originalWorkTitle?: string;
+    originalWorkPrimaryArtist?: string;
+    featuredArtists?: string;
+  };
 };
 
 export function createEmptyTrack(id = String(Date.now())): WizardTrack {
@@ -49,9 +56,10 @@ export function createEmptyTrack(id = String(Date.now())): WizardTrack {
     version: '',
     recordingType: 'original',
     primaryArtistId: '',
-    featuredArtistIds: [],
-    originalArtists: [],
-    remixArtists: [],
+    featuredArtists: [],
+    originalWorkTitle: '',
+    originalWorkPrimaryArtistId: '',
+    originalWorkFeaturedArtists: [],
     displayTitle: '',
     displayTitleEdited: false,
     mixed: true,
@@ -64,6 +72,24 @@ export function createEmptyTrack(id = String(Date.now())): WizardTrack {
     iswc: '',
     pubOpen: false,
     remixErrors: {},
+  };
+}
+
+/** Normalize draft / legacy wizard tracks into BUILD-011C shape. */
+export function normalizeWizardTrack(raw: Partial<WizardTrack> & { id?: string; featuredArtistIds?: string[]; originalArtists?: { id: string; artistId: string }[]; remixArtists?: { id: string; artistId: string }[] }): WizardTrack {
+  const base = createEmptyTrack(raw.id ?? String(Date.now()));
+  const featuredArtists =
+    raw.featuredArtists ??
+    (raw.featuredArtistIds ?? []).map((artistId) => ({ id: artistId, artistId }));
+
+  return {
+    ...base,
+    ...raw,
+    featuredArtists,
+    originalWorkTitle: raw.originalWorkTitle ?? '',
+    originalWorkPrimaryArtistId: raw.originalWorkPrimaryArtistId ?? '',
+    originalWorkFeaturedArtists: raw.originalWorkFeaturedArtists ?? [],
+    remixErrors: raw.remixErrors ?? {},
   };
 }
 

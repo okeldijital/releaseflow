@@ -141,10 +141,8 @@ export function ReleaseWizard({ mode = 'create', releaseId, draftId }: { mode?: 
           artists={stepProps.artists}
           activeOrgId={stepProps.activeOrgId}
           addTrack={handlers.addTrack}
-          updateTrack={handlers.updateTrack}
+          updateTrackFields={handlers.updateTrackFields}
           removeTrack={handlers.removeTrack}
-          addFeaturedArtist={handlers.addFeaturedArtist}
-          removeFeaturedArtist={handlers.removeFeaturedArtist}
           onArtistCreated={stepProps.onArtistCreated}
           openAssigner={handlers.openAssigner}
           validateRemixTracks={handlers.validateRemixTracks}
@@ -264,7 +262,9 @@ export function ReleaseWizard({ mode = 'create', releaseId, draftId }: { mode?: 
         onClose={() => setAssignerOpen(false)}
         onSelectPerson={(result) => {
           if (assignerCallback.current) { assignerCallback.current({ personId: result.personId }); assignerCallback.current = null; }
-          else handlers.updateTrack(assignerTrackId, assignerField as string, result.personId);
+          else if (assignerTrackId && assignerField) {
+            handlers.updateTrackFields(assignerTrackId, { [assignerField]: result.personId });
+          }
           setAssignerOpen(false);
         }}
         contextLabel={assignerLabel}

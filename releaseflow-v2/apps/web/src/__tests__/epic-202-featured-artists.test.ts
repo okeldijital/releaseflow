@@ -125,11 +125,13 @@ describe('EPIC-202 track storage compatibility', () => {
     expect(src).toContain('original');
   });
 
-  it('standalone track create uses featured on remix path', () => {
-    const src = read('app/(app)/tracks/new/page.tsx');
-    expect(src).toContain('ArtistRelationshipList');
-    expect(src).toContain("role=\"featured\"");
-    expect(src).toContain('generateSuggestedDisplayTitle');
-    expect(src).toContain('FEATURED_ARTIST');
+  it('standalone track create uses featured on remix path via TrackEditor', () => {
+    const page = read('app/(app)/tracks/new/page.tsx');
+    const editor = read('components/track-editor/TrackEditor.tsx');
+    expect(page).toContain('TrackEditor');
+    expect(page).toContain('FEATURED_ARTIST');
+    expect(editor).toContain('ArtistRelationshipList');
+    expect(editor).toContain('role="featured"');
+    expect(editor).toContain('generateSuggestedDisplayTitle');
   });
 });

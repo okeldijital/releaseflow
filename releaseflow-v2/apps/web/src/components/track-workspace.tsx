@@ -35,6 +35,7 @@ import {
   type RepeatableArtistEntry,
 } from '@/components/artists/artist-relationship-list';
 import { ArtistFieldPicker } from '@/components/artist-field-picker';
+import { OriginalWorkSection, emptyTrackEditorValue } from '@/components/track-editor';
 import { useArtists } from '@/hooks/useArtist';
 import {
   generateSuggestedDisplayTitle,
@@ -1719,58 +1720,32 @@ function EditPanel({
         </div>
       </div>
 
-      {/* BUILD-011 — Original Work (only when Recording Type = Remix) */}
+      {/* BUILD-011 — Original Work via shared TrackEditor section (only when Recording Type = Remix) */}
       {recordingType === 'remix' ? (
-        <div>
-          <p className="text-xs font-semibold text-content-label uppercase tracking-wider mb-1">Original Work</p>
-          <p className="text-xs text-content-label mb-3">Information about the original song being remixed.</p>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-content-label">Original Song Title</label>
-              <input
-                type="text"
-                value={originalWorkTitle}
-                onChange={(e) => setOriginalWorkTitle(e.target.value)}
-                placeholder="e.g. Dreams"
-                className="block w-full h-10 rounded-xl border border-surface-200 px-3 text-sm text-content-primary placeholder:text-content-label focus:border-primary-500 focus:outline-none"
-              />
-            </div>
-            <ArtistFieldPicker
-              key={`edit-${track.id}-ow-primary`}
-              instanceId={`edit-${track.id}-ow-primary`}
-              label="Original Primary Artist"
-              value={originalWorkPrimaryArtistId}
-              onChange={setOriginalWorkPrimaryArtistId}
-              artists={artists}
-              organizationId={activeOrgId}
-              onArtistCreated={(a) => {
-                setExtraArtists((prev) => [...prev, a]);
-                void refreshArtists();
-              }}
-            />
-            <ArtistRelationshipList
-              instanceId={`edit-${track.id}-ow-featured`}
-              role="featured"
-              entries={originalWorkFeaturedEntries}
-              artists={artists}
-              organizationId={activeOrgId}
-              onAdd={(artistId) => {
-                setOriginalWorkFeaturedEntries((prev) => {
-                  if (prev.some((e) => e.artistId === artistId)) return prev;
-                  return [...prev, { id: artistId, artistId }];
-                });
-              }}
-              onRemove={(entryId) =>
-                setOriginalWorkFeaturedEntries((prev) => prev.filter((e) => e.id !== entryId))
-              }
-              onReorder={setOriginalWorkFeaturedEntries}
-              onArtistCreated={(a) => {
-                setExtraArtists((prev) => [...prev, a]);
-                void refreshArtists();
-              }}
-            />
-          </div>
-        </div>
+        <OriginalWorkSection
+          instanceId={`edit-${track.id}`}
+          value={emptyTrackEditorValue({
+            originalWorkTitle,
+            originalWorkPrimaryArtistId,
+            originalWorkFeaturedArtists: originalWorkFeaturedEntries,
+          })}
+          onChange={(patch) => {
+            if (patch.originalWorkTitle !== undefined) setOriginalWorkTitle(patch.originalWorkTitle);
+            if (patch.originalWorkPrimaryArtistId !== undefined) {
+              setOriginalWorkPrimaryArtistId(patch.originalWorkPrimaryArtistId);
+            }
+            if (patch.originalWorkFeaturedArtists !== undefined) {
+              setOriginalWorkFeaturedEntries(patch.originalWorkFeaturedArtists);
+            }
+          }}
+          artists={artists}
+          organizationId={activeOrgId}
+          onArtistCreated={(a) => {
+            setExtraArtists((prev) => [...prev, a]);
+            void refreshArtists();
+          }}
+          variant="light"
+        />
       ) : null}
 
       {/* EPIC-202A — Artist Relationships (same component as wizard / create) */}

@@ -19,9 +19,8 @@ import {
 import { invitePerson } from '@/lib/invitation-service';
 import { getOrganization } from '@/lib/organization-repository';
 import { PersonPickerDialog } from '@/components/person-picker-dialog';
-import { ArtistFieldPicker, type ArtistOption, type RepeatableArtistEntry } from '@/components/artist-field-picker';
-import { ArtistRelationshipList } from '@/components/artists/artist-relationship-list';
-import { generateSuggestedDisplayTitle, findDuplicateArtistId } from '@/lib/display-title';
+import type { ArtistOption, RepeatableArtistEntry } from '@/components/artist-field-picker';
+import { TrackEditor, type TrackEditorValue } from '@/components/track-editor';
 import { useArtists } from '@/hooks/useArtist';
 import {
   recordingTypeLabel,
@@ -281,49 +280,6 @@ export default function NewTrackPage() {
     next();
   }
 
-  function resolveNames(ids: string[]): string[] {
-    return ids
-      .map((id) => artists.find((a) => a.id === id)?.name ?? '')
-      .filter(Boolean);
-  }
-
-  /** EPIC-202 — regenerate suggested display title unless manually overridden */
-  function regenerateDisplayTitle(opts?: {
-    nextTitle?: string;
-    nextPrimaryId?: string;
-    nextFeaturedIds?: string[];
-    nextType?: typeof recordingType;
-  }) {
-    if (displayTitleEdited) return;
-    const t = opts?.nextTitle ?? title;
-    const type = opts?.nextType ?? recordingType;
-    // BUILD-011C — Remix Recording uses Primary Artist (primaryArtistId), not Original/Remix Artists lists
-    const primaryId = opts?.nextPrimaryId ?? primaryArtistId;
-    const featuredIds =
-      opts?.nextFeaturedIds ?? featuredArtists.map((e) => e.artistId);
-    setDisplayTitle(
-      generateSuggestedDisplayTitle({
-        trackTitle: t,
-        originalArtistNames: resolveNames(primaryId ? [primaryId] : []),
-        featuredArtistNames: resolveNames(featuredIds),
-        remixArtistNames: [],
-        isRemix: type === 'remix',
-      }),
-    );
-  }
-
-  function addFeaturedArtist(artistId: string) {
-    const ids = featuredArtists.map((e) => e.artistId);
-    if (ids.includes(artistId)) {
-      setRemixErrors((p) => ({ ...p, featuredArtists: 'Artist already added.' }));
-      return;
-    }
-    setRemixErrors((p) => ({ ...p, featuredArtists: undefined }));
-    const next = [...featuredArtists, { id: uid(), artistId }];
-    setFeaturedArtists(next);
-    regenerateDisplayTitle({ nextFeaturedIds: next.map((e) => e.artistId) });
-  }
-
   function validateBasics(): boolean {
     if (!title.trim()) return false;
     if (recordingType !== 'remix') return true;
@@ -579,32 +535,50 @@ export default function NewTrackPage() {
 
       {currentStepKey === 'basics' && (
         <BasicsStep
-          title={title}
-          setTitle={setTitle}
-          version={version}
-          setVersion={setVersion}
-          recordingType={recordingType}
-          setRecordingType={setRecordingType}
-          originalWorkTitle={originalWorkTitle}
-          setOriginalWorkTitle={setOriginalWorkTitle}
-          originalWorkPrimaryArtistId={originalWorkPrimaryArtistId}
-          setOriginalWorkPrimaryArtistId={setOriginalWorkPrimaryArtistId}
-          originalWorkFeaturedArtists={originalWorkFeaturedArtists}
-          setOriginalWorkFeaturedArtists={setOriginalWorkFeaturedArtists}
-          primaryArtistId={primaryArtistId}
-          setPrimaryArtistId={setPrimaryArtistId}
-          featuredArtists={featuredArtists}
-          setFeaturedArtists={setFeaturedArtists}
-          displayTitle={displayTitle}
-          setDisplayTitle={setDisplayTitle}
-          setDisplayTitleEdited={setDisplayTitleEdited}
+          editorValue={{
+            title,
+            version,
+            recordingType,
+            originalWorkTitle,
+            originalWorkPrimaryArtistId,
+            originalWorkFeaturedArtists,
+            primaryArtistId,
+            featuredArtists,
+            displayTitle,
+            displayTitleEdited,
+            mixed: true,
+            mastered: true,
+            mixingEngineer: '',
+            masteringEngineer: '',
+            isrc: '',
+            composer: '',
+            lyricist: '',
+            iswc: '',
+            pubOpen: false,
+          }}
+          onEditorChange={(patch: Partial<TrackEditorValue>) => {
+            if (patch.title !== undefined) setTitle(patch.title);
+            if (patch.version !== undefined) setVersion(patch.version);
+            if (patch.recordingType !== undefined) setRecordingType(patch.recordingType);
+            if (patch.originalWorkTitle !== undefined) setOriginalWorkTitle(patch.originalWorkTitle);
+            if (patch.originalWorkPrimaryArtistId !== undefined) {
+              setOriginalWorkPrimaryArtistId(patch.originalWorkPrimaryArtistId);
+            }
+            if (patch.originalWorkFeaturedArtists !== undefined) {
+              setOriginalWorkFeaturedArtists(patch.originalWorkFeaturedArtists);
+            }
+            if (patch.primaryArtistId !== undefined) setPrimaryArtistId(patch.primaryArtistId);
+            if (patch.featuredArtists !== undefined) setFeaturedArtists(patch.featuredArtists);
+            if (patch.displayTitle !== undefined) setDisplayTitle(patch.displayTitle);
+            if (patch.displayTitleEdited !== undefined) {
+              setDisplayTitleEdited(patch.displayTitleEdited);
+            }
+          }}
           remixErrors={remixErrors}
           setRemixErrors={setRemixErrors}
           artists={artists}
           activeOrgId={activeOrgId}
           onArtistCreated={handleArtistCreated}
-          regenerateDisplayTitle={regenerateDisplayTitle}
-          addFeaturedArtist={addFeaturedArtist}
           back={back}
           next={next}
         />
@@ -809,253 +783,57 @@ function SectionStatusBadge({ status }: { status?: SectionStatus }) {
 }
 
 function BasicsStep({
-  title, setTitle, version, setVersion, recordingType, setRecordingType,
-  originalWorkTitle, setOriginalWorkTitle,
-  originalWorkPrimaryArtistId, setOriginalWorkPrimaryArtistId,
-  originalWorkFeaturedArtists, setOriginalWorkFeaturedArtists,
-  primaryArtistId, setPrimaryArtistId, featuredArtists, setFeaturedArtists,
-  displayTitle, setDisplayTitle, setDisplayTitleEdited, remixErrors, setRemixErrors,
-  artists, activeOrgId, onArtistCreated, regenerateDisplayTitle, addFeaturedArtist, back, next,
+  editorValue,
+  onEditorChange,
+  remixErrors,
+  setRemixErrors,
+  artists,
+  activeOrgId,
+  onArtistCreated,
+  back,
+  next,
 }: {
-  title: string;
-  setTitle: (v: string) => void;
-  version: string;
-  setVersion: (v: string) => void;
-  recordingType: RecordingType;
-  setRecordingType: (v: RecordingType) => void;
-  originalWorkTitle: string;
-  setOriginalWorkTitle: (v: string) => void;
-  originalWorkPrimaryArtistId: string;
-  setOriginalWorkPrimaryArtistId: (v: string) => void;
-  originalWorkFeaturedArtists: RepeatableArtistEntry[];
-  setOriginalWorkFeaturedArtists: Dispatch<SetStateAction<RepeatableArtistEntry[]>>;
-  primaryArtistId: string;
-  setPrimaryArtistId: (v: string) => void;
-  featuredArtists: RepeatableArtistEntry[];
-  setFeaturedArtists: Dispatch<SetStateAction<RepeatableArtistEntry[]>>;
-  displayTitle: string;
-  setDisplayTitle: (v: string) => void;
-  setDisplayTitleEdited: (v: boolean) => void;
+  editorValue: TrackEditorValue;
+  onEditorChange: (patch: Partial<TrackEditorValue>) => void;
   remixErrors: {
     featuredArtists?: string;
     originalWorkTitle?: string;
     originalWorkPrimaryArtist?: string;
   };
-  setRemixErrors: Dispatch<SetStateAction<{
-    featuredArtists?: string;
-    originalWorkTitle?: string;
-    originalWorkPrimaryArtist?: string;
-  }>>;
+  setRemixErrors: Dispatch<
+    SetStateAction<{
+      featuredArtists?: string;
+      originalWorkTitle?: string;
+      originalWorkPrimaryArtist?: string;
+    }>
+  >;
   artists: ArtistOption[];
   activeOrgId: string | null;
   onArtistCreated: (a: ArtistOption) => void;
-  regenerateDisplayTitle: (opts?: {
-    nextTitle?: string;
-    nextPrimaryId?: string;
-    nextFeaturedIds?: string[];
-    nextType?: RecordingType;
-  }) => void;
-  addFeaturedArtist: (artistId: string) => void;
   back: () => void;
   next: () => void;
 }) {
   return (
     <>
       {/*
-        BUILD-011C canonical order:
-        Track Title → Recording Type → [Original Work if remix] → Remix Recording (existing Track metadata)
+        BUILD-011C via canonical TrackEditor:
+        Track Title → Recording Type → [Original Work if remix] → Recording metadata
       */}
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => {
-          setTitle(e.target.value);
-          regenerateDisplayTitle({ nextTitle: e.target.value });
-        }}
-        placeholder="Track title"
-        autoFocus
-        className="mt-8 block w-full h-14 rounded-xl border border-surface-700 bg-surface-900 px-5 text-body-large text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none"
+      <TrackEditor
+        instanceId="new-track"
+        value={editorValue}
+        onChange={onEditorChange}
+        errors={remixErrors}
+        onClearError={(key) => setRemixErrors((p) => ({ ...p, [key]: undefined }))}
+        artists={artists}
+        organizationId={activeOrgId}
+        onArtistCreated={onArtistCreated}
+        variant="dark"
+        titlePlaceholder="Track title"
+        titleAutoFocus
+        titleCentered
       />
-
-      <div className="mt-6 rounded-xl border border-surface-700 bg-surface-900 p-5 space-y-3">
-        <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Recording Type</p>
-        <label className="flex items-center gap-2 text-sm text-text-300">
-          <input
-            type="radio"
-            name="recording-type"
-            checked={recordingType === 'original'}
-            onChange={() => {
-              setRecordingType('original');
-              // Keep Original Work values in memory; only hide section (BUILD-011C)
-              setRemixErrors((p) => ({
-                ...p,
-                originalWorkTitle: undefined,
-                originalWorkPrimaryArtist: undefined,
-              }));
-              setDisplayTitleEdited(false);
-              regenerateDisplayTitle({ nextType: 'original' });
-            }}
-          />
-          Original Recording
-        </label>
-        <label className="flex items-center gap-2 text-sm text-text-300">
-          <input
-            type="radio"
-            name="recording-type"
-            checked={recordingType === 'remix'}
-            onChange={() => {
-              setRecordingType('remix');
-              setDisplayTitleEdited(false);
-              regenerateDisplayTitle({ nextType: 'remix' });
-            }}
-          />
-          Remix
-        </label>
-      </div>
-
-      {/*
-        BUILD-011C Group A — Original Work (exactly three fields).
-        Mirrors Edit Track reference. Never merge with Remix Recording metadata.
-      */}
-      {recordingType === 'remix' ? (
-        <div className="mt-6">
-          <p className="text-xs font-semibold text-text-500 uppercase tracking-wider mb-1">Original Work</p>
-          <p className="text-xs text-text-500 mb-3">Information about the original song being remixed.</p>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-text-400">Original Song Title</label>
-              <input
-                type="text"
-                value={originalWorkTitle}
-                onChange={(e) => {
-                  setOriginalWorkTitle(e.target.value);
-                  setRemixErrors((p) => ({ ...p, originalWorkTitle: undefined }));
-                }}
-                placeholder="e.g. Dreams"
-                autoComplete="off"
-                className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
-              />
-              {remixErrors.originalWorkTitle ? (
-                <p className="text-xs text-danger-400">{remixErrors.originalWorkTitle}</p>
-              ) : null}
-            </div>
-            <ArtistFieldPicker
-              key="track-original-work-primary"
-              instanceId="track-original-work-primary"
-              label="Original Primary Artist"
-              value={originalWorkPrimaryArtistId}
-              onChange={(id) => {
-                setOriginalWorkPrimaryArtistId(id);
-                setRemixErrors((p) => ({ ...p, originalWorkPrimaryArtist: undefined }));
-              }}
-              artists={artists}
-              organizationId={activeOrgId}
-              onArtistCreated={onArtistCreated}
-            />
-            {remixErrors.originalWorkPrimaryArtist ? (
-              <p className="text-xs text-danger-400">{remixErrors.originalWorkPrimaryArtist}</p>
-            ) : null}
-            <ArtistRelationshipList
-              instanceId="track-original-work-featured"
-              role="featured"
-              label="Original Featured Artists"
-              addLabel="+ Add Featured Artist"
-              entries={originalWorkFeaturedArtists}
-              artists={artists}
-              organizationId={activeOrgId}
-              onAdd={(artistId) => {
-                setOriginalWorkFeaturedArtists((prev) => {
-                  if (prev.some((e) => e.artistId === artistId)) return prev;
-                  return [...prev, { id: artistId, artistId }];
-                });
-              }}
-              onRemove={(entryId) =>
-                setOriginalWorkFeaturedArtists((prev) => prev.filter((e) => e.id !== entryId))
-              }
-              onReorder={setOriginalWorkFeaturedArtists}
-              onArtistCreated={onArtistCreated}
-            />
-          </div>
-        </div>
-      ) : null}
-
-      {/*
-        BUILD-011C Group B — Remix Recording = existing Track metadata (not a new section heading).
-        Order: Primary Artist → Featured Artists → Version → Suggested Display Title.
-        No Original Artists. No Remix Artists.
-      */}
-      <div
-        className={
-          recordingType === 'remix'
-            ? 'mt-6 border-t border-surface-700 pt-6 space-y-3'
-            : 'mt-4 space-y-3'
-        }
-      >
-        <ArtistFieldPicker
-          key="track-primary-artist"
-          instanceId="track-primary-artist"
-          label="Primary Artist"
-          value={primaryArtistId}
-          onChange={(id) => {
-            setPrimaryArtistId(id);
-            regenerateDisplayTitle({ nextPrimaryId: id });
-          }}
-          artists={artists}
-          organizationId={activeOrgId}
-          onArtistCreated={onArtistCreated}
-        />
-
-        <ArtistRelationshipList
-          instanceId="track-featured-artists"
-          role="featured"
-          entries={featuredArtists}
-          artists={artists}
-          organizationId={activeOrgId}
-          onAdd={addFeaturedArtist}
-          onRemove={(entryId) => {
-            setFeaturedArtists((p) => {
-              const next = p.filter((e) => e.id !== entryId);
-              regenerateDisplayTitle({ nextFeaturedIds: next.map((e) => e.artistId) });
-              return next;
-            });
-          }}
-          onReorder={(entries) => {
-            const dup = findDuplicateArtistId(entries.map((e) => e.artistId));
-            if (dup) {
-              setRemixErrors((p) => ({ ...p, featuredArtists: 'Artist already added.' }));
-              return;
-            }
-            setFeaturedArtists(entries);
-            regenerateDisplayTitle({ nextFeaturedIds: entries.map((e) => e.artistId) });
-          }}
-          onArtistCreated={onArtistCreated}
-          error={remixErrors.featuredArtists}
-        />
-
-        <input
-          type="text"
-          value={version}
-          onChange={(e) => setVersion(e.target.value)}
-          placeholder="Version (optional)"
-          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-5 text-sm text-surface-50 placeholder-text-500 text-center focus:border-primary-500/60 focus:outline-none"
-        />
-
-        <div className="rounded-xl border border-surface-700 bg-surface-950 p-3 space-y-2">
-          <p className="text-xs font-semibold text-text-500 uppercase tracking-wider">Suggested Display Title</p>
-          <input
-            type="text"
-            value={displayTitle}
-            onChange={(e) => { setDisplayTitle(e.target.value); setDisplayTitleEdited(true); }}
-            placeholder="Auto-generated from artists and title"
-            className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-900 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
-          />
-          <p className="text-[11px] text-text-500">
-            Uses feat. for featured artists. Edit to override automatic generation.
-          </p>
-        </div>
-      </div>
-
-      <Nav back={back} next={next} canNext={!!title.trim()} />
+      <Nav back={back} next={next} canNext={!!editorValue.title.trim()} />
     </>
   );
 }

@@ -1,5 +1,6 @@
 /**
  * BUILD-011 — Remix Original Work Metadata
+ * BUILD-012 — Canonical TrackEditor is the single UI source for create paths
  */
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
@@ -76,7 +77,7 @@ describe('BUILD-011 — originalWork pure helpers', () => {
   });
 });
 
-describe('BUILD-011 — source contracts', () => {
+describe('BUILD-011 / BUILD-012 — source contracts', () => {
   const root = resolve(__dirname, '..');
 
   it('repository persists and hydrates originalWork', () => {
@@ -87,37 +88,50 @@ describe('BUILD-011 — source contracts', () => {
     expect(src).toContain('interface OriginalWork');
   });
 
-  it('create wizard shows Original Work only for remix (BUILD-011C)', () => {
-    const src = readFileSync(resolve(root, 'app/(app)/tracks/new/page.tsx'), 'utf8');
+  it('canonical TrackEditor owns BUILD-011C Original Work UI', () => {
+    const src = readFileSync(resolve(root, 'components/track-editor/TrackEditor.tsx'), 'utf8');
     expect(src).toContain('Original Work');
     expect(src).toContain('Original Song Title');
     expect(src).toContain('Original Primary Artist');
     expect(src).toContain('Original Featured Artists');
     expect(src).toContain('Information about the original song being remixed.');
-    expect(src).toContain('originalWorkTitle');
     expect(src).toContain("recordingType === 'remix'");
+    expect(src).toContain('label="Primary Artist"');
+    // Forbidden terminology in the canonical editor
+    expect(src).not.toContain('label="Original Artists"');
+    expect(src).not.toContain('role="original"');
+    expect(src).not.toContain('role="remix"');
+  });
+
+  it('create wizard uses TrackEditor and binds originalWork (BUILD-011C + BUILD-012)', () => {
+    const src = readFileSync(resolve(root, 'app/(app)/tracks/new/page.tsx'), 'utf8');
+    expect(src).toContain('TrackEditor');
+    expect(src).toContain('originalWorkTitle');
     expect(src).toContain('originalWork:');
     // Group A binding (Original Work — never track.primaryArtistId)
     expect(src).toContain('primaryArtistId: originalWorkPrimaryArtistId');
     expect(src).toContain('featuredArtistIds: originalWorkFeaturedArtists');
     // Group B — recording credit uses Primary Artist → track.primaryArtistId (separate state)
-    expect(src).toContain('label="Primary Artist"');
     expect(src).toContain('primaryArtistId: recordingPrimaryId');
-    // Two distinct artist states must exist (separate bindings)
     expect(src).toContain('originalWorkPrimaryArtistId');
     expect(src).toMatch(/const \[primaryArtistId, setPrimaryArtistId\]/);
-    // Forbidden terminology / intermediate lists
+    // Forbidden intermediate lists on create page
     expect(src).not.toContain('label="Original Artists"');
-    expect(src).not.toContain("role=\"original\"");
-    expect(src).not.toContain("role=\"remix\"");
     expect(src).not.toContain('setOriginalArtists');
     expect(src).not.toContain('setRemixArtists');
   });
 
-  it('track workspace edit and details expose Original Work for remix', () => {
+  it('release wizard tracks step uses TrackEditor (BUILD-012)', () => {
+    const src = readFileSync(resolve(root, 'components/release/wizard/TracksStep.tsx'), 'utf8');
+    expect(src).toContain('TrackEditor');
+    expect(src).not.toContain('label="Original Artists"');
+    expect(src).not.toContain('role="original"');
+    expect(src).not.toContain('role="remix"');
+  });
+
+  it('track workspace edit reuses OriginalWorkSection from TrackEditor', () => {
     const src = readFileSync(resolve(root, 'components/track-workspace.tsx'), 'utf8');
-    expect(src).toContain('Original Work');
-    expect(src).toContain('Original Song');
+    expect(src).toContain('OriginalWorkSection');
     expect(src).toContain('originalWorkTitle');
     expect(src).toContain("recordingType === 'remix'");
     expect(src).toContain('track.originalWork');

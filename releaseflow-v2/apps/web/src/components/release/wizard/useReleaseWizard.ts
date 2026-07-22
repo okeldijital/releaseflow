@@ -12,7 +12,6 @@ import { getStageTemplatesForReleaseType } from '@/lib/workflow-templates';
 import { getRequirementNamesForReleaseType } from '@/lib/requirement-templates';
 import { getLabelsByOrganization } from '@/lib/label-repository';
 import { invitePerson } from '@/lib/invitation-service';
-import { suggestRemixDisplayTitle } from '@/lib/recording-type';
 import { uploadArtwork, getArtworkByRelease, removeArtwork, replaceArtwork } from '@/lib/artwork/artwork-service';
 import type { Artwork } from '@/lib/artwork/artwork-types';
 import type { UploadState } from '@/components/release/ReleaseArtwork';
@@ -20,7 +19,7 @@ import { toast } from '@/stores/toast-store';
 import type { LabelOption } from '@/components/label-field-picker';
 import type { ReleaseRecord } from '@/lib/release-repository';
 import type { ReleaseTypeVal, WizardTrack, PersonOption, SocialRow, SectionStatusMap, AssignerField, InviteTarget, WizardDraftData } from './release-wizard-types';
-import { createEmptyTrack } from './release-wizard-types';
+import { createEmptyTrack, normalizeWizardTrack } from './release-wizard-types';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'offline' | 'conflict';
 
@@ -204,7 +203,11 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
       setHasArtwork(wd.hasArtwork ?? null);
       setCommissionArtwork(wd.commissionArtwork ?? null);
       setArtworkDesigner(wd.artworkDesigner ?? '');
-      setTracks(wd.tracks ?? [createEmptyTrack('1')]);
+      setTracks(
+        (wd.tracks ?? [createEmptyTrack('1')]).map((t) =>
+          normalizeWizardTrack(t as Parameters<typeof normalizeWizardTrack>[0]),
+        ),
+      );
       setPromoAssets(wd.promoAssets ?? []);
       setAssetDesigners(wd.assetDesigners ?? {});
       setSocialRows(wd.socialRows ?? []);
@@ -717,6 +720,9 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
           const trackTitle = t.recordingType === 'remix' && t.displayTitle.trim()
             ? t.displayTitle.trim()
             : t.title.trim();
+          // BUILD-011C — same bindings as standalone TrackEditor /tracks/new
+          const recordingPrimaryId = t.primaryArtistId || null;
+          const featuredIds = t.featuredArtists.map((e) => e.artistId).filter(Boolean);
           const trackId = await createNewTrack({
             releaseId: finalReleaseId,
             position: i + 1,
@@ -725,32 +731,44 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
             createdBy: user.uid,
             version: t.version.trim() || undefined,
             recordingType: t.recordingType,
-            originalArtistId: t.recordingType === 'remix' ? (t.originalArtists[0]?.artistId ?? null) : null,
-            remixerArtistId: t.recordingType === 'remix' ? (t.remixArtists[0]?.artistId ?? null) : null,
-            primaryArtistId: t.recordingType === 'original' ? t.primaryArtistId || null : null,
-            originalArtistIds: t.recordingType === 'remix'
-              ? t.originalArtists.map((e) => e.artistId).filter(Boolean)
-              : (t.primaryArtistId ? [t.primaryArtistId] : []),
-            featuredArtistIds: t.featuredArtistIds,
-            remixArtistIds: t.remixArtists.map((e) => e.artistId).filter(Boolean),
+            originalArtistId: null,
+            remixerArtistId: null,
+            primaryArtistId: recordingPrimaryId,
+            originalArtistIds: recordingPrimaryId ? [recordingPrimaryId] : [],
+            featuredArtistIds: featuredIds,
+            remixArtistIds: [],
+            originalWork:
+              t.recordingType === 'remix'
+                ? {
+                    title: t.originalWorkTitle.trim(),
+                    primaryArtistId: t.originalWorkPrimaryArtistId,
+                    featuredArtistIds: t.originalWorkFeaturedArtists
+                      .map((e) => e.artistId)
+                      .filter(Boolean),
+                  }
+                : null,
             displayTitle: t.displayTitle.trim() || null,
             displayTitleEdited: t.displayTitleEdited,
           });
-          if (t.recordingType === 'remix') {
-            for (let idx = 0; idx < t.originalArtists.length; idx++) {
-              const entry = t.originalArtists[idx]!;
-              if (entry.artistId) await addArtistToTrack({ trackId, artistId: entry.artistId, role: 'ORIGINAL_ARTIST', position: idx + 1 });
-            }
-            for (let idx = 0; idx < t.remixArtists.length; idx++) {
-              const entry = t.remixArtists[idx]!;
-              if (entry.artistId) await addArtistToTrack({ trackId, artistId: entry.artistId, role: 'REMIX_ARTIST', position: idx + 1 });
-            }
-          } else if (t.primaryArtistId) {
-            await addArtistToTrack({ trackId, artistId: t.primaryArtistId, role: 'PRIMARY_ARTIST', position: 1, isPrimary: true });
+          if (recordingPrimaryId) {
+            await addArtistToTrack({
+              trackId,
+              artistId: recordingPrimaryId,
+              role: 'PRIMARY_ARTIST',
+              position: 1,
+              isPrimary: true,
+            });
           }
-          for (let idx = 0; idx < t.featuredArtistIds.length; idx++) {
-            const fid = t.featuredArtistIds[idx]!;
-            if (fid) await addArtistToTrack({ trackId, artistId: fid, role: 'FEATURED_ARTIST', position: idx + 1 });
+          for (let idx = 0; idx < t.featuredArtists.length; idx++) {
+            const entry = t.featuredArtists[idx]!;
+            if (entry.artistId) {
+              await addArtistToTrack({
+                trackId,
+                artistId: entry.artistId,
+                role: 'FEATURED_ARTIST',
+                position: idx + 1,
+              });
+            }
           }
         }
       }
@@ -773,70 +791,38 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
 
   function addTrack() { setTracks((p) => [...p, createEmptyTrack()]); }
 
-  function updateTrack(id: string, f: string, v: string | boolean | string[] | { id: string; artistId: string }[]) {
-    setTracks((p) => p.map((t) => {
-      if (t.id !== id) return t;
-      const next = { ...t, [f]: v, remixErrors: { ...t.remixErrors } };
-      if (f === 'recordingType' && v === 'original') {
-        next.remixErrors = {};
-        next.displayTitle = '';
-        next.displayTitleEdited = false;
-      }
-      if ((f === 'title' || f === 'remixArtists') && next.recordingType === 'remix' && !next.displayTitleEdited) {
-        const remixNames = (f === 'remixArtists' ? (v as { id: string; artistId: string }[]) : next.remixArtists)
-          .map((e) => artists.find((a) => a.id === e.artistId)?.name)
-          .filter(Boolean);
-        next.displayTitle = suggestRemixDisplayTitle(
-          f === 'title' ? String(v) : next.title,
-          remixNames[0] ?? '',
-        );
-      }
-      if (f === 'displayTitle') {
-        next.displayTitle = String(v);
-        next.displayTitleEdited = true;
-        return next;
-      }
-      if (f === 'originalArtists' || f === 'remixArtists') {
-        delete next.remixErrors[f === 'originalArtists' ? 'originalArtists' : 'remixArtists'];
-      }
-      return next;
-    }));
+  /** TrackEditor drives field UI; wizard only merges patches into tracks[]. */
+  function updateTrackFields(id: string, patch: Partial<WizardTrack>) {
+    setHasUnsavedChanges(true);
+    setTracks((p) =>
+      p.map((t) => {
+        if (t.id !== id) return t;
+        return { ...t, ...patch, remixErrors: patch.remixErrors ?? t.remixErrors };
+      }),
+    );
   }
 
   function removeTrack(id: string) { if (tracks.length > 1) setTracks((p) => p.filter((t) => t.id !== id)); }
 
-  function addFeaturedArtist(trackId: string, artistId: string) {
-    if (!artistId) return;
-    setTracks((p) => p.map((t) => (
-      t.id === trackId && !t.featuredArtistIds.includes(artistId)
-        ? { ...t, featuredArtistIds: [...t.featuredArtistIds, artistId] }
-        : t
-    )));
-  }
-
-  function removeFeaturedArtist(trackId: string, artistId: string) {
-    setTracks((p) => p.map((t) => (
-      t.id === trackId
-        ? { ...t, featuredArtistIds: t.featuredArtistIds.filter((id) => id !== artistId) }
-        : t
-    )));
-  }
-
   function validateRemixTracks(): boolean {
     let valid = true;
-    setTracks((p) => p.map((t) => {
-      if (!t.title.trim() || t.recordingType !== 'remix') return t;
-      const remixErrors: WizardTrack['remixErrors'] = {};
-      if (t.originalArtists.length === 0) {
-        remixErrors.originalArtists = 'At least one Original Artist is required for remix recordings.';
-        valid = false;
-      }
-      if (t.remixArtists.length === 0) {
-        remixErrors.remixArtists = 'At least one Remix Artist is required for remix recordings.';
-        valid = false;
-      }
-      return { ...t, remixErrors };
-    }));
+    setTracks((p) =>
+      p.map((t) => {
+        if (!t.title.trim() || t.recordingType !== 'remix') return t;
+        const remixErrors: WizardTrack['remixErrors'] = {};
+        // BUILD-011C — match Edit Track / TrackEditor messages
+        if (!t.originalWorkTitle.trim()) {
+          remixErrors.originalWorkTitle = 'Original Song Title is required for remix tracks.';
+          valid = false;
+        }
+        if (!t.originalWorkPrimaryArtistId.trim()) {
+          remixErrors.originalWorkPrimaryArtist =
+            'Original Primary Artist is required for remix tracks.';
+          valid = false;
+        }
+        return { ...t, remixErrors };
+      }),
+    );
     return valid;
   }
 
@@ -925,10 +911,8 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     back,
     later,
     addTrack,
-    updateTrack,
+    updateTrackFields,
     removeTrack,
-    addFeaturedArtist,
-    removeFeaturedArtist,
     validateRemixTracks,
     addSocialRow,
     removeSocialRow,
