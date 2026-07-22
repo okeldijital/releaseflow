@@ -20,6 +20,7 @@ import {
 } from '@/lib/assignment-workspace-service';
 import { buildAssignmentWorkspace } from '@/lib/assignment-workspace';
 import { getOrgReadinessSummaries } from '@/lib/release-readiness-service';
+import { getTaskDashboardSummary, type TaskDashboardSummary } from '@/lib/task-service';
 import type { Release } from '@/app/(app)/types';
 
 function timeAgo(d: Date): string {
@@ -109,6 +110,8 @@ export default function DashboardPage() {
   const [draftsLoading, setDraftsLoading] = useState(true);
   const [myWorkRecords, setMyWorkRecords] = useState<AssignmentWorkspaceRecord[]>([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
+  const [taskSummary, setTaskSummary] = useState<TaskDashboardSummary | null>(null);
+  const [taskSummaryLoading, setTaskSummaryLoading] = useState(true);
 
   useEffect(() => {
     if (!user?.uid || !activeOrgId) {
@@ -146,6 +149,20 @@ export default function DashboardPage() {
       .catch(() => setMyWorkRecords([]))
       .finally(() => setAssignmentsLoading(false));
   }, [activeOrgId, identityKeys]);
+
+  // BUILD-014 — Tasks widget
+  useEffect(() => {
+    if (!activeOrgId || !user?.uid) {
+      setTaskSummary(null);
+      setTaskSummaryLoading(false);
+      return;
+    }
+    setTaskSummaryLoading(true);
+    void getTaskDashboardSummary(activeOrgId, user.uid)
+      .then(setTaskSummary)
+      .catch(() => setTaskSummary(null))
+      .finally(() => setTaskSummaryLoading(false));
+  }, [activeOrgId, user?.uid]);
 
   // BUG-009: load drafts via dedicated draft query (lifecycle == draft), not full catalogue filter.
   useEffect(() => {
@@ -303,6 +320,38 @@ export default function DashboardPage() {
             <p className="text-sm font-medium text-surface-100">Schedule</p>
           </Link>
         </div>
+      </div>
+
+      {/* BUILD-014 — Tasks summary */}
+      <div className="mb-10">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs font-semibold text-text-500 uppercase tracking-widest">Tasks</p>
+          <Link href="/tasks" className="text-xs text-primary-400 hover:text-primary-300 font-medium">
+            View All
+          </Link>
+        </div>
+        {taskSummaryLoading ? (
+          <LoadingState />
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            {[
+              { label: 'Assigned to Me', count: taskSummary?.assignedToMe ?? 0, href: '/tasks?filter=assigned_to_me' },
+              { label: 'Created by Me', count: taskSummary?.createdByMe ?? 0, href: '/tasks?filter=created_by_me' },
+              { label: 'Overdue', count: taskSummary?.overdue ?? 0, href: '/tasks?filter=overdue' },
+              { label: 'Due Today', count: taskSummary?.dueToday ?? 0, href: '/tasks?filter=due_today' },
+              { label: 'Upcoming', count: taskSummary?.upcoming ?? 0, href: '/tasks?filter=this_week' },
+            ].map((s) => (
+              <Link
+                key={s.label}
+                href={s.href}
+                className="rounded-xl border border-surface-700/60 bg-surface-900 p-4 hover:border-primary-500/40 transition-colors"
+              >
+                <p className="text-2xl font-bold text-surface-50">{s.count}</p>
+                <p className="text-xs text-text-500 mt-1">{s.label}</p>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mb-10">

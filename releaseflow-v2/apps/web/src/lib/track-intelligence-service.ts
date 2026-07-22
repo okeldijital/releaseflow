@@ -2,7 +2,7 @@ import { getTrack } from './track-repository';
 import { getArtistsByTrack } from './track-artist-repository';
 import { getAssetsByTrack } from './asset-lifecycle-service';
 import { getSpecificationsByTrack } from './specification-repository';
-import { getTasksByEntity } from './task-service';
+import { getTasksByEntity } from './workflow-task-service';
 import { getTracksByRelease } from './release-track-repository';
 
 export interface TrackReadiness {

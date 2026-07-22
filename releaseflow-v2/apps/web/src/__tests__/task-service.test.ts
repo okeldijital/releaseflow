@@ -47,9 +47,9 @@ describe('Task priority', () => {
   });
 });
 
-describe('Task service — module structure', () => {
+describe('Workflow task service — module structure (legacy stage tasks)', () => {
   it('exports all CRUD functions', async () => {
-    const mod = await import('@/lib/task-service');
+    const mod = await import('@/lib/workflow-task-service');
     expect(typeof mod.createTask).toBe('function');
     expect(typeof mod.completeTask).toBe('function');
     expect(typeof mod.updateTask).toBe('function');
@@ -63,38 +63,51 @@ describe('Task service — module structure', () => {
   });
 
   it('createTask takes 4 parameters', async () => {
-    const mod = await import('@/lib/task-service');
+    const mod = await import('@/lib/workflow-task-service');
     expect(mod.createTask.length).toBe(4);
   });
 
   it('completeTask takes 4 parameters', async () => {
-    const mod = await import('@/lib/task-service');
+    const mod = await import('@/lib/workflow-task-service');
     expect(mod.completeTask.length).toBe(4);
   });
 
   it('assignTask takes 5 parameters', async () => {
-    const mod = await import('@/lib/task-service');
+    const mod = await import('@/lib/workflow-task-service');
     expect(mod.assignTask.length).toBe(5);
   });
 
   it('unassignTask takes 4 parameters', async () => {
-    const mod = await import('@/lib/task-service');
+    const mod = await import('@/lib/workflow-task-service');
     expect(mod.unassignTask.length).toBe(4);
   });
 
   it('addComment takes 5 parameters', async () => {
-    const mod = await import('@/lib/task-service');
+    const mod = await import('@/lib/workflow-task-service');
     expect(mod.addComment.length).toBe(5);
   });
 
   it('getTasksByStage takes 1 parameter', async () => {
-    const mod = await import('@/lib/task-service');
+    const mod = await import('@/lib/workflow-task-service');
     expect(mod.getTasksByStage.length).toBe(1);
   });
 
   it('getTasksByAssignee takes 1 parameter', async () => {
-    const mod = await import('@/lib/task-service');
+    const mod = await import('@/lib/workflow-task-service');
     expect(mod.getTasksByAssignee.length).toBe(1);
+  });
+});
+
+describe('BUILD-014 task service — module structure', () => {
+  it('exports domain orchestration functions', async () => {
+    const mod = await import('@/lib/task-service');
+    expect(typeof mod.createTaskWithAssignment).toBe('function');
+    expect(typeof mod.completeTask).toBe('function');
+    expect(typeof mod.listTasks).toBe('function');
+    expect(typeof mod.listTasksByRelease).toBe('function');
+    expect(typeof mod.getTaskDashboardSummary).toBe('function');
+    expect(typeof mod.reassignTask).toBe('function');
+    expect(mod.TASK_ASSIGNMENT_ROLE).toBe('assignee');
   });
 });
 

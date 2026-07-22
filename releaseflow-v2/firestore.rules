@@ -185,7 +185,16 @@ service cloud.firestore {
     }
     match /credits/{docId}          { allow read,write: if isAuth(); }
     match /contributors/{docId}     { allow read,write: if isAuth(); }
-    match /tasks/{docId}            { allow read,write: if isAuth(); }
+    // BUILD-014 domain tasks (organisationId) + legacy stage tasks
+    match /tasks/{docId} {
+      allow read, list: if isAuth();
+      allow create: if isAuth()
+        && (
+          request.resource.data.organisationId is string
+          || request.resource.data.stageId != null
+        );
+      allow update, delete: if isAuth();
+    }
     match /comments/{docId}         { allow read: if isAuth(); allow create: if isAuth(); allow update,delete: if isAuth(); }
     match /deliverables/{docId}     { allow read,write: if isAuth(); }
     match /release_requirements/{docId} { allow read,write: if isAuth(); }

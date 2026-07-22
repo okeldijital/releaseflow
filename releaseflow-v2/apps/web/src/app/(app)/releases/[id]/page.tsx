@@ -54,6 +54,7 @@ import type { ActivityEventRecord } from '@/lib/activity-service';
 import { resolveRecordingType, recordingTypeLabel } from '@/lib/recording-type';
 import type { Artwork } from '@/lib/artwork/artwork-types';
 import { AssignmentsSection } from '@/components/assignments-section';
+import { TasksSection } from '@/components/tasks/tasks-section';
 import { TrackRow, TrackList } from '@/components/shared/track-row';
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
@@ -496,6 +497,14 @@ export default function ReleaseWorkspacePage() {
       return;
     }
     router.push(`/assignments/new?releaseId=${encodeURIComponent(releaseId)}&lockRelease=1&from=release`);
+  }, [perms.canManageAssignments, releaseId, router]);
+
+  const openCreateTask = useCallback(() => {
+    if (!perms.canManageAssignments) {
+      toast.error('You do not have permission to create tasks.');
+      return;
+    }
+    router.push(`/tasks/new?releaseId=${encodeURIComponent(releaseId)}&lockRelease=1&from=release`);
   }, [perms.canManageAssignments, releaseId, router]);
 
   async function handleDeleteRelease() {
@@ -942,7 +951,30 @@ export default function ReleaseWorkspacePage() {
         </div>
       </section>
 
-      {/* ── 4. Workflow (orchestration only — no Task entities) ARS-004.1 ─ */}
+      {/* ── 3b. Tasks (BUILD-014) ──────────────────────────────────────── */}
+      <section aria-label="Tasks" className="mb-10">
+        <SectionHeader
+          title="Tasks"
+          description="Units of work linked to this release. Ownership lives on Assignment."
+          action={
+            perms.canManageAssignments
+              ? { label: 'New Task', onClick: openCreateTask }
+              : undefined
+          }
+        />
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 sm:p-6">
+          <TasksSection releaseId={releaseId} />
+          {perms.canManageAssignments ? (
+            <div className="mt-4 pt-4 border-t border-surface-100">
+              <Button size="sm" variant="primary" onClick={openCreateTask}>
+                + New Task
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      {/* ── 4. Workflow (orchestration only) ARS-004.1 ─ */}
       <section aria-label="Workflow" className="mb-10">
         <SectionHeader
           title="Workflow"

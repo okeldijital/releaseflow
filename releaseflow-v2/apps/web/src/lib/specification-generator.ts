@@ -1,7 +1,7 @@
 import { createSpecification, updateSpecification, type SpecType } from './specification-repository';
 import { getTemplate } from './specification-engine';
 import { createRequestedAsset } from './asset-lifecycle-service';
-import { createTask, assignTask } from './task-service';
+import { createTask, assignTask } from './workflow-task-service';
 import { getTrack } from './track-repository';
 
 export async function generateSpecification(

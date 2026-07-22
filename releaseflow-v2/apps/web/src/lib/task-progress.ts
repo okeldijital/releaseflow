@@ -1,4 +1,4 @@
-import { getTasksByStage } from '@/lib/task-service';
+import { getTasksByStage } from '@/lib/workflow-task-service';
 
 export interface TaskProgressData {
   completed: number;

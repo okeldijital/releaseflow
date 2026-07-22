@@ -27,7 +27,8 @@ export type AssignmentEntityType =
   | 'media_asset'
   | 'artist'
   | 'label'
-  | 'person';
+  | 'person'
+  | 'task';
 
 export interface AssignmentRecord {
   id: string;
