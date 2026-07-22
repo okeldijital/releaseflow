@@ -61,6 +61,7 @@ export function OriginalWorkSection({
   errors,
   onClearError,
   artists,
+  cardModels,
   organizationId,
   onArtistCreated,
   variant = 'dark',
@@ -72,6 +73,7 @@ export function OriginalWorkSection({
   | 'errors'
   | 'onClearError'
   | 'artists'
+  | 'cardModels'
   | 'organizationId'
   | 'onArtistCreated'
   | 'variant'
@@ -111,6 +113,7 @@ export function OriginalWorkSection({
             onClearError?.('originalWorkPrimaryArtist');
           }}
           artists={artists}
+          cardModels={cardModels}
           organizationId={organizationId}
           onArtistCreated={onArtistCreated}
         />
@@ -124,6 +127,7 @@ export function OriginalWorkSection({
           addLabel="+ Add Featured Artist"
           entries={value.originalWorkFeaturedArtists}
           artists={artists}
+          cardModels={cardModels}
           organizationId={organizationId}
           onAdd={(artistId) => {
             if (value.originalWorkFeaturedArtists.some((e) => e.artistId === artistId)) {
@@ -166,6 +170,7 @@ export function OriginalWorkSection({
               addLabel="+ Add Composer"
               entries={value.originalWorkComposers}
               artists={artists}
+              cardModels={cardModels}
               organizationId={organizationId}
               onAdd={(artistId) => {
                 if (value.originalWorkComposers.some((e) => e.artistId === artistId)) return;
@@ -199,6 +204,7 @@ export function OriginalWorkSection({
               addLabel="+ Add Lyricist"
               entries={value.originalWorkLyricists}
               artists={artists}
+              cardModels={cardModels}
               organizationId={organizationId}
               onAdd={(artistId) => {
                 if (value.originalWorkLyricists.some((e) => e.artistId === artistId)) return;
@@ -247,6 +253,7 @@ export function TrackEditor({
   errors,
   onClearError,
   artists,
+  cardModels,
   organizationId,
   onArtistCreated,
   variant = 'dark',
@@ -391,6 +398,7 @@ export function TrackEditor({
           errors={errors}
           onClearError={onClearError}
           artists={artists}
+          cardModels={cardModels}
           organizationId={organizationId}
           onArtistCreated={onArtistCreated}
           variant={variant}
@@ -431,6 +439,7 @@ export function TrackEditor({
                 patchWithDisplayTitle({ primaryArtistId: id }, { nextPrimaryId: id })
               }
               artists={artists}
+              cardModels={cardModels}
               organizationId={organizationId}
               onArtistCreated={onArtistCreated}
             />
@@ -440,6 +449,7 @@ export function TrackEditor({
               role="featured"
               entries={value.featuredArtists}
               artists={artists}
+              cardModels={cardModels}
               organizationId={organizationId}
               onAdd={(artistId) => {
                 if (value.featuredArtists.some((e) => e.artistId === artistId)) {

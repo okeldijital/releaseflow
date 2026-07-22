@@ -10,6 +10,7 @@ import {
   type ArtistOption,
   type RepeatableArtistEntry,
 } from '@/components/artist-field-picker';
+import type { ArtistCardModel } from '@/lib/artist-card-model';
 
 export type ArtistRelationshipRole = 'original' | 'featured' | 'remix';
 
@@ -24,6 +25,8 @@ export interface ArtistRelationshipListProps {
   role: ArtistRelationshipRole;
   entries: RepeatableArtistEntry[];
   artists: ArtistOption[];
+  /** BUILD-016 — canonical card models for search results */
+  cardModels?: ArtistCardModel[];
   organizationId: string | null;
   onAdd: (artistId: string) => void;
   onRemove: (entryId: string) => void;
@@ -42,6 +45,7 @@ export function ArtistRelationshipList({
   role,
   entries,
   artists,
+  cardModels,
   organizationId,
   onAdd,
   onRemove,
@@ -60,6 +64,7 @@ export function ArtistRelationshipList({
       addLabel={addLabel ?? defaults.addLabel}
       entries={entries}
       artists={artists}
+      cardModels={cardModels}
       organizationId={organizationId}
       onAdd={onAdd}
       onRemove={onRemove}

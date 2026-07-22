@@ -81,9 +81,35 @@ export async function fetchArtists(organizationId: string, includeArchived?: boo
   return listArtists(organizationId, { includeArchived });
 }
 
+/**
+ * BUILD-016 — Catalogue with canonical card enrichment (counts + image resolution).
+ */
+export async function fetchArtistCardModels(
+  organizationId: string,
+  opts?: { includeArchived?: boolean },
+) {
+  const { toArtistCardModels } = await import('./artist-card-model');
+  const artists = await listArtists(organizationId, {
+    includeArchived: opts?.includeArchived,
+  });
+  return toArtistCardModels(organizationId, artists);
+}
+
 export async function fetchArtistSearch(organizationId: string, query: string): Promise<ArtistRecord[]> {
   return searchArtists(organizationId, query);
 }
+
+export async function fetchArtistSearchCardModels(
+  organizationId: string,
+  query: string,
+) {
+  const { toArtistCardModels } = await import('./artist-card-model');
+  const artists = await searchArtists(organizationId, query);
+  return toArtistCardModels(organizationId, artists, { includeCounts: false });
+}
+
+export type { ArtistCardModel } from './artist-card-model';
+export { toArtistCardModel, toArtistCardModels } from './artist-card-model';
 
 export async function fetchArtistByNormalizedName(
   organizationId: string,

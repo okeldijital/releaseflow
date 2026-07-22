@@ -7,6 +7,9 @@ import {
   canCreateArtistFromSearch,
   type ArtistOption,
 } from '@/lib/artist-field-picker-logic';
+import { ArtistCard } from '@/components/artists/ArtistCard';
+import type { ArtistCardModel } from '@/lib/artist-card-model';
+import { ARTIST_TYPE_LABELS } from '@/lib/artist-card-model';
 
 export type { ArtistOption } from '@/lib/artist-field-picker-logic';
 
@@ -15,9 +18,35 @@ const INITIAL_PANEL_STATE = {
   panelInstance: 0,
 };
 
+/**
+ * BUILD-016 — map a lightweight option into a card model for picker display.
+ * Prefer full models from toArtistCardModels when available (cardModels prop).
+ */
+function optionToCardModel(option: ArtistOption, organizationId: string | null): ArtistCardModel {
+  const known = option.artistType ? ARTIST_TYPE_LABELS[option.artistType] : undefined;
+  return {
+    id: option.id,
+    organizationId: organizationId ?? '',
+    name: option.name,
+    image: option.imageUrl ?? null,
+    imagePublicId: null,
+    subtitle: known ?? (option.artistType?.trim() || ''),
+    artistType: option.artistType ?? '',
+    status: option.status ?? 'active',
+    releaseCount: null,
+    trackCount: null,
+    genres: null,
+    menuActions: ['view', 'edit'],
+    stageName: option.stageName ?? null,
+    legalName: null,
+  };
+}
+
 interface ArtistAddPanelProps {
   instanceId: string;
   artists: ArtistOption[];
+  /** BUILD-016 — preferred canonical models (from toArtistCardModels) */
+  cardModels?: ArtistCardModel[];
   organizationId: string | null;
   onSelect: (artistId: string) => void;
   onArtistCreated?: (artist: ArtistOption) => void;
@@ -28,6 +57,7 @@ interface ArtistAddPanelProps {
 export function ArtistAddPanel({
   instanceId,
   artists,
+  cardModels,
   organizationId,
   onSelect,
   onArtistCreated,
@@ -58,6 +88,20 @@ export function ArtistAddPanel({
   const filteredArtists = useMemo(
     () => filterArtistsForSearch(available, search),
     [available, search],
+  );
+
+  const modelsById = useMemo(() => {
+    const map = new Map<string, ArtistCardModel>();
+    for (const m of cardModels ?? []) map.set(m.id, m);
+    return map;
+  }, [cardModels]);
+
+  const filteredCardModels = useMemo(
+    () =>
+      filteredArtists.map(
+        (opt) => modelsById.get(opt.id) ?? optionToCardModel(opt, organizationId),
+      ),
+    [filteredArtists, modelsById, organizationId],
   );
 
   const canCreate = canCreateArtistFromSearch(artists, search);
@@ -131,40 +175,21 @@ export function ArtistAddPanel({
         className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none"
       />
 
-      {filteredArtists.length > 0 ? (
-        <div className="max-h-48 overflow-y-auto space-y-1">
-          {filteredArtists.map((artist) => {
-            const isGroup = artist.artistType === 'band';
-            const isArchived = artist.status === 'archived';
-            return (
-              <button
-                key={artist.id}
-                type="button"
-                onClick={() => handleSelect(artist.id)}
-                className="w-full text-left rounded-lg border border-surface-700 bg-surface-950 px-3 py-2 text-sm text-surface-100 hover:border-primary-500/40 hover:bg-primary-500/5 transition-colors flex items-center gap-3"
-              >
-                <div className="h-7 w-7 rounded-full bg-surface-800 flex items-center justify-center shrink-0 overflow-hidden">
-                  {artist.imageUrl ? (
-                    <img src={artist.imageUrl} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-xs font-medium text-text-400">{artist.name.charAt(0).toUpperCase()}</span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className={`truncate ${isArchived ? 'text-text-500' : 'text-surface-100'}`}>
-                      {artist.name}
-                    </span>
-                    {isGroup && <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-primary-500/10 text-primary-400 font-medium">Group</span>}
-                    {isArchived && <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-surface-700 text-text-400 font-medium">Archived</span>}
-                  </div>
-                  {artist.stageName && (
-                    <p className="text-[11px] text-text-500 truncate">{artist.stageName}</p>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+      {filteredCardModels.length > 0 ? (
+        <div
+          data-artist-search-results
+          className="max-h-72 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2"
+        >
+          {filteredCardModels.map((artist) => (
+            <ArtistCard
+              key={artist.id}
+              artist={artist}
+              size="compact"
+              showMenu={false}
+              showStats={false}
+              onSelect={handleSelect}
+            />
+          ))}
         </div>
       ) : null}
 
@@ -210,6 +235,8 @@ interface ArtistFieldPickerProps {
   value: string;
   onChange: (artistId: string) => void;
   artists: ArtistOption[];
+  /** BUILD-016 — canonical models for search result cards */
+  cardModels?: ArtistCardModel[];
   organizationId: string | null;
   onArtistCreated?: (artist: ArtistOption) => void;
   error?: string;
@@ -222,6 +249,7 @@ export function ArtistFieldPicker({
   value,
   onChange,
   artists,
+  cardModels,
   organizationId,
   onArtistCreated,
   error,
@@ -278,6 +306,7 @@ export function ArtistFieldPicker({
           key={panelKey}
           instanceId={panelKey}
           artists={artists}
+          cardModels={cardModels}
           organizationId={organizationId}
           excludeIds={excludeIds}
           onArtistCreated={onArtistCreated}
@@ -296,6 +325,7 @@ export function ArtistFieldPicker({
 interface FeaturedArtistsPickerProps {
   instanceId: string;
   artists: ArtistOption[];
+  cardModels?: ArtistCardModel[];
   organizationId: string | null;
   primaryArtistId: string;
   featuredArtistIds: string[];
@@ -314,6 +344,7 @@ interface RepeatableArtistPickerProps {
   addLabel: string;
   entries: RepeatableArtistEntry[];
   artists: ArtistOption[];
+  cardModels?: ArtistCardModel[];
   organizationId: string | null;
   onAdd: (artistId: string) => void;
   onRemove: (entryId: string) => void;
@@ -329,6 +360,7 @@ export function RepeatableArtistPicker({
   addLabel,
   entries,
   artists,
+  cardModels,
   organizationId,
   onAdd,
   onRemove,
@@ -434,6 +466,7 @@ export function RepeatableArtistPicker({
           key={panelKey}
           instanceId={panelKey}
           artists={artists}
+          cardModels={cardModels}
           organizationId={organizationId}
           excludeIds={allExcluded}
           onArtistCreated={onArtistCreated}
@@ -454,6 +487,7 @@ export type { RepeatableArtistEntry };
 export function FeaturedArtistsPicker({
   instanceId,
   artists,
+  cardModels,
   organizationId,
   primaryArtistId,
   featuredArtistIds,
@@ -500,6 +534,7 @@ export function FeaturedArtistsPicker({
           key={panelKey}
           instanceId={panelKey}
           artists={artists}
+          cardModels={cardModels}
           organizationId={organizationId}
           excludeIds={excludeIds}
           onArtistCreated={onArtistCreated}

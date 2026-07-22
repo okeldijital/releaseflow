@@ -8,6 +8,7 @@ import type { ArtistOption } from '@/components/artist-field-picker';
 export function TracksStep({
   tracks,
   artists,
+  cardModels,
   activeOrgId,
   addTrack,
   updateTrackFields,
@@ -21,6 +22,7 @@ export function TracksStep({
 }: {
   tracks: WizardTrack[];
   artists: ArtistOption[];
+  cardModels?: import('@/lib/artist-card-model').ArtistCardModel[];
   activeOrgId: string | null;
   addTrack: () => void;
   /** Apply a partial track field update (TrackEditor owns field UI). */
@@ -104,6 +106,7 @@ export function TracksStep({
                 })
               }
               artists={artists}
+              cardModels={cardModels}
               organizationId={activeOrgId}
               onArtistCreated={onArtistCreated}
               variant="dark"

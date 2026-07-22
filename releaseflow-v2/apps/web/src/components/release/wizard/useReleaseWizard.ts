@@ -41,7 +41,7 @@ function dirty<T>(setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>, sette
 export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, draftId: resumeDraftId }: { mode?: 'create' | 'edit'; releaseId?: string; draftId?: string } = {}) {
   const { user } = useAuth();
   const { activeOrgId } = useOrgStore();
-  const { artistOptions: artists, onArtistCreated } = useArtists();
+  const { artistOptions: artists, pickerCardModels, onArtistCreated } = useArtists();
   const router = useRouter();
 
   const [step, setStep] = useState(0);
@@ -976,6 +976,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     showInviteForm, setShowInviteForm: (v: SetStateAction<boolean>) => dirty(setHasUnsavedChanges, setShowInviteForm, v),
     inviteTarget, setInviteTarget: (v: SetStateAction<InviteTarget>) => dirty(setHasUnsavedChanges, setInviteTarget, v),
     artists,
+    cardModels: pickerCardModels,
     activeOrgId,
     labelOptions, setLabelOptions: (v: SetStateAction<LabelOption[]>) => dirty(setHasUnsavedChanges, setLabelOptions, v),
     orgName,

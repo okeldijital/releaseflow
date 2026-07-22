@@ -172,7 +172,7 @@ export default function NewTrackPage() {
   const releaseId = searchParams.get('releaseId') ?? '';
   const { user } = useAuth();
   const { activeOrgId } = useOrgStore();
-  const { artistOptions: artists, onArtistCreated: handleArtistCreated } = useArtists();
+  const { artistOptions: artists, pickerCardModels, onArtistCreated: handleArtistCreated } = useArtists();
   console.log('[TrackWizard] artists received by picker:', artists.length);
 
   const [step, setStep] = useState(0);
@@ -680,6 +680,7 @@ export default function NewTrackPage() {
           remixErrors={remixErrors}
           setRemixErrors={setRemixErrors}
           artists={artists}
+          cardModels={pickerCardModels}
           activeOrgId={activeOrgId}
           onArtistCreated={handleArtistCreated}
           showPublishing
@@ -893,6 +894,7 @@ function BasicsStep({
   remixErrors,
   setRemixErrors,
   artists,
+  cardModels,
   activeOrgId,
   onArtistCreated,
   showPublishing = false,
@@ -920,6 +922,7 @@ function BasicsStep({
     }>
   >;
   artists: ArtistOption[];
+  cardModels?: import('@/lib/artist-card-model').ArtistCardModel[];
   activeOrgId: string | null;
   onArtistCreated: (a: ArtistOption) => void;
   showPublishing?: boolean;
@@ -939,6 +942,7 @@ function BasicsStep({
         errors={remixErrors}
         onClearError={(key) => setRemixErrors((p) => ({ ...p, [key]: undefined }))}
         artists={artists}
+        cardModels={cardModels}
         organizationId={activeOrgId}
         onArtistCreated={onArtistCreated}
         variant="dark"

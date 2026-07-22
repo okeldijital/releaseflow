@@ -140,6 +140,7 @@ export function ReleaseWizard({ mode = 'create', releaseId, draftId }: { mode?: 
         <TracksStep
           tracks={stepProps.tracks}
           artists={stepProps.artists}
+          cardModels={stepProps.cardModels}
           activeOrgId={stepProps.activeOrgId}
           addTrack={handlers.addTrack}
           updateTrackFields={handlers.updateTrackFields}

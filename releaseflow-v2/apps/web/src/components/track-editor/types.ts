@@ -1,5 +1,6 @@
 import type { RecordingType } from '@/lib/recording-type';
 import type { ArtistOption, RepeatableArtistEntry } from '@/components/artist-field-picker';
+import type { ArtistCardModel } from '@/lib/artist-card-model';
 
 /** Controlled track metadata edited by TrackEditor (BUILD-011C–012D). */
 export type TrackEditorValue = {
@@ -59,6 +60,8 @@ export type TrackEditorProps = {
   errors?: TrackEditorErrors;
   onClearError?: (key: keyof TrackEditorErrors) => void;
   artists: ArtistOption[];
+  /** BUILD-016 — canonical models for ArtistCard search results */
+  cardModels?: ArtistCardModel[];
   organizationId: string | null;
   onArtistCreated?: (artist: ArtistOption) => void;
   /** Visual tokens: dark = wizard/create; light = workspace edit */

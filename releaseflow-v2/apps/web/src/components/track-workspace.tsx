@@ -1503,7 +1503,7 @@ function EditPanel({
   onSaved: () => void;
   onLinkRelease: () => void;
 }) {
-  const { artistOptions, refresh: refreshArtists } = useArtists();
+  const { artistOptions, pickerCardModels, refresh: refreshArtists } = useArtists();
   const [title, setTitle] = useState(track.title);
   const [version, setVersion] = useState(track.version ?? '');
   const [subtitle, setSubtitle] = useState(track.subtitle ?? '');
@@ -1870,6 +1870,7 @@ function EditPanel({
             if (patch.originalWorkIswc !== undefined) setOriginalWorkIswc(patch.originalWorkIswc);
           }}
           artists={artists}
+          cardModels={pickerCardModels}
           organizationId={activeOrgId}
           onArtistCreated={(a) => {
             setExtraArtists((prev) => [...prev, a]);
@@ -1888,6 +1889,7 @@ function EditPanel({
             role="original"
             entries={originalEntries}
             artists={artists}
+            cardModels={pickerCardModels}
             organizationId={activeOrgId}
             onAdd={addOriginal}
             onRemove={(entryId) => setOriginalEntries((prev) => prev.filter((e) => e.id !== entryId))}
@@ -1902,6 +1904,7 @@ function EditPanel({
             role="featured"
             entries={featuredEntries}
             artists={artists}
+            cardModels={pickerCardModels}
             organizationId={activeOrgId}
             onAdd={addFeatured}
             onRemove={(entryId) => setFeaturedEntries((prev) => prev.filter((e) => e.id !== entryId))}
@@ -1917,6 +1920,7 @@ function EditPanel({
               role="remix"
               entries={remixEntries}
               artists={artists}
+              cardModels={pickerCardModels}
               organizationId={activeOrgId}
               onAdd={addRemix}
               onRemove={(entryId) => setRemixEntries((prev) => prev.filter((e) => e.id !== entryId))}
