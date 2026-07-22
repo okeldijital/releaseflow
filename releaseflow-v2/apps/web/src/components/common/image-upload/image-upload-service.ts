@@ -1,4 +1,8 @@
-import { uploadFile, transformImage } from '@/lib/media/media-upload';
+/**
+ * BUILD-014D — Thin domain wrapper over canonical media-upload.
+ * No Cloudinary-specific request building.
+ */
+import { uploadFile, MediaUrlService } from '@/lib/media/media-upload';
 
 export const AVATAR_ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 export const AVATAR_MAX_SIZE = 5 * 1024 * 1024;
@@ -47,11 +51,5 @@ export async function uploadImageFile(
 }
 
 export function getAvatarThumbnailUrl(publicId: string, size: number = 80): string {
-  return transformImage(publicId, {
-    width: size,
-    height: size,
-    crop: 'fill',
-    quality: 'auto',
-    format: 'auto',
-  });
+  return MediaUrlService.avatar(publicId, size);
 }

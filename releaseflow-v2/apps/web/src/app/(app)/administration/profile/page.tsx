@@ -122,7 +122,7 @@ export default function AdministrationProfilePage() {
 
   async function handleAvatarRemove() {
     try {
-      await removeAvatar({ personId });
+      await removeAvatar({ personId, organizationId: activeOrgId });
       toast.success('Photo removed');
     } catch (e) {
       toast.error((e as Error).message || 'Could not remove photo');

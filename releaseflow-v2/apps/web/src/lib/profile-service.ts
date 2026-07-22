@@ -29,6 +29,7 @@ import {
   uploadImageFile,
   getAvatarThumbnailUrl,
 } from '@/components/common/image-upload/image-upload-service';
+import { attemptDestroyFile } from '@/lib/media/media-upload';
 import { requestPasswordReset } from './auth/password-reset-service';
 import { clearIdentityCache } from './identity-service';
 
@@ -118,8 +119,22 @@ export async function updateMyAvatar(
 
 export async function removeMyAvatar(
   user: User,
-  opts?: { personId?: string | null },
+  opts?: { personId?: string | null; organizationId?: string | null },
 ): Promise<void> {
+  // Best-effort Cloudinary destroy before clearing profile pointers
+  try {
+    const existing = await getUserProfile(user.uid);
+    if (existing?.avatarPublicId && opts?.organizationId) {
+      await attemptDestroyFile({
+        publicId: existing.avatarPublicId,
+        organizationId: opts.organizationId,
+        entityType: 'avatar',
+      });
+    }
+  } catch {
+    /* non-fatal */
+  }
+
   await updateUserProfile(user.uid, {
     avatarUrl: null,
     avatarPublicId: null,

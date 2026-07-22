@@ -166,7 +166,10 @@ export default function ProfilePage() {
 
   async function handleAvatarRemove() {
     try {
-      await removeAvatar({ personId: person?.id ?? null });
+      await removeAvatar({
+        personId: person?.id ?? null,
+        organizationId: activeOrgId,
+      });
       toast.success('Photo removed');
     } catch (e) {
       toast.error((e as Error).message || 'Could not remove photo');

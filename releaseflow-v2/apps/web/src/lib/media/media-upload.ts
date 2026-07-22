@@ -1,4 +1,14 @@
+/**
+ * BUILD-014D — Canonical client media transport.
+ *
+ * All feature uploads go through uploadFile().
+ * All destroys go through destroyFile().
+ * URL generation via MediaUrlService (public cloud name only).
+ *
+ * Browser never reads Cloudinary API secrets or server config modules.
+ */
 import {
+  MediaUrlService,
   transformImage as cloudinaryTransformImage,
   getAssetUrl as cloudinaryGetAssetUrl,
 } from '@releaseflow/firebase/cloudinary';
@@ -25,6 +35,18 @@ export interface SignedUploadOptions {
   tags?: string[];
 }
 
+export interface MediaUploadResult {
+  success: true;
+  publicId: string;
+  url: string;
+  secureUrl: string;
+  format: string;
+  bytes: number;
+  width?: number;
+  height?: number;
+  createdAt?: string;
+}
+
 interface UploadSignature {
   cloudName: string;
   apiKey: string;
@@ -35,14 +57,13 @@ interface UploadSignature {
 
 /**
  * Uploads a file to Cloudinary using a server-generated signed upload.
- * The client never holds the API secret or an upload preset; it requests a
- * short-lived signature from /api/media/upload-signature and forwards it to
- * Cloudinary.
+ * The client never holds the API secret; it requests a short-lived signature
+ * from /api/media/upload-signature and posts to Cloudinary.
  */
 export async function uploadFile(
   file: File,
   options: SignedUploadOptions,
-): Promise<UploadResult> {
+): Promise<UploadResult & { width?: number; height?: number }> {
   const currentUser = getAuthInstance()?.currentUser;
   if (!currentUser) {
     throw new Error('You must be signed in to upload media.');
@@ -69,7 +90,7 @@ export async function uploadFile(
       const data = (await signatureRes.json()) as { error?: string };
       message = data?.error ?? message;
     } catch {
-      /* ignore parse errors, keep default message */
+      /* keep default */
     }
     throw new Error(message);
   }
@@ -94,18 +115,78 @@ export async function uploadFile(
   }
 
   return {
-    publicId: data.public_id,
-    url: data.url,
-    secureUrl: data.secure_url,
-    format: data.format,
-    bytes: data.bytes,
-    createdAt: data.created_at,
+    publicId: data.public_id as string,
+    url: data.url as string,
+    secureUrl: data.secure_url as string,
+    format: data.format as string,
+    bytes: data.bytes as number,
+    createdAt: data.created_at as string,
+    width: typeof data.width === 'number' ? data.width : undefined,
+    height: typeof data.height === 'number' ? data.height : undefined,
   };
+}
+
+export interface DestroyFileOptions {
+  publicId: string;
+  organizationId: string;
+  entityType: string;
+}
+
+/**
+ * Canonical destroy via /api/media/destroy.
+ */
+export async function destroyFile(options: DestroyFileOptions): Promise<{ success: true }> {
+  const currentUser = getAuthInstance()?.currentUser;
+  if (!currentUser) {
+    throw new Error('You must be signed in to delete media.');
+  }
+  const idToken = await currentUser.getIdToken();
+
+  const res = await fetch('/api/media/destroy', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({
+      publicId: options.publicId,
+      organizationId: options.organizationId,
+      entityType: options.entityType,
+    }),
+  });
+
+  if (!res.ok) {
+    let message = 'Failed to delete media';
+    try {
+      const data = (await res.json()) as { error?: string };
+      message = data?.error ?? message;
+    } catch {
+      /* keep default */
+    }
+    throw new Error(message);
+  }
+
+  return { success: true };
+}
+
+/** Best-effort destroy; never throws. */
+export async function attemptDestroyFile(options: DestroyFileOptions): Promise<void> {
+  try {
+    await destroyFile(options);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function transformImage(
   publicId: string,
-  options: { width?: number; height?: number; crop?: 'fill' | 'scale' | 'fit' | 'thumb' | 'limit'; quality?: number | 'auto'; format?: 'auto' | 'webp' | 'png' | 'jpg' },
+  options: {
+    width?: number;
+    height?: number;
+    crop?: 'fill' | 'scale' | 'fit' | 'thumb' | 'limit';
+    quality?: number | 'auto';
+    format?: 'auto' | 'webp' | 'png' | 'jpg';
+  },
 ): string {
   return cloudinaryTransformImage(publicId, options);
 }
@@ -113,6 +194,8 @@ export function transformImage(
 export function getAssetUrl(publicId: string): string {
   return cloudinaryGetAssetUrl(publicId);
 }
+
+export { MediaUrlService };
 
 export interface ValidationError {
   field: string;
@@ -166,11 +249,5 @@ export function getImageDimensions(file: File): Promise<{ width: number; height:
 }
 
 export function generateThumbnailUrl(publicId: string, size: number = 300): string {
-  return transformImage(publicId, {
-    width: size,
-    height: size,
-    crop: 'fill',
-    quality: 'auto',
-    format: 'auto',
-  });
+  return MediaUrlService.artworkThumbnail(publicId, size);
 }

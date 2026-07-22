@@ -1,9 +1,15 @@
+/**
+ * BUILD-014D — Canonical media destroy endpoint.
+ * Replaces /api/artwork/destroy and /api/avatar/destroy.
+ *
+ * Signature string-to-sign: public_id + timestamp only (never api_key).
+ */
 import { NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { cloudinaryConfig } from '@releaseflow/firebase/cloudinary/config';
 import { getAdminAuth } from '@/lib/server/firebase-admin';
 import { AuthorizationService, type MembershipResolver } from '@/lib/auth/authorization-service';
 import { resolveRole } from '@releaseflow/core/auth/authorization';
-import { createHash } from 'node:crypto';
 
 export const runtime = 'nodejs';
 
@@ -21,6 +27,18 @@ const serverMembershipResolver: MembershipResolver = async (organizationId, uid)
   const data = snap.docs[0]?.data() as { roleId?: string | null; status?: string } | undefined;
   return resolveRole(data);
 };
+
+function destroyPermission(entityType: string): 'artwork.delete' | 'profile.upload' | 'media.upload' {
+  if (entityType === 'artwork') return 'artwork.delete';
+  if (entityType === 'avatar') return 'profile.upload';
+  return 'media.upload';
+}
+
+function generateDestroySignature(params: string[], apiSecret: string): string {
+  const sortedParams = params.sort().join('&');
+  const stringToSign = `${sortedParams}${apiSecret}`;
+  return createHash('sha1').update(stringToSign).digest('hex');
+}
 
 export async function POST(request: Request) {
   try {
@@ -46,22 +64,28 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => ({}))) as {
       publicId?: string;
       organizationId?: string;
+      entityType?: string;
     };
 
-    if (!body.publicId || !body.organizationId) {
-      return NextResponse.json({ error: 'Missing publicId or organizationId.' }, { status: 400 });
+    if (!body.publicId || !body.organizationId || !body.entityType) {
+      return NextResponse.json(
+        { error: 'Missing publicId, organizationId, or entityType.' },
+        { status: 400 },
+      );
     }
 
-    if (!(await AuthorizationService.canAsync('artwork.delete', body.organizationId, uid, { membershipResolver: serverMembershipResolver }))) {
+    const permission = destroyPermission(body.entityType);
+    if (!(await AuthorizationService.canAsync(permission, body.organizationId, uid, {
+      membershipResolver: serverMembershipResolver,
+    }))) {
       return NextResponse.json(
-        { error: 'You do not have permission to delete artwork for this organization.' },
+        { error: 'You do not have permission to delete this media.' },
         { status: 403 },
       );
     }
 
     const timestamp = Math.floor(Date.now() / 1000);
-    // Cloudinary destroy string-to-sign is only public_id + timestamp (not api_key).
-    // BUG-010: including api_key produced Invalid Signature (500) on Remove Artwork.
+    // BUILD-010 / BUG-010: only public_id + timestamp in the string-to-sign.
     const paramPairs = [
       `public_id=${body.publicId}`,
       `timestamp=${timestamp}`,
@@ -81,18 +105,15 @@ export async function POST(request: Request) {
 
     const data = await destroyRes.json();
     if (data.error) {
-      return NextResponse.json({ error: data.error.message ?? 'Cloudinary destroy failed' }, { status: 500 });
+      return NextResponse.json(
+        { error: data.error.message ?? 'Cloudinary destroy failed' },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ success: true, result: data });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Artwork destroy failed';
+    const message = err instanceof Error ? err.message : 'Media destroy failed';
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
-
-function generateDestroySignature(params: string[], apiSecret: string): string {
-  const sortedParams = params.sort().join('&');
-  const stringToSign = `${sortedParams}${apiSecret}`;
-  return createHash('sha1').update(stringToSign).digest('hex');
 }

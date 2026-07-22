@@ -57,7 +57,10 @@ export interface CurrentUserValue {
     organizationId: string,
     opts?: { personId?: string | null },
   ) => Promise<string>;
-  removeAvatar: (opts?: { personId?: string | null }) => Promise<void>;
+  removeAvatar: (opts?: {
+    personId?: string | null;
+    organizationId?: string | null;
+  }) => Promise<void>;
   updateDisplayName: (
     name: string,
     opts?: { personId?: string | null },
@@ -170,7 +173,7 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
   );
 
   const removeAvatar = useCallback(
-    async (opts?: { personId?: string | null }) => {
+    async (opts?: { personId?: string | null; organizationId?: string | null }) => {
       if (!auth) throw new Error('Not signed in');
       await removeMyAvatar(auth, opts);
       await refresh();

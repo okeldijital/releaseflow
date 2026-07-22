@@ -1,6 +1,9 @@
+/**
+ * BUILD-014D — Artwork uses canonical media upload/destroy only.
+ * No Cloudinary-specific helpers in this module.
+ */
 import { AuthorizationService } from '@/lib/auth/authorization-service';
-import { getAuthInstance } from '@/lib/firebase';
-import { uploadArtworkFile } from './artwork-upload';
+import { uploadFile, destroyFile, attemptDestroyFile } from '@/lib/media/media-upload';
 import {
   createArtwork,
   updateArtwork,
@@ -20,10 +23,11 @@ export async function uploadArtwork(
     throw new Error('You do not have permission to upload artwork for this organization.');
   }
 
-  const uploadResult = await uploadArtworkFile(file, {
+  const uploadResult = await uploadFile(file, {
     entityType: 'artwork',
     entityId: releaseId,
     organizationId,
+    tags: [`release:${releaseId}`, `org:${organizationId}`],
   });
 
   let artwork: Artwork;
@@ -33,13 +37,16 @@ export async function uploadArtwork(
       releaseId,
       publicId: uploadResult.publicId,
       secureUrl: uploadResult.secureUrl,
-      width: uploadResult.width,
-      height: uploadResult.height,
+      width: uploadResult.width ?? 0,
+      height: uploadResult.height ?? 0,
       format: uploadResult.format,
     });
   } catch (err) {
-    // Firestore write failed — clean up the Cloudinary image
-    await attemptDestroyCloudinaryImage(uploadResult.publicId, organizationId);
+    await attemptDestroyFile({
+      publicId: uploadResult.publicId,
+      organizationId,
+      entityType: 'artwork',
+    });
     throw new Error(
       err instanceof Error ? err.message : 'Failed to persist artwork metadata',
       err instanceof Error ? { cause: err } : undefined,
@@ -47,24 +54,6 @@ export async function uploadArtwork(
   }
 
   return artwork;
-}
-
-async function attemptDestroyCloudinaryImage(publicId: string, organizationId: string): Promise<void> {
-  try {
-    const currentUser = getAuthInstance()?.currentUser;
-    if (!currentUser) return;
-    const idToken = await currentUser.getIdToken();
-    await fetch('/api/artwork/destroy', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify({ publicId, organizationId }),
-    });
-  } catch {
-    // Best-effort cleanup — do not throw
-  }
 }
 
 export async function replaceArtwork(
@@ -81,16 +70,26 @@ export async function replaceArtwork(
     const existing = await getArtwork(organizationId, artworkId);
     if (!existing) return { error: 'Artwork not found' };
 
-    const result = await uploadArtworkFile(file, {
+    const result = await uploadFile(file, {
       entityType: 'artwork',
       entityId: existing.releaseId,
       organizationId,
+      tags: [`release:${existing.releaseId}`, `org:${organizationId}`],
     });
 
     await updateArtwork(organizationId, artworkId, {
       publicId: result.publicId,
       secureUrl: result.secureUrl,
     });
+
+    // Best-effort remove previous asset
+    if (existing.publicId && existing.publicId !== result.publicId) {
+      await attemptDestroyFile({
+        publicId: existing.publicId,
+        organizationId,
+        entityType: 'artwork',
+      });
+    }
 
     return { artworkId };
   } catch (err) {
@@ -111,24 +110,16 @@ export async function removeArtwork(
     const existing = await getArtwork(organizationId, artworkId);
     if (!existing) return { error: 'Artwork not found' };
 
-    const currentUser = getAuthInstance()?.currentUser;
-    if (!currentUser) return { error: 'You must be signed in to delete artwork.' };
-    const idToken = await currentUser.getIdToken();
-    const destroyRes = await fetch('/api/artwork/destroy', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify({
+    try {
+      await destroyFile({
         publicId: existing.publicId,
         organizationId,
-      }),
-    });
-
-    if (!destroyRes.ok) {
-      const data = await destroyRes.json().catch(() => ({}));
-      return { error: data?.error ?? 'Failed to delete artwork from storage.' };
+        entityType: 'artwork',
+      });
+    } catch (err) {
+      return {
+        error: err instanceof Error ? err.message : 'Failed to delete artwork from storage.',
+      };
     }
 
     await deleteArtwork(organizationId, artworkId);

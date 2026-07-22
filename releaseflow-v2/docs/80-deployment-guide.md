@@ -28,13 +28,15 @@
 | `FIREBASE_ADMIN_CLIENT_EMAIL` | Firebase Admin SDK client email | Yes |
 | `FIREBASE_ADMIN_PRIVATE_KEY` | Firebase Admin SDK private key | Yes |
 
-#### Cloudinary
+#### Cloudinary (BUILD-014D — signed uploads; no upload presets)
 | Variable | Description | Secret? |
 |---|---|---|
-| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name | No |
-| `CLOUDINARY_API_KEY` | Cloudinary API key | No |
-| `CLOUDINARY_API_SECRET` | Cloudinary API secret | Yes |
-| `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` | Upload preset name | No |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name (server) | No |
+| `CLOUDINARY_API_KEY` | Cloudinary API key (server; returned only via short-lived upload signature) | Yes* |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret (server signing only) | Yes |
+| `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` | Public cloud name for delivery URLs in the browser (`MediaUrlService`) | No |
+
+\* Treat API key as server-side; do not hardcode it in client feature modules.
 
 ---
 

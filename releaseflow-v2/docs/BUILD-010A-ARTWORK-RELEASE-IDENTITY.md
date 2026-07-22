@@ -28,7 +28,8 @@
 
 ## BUG-010 fix
 
-**File:** `apps/web/src/app/api/artwork/destroy/route.ts` only  
+**File (historical BUILD-010A):** was `apps/web/src/app/api/artwork/destroy/route.ts`  
+**Current (BUILD-014D):** `apps/web/src/app/api/media/destroy/route.ts`  
 
 **Change:** Exclude `api_key` from Cloudinary destroy string-to-sign. Sign only `public_id` + `timestamp`. Algorithm (sorted params + SHA-1) unchanged. `api_key` still sent in form body.
 
@@ -51,7 +52,7 @@
 
 | Field | Value |
 |-------|--------|
-| Endpoint | `POST /api/artwork/destroy` |
+| Endpoint | `POST /api/media/destroy` (was `/api/artwork/destroy` before BUILD-014D) |
 | HTTP Status | **200** |
 | Response Body | `{"success":true,"result":{"result":"ok"}}` |
 | Signature probe (nonexistent id) | **200** `{"success":true,"result":{"result":"not found"}}` |

@@ -134,7 +134,7 @@ Deprecated wrappers kept for tests: `hasPermission`, `requirePermission` → del
 | `apps/web/src/lib/assignment-service.ts` | canManageReview via service |
 | `apps/web/src/lib/pwa/offline-queue.ts` | Service gate |
 | `apps/web/src/app/api/media/upload-signature/route.ts` | Service |
-| `apps/web/src/app/api/artwork/destroy/route.ts` | Service |
+| `apps/web/src/app/api/media/destroy/route.ts` | Service (BUILD-014D; replaces artwork/avatar destroy) |
 | `apps/web/src/__tests__/authorization-service-auth001.test.ts` | AUTH-001 tests |
 | `docs/AUTH-001-AUTHORIZATION-SERVICE.md` | This doc |
 
