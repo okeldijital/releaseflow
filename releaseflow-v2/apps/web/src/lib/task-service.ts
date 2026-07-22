@@ -473,55 +473,50 @@ export async function listTasks(
   const todayEnd = endOfDay();
   const weekEnd = endOfWeek();
 
-  let tasks: TaskRecord[] = [];
+  let tasks: TaskRecord[];
 
-  if (filter === 'assigned_to_me' || !canManage) {
+  if (filter === 'created_by_me') {
+    tasks = await repoGetTasks({
+      organisationId,
+      createdBy: actorUid,
+      openOnly: true,
+      search,
+    });
+  } else if (filter === 'assigned_to_me' || !canManage) {
     const taskAssignments = await loadTaskAssignmentsForOrg(
       organisationId,
       filter === 'completed',
     );
     const mine = taskAssignments.filter((a) => assignmentMatchesIdentity(a, identityKeys));
     const taskIds = mine.map((a) => a.entityId).filter(Boolean);
-    tasks = await getTasksByIds(taskIds);
-    tasks = tasks.filter((t) => t.organisationId === organisationId);
+    const loaded = (await getTasksByIds(taskIds)).filter(
+      (t) => t.organisationId === organisationId,
+    );
 
-    if (filter === 'created_by_me') {
-      tasks = await repoGetTasks({
-        organisationId,
-        createdBy: actorUid,
-        openOnly: true,
-        search,
-      });
-    } else if (filter === 'all_open' || filter === 'assigned_to_me') {
-      tasks = tasks.filter((t) => OPEN_STATUSES.includes(t.status));
+    if (filter === 'all_open' || filter === 'assigned_to_me') {
+      tasks = loaded.filter((t) => OPEN_STATUSES.includes(t.status));
     } else if (filter === 'completed') {
-      tasks = tasks.filter((t) => t.status === 'completed');
+      tasks = loaded.filter((t) => t.status === 'completed');
     } else if (filter === 'overdue') {
-      tasks = tasks.filter((t) => {
+      tasks = loaded.filter((t) => {
         const d = toJsDate(t.dueDate);
         return OPEN_STATUSES.includes(t.status) && d !== null && d < todayStart;
       });
     } else if (filter === 'due_today') {
-      tasks = tasks.filter((t) => {
+      tasks = loaded.filter((t) => {
         const d = toJsDate(t.dueDate);
         return OPEN_STATUSES.includes(t.status) && d !== null && d >= todayStart && d <= todayEnd;
       });
     } else if (filter === 'this_week') {
-      tasks = tasks.filter((t) => {
+      tasks = loaded.filter((t) => {
         const d = toJsDate(t.dueDate);
         return OPEN_STATUSES.includes(t.status) && d !== null && d >= todayStart && d <= weekEnd;
       });
+    } else {
+      tasks = loaded.filter((t) => OPEN_STATUSES.includes(t.status));
     }
   } else {
     switch (filter) {
-      case 'created_by_me':
-        tasks = await repoGetTasks({
-          organisationId,
-          createdBy: actorUid,
-          openOnly: true,
-          search,
-        });
-        break;
       case 'completed':
         tasks = await repoGetTasks({
           organisationId,
@@ -565,7 +560,6 @@ export async function listTasks(
         break;
     }
   }
-
   if (search?.trim()) {
     const q = search.trim().toLowerCase();
     tasks = tasks.filter(

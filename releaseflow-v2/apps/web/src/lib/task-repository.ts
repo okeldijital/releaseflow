@@ -212,7 +212,7 @@ export async function getTasks(options: TaskQueryOptions): Promise<TaskRecord[]>
     base.push(where('priority', '==', options.priority));
   }
 
-  let docs: TaskRecord[] = [];
+  let docs: TaskRecord[];
   try {
     const snap = await getDocs(
       query(collection(db, 'tasks'), ...base, orderBy('updatedAt', 'desc')),
