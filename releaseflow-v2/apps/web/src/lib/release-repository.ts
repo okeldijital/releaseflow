@@ -6,6 +6,7 @@ import { getDb } from './firebase';
 import { recordActivity } from './activity-service';
 import type { ReleaseStatus, ReleaseLifecycle, ReleaseType } from '@/app/(app)/types';
 import type { Artwork } from '@/lib/artwork/artwork-types';
+import type { RichTextDocument } from '@/lib/rich-text';
 
 const LIFECYCLE_ORDER: Record<string, number> = {
   draft: 0,
@@ -51,6 +52,8 @@ export interface ReleaseRecord {
   language?: string;
   explicit?: boolean;
   releaseLink?: string | null;
+  /** BUILD-013 — structured editorial liner notes (not HTML) */
+  linerNotes?: RichTextDocument | null;
   createdAt: unknown;
   updatedAt?: unknown;
   artwork: Artwork | null;
@@ -91,6 +94,8 @@ export interface UpdateReleaseFields {
   language?: string | null;
   explicit?: boolean | null;
   releaseLink?: string | null;
+  /** BUILD-013 */
+  linerNotes?: RichTextDocument | null;
 }
 
 export async function getRelease(releaseId: string): Promise<ReleaseRecord | null> {
@@ -622,6 +627,7 @@ export async function updateRelease(
   if (fields.language !== undefined) updateData.language = fields.language;
   if (fields.explicit !== undefined) updateData.explicit = fields.explicit;
   if (fields.releaseLink !== undefined) updateData.releaseLink = fields.releaseLink;
+  if (fields.linerNotes !== undefined) updateData.linerNotes = fields.linerNotes;
   await updateDoc(doc(db, 'releases', releaseId), updateData);
   const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
   const organizationId = (releaseSnap.data() as Record<string, unknown> | undefined)?.organizationId as string | undefined ?? '';

@@ -19,6 +19,8 @@
       "@/*": ["./src/*"],
     "@releaseflow/core": ["../../packages/core/src/index.ts"],
     "@releaseflow/core/*": ["../../packages/core/src/*"],
+    "@releaseflow/documents": ["../../packages/documents/src/index.ts"],
+    "@releaseflow/documents/*": ["../../packages/documents/src/*"],
     "@releaseflow/firebase": ["../../packages/firebase/src/index.ts"],
     "@releaseflow/firebase/*": ["../../packages/firebase/src/*"],
     "@releaseflow/ui": ["../../packages/ui/src/index.ts"],

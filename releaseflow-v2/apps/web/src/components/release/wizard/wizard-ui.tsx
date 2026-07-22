@@ -7,6 +7,7 @@ export function StepTitle({ step }: { step: string }) {
   const titles: Record<string, string> = {
     type: 'What are you releasing?', details: 'What is your release called?', remix: 'Tell us about this remix',
     artwork: 'Do you already have artwork?', tracks: "Let's add your tracks",
+    liner_notes: 'Liner Notes',
     release_info: 'Release Information', promotion: 'How will you promote this release?',
     email: 'Will you send an email announcement?', review: 'Ready to launch?',
   };

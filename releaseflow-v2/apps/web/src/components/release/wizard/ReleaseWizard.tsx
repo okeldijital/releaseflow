@@ -6,6 +6,7 @@ import { ReleaseTypeStep } from './ReleaseTypeStep';
 import { DetailsStep } from './DetailsStep';
 import { ArtworkStep } from './ArtworkStep';
 import { TracksStep } from './TracksStep';
+import { LinerNotesStep } from './LinerNotesStep';
 import { ReleaseInfoStep } from './ReleaseInfoStep';
 import { PromoStep } from './PromoStep';
 import { EmailStep } from './EmailStep';
@@ -147,6 +148,14 @@ export function ReleaseWizard({ mode = 'create', releaseId, draftId }: { mode?: 
           openAssigner={handlers.openAssigner}
           validateRemixTracks={handlers.validateRemixTracks}
           people={stepProps.people}
+          back={handlers.back}
+          next={handlers.next}
+        />
+      )}
+      {currentStepKey === 'liner_notes' && (
+        <LinerNotesStep
+          linerNotes={stepProps.linerNotes}
+          setLinerNotes={stepProps.setLinerNotes}
           back={handlers.back}
           next={handlers.next}
         />

@@ -20,6 +20,8 @@ import type { LabelOption } from '@/components/label-field-picker';
 import type { ReleaseRecord } from '@/lib/release-repository';
 import type { ReleaseTypeVal, WizardTrack, PersonOption, SocialRow, SectionStatusMap, AssignerField, InviteTarget, WizardDraftData } from './release-wizard-types';
 import { createEmptyTrack, normalizeWizardTrack } from './release-wizard-types';
+import type { RichTextDocument } from '@/lib/rich-text';
+import { isRichTextEmpty, normalizeRichText } from '@/lib/rich-text';
 import {
   parseDurationInput,
   parseTimeInput,
@@ -58,6 +60,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
   const [releaseTitle, setReleaseTitle] = useState('');
   const [releaseLink, setReleaseLink] = useState('');
   const [releaseNotes, setReleaseNotes] = useState('');
+  const [linerNotes, setLinerNotes] = useState<RichTextDocument | null>(null);
   const [targetReleaseDate, setTargetReleaseDate] = useState('');
   const [estimatedReleaseDate, setEstimatedReleaseDate] = useState('');
   const [labelOptions, setLabelOptions] = useState<LabelOption[]>([]);
@@ -186,6 +189,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
       setPrimaryGenre(data.genre ?? '');
       setSecondaryGenre(data.subgenre ?? '');
       setLanguage(data.language ?? '');
+      setLinerNotes(normalizeRichText(data.linerNotes) ?? null);
       setLoadingEdit(false);
     }
     load();
@@ -216,6 +220,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
           normalizeWizardTrack(t as Parameters<typeof normalizeWizardTrack>[0]),
         ),
       );
+      setLinerNotes(normalizeRichText(wd.linerNotes) ?? null);
       setPromoAssets(wd.promoAssets ?? []);
       setAssetDesigners(wd.assetDesigners ?? {});
       setSocialRows(wd.socialRows ?? []);
@@ -351,6 +356,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
       commissionArtwork,
       artworkDesigner,
       tracks,
+      linerNotes,
       promoAssets,
       assetDesigners,
       socialRows,
@@ -679,6 +685,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
           subgenre: secondaryGenre || null,
           language: language || null,
           releaseLink: trimmedReleaseLink,
+          linerNotes: isRichTextEmpty(linerNotes) ? null : linerNotes,
         }, user.uid);
         router.push(`/releases/${editReleaseId}`);
       } catch (err) {
@@ -708,6 +715,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
           subgenre: secondaryGenre || null,
           language: language || null,
           releaseLink: trimmedReleaseLink,
+          linerNotes: isRichTextEmpty(linerNotes) ? null : linerNotes,
         }, user.uid);
         await finalizeDraft(releaseIdToUse, user.uid);
         await addWorkflowToRelease(releaseIdToUse, getStageTemplatesForReleaseType(rt), getRequirementNamesForReleaseType(rt), user.uid);
@@ -717,6 +725,9 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
           getStageTemplatesForReleaseType(rt), getRequirementNamesForReleaseType(rt), user.uid,
         );
         currentDraftId.current = newId;
+        if (!isRichTextEmpty(linerNotes)) {
+          await editRelease(newId, { linerNotes }, user.uid);
+        }
       }
 
       const finalReleaseId = currentDraftId.current!;
@@ -825,7 +836,8 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     }
   }
 
-  const STEPS = ['type', 'details', 'artwork', 'tracks', 'release_info', 'promotion', 'email', 'review'];
+  // BUILD-013 — Liner Notes after tracks
+  const STEPS = ['type', 'details', 'artwork', 'tracks', 'liner_notes', 'release_info', 'promotion', 'email', 'review'];
   const totalSteps = STEPS.length;
   const currentStepKey = STEPS[step];
 
@@ -920,6 +932,8 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     releaseTitle, setReleaseTitle: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setReleaseTitle, v),
     releaseLink, setReleaseLink: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setReleaseLink, v),
     releaseNotes, setReleaseNotes: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setReleaseNotes, v),
+    linerNotes,
+    setLinerNotes: (v: SetStateAction<RichTextDocument | null>) => dirty(setHasUnsavedChanges, setLinerNotes, v),
     targetReleaseDate, setTargetReleaseDate: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setTargetReleaseDate, v),
     estimatedReleaseDate, setEstimatedReleaseDate: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setEstimatedReleaseDate, v),
     hasArtwork, setHasArtwork: (v: SetStateAction<boolean | null>) => dirty(setHasUnsavedChanges, setHasArtwork, v),

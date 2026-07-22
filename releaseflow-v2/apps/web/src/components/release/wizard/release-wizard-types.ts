@@ -1,5 +1,6 @@
 import type { RecordingType } from '@/lib/recording-type';
 import type { RepeatableArtistEntry } from '@/components/artist-field-picker';
+import type { RichTextDocument } from '@/lib/rich-text';
 
 export const RELEASE_TYPES = [
   { value: 'single', label: 'Single', description: 'One track release' },
@@ -148,6 +149,8 @@ export interface WizardDraftData {
   commissionArtwork: boolean | null;
   artworkDesigner: string;
   tracks: WizardTrack[];
+  /** BUILD-013 — structured liner notes document */
+  linerNotes: RichTextDocument | null;
   promoAssets: string[];
   assetDesigners: Record<string, string>;
   socialRows: SocialRow[];

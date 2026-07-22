@@ -16,6 +16,18 @@ import { fetchRelease, removeRelease, editRelease } from '@/lib/release-service'
 import { uploadArtwork, getArtworkByRelease } from '@/lib/artwork/artwork-service';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { toast } from '@/stores/toast-store';
+import { RichTextEditor } from '@/components/rich-text/RichTextEditor';
+import { RichTextRenderer } from '@/components/rich-text/RichTextRenderer';
+import type { RichTextDocument } from '@/lib/rich-text';
+import {
+  emptyRichTextDocument,
+  isRichTextEmpty,
+  normalizeRichText,
+} from '@/lib/rich-text';
+import {
+  canExportLinerNotesPdf,
+  downloadLinerNotesPdf,
+} from '@/lib/release-liner-notes-pdf';
 import { getDeliverablesByRelease } from '@/lib/deliverable-service';
 import { getTracksByRelease } from '@/lib/release-track-repository';
 import { getArtistsByRole } from '@/lib/track-artist-repository';
@@ -182,6 +194,11 @@ export default function ReleaseWorkspacePage() {
   const [workspaceReloadToken, setWorkspaceReloadToken] = useState(0);
   const [artwork, setArtwork] = useState<Artwork | null>(null);
   const [uploadState, setUploadState] = useState<UploadState>('idle');
+  // BUILD-013 — Liner Notes
+  const [linerNotes, setLinerNotes] = useState<RichTextDocument | null>(null);
+  const [linerNotesEditing, setLinerNotesEditing] = useState(false);
+  const [linerNotesDraft, setLinerNotesDraft] = useState<RichTextDocument | null>(null);
+  const [linerNotesSaving, setLinerNotesSaving] = useState(false);
 
   /* Load core data — fault-tolerant, always clears loading */
   useEffect(() => {
@@ -213,7 +230,11 @@ export default function ReleaseWorkspacePage() {
         return;
       }
 
-      if (!cancelled) setRelease(rel as unknown as Release);
+      if (!cancelled) {
+        setRelease(rel as unknown as Release);
+        setLinerNotes(normalizeRichText((rel as { linerNotes?: unknown }).linerNotes) ?? null);
+        setLinerNotesEditing(false);
+      }
 
       const [del, trk, art] = await Promise.all([
         (async () => {
@@ -388,6 +409,68 @@ export default function ReleaseWorkspacePage() {
     void loadActivity();
     return () => { cancelled = true; };
   }, [releaseId, activeOrgId, workspaceReloadToken]);
+
+  const handleSaveLinerNotes = useCallback(async () => {
+    if (!user || !releaseId || !linerNotesDraft) return;
+    setLinerNotesSaving(true);
+    try {
+      const next = isRichTextEmpty(linerNotesDraft) ? null : linerNotesDraft;
+      await editRelease(releaseId, { linerNotes: next }, user.uid);
+      setLinerNotes(next);
+      setLinerNotesEditing(false);
+      toast.success('Liner notes saved.');
+    } catch (err) {
+      toast.error(
+        'Could not save liner notes',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
+    } finally {
+      setLinerNotesSaving(false);
+    }
+  }, [user, releaseId, linerNotesDraft]);
+
+  const handleDownloadLinerNotesPdf = useCallback(async () => {
+    if (!canExportLinerNotesPdf(linerNotes)) {
+      toast.error('Add liner notes before exporting a PDF.');
+      return;
+    }
+    try {
+      const typeLabel =
+        RELEASE_TYPE_LABELS[(release?.releaseType as keyof typeof RELEASE_TYPE_LABELS) ?? 'single'] ??
+        release?.releaseType ??
+        '';
+      let releaseDate: string | null = null;
+      const trd = release?.targetReleaseDate;
+      if (trd) {
+        if (typeof trd === 'object' && trd !== null && 'seconds' in trd) {
+          releaseDate = new Date((trd as { seconds: number }).seconds * 1000).toLocaleDateString(
+            'en-US',
+            { year: 'numeric', month: 'long', day: 'numeric' },
+          );
+        } else if (typeof trd === 'string') {
+          releaseDate = new Date(trd).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          });
+        }
+      }
+      await downloadLinerNotesPdf({
+        releaseTitle: release?.title ?? 'Release',
+        primaryArtist: (release as { primaryArtist?: string } | null)?.primaryArtist ?? '',
+        releaseType: typeLabel,
+        releaseDate,
+        copyrightYear: (release as { copyrightYear?: string } | null)?.copyrightYear ?? null,
+        artworkUrl: artwork?.secureUrl ?? null,
+        linerNotes,
+      });
+    } catch (err) {
+      toast.error(
+        'PDF export failed',
+        err instanceof Error ? err.message : 'Please try again.',
+      );
+    }
+  }, [linerNotes, release, artwork]);
 
   const handleArtworkUpload = useCallback(async (file: File) => {
     if (!user || !activeOrgId) {
@@ -735,7 +818,86 @@ export default function ReleaseWorkspacePage() {
         </div>
       </section>
 
-      {/* ── 2. Release readiness ──────────────────────────────────────── */}
+      {/* ── 2. Liner Notes (BUILD-013) ─────────────────────────────────── */}
+      <section aria-label="Liner Notes" className="mb-10">
+        <SectionHeader
+          title="Liner Notes"
+          description="Editorial notes, acknowledgements, and the story behind this release."
+        />
+        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 sm:p-6 space-y-4">
+          {linerNotesEditing ? (
+            <>
+              <RichTextEditor
+                value={linerNotesDraft ?? emptyRichTextDocument()}
+                onChange={setLinerNotesDraft}
+                placeholder="Write liner notes…"
+                minHeightClass="min-h-[220px]"
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => void handleSaveLinerNotes()}
+                  disabled={linerNotesSaving}
+                >
+                  {linerNotesSaving ? 'Saving…' : 'Save'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setLinerNotesEditing(false);
+                    setLinerNotesDraft(null);
+                  }}
+                  disabled={linerNotesSaving}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <RichTextRenderer value={linerNotes} emptyLabel="No liner notes yet." />
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-surface-100">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setLinerNotesDraft(linerNotes ?? emptyRichTextDocument());
+                    setLinerNotesEditing(true);
+                  }}
+                >
+                  Edit
+                </Button>
+                {canExportLinerNotesPdf(linerNotes) ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleDownloadLinerNotesPdf()}
+                  >
+                    Export PDF
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled
+                    title="Add liner notes before exporting a PDF"
+                  >
+                    Export PDF
+                  </Button>
+                )}
+              </div>
+              {!canExportLinerNotesPdf(linerNotes) ? (
+                <p className="text-xs text-content-label">
+                  Add liner notes before exporting a PDF.
+                </p>
+              ) : null}
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* ── 3. Release readiness ──────────────────────────────────────── */}
       <section aria-label="Release readiness" className="mb-10">
         <SectionHeader
           title="Release readiness"

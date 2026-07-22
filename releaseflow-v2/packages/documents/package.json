@@ -1,0 +1,22 @@
+{
+  "name": "@releaseflow/documents",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./pdf": "./src/pdf/PdfRenderer.ts",
+    "./html": "./src/html/HtmlRenderer.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "jspdf": "^3.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@releaseflow/core": "workspace:*",
+    "@releaseflow/documents": "workspace:*",
     "@releaseflow/domain-ui": "workspace:*",
     "@releaseflow/firebase": "workspace:*",
     "@firebase/app": "0.13.2",
