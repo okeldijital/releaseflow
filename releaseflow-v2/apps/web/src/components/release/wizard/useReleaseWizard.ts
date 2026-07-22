@@ -750,6 +750,13 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
                     featuredArtistIds: t.originalWorkFeaturedArtists
                       .map((e) => e.artistId)
                       .filter(Boolean),
+                    composerArtistIds: t.originalWorkComposers
+                      .map((e) => e.artistId)
+                      .filter(Boolean),
+                    lyricistArtistIds: t.originalWorkLyricists
+                      .map((e) => e.artistId)
+                      .filter(Boolean),
+                    iswc: t.originalWorkIswc.trim() || null,
                   }
                 : null,
             displayTitle: t.displayTitle.trim() || null,
@@ -757,8 +764,6 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
             duration: t.duration ?? undefined,
             genre: t.genre.trim() || undefined,
             isrc: t.isrc.trim() || undefined,
-            composerArtistIds: t.composers.map((e) => e.artistId).filter(Boolean),
-            lyricistArtistIds: t.lyricists.map((e) => e.artistId).filter(Boolean),
           });
           if (recordingPrimaryId) {
             await addArtistToTrack({
@@ -780,27 +785,29 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
               });
             }
           }
-          // BUILD-012D — songwriting roles (same Artist catalogue, track-level roles)
-          for (let idx = 0; idx < t.composers.length; idx++) {
-            const entry = t.composers[idx]!;
-            if (entry.artistId) {
-              await addArtistToTrack({
-                trackId,
-                artistId: entry.artistId,
-                role: 'COMPOSER',
-                position: idx + 1,
-              });
+          // BUILD-012D — composition songwriting roles (Original Work)
+          if (t.recordingType === 'remix') {
+            for (let idx = 0; idx < t.originalWorkComposers.length; idx++) {
+              const entry = t.originalWorkComposers[idx]!;
+              if (entry.artistId) {
+                await addArtistToTrack({
+                  trackId,
+                  artistId: entry.artistId,
+                  role: 'COMPOSER',
+                  position: idx + 1,
+                });
+              }
             }
-          }
-          for (let idx = 0; idx < t.lyricists.length; idx++) {
-            const entry = t.lyricists[idx]!;
-            if (entry.artistId) {
-              await addArtistToTrack({
-                trackId,
-                artistId: entry.artistId,
-                role: 'LYRICIST',
-                position: idx + 1,
-              });
+            for (let idx = 0; idx < t.originalWorkLyricists.length; idx++) {
+              const entry = t.originalWorkLyricists[idx]!;
+              if (entry.artistId) {
+                await addArtistToTrack({
+                  trackId,
+                  artistId: entry.artistId,
+                  role: 'LYRICIST',
+                  position: idx + 1,
+                });
+              }
             }
           }
         }

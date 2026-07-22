@@ -52,6 +52,9 @@ export function TracksStep({
       originalWorkTitle: t.originalWorkTitle,
       originalWorkPrimaryArtistId: t.originalWorkPrimaryArtistId,
       originalWorkFeaturedArtists: t.originalWorkFeaturedArtists,
+      originalWorkComposers: t.originalWorkComposers,
+      originalWorkLyricists: t.originalWorkLyricists,
+      originalWorkIswc: t.originalWorkIswc,
       primaryArtistId: t.primaryArtistId,
       featuredArtists: t.featuredArtists,
       displayTitle: t.displayTitle,
@@ -64,9 +67,6 @@ export function TracksStep({
       mixingEngineer: t.mixingEngineer,
       masteringEngineer: t.masteringEngineer,
       isrc: t.isrc,
-      composers: t.composers,
-      lyricists: t.lyricists,
-      iswc: t.iswc,
       pubOpen: t.pubOpen,
     };
   }

@@ -13,11 +13,19 @@ export class TrackCreationError extends Error {
   }
 }
 
-/** BUILD-011 — song being remixed (only for recordingType === remix). */
+/**
+ * BUILD-011 / BUILD-012D — musical work being remixed (recordingType === remix only).
+ * Songwriters + ISWC describe the composition, not the sound recording.
+ */
 export interface OriginalWork {
   title: string;
   primaryArtistId: string;
   featuredArtistIds: string[];
+  /** BUILD-012D — composition creators (Artist ids) */
+  composerArtistIds?: string[];
+  lyricistArtistIds?: string[];
+  /** Composition identifier (not the recording ISRC) */
+  iswc?: string | null;
 }
 
 export interface TrackRecord {
@@ -44,7 +52,10 @@ export interface TrackRecord {
   originalArtistIds?: string[];
   featuredArtistIds?: string[];
   remixArtistIds?: string[];
-  /** BUILD-012D — songwriting credits (Artist ids; roles at track level) */
+  /**
+   * @deprecated BUILD-012D — prefer originalWork.composerArtistIds / lyricistArtistIds.
+   * Kept for reading legacy track docs only.
+   */
   composerArtistIds?: string[];
   lyricistArtistIds?: string[];
   /** BUILD-011 — nested original song metadata; null/omitted when not a remix */
@@ -80,9 +91,6 @@ export interface CreateTrackFields {
   originalArtistIds?: string[];
   featuredArtistIds?: string[];
   remixArtistIds?: string[];
-  /** BUILD-012D */
-  composerArtistIds?: string[];
-  lyricistArtistIds?: string[];
   originalWork?: OriginalWork | null;
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
@@ -111,9 +119,6 @@ export interface UpdateTrackFields {
   originalArtistIds?: string[];
   featuredArtistIds?: string[];
   remixArtistIds?: string[];
-  /** BUILD-012D */
-  composerArtistIds?: string[];
-  lyricistArtistIds?: string[];
   originalWork?: OriginalWork | null;
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
@@ -126,23 +131,38 @@ export function normalizeArtistIdArray(value: unknown): string[] {
   return value.filter((id): id is string => typeof id === 'string' && id.length > 0);
 }
 
-/** BUILD-011 — hydrate nested originalWork; empty/missing → null. */
+/** BUILD-011 / BUILD-012D — hydrate nested originalWork; empty/missing → null. */
 export function normalizeOriginalWork(value: unknown): OriginalWork | null {
   if (!value || typeof value !== 'object') return null;
   const v = value as Record<string, unknown>;
   const title = typeof v.title === 'string' ? v.title : '';
   const primaryArtistId = typeof v.primaryArtistId === 'string' ? v.primaryArtistId : '';
   const featuredArtistIds = normalizeArtistIdArray(v.featuredArtistIds);
-  if (!title.trim() && !primaryArtistId && featuredArtistIds.length === 0) return null;
+  const composerArtistIds = normalizeArtistIdArray(v.composerArtistIds);
+  const lyricistArtistIds = normalizeArtistIdArray(v.lyricistArtistIds);
+  const iswc = typeof v.iswc === 'string' ? v.iswc.trim() : '';
+  if (
+    !title.trim() &&
+    !primaryArtistId &&
+    featuredArtistIds.length === 0 &&
+    composerArtistIds.length === 0 &&
+    lyricistArtistIds.length === 0 &&
+    !iswc
+  ) {
+    return null;
+  }
   return {
     title,
     primaryArtistId,
     featuredArtistIds,
+    composerArtistIds,
+    lyricistArtistIds,
+    iswc: iswc || null,
   };
 }
 
 /**
- * BUILD-011 — persist shape for originalWork.
+ * BUILD-011 / BUILD-012D — persist shape for originalWork.
  * Non-remix → null (clears prior remix original work on type change).
  * Remix → nested object (never an empty placeholder without remix type).
  */
@@ -156,6 +176,43 @@ export function serializeOriginalWork(
     title: originalWork.title.trim(),
     primaryArtistId: originalWork.primaryArtistId || '',
     featuredArtistIds: normalizeArtistIdArray(originalWork.featuredArtistIds),
+    composerArtistIds: normalizeArtistIdArray(originalWork.composerArtistIds),
+    lyricistArtistIds: normalizeArtistIdArray(originalWork.lyricistArtistIds),
+    iswc: originalWork.iswc?.trim() || null,
+  };
+}
+
+/** Merge legacy top-level composer/lyricist ids into nested originalWork when missing. */
+export function mergeLegacySongwritersIntoOriginalWork(
+  originalWork: OriginalWork | null,
+  legacyComposers?: string[],
+  legacyLyricists?: string[],
+): OriginalWork | null {
+  if (!originalWork) {
+    const c = normalizeArtistIdArray(legacyComposers);
+    const l = normalizeArtistIdArray(legacyLyricists);
+    if (c.length === 0 && l.length === 0) return null;
+    return {
+      title: '',
+      primaryArtistId: '',
+      featuredArtistIds: [],
+      composerArtistIds: c,
+      lyricistArtistIds: l,
+      iswc: null,
+    };
+  }
+  const composers =
+    (originalWork.composerArtistIds?.length ?? 0) > 0
+      ? originalWork.composerArtistIds!
+      : normalizeArtistIdArray(legacyComposers);
+  const lyricists =
+    (originalWork.lyricistArtistIds?.length ?? 0) > 0
+      ? originalWork.lyricistArtistIds!
+      : normalizeArtistIdArray(legacyLyricists);
+  return {
+    ...originalWork,
+    composerArtistIds: composers,
+    lyricistArtistIds: lyricists,
   };
 }
 
@@ -200,8 +257,7 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     originalArtistIds: normalizeArtistIdArray(fields.originalArtistIds),
     featuredArtistIds: normalizeArtistIdArray(fields.featuredArtistIds),
     remixArtistIds: normalizeArtistIdArray(fields.remixArtistIds),
-    composerArtistIds: normalizeArtistIdArray(fields.composerArtistIds),
-    lyricistArtistIds: normalizeArtistIdArray(fields.lyricistArtistIds),
+    // BUILD-012D — songwriters live only under originalWork (not top-level)
     // BUILD-011: only store nested object for remix; null for other types
     originalWork,
     displayTitle: fields.displayTitle ?? null,
@@ -245,8 +301,6 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     originalArtistIds: normalizeArtistIdArray(fields.originalArtistIds),
     featuredArtistIds: normalizeArtistIdArray(fields.featuredArtistIds),
     remixArtistIds: normalizeArtistIdArray(fields.remixArtistIds),
-    composerArtistIds: normalizeArtistIdArray(fields.composerArtistIds),
-    lyricistArtistIds: normalizeArtistIdArray(fields.lyricistArtistIds),
     originalWork,
     displayTitle: fields.displayTitle,
     displayTitleEdited: fields.displayTitleEdited,
@@ -288,12 +342,6 @@ export async function updateTrack(trackId: string, fields: UpdateTrackFields): P
   if (fields.remixArtistIds !== undefined) {
     update.remixArtistIds = normalizeArtistIdArray(fields.remixArtistIds);
   }
-  if (fields.composerArtistIds !== undefined) {
-    update.composerArtistIds = normalizeArtistIdArray(fields.composerArtistIds);
-  }
-  if (fields.lyricistArtistIds !== undefined) {
-    update.lyricistArtistIds = normalizeArtistIdArray(fields.lyricistArtistIds);
-  }
   if (fields.originalWork !== undefined) {
     if (fields.originalWork === null) {
       update.originalWork = null;
@@ -327,10 +375,14 @@ export async function getTrack(trackId: string): Promise<TrackRecord | null> {
     originalArtistIds: normalizeArtistIdArray(data.originalArtistIds),
     featuredArtistIds: normalizeArtistIdArray(data.featuredArtistIds),
     remixArtistIds: normalizeArtistIdArray(data.remixArtistIds),
-    composerArtistIds: normalizeArtistIdArray(data.composerArtistIds),
-    lyricistArtistIds: normalizeArtistIdArray(data.lyricistArtistIds),
     originalWork:
-      recordingType === 'remix' ? normalizeOriginalWork(data.originalWork) : null,
+      recordingType === 'remix'
+        ? mergeLegacySongwritersIntoOriginalWork(
+            normalizeOriginalWork(data.originalWork),
+            normalizeArtistIdArray(data.composerArtistIds),
+            normalizeArtistIdArray(data.lyricistArtistIds),
+          )
+        : null,
   } as TrackRecord;
 }
 
@@ -353,10 +405,14 @@ export async function getTracksByOrg(orgId: string): Promise<TrackRecord[]> {
       originalArtistIds: normalizeArtistIdArray(data.originalArtistIds),
       featuredArtistIds: normalizeArtistIdArray(data.featuredArtistIds),
       remixArtistIds: normalizeArtistIdArray(data.remixArtistIds),
-      composerArtistIds: normalizeArtistIdArray(data.composerArtistIds),
-      lyricistArtistIds: normalizeArtistIdArray(data.lyricistArtistIds),
       originalWork:
-        recordingType === 'remix' ? normalizeOriginalWork(data.originalWork) : null,
+        recordingType === 'remix'
+          ? mergeLegacySongwritersIntoOriginalWork(
+              normalizeOriginalWork(data.originalWork),
+              normalizeArtistIdArray(data.composerArtistIds),
+              normalizeArtistIdArray(data.lyricistArtistIds),
+            )
+          : null,
     } as TrackRecord;
   });
 }

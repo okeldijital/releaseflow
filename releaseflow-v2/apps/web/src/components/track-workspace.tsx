@@ -1240,8 +1240,11 @@ function PublishingSection({
   const publisherNames = credits.filter((c) => c.role.toLowerCase() === 'publisher').map((c) => c.name);
   const legacyWriterNames = credits.filter((c) => ['writer', 'lyricist', 'songwriter'].includes(c.role.toLowerCase())).map((c) => c.name);
   const legacyComposerNames = credits.filter((c) => c.role.toLowerCase() === 'composer').map((c) => c.name);
-  const composerIds = track.composerArtistIds ?? [];
-  const lyricistIds = track.lyricistArtistIds ?? [];
+  const composerIds =
+    track.originalWork?.composerArtistIds ?? track.composerArtistIds ?? [];
+  const lyricistIds =
+    track.originalWork?.lyricistArtistIds ?? track.lyricistArtistIds ?? [];
+  const iswc = track.originalWork?.iswc;
 
   const hasIdentifiers = !!track.isrc;
   const hasRights = !!(track.explicit || track.language);
@@ -1301,7 +1304,9 @@ function PublishingSection({
       </div>
 
       <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 flex flex-col">
-        <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">Songwriting</h3>
+        <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">
+          Original Work Songwriters
+        </h3>
         <dl className="space-y-2 text-sm flex-1">
           <div className="flex justify-between gap-3">
             <dt className="text-content-secondary shrink-0">Composer(s)</dt>
@@ -1327,6 +1332,10 @@ function PublishingSection({
                 : (legacyWriterNames.join(', ') || '—')}
             </dd>
           </div>
+          <div className="flex justify-between">
+            <dt className="text-content-secondary">ISWC</dt>
+            <dd className="text-content-primary font-mono text-xs">{iswc || '—'}</dd>
+          </div>
           {publisherNames.length > 0 ? (
             <div className="flex justify-between">
               <dt className="text-content-secondary">Publisher</dt>
@@ -1334,9 +1343,9 @@ function PublishingSection({
             </div>
           ) : null}
         </dl>
-        {!hasSongwriting ? (
+        {!hasSongwriting && !iswc ? (
           <p className="text-xs text-content-label mt-3 pt-3 border-t border-surface-100">
-            No songwriting credits yet. Add composers and lyricists from the Artist catalogue.
+            No composition credits yet. Add composers, lyricists, and ISWC under Original Work.
           </p>
         ) : null}
       </div>
@@ -1504,13 +1513,14 @@ function EditPanel({
   );
   const [displayTitle, setDisplayTitle] = useState(track.displayTitle ?? '');
   const [displayTitleEdited, setDisplayTitleEdited] = useState(track.displayTitleEdited ?? false);
-  // BUILD-012D — Composer / Lyricist (Artist catalogue)
-  const [composerEntries, setComposerEntries] = useState<RepeatableArtistEntry[]>(() =>
-    (track.composerArtistIds ?? []).map((id) => ({ id, artistId: id })),
+  // BUILD-012D — Original Work songwriters (Artist catalogue)
+  const [originalWorkComposerEntries, setOriginalWorkComposerEntries] = useState<RepeatableArtistEntry[]>(() =>
+    (track.originalWork?.composerArtistIds ?? track.composerArtistIds ?? []).map((id) => ({ id, artistId: id })),
   );
-  const [lyricistEntries, setLyricistEntries] = useState<RepeatableArtistEntry[]>(() =>
-    (track.lyricistArtistIds ?? []).map((id) => ({ id, artistId: id })),
+  const [originalWorkLyricistEntries, setOriginalWorkLyricistEntries] = useState<RepeatableArtistEntry[]>(() =>
+    (track.originalWork?.lyricistArtistIds ?? track.lyricistArtistIds ?? []).map((id) => ({ id, artistId: id })),
   );
+  const [originalWorkIswc, setOriginalWorkIswc] = useState(track.originalWork?.iswc ?? '');
   const [artistError, setArtistError] = useState('');
   const [extraArtists, setExtraArtists] = useState<ArtistOption[]>([]);
 
@@ -1563,8 +1573,19 @@ function EditPanel({
     setOriginalWorkFeaturedEntries(
       (track.originalWork?.featuredArtistIds ?? []).map((id) => ({ id, artistId: id })),
     );
-    setComposerEntries((track.composerArtistIds ?? []).map((id) => ({ id, artistId: id })));
-    setLyricistEntries((track.lyricistArtistIds ?? []).map((id) => ({ id, artistId: id })));
+    setOriginalWorkComposerEntries(
+      (track.originalWork?.composerArtistIds ?? track.composerArtistIds ?? []).map((id) => ({
+        id,
+        artistId: id,
+      })),
+    );
+    setOriginalWorkLyricistEntries(
+      (track.originalWork?.lyricistArtistIds ?? track.lyricistArtistIds ?? []).map((id) => ({
+        id,
+        artistId: id,
+      })),
+    );
+    setOriginalWorkIswc(track.originalWork?.iswc ?? '');
   }, [track]);
 
   useEffect(() => {
@@ -1667,6 +1688,9 @@ function EditPanel({
               title: originalWorkTitle.trim(),
               primaryArtistId: originalWorkPrimaryArtistId,
               featuredArtistIds: originalWorkFeaturedEntries.map((e) => e.artistId).filter(Boolean),
+              composerArtistIds: originalWorkComposerEntries.map((e) => e.artistId).filter(Boolean),
+              lyricistArtistIds: originalWorkLyricistEntries.map((e) => e.artistId).filter(Boolean),
+              iswc: originalWorkIswc.trim() || null,
             }
           : null,
       });
@@ -1680,8 +1704,14 @@ function EditPanel({
             originalArtistIds: originalEntries.map((e) => e.artistId).filter(Boolean),
             featuredArtistIds: featuredEntries.map((e) => e.artistId).filter(Boolean),
             remixArtistIds: remixEntries.map((e) => e.artistId).filter(Boolean),
-            composerArtistIds: composerEntries.map((e) => e.artistId).filter(Boolean),
-            lyricistArtistIds: lyricistEntries.map((e) => e.artistId).filter(Boolean),
+            composerArtistIds:
+              recordingType === 'remix'
+                ? originalWorkComposerEntries.map((e) => e.artistId).filter(Boolean)
+                : [],
+            lyricistArtistIds:
+              recordingType === 'remix'
+                ? originalWorkLyricistEntries.map((e) => e.artistId).filter(Boolean)
+                : [],
           },
           {
             organizationId: activeOrgId,
@@ -1767,6 +1797,9 @@ function EditPanel({
             originalWorkTitle,
             originalWorkPrimaryArtistId,
             originalWorkFeaturedArtists: originalWorkFeaturedEntries,
+            originalWorkComposers: originalWorkComposerEntries,
+            originalWorkLyricists: originalWorkLyricistEntries,
+            originalWorkIswc,
           })}
           onChange={(patch) => {
             if (patch.originalWorkTitle !== undefined) setOriginalWorkTitle(patch.originalWorkTitle);
@@ -1776,6 +1809,13 @@ function EditPanel({
             if (patch.originalWorkFeaturedArtists !== undefined) {
               setOriginalWorkFeaturedEntries(patch.originalWorkFeaturedArtists);
             }
+            if (patch.originalWorkComposers !== undefined) {
+              setOriginalWorkComposerEntries(patch.originalWorkComposers);
+            }
+            if (patch.originalWorkLyricists !== undefined) {
+              setOriginalWorkLyricistEntries(patch.originalWorkLyricists);
+            }
+            if (patch.originalWorkIswc !== undefined) setOriginalWorkIswc(patch.originalWorkIswc);
           }}
           artists={artists}
           organizationId={activeOrgId}
@@ -1867,66 +1907,14 @@ function EditPanel({
         </div>
       </div>
 
-      {/* Publishing — BUILD-012D Composer / Lyricist via shared Artist pickers */}
+      {/* Recording Identifiers — ISRC for the sound recording (BUILD-012D) */}
       <div>
-        <p className="text-xs font-semibold text-content-label uppercase tracking-wider mb-1">Publishing</p>
-        <p className="text-xs text-content-label mb-3">
-          Information required for publishing and rights management.
+        <p className="text-xs font-semibold text-content-label uppercase tracking-wider mb-1">
+          Recording Identifiers
         </p>
-        <div className="space-y-5 mb-6">
-          <div>
-            <p className="text-xs text-content-label mb-1">People who composed the music.</p>
-            <ArtistRelationshipList
-              instanceId={`edit-${track.id}-composers`}
-              role="featured"
-              label="Composer(s)"
-              addLabel="+ Add Composer"
-              entries={composerEntries}
-              artists={artists}
-              organizationId={activeOrgId}
-              onAdd={(artistId) => {
-                setComposerEntries((prev) => {
-                  if (prev.some((e) => e.artistId === artistId)) return prev;
-                  return [...prev, { id: artistId, artistId }];
-                });
-              }}
-              onRemove={(entryId) =>
-                setComposerEntries((prev) => prev.filter((e) => e.id !== entryId))
-              }
-              onReorder={setComposerEntries}
-              onArtistCreated={(a) => {
-                setExtraArtists((prev) => [...prev, a]);
-                void refreshArtists();
-              }}
-            />
-          </div>
-          <div>
-            <p className="text-xs text-content-label mb-1">People who wrote the lyrics.</p>
-            <ArtistRelationshipList
-              instanceId={`edit-${track.id}-lyricists`}
-              role="featured"
-              label="Lyricist(s)"
-              addLabel="+ Add Lyricist"
-              entries={lyricistEntries}
-              artists={artists}
-              organizationId={activeOrgId}
-              onAdd={(artistId) => {
-                setLyricistEntries((prev) => {
-                  if (prev.some((e) => e.artistId === artistId)) return prev;
-                  return [...prev, { id: artistId, artistId }];
-                });
-              }}
-              onRemove={(entryId) =>
-                setLyricistEntries((prev) => prev.filter((e) => e.id !== entryId))
-              }
-              onReorder={setLyricistEntries}
-              onArtistCreated={(a) => {
-                setExtraArtists((prev) => [...prev, a]);
-                void refreshArtists();
-              }}
-            />
-          </div>
-        </div>
+        <p className="text-xs text-content-label mb-3">
+          Identifiers for this sound recording.
+        </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-content-label">ISRC</label>

@@ -199,10 +199,10 @@ export default function NewTrackPage() {
   const [duration, setDuration] = useState<number | null>(null);
   const [genre, setGenre] = useState('');
   // BUILD-012D — Publishing songwriting (Artist ids)
-  const [composers, setComposers] = useState<RepeatableArtistEntry[]>([]);
-  const [lyricists, setLyricists] = useState<RepeatableArtistEntry[]>([]);
+  const [originalWorkComposers, setOriginalWorkComposers] = useState<RepeatableArtistEntry[]>([]);
+  const [originalWorkLyricists, setOriginalWorkLyricists] = useState<RepeatableArtistEntry[]>([]);
   const [isrc, setIsrc] = useState('');
-  const [iswc, setIswc] = useState('');
+  const [originalWorkIswc, setOriginalWorkIswc] = useState('');
   const [remixErrors, setRemixErrors] = useState<{
     featuredArtists?: string;
     originalWorkTitle?: string;
@@ -442,12 +442,15 @@ export default function NewTrackPage() {
         originalArtistIds: originalIds,
         featuredArtistIds: featuredIds,
         remixArtistIds: [],
-        // BUILD-011C Group A — bind only to nested originalWork for remix
+        // BUILD-011C / BUILD-012D Group A — nested originalWork for remix only
         originalWork: recordingType === 'remix'
           ? {
               title: originalWorkTitle.trim(),
               primaryArtistId: originalWorkPrimaryArtistId,
               featuredArtistIds: originalWorkFeaturedArtists.map((e) => e.artistId).filter(Boolean),
+              composerArtistIds: originalWorkComposers.map((e) => e.artistId).filter(Boolean),
+              lyricistArtistIds: originalWorkLyricists.map((e) => e.artistId).filter(Boolean),
+              iswc: originalWorkIswc.trim() || null,
             }
           : null,
         displayTitle: displayTitle.trim() || null,
@@ -458,9 +461,6 @@ export default function NewTrackPage() {
         explicit: explicit === 'true',
         // BUILD-012C — prefer editor duration; fall back to audio-derived
         duration: duration ?? derivedDuration,
-        // BUILD-012D
-        composerArtistIds: composers.map((e) => e.artistId).filter(Boolean),
-        lyricistArtistIds: lyricists.map((e) => e.artistId).filter(Boolean),
       });
 
       if (recordingPrimaryId) {
@@ -483,26 +483,29 @@ export default function NewTrackPage() {
           });
         }
       }
-      for (let idx = 0; idx < composers.length; idx++) {
-        const entry = composers[idx]!;
-        if (entry.artistId) {
-          await addArtistToTrack({
-            trackId,
-            artistId: entry.artistId,
-            role: 'COMPOSER',
-            position: idx + 1,
-          });
+      // BUILD-012D — composition songwriters (Original Work only)
+      if (recordingType === 'remix') {
+        for (let idx = 0; idx < originalWorkComposers.length; idx++) {
+          const entry = originalWorkComposers[idx]!;
+          if (entry.artistId) {
+            await addArtistToTrack({
+              trackId,
+              artistId: entry.artistId,
+              role: 'COMPOSER',
+              position: idx + 1,
+            });
+          }
         }
-      }
-      for (let idx = 0; idx < lyricists.length; idx++) {
-        const entry = lyricists[idx]!;
-        if (entry.artistId) {
-          await addArtistToTrack({
-            trackId,
-            artistId: entry.artistId,
-            role: 'LYRICIST',
-            position: idx + 1,
-          });
+        for (let idx = 0; idx < originalWorkLyricists.length; idx++) {
+          const entry = originalWorkLyricists[idx]!;
+          if (entry.artistId) {
+            await addArtistToTrack({
+              trackId,
+              artistId: entry.artistId,
+              role: 'LYRICIST',
+              position: idx + 1,
+            });
+          }
         }
       }
 
@@ -614,9 +617,9 @@ export default function NewTrackPage() {
             mixingEngineer: '',
             masteringEngineer: '',
             isrc,
-            composers,
-            lyricists,
-            iswc,
+            originalWorkComposers,
+            originalWorkLyricists,
+            originalWorkIswc,
             pubOpen: true,
           }}
           onEditorChange={(patch: Partial<TrackEditorValue>) => {
@@ -640,9 +643,9 @@ export default function NewTrackPage() {
             if (patch.duration !== undefined) setDuration(patch.duration);
             if (patch.genre !== undefined) setGenre(patch.genre);
             if (patch.isrc !== undefined) setIsrc(patch.isrc);
-            if (patch.composers !== undefined) setComposers(patch.composers);
-            if (patch.lyricists !== undefined) setLyricists(patch.lyricists);
-            if (patch.iswc !== undefined) setIswc(patch.iswc);
+            if (patch.originalWorkComposers !== undefined) setOriginalWorkComposers(patch.originalWorkComposers);
+            if (patch.originalWorkLyricists !== undefined) setOriginalWorkLyricists(patch.originalWorkLyricists);
+            if (patch.originalWorkIswc !== undefined) setOriginalWorkIswc(patch.originalWorkIswc);
           }}
           remixErrors={remixErrors}
           setRemixErrors={setRemixErrors}
@@ -712,8 +715,8 @@ export default function NewTrackPage() {
           genre={genre}
           durationDisplay={durationDisplay}
           isrc={isrc}
-          composers={composers}
-          lyricists={lyricists}
+          originalWorkComposers={originalWorkComposers}
+          originalWorkLyricists={originalWorkLyricists}
           artists={artists}
           subgenre={subgenre}
           setSubgenre={setSubgenre}
@@ -1175,7 +1178,7 @@ function DeliverablesStep({
 }
 
 function MetadataStep({
-  language, setLanguage, genre, durationDisplay, isrc, composers, lyricists, artists,
+  language, setLanguage, genre, durationDisplay, isrc, originalWorkComposers, originalWorkLyricists, artists,
   subgenre, setSubgenre,
   explicit, setExplicit, label, setLabel, copyrightYear, setCopyrightYear,
   publishingYear, setPublishingYear, back, next, onLater,
@@ -1185,8 +1188,8 @@ function MetadataStep({
   genre: string;
   durationDisplay: string;
   isrc: string;
-  composers: RepeatableArtistEntry[];
-  lyricists: RepeatableArtistEntry[];
+  originalWorkComposers: RepeatableArtistEntry[];
+  originalWorkLyricists: RepeatableArtistEntry[];
   artists: ArtistOption[];
   subgenre: string;
   setSubgenre: (v: string) => void;
@@ -1202,11 +1205,11 @@ function MetadataStep({
   next: () => void;
   onLater: () => void;
 }) {
-  const composerNames = composers
+  const composerNames = originalWorkComposers
     .map((e) => artists.find((a) => a.id === e.artistId)?.name)
     .filter(Boolean)
     .join(', ');
-  const lyricistNames = lyricists
+  const lyricistNames = originalWorkLyricists
     .map((e) => artists.find((a) => a.id === e.artistId)?.name)
     .filter(Boolean)
     .join(', ');

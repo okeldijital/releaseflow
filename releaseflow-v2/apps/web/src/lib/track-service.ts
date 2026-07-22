@@ -276,12 +276,6 @@ export async function syncTrackArtistCredits(
     originalArtistId: originalIds[0] ?? null,
     primaryArtistId: originalIds[0] ?? null,
     remixerArtistId: remixIds[0] ?? null,
-    ...(hasSongwriting
-      ? {
-          composerArtistIds: composerIds,
-          lyricistArtistIds: lyricistIds,
-        }
-      : {}),
     ...(displayTitle !== undefined
       ? {
           displayTitle: displayTitle || null,

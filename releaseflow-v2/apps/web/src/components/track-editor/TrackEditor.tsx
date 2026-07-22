@@ -47,8 +47,8 @@ function suggestedDisplayTitle(
 }
 
 /**
- * BUILD-011C Group A — Original Work (exactly three fields).
- * Exported for Edit Track reuse without duplicating the section.
+ * BUILD-011C / BUILD-012D Group A — Original Work + Songwriters.
+ * Songwriters/ISWC describe the composition (not the remix recording).
  */
 export function OriginalWorkSection({
   instanceId,
@@ -142,6 +142,95 @@ export function OriginalWorkSection({
           onReorder={(entries) => onChange({ originalWorkFeaturedArtists: entries })}
           onArtistCreated={onArtistCreated}
         />
+      </div>
+
+      {/* BUILD-012D — Songwriters (composition creators) */}
+      <div className={variant === 'dark' ? 'mt-8 border-t border-surface-700 pt-6' : 'mt-8 border-t border-surface-200 pt-6'}>
+        <p className={`${c.sectionLabel} mb-1`}>Songwriters</p>
+        <p className={`${c.helper} mb-3`}>
+          Information about the creators of the original composition.
+        </p>
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <p className={`${c.helper} mb-1`}>
+              People who composed the original musical work.
+            </p>
+            <ArtistRelationshipList
+              instanceId={`${instanceId}-ow-composers`}
+              role="featured"
+              label="Composer(s)"
+              addLabel="+ Add Composer"
+              entries={value.originalWorkComposers}
+              artists={artists}
+              organizationId={organizationId}
+              onAdd={(artistId) => {
+                if (value.originalWorkComposers.some((e) => e.artistId === artistId)) return;
+                onChange({
+                  originalWorkComposers: [
+                    ...value.originalWorkComposers,
+                    { id: `${Date.now()}-${artistId}`, artistId },
+                  ],
+                });
+              }}
+              onRemove={(entryId) =>
+                onChange({
+                  originalWorkComposers: value.originalWorkComposers.filter(
+                    (e) => e.id !== entryId,
+                  ),
+                })
+              }
+              onReorder={(entries) => onChange({ originalWorkComposers: entries })}
+              onArtistCreated={onArtistCreated}
+              error={errors?.originalWorkComposers}
+            />
+          </div>
+          <div className="space-y-1">
+            <p className={`${c.helper} mb-1`}>
+              People who wrote the lyrics for the original musical work.
+            </p>
+            <ArtistRelationshipList
+              instanceId={`${instanceId}-ow-lyricists`}
+              role="featured"
+              label="Lyricist(s)"
+              addLabel="+ Add Lyricist"
+              entries={value.originalWorkLyricists}
+              artists={artists}
+              organizationId={organizationId}
+              onAdd={(artistId) => {
+                if (value.originalWorkLyricists.some((e) => e.artistId === artistId)) return;
+                onChange({
+                  originalWorkLyricists: [
+                    ...value.originalWorkLyricists,
+                    { id: `${Date.now()}-${artistId}`, artistId },
+                  ],
+                });
+              }}
+              onRemove={(entryId) =>
+                onChange({
+                  originalWorkLyricists: value.originalWorkLyricists.filter(
+                    (e) => e.id !== entryId,
+                  ),
+                })
+              }
+              onReorder={(entries) => onChange({ originalWorkLyricists: entries })}
+              onArtistCreated={onArtistCreated}
+              error={errors?.originalWorkLyricists}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className={c.fieldLabel} htmlFor={`${instanceId}-iswc`}>
+              ISWC (optional)
+            </label>
+            <input
+              id={`${instanceId}-iswc`}
+              type="text"
+              value={value.originalWorkIswc}
+              onChange={(e) => onChange({ originalWorkIswc: e.target.value })}
+              placeholder="ISWC"
+              className={c.input}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -524,105 +613,29 @@ export function TrackEditor({
       ) : null}
 
       {/*
-        BUILD-012D — Publishing: Composer / Lyricist via shared Artist pickers,
-        then identifiers. Artist catalogue is role-agnostic.
+        BUILD-012D — Recording Identifiers (ISRC identifies the sound recording).
+        Songwriters / ISWC live under Original Work only.
       */}
       {showPublishing ? (
         <div className={c.divider}>
           <div>
-            <p className={`${c.sectionLabel} mb-1`}>Publishing</p>
+            <p className={`${c.sectionLabel} mb-1`}>Recording Identifiers</p>
             <p className={`${c.helper} mb-3`}>
-              Information required for publishing and rights management.
+              Identifiers for this sound recording.
             </p>
           </div>
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <p className={`${c.helper} mb-1`}>People who composed the music.</p>
-              <ArtistRelationshipList
-                instanceId={`${instanceId}-composers`}
-                role="featured"
-                label="Composer(s)"
-                addLabel="+ Add Composer"
-                entries={value.composers}
-                artists={artists}
-                organizationId={organizationId}
-                onAdd={(artistId) => {
-                  if (value.composers.some((e) => e.artistId === artistId)) return;
-                  onChange({
-                    composers: [
-                      ...value.composers,
-                      { id: `${Date.now()}-${artistId}`, artistId },
-                    ],
-                  });
-                }}
-                onRemove={(entryId) =>
-                  onChange({
-                    composers: value.composers.filter((e) => e.id !== entryId),
-                  })
-                }
-                onReorder={(entries) => onChange({ composers: entries })}
-                onArtistCreated={onArtistCreated}
-                error={errors?.composers}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <p className={`${c.helper} mb-1`}>People who wrote the lyrics.</p>
-              <ArtistRelationshipList
-                instanceId={`${instanceId}-lyricists`}
-                role="featured"
-                label="Lyricist(s)"
-                addLabel="+ Add Lyricist"
-                entries={value.lyricists}
-                artists={artists}
-                organizationId={organizationId}
-                onAdd={(artistId) => {
-                  if (value.lyricists.some((e) => e.artistId === artistId)) return;
-                  onChange({
-                    lyricists: [
-                      ...value.lyricists,
-                      { id: `${Date.now()}-${artistId}`, artistId },
-                    ],
-                  });
-                }}
-                onRemove={(entryId) =>
-                  onChange({
-                    lyricists: value.lyricists.filter((e) => e.id !== entryId),
-                  })
-                }
-                onReorder={(entries) => onChange({ lyricists: entries })}
-                onArtistCreated={onArtistCreated}
-                error={errors?.lyricists}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className={c.fieldLabel} htmlFor={`${instanceId}-isrc`}>
-                ISRC
-              </label>
-              <input
-                id={`${instanceId}-isrc`}
-                type="text"
-                value={value.isrc}
-                onChange={(e) => onChange({ isrc: e.target.value })}
-                placeholder="e.g. USABC1234567"
-                className={c.input}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className={c.fieldLabel} htmlFor={`${instanceId}-iswc`}>
-                ISWC (optional)
-              </label>
-              <input
-                id={`${instanceId}-iswc`}
-                type="text"
-                value={value.iswc}
-                onChange={(e) => onChange({ iswc: e.target.value })}
-                placeholder="ISWC"
-                className={c.input}
-              />
-            </div>
+          <div className="space-y-1.5">
+            <label className={c.fieldLabel} htmlFor={`${instanceId}-isrc`}>
+              ISRC
+            </label>
+            <input
+              id={`${instanceId}-isrc`}
+              type="text"
+              value={value.isrc}
+              onChange={(e) => onChange({ isrc: e.target.value })}
+              placeholder="e.g. USABC1234567"
+              className={c.input}
+            />
           </div>
         </div>
       ) : null}

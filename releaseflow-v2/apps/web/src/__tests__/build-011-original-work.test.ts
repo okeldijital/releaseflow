@@ -25,11 +25,17 @@ describe('BUILD-011 — originalWork pure helpers', () => {
         title: 'Dreams',
         primaryArtistId: 'a1',
         featuredArtistIds: ['a2', '', 'a3'],
+        composerArtistIds: ['c1'],
+        lyricistArtistIds: ['l1', ''],
+        iswc: ' T-123.456.789-0 ',
       }),
     ).toEqual({
       title: 'Dreams',
       primaryArtistId: 'a1',
       featuredArtistIds: ['a2', 'a3'],
+      composerArtistIds: ['c1'],
+      lyricistArtistIds: ['l1'],
+      iswc: 'T-123.456.789-0',
     });
   });
 
@@ -49,11 +55,17 @@ describe('BUILD-011 — originalWork pure helpers', () => {
         title: '  Dreams  ',
         primaryArtistId: 'a1',
         featuredArtistIds: ['a2'],
+        composerArtistIds: ['c1'],
+        lyricistArtistIds: ['l1'],
+        iswc: ' T-123 ',
       }),
     ).toEqual({
       title: 'Dreams',
       primaryArtistId: 'a1',
       featuredArtistIds: ['a2'],
+      composerArtistIds: ['c1'],
+      lyricistArtistIds: ['l1'],
+      iswc: 'T-123',
     });
   });
 
@@ -95,12 +107,21 @@ describe('BUILD-011 / BUILD-012 — source contracts', () => {
     expect(src).toContain('Original Primary Artist');
     expect(src).toContain('Original Featured Artists');
     expect(src).toContain('Information about the original song being remixed.');
+    // BUILD-012D — songwriters on Original Work, not Publishing text inputs
+    expect(src).toContain('Songwriters');
+    expect(src).toContain('label="Composer(s)"');
+    expect(src).toContain('label="Lyricist(s)"');
+    expect(src).toContain('originalWorkComposers');
+    expect(src).toContain('originalWorkIswc');
+    expect(src).toContain('Recording Identifiers');
     expect(src).toContain("recordingType === 'remix'");
     expect(src).toContain('label="Primary Artist"');
     // Forbidden terminology in the canonical editor
     expect(src).not.toContain('label="Original Artists"');
     expect(src).not.toContain('role="original"');
     expect(src).not.toContain('role="remix"');
+    expect(src).not.toContain('placeholder="Composer(s)"');
+    expect(src).not.toContain('placeholder="Lyricist(s)"');
   });
 
   it('create wizard uses TrackEditor and binds originalWork (BUILD-011C + BUILD-012)', () => {

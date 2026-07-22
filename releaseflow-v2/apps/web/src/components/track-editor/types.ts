@@ -10,6 +10,10 @@ export type TrackEditorValue = {
   originalWorkTitle: string;
   originalWorkPrimaryArtistId: string;
   originalWorkFeaturedArtists: RepeatableArtistEntry[];
+  /** BUILD-012D — composition creators + ISWC (Original Work only) */
+  originalWorkComposers: RepeatableArtistEntry[];
+  originalWorkLyricists: RepeatableArtistEntry[];
+  originalWorkIswc: string;
   /** Group B — recording being released */
   primaryArtistId: string;
   featuredArtists: RepeatableArtistEntry[];
@@ -24,11 +28,8 @@ export type TrackEditorValue = {
   mastered: boolean;
   mixingEngineer: string;
   masteringEngineer: string;
-  /** BUILD-012D — Publishing (Artist-linked songwriting + identifiers) */
+  /** Recording identifiers (ISRC — sound recording) */
   isrc: string;
-  composers: RepeatableArtistEntry[];
-  lyricists: RepeatableArtistEntry[];
-  iswc: string;
   pubOpen: boolean;
 };
 
@@ -38,8 +39,8 @@ export type TrackEditorErrors = {
   originalWorkPrimaryArtist?: string;
   duration?: string;
   genre?: string;
-  composers?: string;
-  lyricists?: string;
+  originalWorkComposers?: string;
+  originalWorkLyricists?: string;
 };
 
 export type TrackEditorPersonOption = { id: string; displayName: string };
@@ -64,6 +65,7 @@ export type TrackEditorProps = {
   titleCentered?: boolean;
   /** Optional sections beyond identity + original work + recording metadata */
   showProduction?: boolean;
+  /** Recording identifiers (ISRC) */
   showPublishing?: boolean;
   people?: TrackEditorPersonOption[];
   onAssignMixing?: () => void;
@@ -88,6 +90,9 @@ export function emptyTrackEditorValue(
     originalWorkTitle: '',
     originalWorkPrimaryArtistId: '',
     originalWorkFeaturedArtists: [],
+    originalWorkComposers: [],
+    originalWorkLyricists: [],
+    originalWorkIswc: '',
     primaryArtistId: '',
     featuredArtists: [],
     displayTitle: '',
@@ -100,9 +105,6 @@ export function emptyTrackEditorValue(
     mixingEngineer: '',
     masteringEngineer: '',
     isrc: '',
-    composers: [],
-    lyricists: [],
-    iswc: '',
     pubOpen: false,
     ...overrides,
   };

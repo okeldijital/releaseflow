@@ -20,7 +20,7 @@ export const SOCIAL_PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube', '
 
 export type ReleaseTypeVal = typeof RELEASE_TYPES[number]['value'];
 
-/** Wizard track state — BUILD-011C + BUILD-012C (Original Work + recording metadata). */
+/** Wizard track state — BUILD-011C + BUILD-012C/D */
 export type WizardTrack = {
   id: string;
   title: string;
@@ -31,9 +31,12 @@ export type WizardTrack = {
   originalWorkTitle: string;
   originalWorkPrimaryArtistId: string;
   originalWorkFeaturedArtists: RepeatableArtistEntry[];
+  /** BUILD-012D — Original Work songwriters + ISWC */
+  originalWorkComposers: RepeatableArtistEntry[];
+  originalWorkLyricists: RepeatableArtistEntry[];
+  originalWorkIswc: string;
   displayTitle: string;
   displayTitleEdited: boolean;
-  /** BUILD-012C — track.duration (seconds) + display string */
   durationDisplay: string;
   duration: number | null;
   genre: string;
@@ -42,10 +45,6 @@ export type WizardTrack = {
   mixingEngineer: string;
   masteringEngineer: string;
   isrc: string;
-  /** BUILD-012D — Artist-linked songwriting credits */
-  composers: RepeatableArtistEntry[];
-  lyricists: RepeatableArtistEntry[];
-  iswc: string;
   pubOpen: boolean;
   remixErrors: {
     originalWorkTitle?: string;
@@ -67,6 +66,9 @@ export function createEmptyTrack(id = String(Date.now())): WizardTrack {
     originalWorkTitle: '',
     originalWorkPrimaryArtistId: '',
     originalWorkFeaturedArtists: [],
+    originalWorkComposers: [],
+    originalWorkLyricists: [],
+    originalWorkIswc: '',
     displayTitle: '',
     displayTitleEdited: false,
     durationDisplay: '',
@@ -77,16 +79,23 @@ export function createEmptyTrack(id = String(Date.now())): WizardTrack {
     mixingEngineer: '',
     masteringEngineer: '',
     isrc: '',
-    composers: [],
-    lyricists: [],
-    iswc: '',
     pubOpen: false,
     remixErrors: {},
   };
 }
 
 /** Normalize draft / legacy wizard tracks into current shape. */
-export function normalizeWizardTrack(raw: Partial<WizardTrack> & { id?: string; featuredArtistIds?: string[]; originalArtists?: { id: string; artistId: string }[]; remixArtists?: { id: string; artistId: string }[] }): WizardTrack {
+export function normalizeWizardTrack(
+  raw: Partial<WizardTrack> & {
+    id?: string;
+    featuredArtistIds?: string[];
+    originalArtists?: { id: string; artistId: string }[];
+    remixArtists?: { id: string; artistId: string }[];
+    composers?: RepeatableArtistEntry[];
+    lyricists?: RepeatableArtistEntry[];
+    iswc?: string;
+  },
+): WizardTrack {
   const base = createEmptyTrack(raw.id ?? String(Date.now()));
   const featuredArtists =
     raw.featuredArtists ??
@@ -99,11 +108,12 @@ export function normalizeWizardTrack(raw: Partial<WizardTrack> & { id?: string; 
     originalWorkTitle: raw.originalWorkTitle ?? '',
     originalWorkPrimaryArtistId: raw.originalWorkPrimaryArtistId ?? '',
     originalWorkFeaturedArtists: raw.originalWorkFeaturedArtists ?? [],
+    originalWorkComposers: raw.originalWorkComposers ?? raw.composers ?? [],
+    originalWorkLyricists: raw.originalWorkLyricists ?? raw.lyricists ?? [],
+    originalWorkIswc: raw.originalWorkIswc ?? raw.iswc ?? '',
     durationDisplay: raw.durationDisplay ?? '',
     duration: raw.duration ?? null,
     genre: raw.genre ?? '',
-    composers: raw.composers ?? [],
-    lyricists: raw.lyricists ?? [],
     remixErrors: raw.remixErrors ?? {},
   };
 }
