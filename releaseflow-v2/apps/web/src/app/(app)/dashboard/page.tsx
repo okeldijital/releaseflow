@@ -291,7 +291,16 @@ export default function DashboardPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {drafts.map((d) => (
-              <ReleaseCard key={d.id} release={d} view="grid" variant="draft" mode="compact" />
+              <ReleaseCard
+                key={d.id}
+                release={d}
+                view="grid"
+                variant="draft"
+                mode="compact"
+                onDeleted={(releaseId) => {
+                  setDrafts((prev) => prev.filter((x) => x.id !== releaseId));
+                }}
+              />
             ))}
           </div>
         </div>

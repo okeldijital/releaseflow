@@ -4,7 +4,12 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { removeRelease, duplicateDraft, renameReleaseDraft } from '@/lib/release-service';
+import {
+  removeRelease,
+  deleteReleaseDraft,
+  duplicateDraft,
+  renameReleaseDraft,
+} from '@/lib/release-service';
 import { toast } from '@/stores/toast-store';
 import { fmtDate } from '@/lib/utils';
 import { StatusBadge, Badge, ConfirmationDialog, ProgressBar } from '@releaseflow/ui';
@@ -73,7 +78,8 @@ interface ReleaseCardProps {
   variant?: ReleaseCardVariant;
   mode?: ReleaseCardMode;
   onRenamed?: () => void;
-  onDeleted?: () => void;
+  /** Called with the deleted release id after a successful delete (BUILD-014G). */
+  onDeleted?: (releaseId: string) => void;
   onDuplicated?: () => void;
 }
 
@@ -96,19 +102,48 @@ export function ReleaseCard({ release, trackCount, view = 'grid', variant = 'act
   const isTableRow = mode === 'table' || mode === 'table-row';
   const isDetailed = mode === 'detailed';
 
+  function openDeleteDialog() {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ReleaseCard] delete dialog opened', { releaseId: release.id, isDraft });
+    }
+    setDeleteOpen(true);
+  }
+
   async function handleDelete() {
-    if (!user) return;
+    if (!user || deleting) return;
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ReleaseCard] delete confirmed', { releaseId: release.id, isDraft });
+    }
     setDeleting(true);
     try {
-      await removeRelease(release.id, user.uid, release.organizationId);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[ReleaseCard] delete request started', { releaseId: release.id });
+      }
+      if (isDraft) {
+        // BUILD-014G — drafts use dedicated draft deletion, not removeRelease()
+        await deleteReleaseDraft(release.id, user.uid);
+      } else {
+        await removeRelease(release.id, user.uid, release.organizationId);
+      }
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[ReleaseCard] delete completed', { releaseId: release.id });
+      }
       toast.success(isDraft ? 'Draft deleted.' : 'Release deleted.');
-      onDeleted?.();
-      router.refresh();
-    } catch {
-      toast.error(isDraft ? 'Could not delete draft.' : 'Could not delete release.');
+      setDeleteOpen(false);
+      onDeleted?.(release.id);
+      if (!isDraft) {
+        router.refresh();
+      }
+    } catch (err) {
+      console.error('[ReleaseCard] delete failed', err);
+      const reason = err instanceof Error ? err.message : String(err);
+      toast.error(
+        isDraft ? 'Could not delete draft.' : 'Could not delete release.',
+        reason,
+      );
+      // Keep dialog open on failure (BUILD-014G)
     } finally {
       setDeleting(false);
-      setDeleteOpen(false);
     }
   }
 
@@ -164,10 +199,32 @@ export function ReleaseCard({ release, trackCount, view = 'grid', variant = 'act
   const getOverflowItems = () => {
     if (isDraft) {
       return [
-        { id: 'edit', label: 'Continue Editing', onClick: () => router.push(`/releases/${release.id}`) },
-        { id: 'duplicate', label: 'Duplicate Draft', onClick: handleDuplicate },
-        { id: 'rename', label: 'Rename Draft', onClick: () => setIsEditingTitle(true) },
-        { id: 'delete', label: 'Delete Draft', variant: 'danger' as const, separatorBefore: true, onClick: () => setDeleteOpen(true) },
+        {
+          id: 'edit',
+          label: 'Continue Editing',
+          onClick: () => router.push(`/releases/${release.id}`),
+          disabled: deleting,
+        },
+        {
+          id: 'duplicate',
+          label: 'Duplicate Draft',
+          onClick: handleDuplicate,
+          disabled: deleting,
+        },
+        {
+          id: 'rename',
+          label: 'Rename Draft',
+          onClick: () => setIsEditingTitle(true),
+          disabled: deleting,
+        },
+        {
+          id: 'delete',
+          label: deleting ? 'Deleting...' : 'Delete Draft',
+          variant: 'danger' as const,
+          separatorBefore: true,
+          onClick: openDeleteDialog,
+          disabled: deleting,
+        },
       ];
     }
     return [
@@ -176,9 +233,41 @@ export function ReleaseCard({ release, trackCount, view = 'grid', variant = 'act
       ...(release.status === 'archived'
         ? [{ id: 'restore', label: 'Restore release', onClick: () => router.push(`/releases/${release.id}`) }]
         : [{ id: 'archive', label: archiving ? 'Archiving...' : 'Archive Release', variant: 'secondary' as const, onClick: handleArchive, disabled: archiving }]),
-      { id: 'delete', label: 'Delete Release', variant: 'danger' as const, separatorBefore: true, onClick: () => setDeleteOpen(true) },
+      {
+        id: 'delete',
+        label: deleting ? 'Deleting...' : 'Delete Release',
+        variant: 'danger' as const,
+        separatorBefore: true,
+        onClick: openDeleteDialog,
+        disabled: deleting,
+      },
     ];
   };
+
+  const deleteDialog = (
+    <ConfirmationDialog
+      open={deleteOpen}
+      onClose={() => {
+        if (!deleting) setDeleteOpen(false);
+      }}
+      onConfirm={() => {
+        void handleDelete();
+      }}
+      title={isDraft ? 'Delete Draft?' : 'Delete Release'}
+      message={
+        isDraft
+          ? 'This draft release will be permanently deleted. This action cannot be undone.'
+          : `Are you sure you want to delete "${release.title}"? This action cannot be undone.`
+      }
+      confirmLabel={
+        deleting
+          ? (isDraft ? 'Deleting...' : 'Deleting...')
+          : (isDraft ? 'Delete Draft' : 'Delete Release')
+      }
+      variant="danger"
+      loading={deleting}
+    />
+  );
 
   const cardBase = isDraft ? 'border-2 border-dashed border-surface-600/60 bg-surface-900 hover:border-primary-500/40' : 'border border-surface-200 bg-layer-2 shadow-card hover:shadow-card-hover';
 
@@ -392,16 +481,6 @@ export function ReleaseCard({ release, trackCount, view = 'grid', variant = 'act
           <EntityOverflowMenu align="right" items={getOverflowItems()} />
         </div>
       )}
-      <ConfirmationDialog
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        onConfirm={handleDelete}
-        title={isDraft ? 'Delete Draft' : 'Delete Release'}
-        message={`Are you sure you want to delete "${release.title}"? This action cannot be undone.`}
-        confirmLabel={isDraft ? 'Delete Draft' : 'Delete Release'}
-        variant="danger"
-        loading={deleting}
-      />
     </div>
   );
 
@@ -496,25 +575,18 @@ export function ReleaseCard({ release, trackCount, view = 'grid', variant = 'act
             </div>
           )}
         </div>
-        <ConfirmationDialog
-          open={deleteOpen}
-          onClose={() => setDeleteOpen(false)}
-          onConfirm={handleDelete}
-          title={isDraft ? 'Delete Draft' : 'Delete Release'}
-          message={`Are you sure you want to delete "${release.title}"? This action cannot be undone.`}
-          confirmLabel={isDraft ? 'Delete Draft' : 'Delete Release'}
-          variant="danger"
-          loading={deleting}
-        />
       </>
     );
   };
 
   // Never return null — every variant/mode mounts a visible summary.
+  // BUILD-014G: ConfirmationDialog is always mounted at the component root
+  // so compact/table modes can open delete confirm (not only full workspace).
   if (view === 'list' || isTableRow) {
     return (
       <div data-release-card data-release-id={release.id} data-mode={isTableRow ? 'table' : mode} data-variant={variant}>
         {renderTableRow()}
+        {deleteDialog}
       </div>
     );
   }
@@ -522,6 +594,7 @@ export function ReleaseCard({ release, trackCount, view = 'grid', variant = 'act
   return (
     <div data-release-card data-release-id={release.id} data-mode={mode} data-variant={variant}>
       {renderWorkspaceCard()}
+      {deleteDialog}
     </div>
   );
 }
