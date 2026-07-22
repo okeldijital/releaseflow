@@ -10,6 +10,8 @@ interface AppShellProps {
   activePath: string;
   onNavigate: (href: string) => void;
   userEmail?: string;
+  /** Canonical display name for Avatar initials (BUILD-014B). */
+  userName?: string;
   userImage?: string;
   onSignOut: () => void;
   breadcrumbItems?: { label: string; href?: string }[];
@@ -34,6 +36,7 @@ export function AppShell({
   activePath,
   onNavigate,
   userEmail,
+  userName,
   userImage,
   onSignOut,
   breadcrumbItems,
@@ -121,6 +124,7 @@ export function AppShell({
           activePath={activePath}
           onNavigate={onNavigate}
           userEmail={userEmail}
+          userName={userName}
           userImage={userImage}
           onSignOut={onSignOut}
           collapsed={collapsed}
@@ -147,6 +151,7 @@ export function AppShell({
           onOpenNotifications={onOpenNotifications}
           onOpenCommandPalette={onOpenCommandPalette}
           userEmail={userEmail}
+          userName={userName}
           userImage={userImage}
           onSignOut={onSignOut}
           onNavigate={onNavigate}

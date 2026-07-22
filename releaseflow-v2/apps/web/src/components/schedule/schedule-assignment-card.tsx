@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Avatar, Badge } from '@releaseflow/ui';
+import { Badge } from '@releaseflow/ui';
+import { IdentityAvatar } from '@/components/identity-avatar';
 import type { ScheduleAssignmentItem } from '@/lib/schedule-service';
 import { formatTime } from '@/lib/schedule-date-utils';
 
@@ -100,7 +101,11 @@ export function ScheduleAssignmentCard({
           </div>
         </div>
         {!compact ? (
-          <Avatar name={item.assigneeName} size="xs" />
+          <IdentityAvatar
+            userId={item.assignment.assigneeUserId ?? item.assignment.assigneeId}
+            fallbackName={item.assigneeName}
+            size="xs"
+          />
         ) : null}
       </div>
     </Link>

@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/auth-context';
+import { useCurrentUser } from '@/contexts/current-user-context';
 import { useOrgStore } from '@/stores/org-store';
 import { useRoleStore } from '@/stores/role-store';
 import { AuthorizationService } from '@/lib/auth/authorization-service';
@@ -252,6 +253,7 @@ const NAV_CAN: Record<string, (() => boolean) | null> = {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const { identity, profile } = useCurrentUser();
   const pathname = usePathname();
   const router = useRouter();
   const { activeOrgId, setActiveOrgId, setOrgsLoaded, switchingOrg } = useOrgStore();
@@ -424,8 +426,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         navSections={navSections}
         activePath={pathname}
         onNavigate={(href) => router.push(href)}
-        userEmail={user.email ?? undefined}
-        userImage={user.photoURL ?? undefined}
+        userEmail={profile?.email || user.email || identity?.email || undefined}
+        userName={identity?.displayName || profile?.displayName || undefined}
+        userImage={identity?.avatarUrl ?? profile?.avatarUrl ?? undefined}
         onSignOut={handleSignOut}
         notificationCount={notificationCount}
         onOpenNotifications={() => router.push('/notifications')}

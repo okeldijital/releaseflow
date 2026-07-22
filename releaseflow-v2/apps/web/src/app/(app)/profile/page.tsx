@@ -1,15 +1,13 @@
 'use client';
 
 /**
- * PROF-001 — Mobile Profile Workspace
- *
- * Self-service account area:
- * Who am I? · Manage account · Control experience
+ * PROF-001 / BUILD-014B — Profile Workspace
+ * Identity from CurrentUserProvider (users/{uid}), never Auth photoURL/displayName.
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
+import { useCurrentUser } from '@/contexts/current-user-context';
 import { useOrgStore } from '@/stores/org-store';
 import { signOut as firebaseSignOut } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
@@ -25,11 +23,6 @@ import { ProfileAvatarUploader } from '@/components/profile/ProfileAvatarUploade
 import { ProfileSecurityPanel } from '@/components/profile/profile-security-panel';
 import { StoragePanel } from '@/components/pwa/storage-panel';
 import { InstallButton } from '@/components/pwa/install-button';
-import {
-  updateMyDisplayName,
-  updateMyAvatar,
-  removeMyAvatar,
-} from '@/lib/profile-service';
 import { toast } from '@/stores/toast-store';
 
 function SectionCard({
@@ -70,45 +63,53 @@ const THEME_OPTIONS = [
 ];
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const {
+    auth,
+    profile,
+    identity,
+    loading: profileLoading,
+    uploadAvatar,
+    removeAvatar,
+    updateDisplayName,
+  } = useCurrentUser();
   const { activeOrgId } = useOrgStore();
   const router = useRouter();
   const [person, setPerson] = useState<PersonRecord | null>(null);
   const [orgName, setOrgName] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [personLoading, setPersonLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
-  const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [savingName, setSavingName] = useState(false);
   const [theme, setTheme] = useState('system');
   const platformRole = AuthorizationService.getCurrentRole();
 
-  const reload = useCallback(async () => {
-    if (!user || !activeOrgId) {
-      setLoading(false);
+  const reloadPerson = useCallback(async () => {
+    if (!auth?.uid || !activeOrgId) {
+      setPersonLoading(false);
       return;
     }
     try {
       const [p, org] = await Promise.all([
-        getPersonByOrganizationAndUserId(activeOrgId, user.uid),
+        getPersonByOrganizationAndUserId(activeOrgId, auth.uid),
         getOrganization(activeOrgId),
       ]);
       setPerson(p);
       setOrgName(org?.name ?? '');
-      setPhotoURL(user.photoURL ?? p?.avatarUrl ?? null);
-      setNameDraft(user.displayName ?? p?.displayName ?? '');
     } catch {
       setPerson(null);
-      setPhotoURL(user.photoURL ?? null);
-      setNameDraft(user.displayName ?? '');
     } finally {
-      setLoading(false);
+      setPersonLoading(false);
     }
-  }, [user, activeOrgId]);
+  }, [auth?.uid, activeOrgId]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    void reloadPerson();
+  }, [reloadPerson]);
+
+  useEffect(() => {
+    if (identity?.displayName) setNameDraft(identity.displayName);
+    else if (profile?.displayName) setNameDraft(profile.displayName);
+  }, [identity?.displayName, profile?.displayName]);
 
   useEffect(() => {
     try {
@@ -123,8 +124,8 @@ export default function ProfilePage() {
       const { clearOfflineDataOnLogout } = await import('@/lib/pwa/clear-on-logout');
       await clearOfflineDataOnLogout();
     } catch { /* ignore */ }
-    const auth = getAuthInstance();
-    if (auth) await firebaseSignOut(auth);
+    const authInst = getAuthInstance();
+    if (authInst) await firebaseSignOut(authInst);
     useOrgStore.getState().setActiveOrgId(null);
     useOrgStore.getState().setOrgsLoaded(false);
     useRoleStore.getState().reset();
@@ -132,17 +133,14 @@ export default function ProfilePage() {
   }
 
   async function handleSaveName() {
-    if (!user) return;
     setSavingName(true);
     try {
-      const name = await updateMyDisplayName(user, nameDraft, {
+      const name = await updateDisplayName(nameDraft, {
         personId: person?.id ?? null,
       });
       setNameDraft(name);
       setEditing(false);
       toast.success('Profile updated');
-      // Auth state refreshes via Firebase; person already patched
-      await reload();
     } catch (e) {
       toast.error((e as Error).message || 'Could not update name');
     } finally {
@@ -151,17 +149,15 @@ export default function ProfilePage() {
   }
 
   async function handleAvatarUpload(file: File) {
-    if (!user || !activeOrgId) {
+    if (!activeOrgId) {
       toast.error('Select an organization before uploading a photo');
       return;
     }
     try {
-      const url = await updateMyAvatar(user, file, activeOrgId, {
+      await uploadAvatar(file, activeOrgId, {
         personId: person?.id ?? null,
       });
-      setPhotoURL(url);
       toast.success('Photo updated');
-      await reload();
     } catch (e) {
       toast.error((e as Error).message || 'Upload failed');
       throw e;
@@ -169,19 +165,16 @@ export default function ProfilePage() {
   }
 
   async function handleAvatarRemove() {
-    if (!user) return;
     try {
-      await removeMyAvatar(user, { personId: person?.id ?? null });
-      setPhotoURL(null);
+      await removeAvatar({ personId: person?.id ?? null });
       toast.success('Photo removed');
-      await reload();
     } catch (e) {
       toast.error((e as Error).message || 'Could not remove photo');
       throw e;
     }
   }
 
-  if (loading) {
+  if (profileLoading || personLoading) {
     return (
       <div className="mx-auto max-w-lg px-4 sm:px-6 py-10 page-transition">
         <div className="flex flex-col items-center gap-4 mb-8">
@@ -197,20 +190,16 @@ export default function ProfilePage() {
     );
   }
 
-  const displayName =
-    user?.displayName
-    || person?.displayName
-    || user?.email?.split('@')[0]
-    || 'User';
+  const displayName = identity?.displayName || profile?.displayName || 'User';
+  const avatarUrl = identity?.avatarUrl ?? profile?.avatarUrl ?? null;
+  const email = profile?.email || identity?.email || '';
   const roleLabel = platformRoleLabel(platformRole) || 'Member';
-  const subtitle = [roleLabel, orgName].filter(Boolean).join(' · ');
 
   return (
     <div className="mx-auto max-w-lg px-4 sm:px-5 py-6 sm:py-8 page-transition pb-8 space-y-5">
-      {/* 1 — Profile header */}
       <header className="flex flex-col items-center text-center pt-1 pb-2">
         <Avatar
-          src={photoURL ?? undefined}
+          src={avatarUrl}
           name={displayName}
           size="2xl"
           className="ring-2 ring-surface-700/80"
@@ -218,13 +207,15 @@ export default function ProfilePage() {
         <h1 className="text-xl sm:text-2xl font-semibold text-content-primary mt-4 tracking-tight">
           {displayName}
         </h1>
-        {user?.email ? (
+        {email ? (
           <p className="text-sm text-content-secondary mt-1 break-all max-w-full px-2">
-            {user.email}
+            {email}
           </p>
         ) : null}
-        {subtitle ? (
-          <p className="text-sm text-content-label mt-1.5">{subtitle}</p>
+        {(roleLabel || orgName) ? (
+          <p className="text-sm text-content-label mt-1.5">
+            {[roleLabel, orgName].filter(Boolean).join(' · ')}
+          </p>
         ) : null}
         <Button
           size="sm"
@@ -239,7 +230,6 @@ export default function ProfilePage() {
         </Button>
       </header>
 
-      {/* 2 — Edit profile */}
       {editing ? (
         <SectionCard
           title="Edit Profile"
@@ -247,7 +237,7 @@ export default function ProfilePage() {
         >
           <div className="space-y-5">
             <ProfileAvatarUploader
-              currentImageUrl={photoURL}
+              currentImageUrl={avatarUrl}
               displayName={displayName}
               onUpload={handleAvatarUpload}
               onRemove={handleAvatarRemove}
@@ -262,7 +252,7 @@ export default function ProfilePage() {
             <Input
               label="Email"
               type="email"
-              value={user?.email ?? ''}
+              value={email}
               disabled
               hint="Email is your sign-in identity and cannot be changed here."
             />
@@ -279,17 +269,15 @@ export default function ProfilePage() {
         </SectionCard>
       ) : null}
 
-      {/* 3 — Security */}
-      {user ? (
+      {auth ? (
         <SectionCard
           title="Security"
           description="Protect your account with a password change or reset email."
         >
-          <ProfileSecurityPanel user={user} />
+          <ProfileSecurityPanel user={auth} />
         </SectionCard>
       ) : null}
 
-      {/* 4 — Notifications */}
       <SectionCard
         title="Notifications"
         description="Choose channels and categories for your operational inbox."
@@ -297,19 +285,17 @@ export default function ProfilePage() {
         <NotificationPreferencesPanel />
       </SectionCard>
 
-      {/* 5 — Account information */}
       <SectionCard
         title="Account Information"
         description="Read-only details linked to your membership."
       >
         <div className="-my-1">
-          <InfoRow label="Email" value={user?.email ?? '—'} />
+          <InfoRow label="Email" value={email || '—'} />
           <InfoRow label="Organisation" value={orgName || '—'} />
           <InfoRow label="Platform role" value={roleLabel} />
         </div>
       </SectionCard>
 
-      {/* 6 — Preferences (appearance + app) */}
       <SectionCard
         title="Preferences"
         description="Appearance and app settings for this device."
@@ -347,7 +333,6 @@ export default function ProfilePage() {
         </div>
       </SectionCard>
 
-      {/* 7 — Session */}
       <section className="pt-1 pb-2">
         <Button
           variant="danger"

@@ -17,6 +17,25 @@ import { resolvePersonSecurity } from '@/lib/people-platform';
 import { Avatar, Button, Input } from '@releaseflow/ui';
 import { toast } from '@/stores/toast-store';
 import { useAuth } from '@/contexts/auth-context';
+import { resolvePersonIdentity } from '@/lib/identity-service';
+import { usePersonIdentity } from '@/hooks/useIdentity';
+
+function ContributorPersonAvatar({
+  person,
+  size = 'md',
+}: {
+  person: PersonRecord;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const identity = usePersonIdentity(person);
+  return (
+    <Avatar
+      name={identity?.displayName || person.displayName}
+      src={identity?.avatarUrl}
+      size={size}
+    />
+  );
+}
 
 const OPEN = new Set(['assigned', 'accepted', 'in_progress', 'review', 'blocked']);
 
@@ -74,9 +93,12 @@ export function ContributorSelector({ organizationId, value, onChange }: Contrib
         fetchAssignments(organizationId, { includeArchived: false }).catch(() => [] as AssignmentRecord[]),
         getMembershipsByOrg(organizationId).catch(() => [] as MembershipRecord[]),
       ]);
-      setPeople(p.filter((x) => x.status === 'active'));
+      const active = p.filter((x) => x.status === 'active');
+      setPeople(active);
       setAssignments(a);
       setMemberships(m);
+      // Warm identity cache for linked users (avatar resolution in list rows)
+      void Promise.all(active.map((person) => resolvePersonIdentity(person)));
     } finally {
       setLoading(false);
     }
@@ -145,7 +167,7 @@ export function ContributorSelector({ organizationId, value, onChange }: Contrib
         platformRole: 'collaborator',
         professionalRole: '',
         invitedByUserId: user.uid,
-        invitedByName: user.displayName || user.email?.split('@')[0] || 'Administrator',
+        invitedByName: user.email?.split('@')[0] || 'Administrator',
       });
       toast.success('Invitation sent. They will appear here after accepting.');
       setInviteName('');
@@ -169,7 +191,7 @@ export function ContributorSelector({ organizationId, value, onChange }: Contrib
       >
         {value ? (
           <>
-            <Avatar name={value.person.displayName} src={value.person.avatarUrl ?? undefined} size="sm" />
+            <ContributorPersonAvatar person={value.person} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-surface-100 truncate">{value.person.displayName}</p>
               <p className="text-xs text-text-500 truncate">{value.platformRoleLabel}</p>
@@ -242,7 +264,7 @@ export function ContributorSelector({ organizationId, value, onChange }: Contrib
                           onClick={() => selectPerson(p)}
                           className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-800 text-left min-h-[72px]"
                         >
-                          <Avatar name={p.displayName} src={p.avatarUrl ?? undefined} size="md" />
+                          <ContributorPersonAvatar person={p} size="md" />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-surface-100 truncate">{p.displayName}</p>
                             <p className="text-xs text-text-500">
@@ -282,7 +304,7 @@ export function ContributorContextCard({ selection }: { selection: ContributorSe
   const overloaded = selection.activeCount >= 10;
   return (
     <div className="flex items-start gap-3 rounded-xl border border-surface-700/50 bg-surface-950/50 p-3">
-      <Avatar name={selection.person.displayName} src={selection.person.avatarUrl ?? undefined} size="md" />
+      <ContributorPersonAvatar person={selection.person} size="md" />
       <div className="min-w-0">
         <p className="text-sm font-semibold text-primary-400 truncate">{selection.person.displayName}</p>
         <p className="text-xs text-text-500">{selection.platformRoleLabel}</p>

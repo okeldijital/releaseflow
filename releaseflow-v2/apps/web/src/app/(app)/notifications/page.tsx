@@ -19,8 +19,9 @@ import {
   type NotificationCategory,
 } from '@/lib/notification-type-registry';
 import {
-  Avatar, Button, EmptyState, LoadingState,
+  Button, EmptyState, LoadingState,
 } from '@releaseflow/ui';
+import { IdentityAvatar } from '@/components/identity-avatar';
 import type { QueryDocumentSnapshot, DocumentData } from '@firebase/firestore';
 
 function relativeTime(value: unknown): string {
@@ -106,7 +107,11 @@ function NotificationCard({
       <div className={`mt-0.5 rounded-lg p-2 ${unread ? 'bg-primary-500/15 text-primary-400' : 'bg-surface-800 text-text-400'}`}>
         <TypeIcon type={item.type} />
       </div>
-      <Avatar name={item.actorName || 'User'} size="sm" />
+      <IdentityAvatar
+        userId={item.actorId}
+        fallbackName={item.actorName || 'User'}
+        size="sm"
+      />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className={`text-sm font-medium truncate ${unread ? 'text-primary-300' : 'text-surface-100'}`}>

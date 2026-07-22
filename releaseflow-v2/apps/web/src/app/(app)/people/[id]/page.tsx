@@ -45,8 +45,21 @@ import {
 } from '@releaseflow/ui';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { toast } from '@/stores/toast-store';
+import { usePersonIdentity } from '@/hooks/useIdentity';
+import type { PersonRecord } from '@/lib/people-repository';
 
 type TabId = 'overview' | 'assignments' | 'activity';
+
+function PersonHeaderAvatar({ person }: { person: PersonRecord }) {
+  const identity = usePersonIdentity(person);
+  return (
+    <Avatar
+      name={identity?.displayName || person.displayName}
+      src={identity?.avatarUrl}
+      size="xl"
+    />
+  );
+}
 
 function formatDate(value: unknown): string {
   if (!value) return '';
@@ -305,7 +318,7 @@ export default function PersonDetailPage() {
 
       {/* ===== Header: identity + platform role only ===== */}
       <div className="flex items-start gap-5 mb-8">
-        <Avatar name={person.displayName} src={person.avatarUrl ?? undefined} size="xl" />
+        <PersonHeaderAvatar person={person} />
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">

@@ -6,7 +6,9 @@ import { useOrgStore } from '@/stores/org-store';
 import { getEntityComments, addComment, editComment, removeComment } from '@/lib/comments-service';
 import { processMentions } from '@/lib/mentions-service';
 import type { CommentWithReplies } from '@/lib/comments-service';
-import { Button, TextArea, Avatar, EmptyState, LoadingState } from '@releaseflow/ui';
+import { Button, TextArea, EmptyState, LoadingState } from '@releaseflow/ui';
+import { IdentityAvatar } from '@/components/identity-avatar';
+import { useIdentity } from '@/hooks/useIdentity';
 import { toast } from '@/stores/toast-store';
 
 interface CommentSectionProps {
@@ -42,6 +44,15 @@ function renderContent(content: string): string {
   return html;
 }
 
+function AuthorLabel({ userId }: { userId: string }) {
+  const { identity } = useIdentity(userId);
+  return (
+    <span className="text-sm font-medium text-primary-400">
+      {identity?.displayName || 'User'}
+    </span>
+  );
+}
+
 export function CommentSection({ entityType, entityId, title }: CommentSectionProps) {
   const { activeOrgId } = useOrgStore();
   const { user } = useAuth();
@@ -65,7 +76,9 @@ export function CommentSection({ entityType, entityId, title }: CommentSectionPr
     }
   }, [activeOrgId, entityType, entityId]);
 
-  useEffect(() => { void loadComments(); }, [loadComments]);
+  useEffect(() => {
+    void loadComments();
+  }, [loadComments]);
 
   async function handleSubmit() {
     if (!newComment.trim() || !activeOrgId || !user?.uid) return;
@@ -119,17 +132,17 @@ export function CommentSection({ entityType, entityId, title }: CommentSectionPr
           {comments.map((comment) => (
             <div key={comment.id} className="rounded-xl border border-surface-200/80 bg-layer-2 p-4">
               <div className="flex items-start gap-3">
-                <Avatar name={comment.authorId} size="sm" />
+                <IdentityAvatar userId={comment.authorId} size="sm" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-medium text-primary-400">{comment.authorId}</span>
+                    <AuthorLabel userId={comment.authorId} />
                     <span className="text-xs text-text-500">{formatDate(comment.createdAt)}</span>
-                     {Boolean(comment.editedAt) && comment.editedBy && comment.editedBy !== comment.authorId && (
-                       <span className="text-xs text-text-500">(edited by {comment.editedBy})</span>
-                     )}
-                     {Boolean(comment.editedAt) && comment.editedBy === comment.authorId && (
-                       <span className="text-xs text-text-500">(edited)</span>
-                     )}
+                    {Boolean(comment.editedAt) && comment.editedBy && comment.editedBy !== comment.authorId ? (
+                      <span className="text-xs text-text-500">(edited)</span>
+                    ) : null}
+                    {Boolean(comment.editedAt) && comment.editedBy === comment.authorId ? (
+                      <span className="text-xs text-text-500">(edited)</span>
+                    ) : null}
                   </div>
 
                   {editingId === comment.id ? (
@@ -140,10 +153,17 @@ export function CommentSection({ entityType, entityId, title }: CommentSectionPr
                         rows={3}
                       />
                       <div className="flex gap-2">
-                        <Button size="sm" onClick={() => handleEdit(comment.id)} disabled={!editContent.trim()}>
+                        <Button size="sm" onClick={() => void handleEdit(comment.id)} disabled={!editContent.trim()}>
                           Save
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => { setEditingId(null); setEditContent(''); }}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditContent('');
+                          }}
+                        >
                           Cancel
                         </Button>
                       </div>
@@ -155,35 +175,40 @@ export function CommentSection({ entityType, entityId, title }: CommentSectionPr
                     />
                   )}
 
-                  {user?.uid === comment.authorId && editingId !== comment.id && (
+                  {user?.uid === comment.authorId && editingId !== comment.id ? (
                     <div className="flex gap-2 mt-2">
                       <button
                         type="button"
-                        onClick={() => { setEditingId(comment.id); setEditContent(comment.content); }}
+                        onClick={() => {
+                          setEditingId(comment.id);
+                          setEditContent(comment.content);
+                        }}
                         className="text-xs text-text-500 hover:text-primary-400 transition-colors"
                       >
                         Edit
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(comment.id)}
+                        onClick={() => void handleDelete(comment.id)}
                         className="text-xs text-text-500 hover:text-danger-600 transition-colors"
                       >
                         Delete
                       </button>
                     </div>
-                  )}
+                  ) : null}
 
-                  {comment.replies.length > 0 && (
+                  {comment.replies.length > 0 ? (
                     <div className="mt-3 ml-4 space-y-3 border-l-2 border-surface-700/60 pl-4">
                       {comment.replies.map((reply) => (
                         <div key={reply.id} className="flex items-start gap-2">
-                          <Avatar name={reply.authorId} size="xs" />
+                          <IdentityAvatar userId={reply.authorId} size="xs" />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5">
-                              <span className="text-sm font-medium text-primary-400">{reply.authorId}</span>
+                              <AuthorLabel userId={reply.authorId} />
                               <span className="text-xs text-text-500">{formatDate(reply.createdAt)}</span>
-                               {Boolean(reply.editedAt) && <span className="text-xs text-text-500">(edited)</span>}
+                              {reply.editedAt ? (
+                                <span className="text-xs text-text-500">(edited)</span>
+                              ) : null}
                             </div>
                             <div
                               className="text-sm text-surface-100 whitespace-pre-wrap"
@@ -193,7 +218,7 @@ export function CommentSection({ entityType, entityId, title }: CommentSectionPr
                         </div>
                       ))}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -209,7 +234,7 @@ export function CommentSection({ entityType, entityId, title }: CommentSectionPr
           rows={3}
         />
         <div className="flex justify-end mt-2">
-          <Button size="sm" onClick={handleSubmit} disabled={!newComment.trim() || submitting}>
+          <Button size="sm" onClick={() => void handleSubmit()} disabled={!newComment.trim() || submitting}>
             {submitting ? 'Posting...' : 'Post Comment'}
           </Button>
         </div>

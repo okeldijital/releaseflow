@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { updateProfile } from '@firebase/auth';
-import { doc, setDoc, getDoc, Timestamp } from '@firebase/firestore';
-import { useAuth } from '@/contexts/auth-context';
-import { getDb } from '@/lib/firebase';
+/**
+ * BUILD-014B — Administration profile uses the same profile-service
+ * as /profile. No Auth-only avatar writes.
+ */
+
+import { useEffect, useState } from 'react';
+import { useCurrentUser } from '@/contexts/current-user-context';
+import { useOrgStore } from '@/stores/org-store';
+import { getPersonByOrganizationAndUserId } from '@/lib/people-repository';
 import { Button, Input, Select, Checkbox, TextArea } from '@releaseflow/ui';
 import { ProfileAvatarUploader } from '@/components/profile/ProfileAvatarUploader';
-import { uploadImageFile, getAvatarThumbnailUrl } from '@/components/common/image-upload/image-upload-service';
-import { useOrgStore } from '@/stores/org-store';
+import { toast } from '@/stores/toast-store';
 
 const TIMEZONE_OPTIONS = [
   { value: 'UTC', label: 'UTC' },
@@ -34,140 +37,171 @@ const LOCALE_OPTIONS = [
   { value: 'zh-CN', label: '中文 (简体)' },
 ];
 
-function getStored(key: string, fallback: string): string {
-  if (typeof window === 'undefined') return fallback;
-  try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
-}
-
-async function loadUserPreferences(userId: string): Promise<Record<string, unknown>> {
-  const db = getDb();
-  if (!db) return {};
-  const snap = await getDoc(doc(db, 'user_preferences', userId));
-  if (!snap.exists()) return {};
-  const data = snap.data();
-  return (data.preferences ?? {}) as Record<string, unknown>;
-}
-
-async function saveUserPreferences(userId: string, preferences: Record<string, unknown>): Promise<void> {
-  const db = getDb();
-  if (!db) return;
-  await setDoc(doc(db, 'user_preferences', userId), {
-    preferences,
-    updatedAt: Timestamp.now(),
-  }, { merge: true });
-}
-
 export default function AdministrationProfilePage() {
-  const { user } = useAuth();
+  const {
+    auth,
+    profile,
+    identity,
+    update,
+    uploadAvatar,
+    removeAvatar,
+  } = useCurrentUser();
   const { activeOrgId } = useOrgStore();
+  const [personId, setPersonId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
-  const [photoURL, setPhotoURL] = useState('');
   const [biography, setBiography] = useState('');
-  const [timezone, setTimezone] = useState(() => getStored('rf_user_timezone', 'UTC'));
-  const [locale, setLocale] = useState(() => getStored('rf_user_locale', 'en-US'));
+  const [timezone, setTimezone] = useState('UTC');
+  const [locale, setLocale] = useState('en-US');
   const [notifEmail, setNotifEmail] = useState(true);
   const [notifDigest, setNotifDigest] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      setDisplayName(user.displayName ?? '');
-      setPhotoURL(user.photoURL ?? '');
-    }
-  }, [user]);
+    if (!profile && !identity) return;
+    setDisplayName(identity?.displayName || profile?.displayName || '');
+    setBiography(profile?.biography ?? '');
+    setTimezone(profile?.timezone ?? 'UTC');
+    setLocale(profile?.locale ?? 'en-US');
+  }, [profile, identity]);
 
   useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    async function load() {
-      const prefs = await loadUserPreferences(user!.uid);
-      if (cancelled) return;
-      if (prefs.biography) setBiography(prefs.biography as string);
-      if (typeof prefs.notifEmail === 'boolean') setNotifEmail(prefs.notifEmail);
-      if (typeof prefs.notifDigest === 'boolean') setNotifDigest(prefs.notifDigest);
-    }
-    load();
-    return () => { cancelled = true; };
-  }, [user]);
+    if (!auth?.uid || !activeOrgId) return;
+    void getPersonByOrganizationAndUserId(activeOrgId, auth.uid)
+      .then((p) => setPersonId(p?.id ?? null))
+      .catch(() => setPersonId(null));
+  }, [auth?.uid, activeOrgId]);
+
+  const avatarUrl = identity?.avatarUrl ?? profile?.avatarUrl ?? null;
+  const email = profile?.email || identity?.email || '';
 
   async function handleSave() {
-    if (!user) return;
+    if (!auth) return;
     setSaving(true);
     setSaved(false);
-    await updateProfile(user, { displayName: displayName || null });
-    try { localStorage.setItem('rf_user_timezone', timezone); } catch { /* ignore */ }
-    try { localStorage.setItem('rf_user_locale', locale); } catch { /* ignore */ }
-    await saveUserPreferences(user.uid, { biography, notifEmail, notifDigest });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      await update(
+        {
+          displayName,
+          biography: biography || null,
+          timezone,
+          locale,
+        },
+        { personId },
+      );
+      // Local-only notification prefs (not identity)
+      try {
+        localStorage.setItem('rf_user_timezone', timezone);
+        localStorage.setItem('rf_user_locale', locale);
+        localStorage.setItem('rf_notif_email', String(notifEmail));
+        localStorage.setItem('rf_notif_digest', String(notifDigest));
+      } catch { /* ignore */ }
+      setSaved(true);
+      toast.success('Profile saved');
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      toast.error((e as Error).message || 'Save failed');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleAvatarUpload(file: File) {
-    if (!user || !activeOrgId) return;
-    const result = await uploadImageFile(file, {
-      entityType: 'avatar',
-      entityId: user.uid,
-      organizationId: activeOrgId,
-      tags: [`user:${user.uid}`, `org:${activeOrgId}`],
-    });
-    const thumbnailUrl = getAvatarThumbnailUrl(result.publicId);
-    await updateProfile(user, { photoURL: thumbnailUrl });
-    setPhotoURL(thumbnailUrl);
+    if (!activeOrgId) {
+      toast.error('Select an organization before uploading a photo');
+      return;
+    }
+    try {
+      await uploadAvatar(file, activeOrgId, { personId });
+      toast.success('Photo updated');
+    } catch (e) {
+      toast.error((e as Error).message || 'Upload failed');
+      throw e;
+    }
   }
 
   async function handleAvatarRemove() {
-    if (!user) return;
-    await updateProfile(user, { photoURL: null });
-    setPhotoURL('');
+    try {
+      await removeAvatar({ personId });
+      toast.success('Photo removed');
+    } catch (e) {
+      toast.error((e as Error).message || 'Could not remove photo');
+      throw e;
+    }
   }
 
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
         <p className="text-display-md font-semibold text-primary-400 tracking-tight">Profile</p>
-        <p className="text-sm text-text-500 mt-1">Your profile, display name, avatar, timezone, locale</p>
+        <p className="text-sm text-text-500 mt-1">
+          Your profile, display name, avatar, timezone, locale
+        </p>
       </div>
 
       <div className="space-y-6">
         <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-6 py-6 space-y-5">
           <ProfileAvatarUploader
-            currentImageUrl={photoURL || null}
-            displayName={displayName}
+            currentImageUrl={avatarUrl}
+            displayName={displayName || 'User'}
             onUpload={handleAvatarUpload}
             onRemove={handleAvatarRemove}
           />
 
-          <Input label="Email" type="email" value={user?.email ?? ''} disabled />
+          <Input label="Email" type="email" value={email} disabled />
 
-          <Input label="Display Name" type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your display name" />
+          <Input
+            label="Display Name"
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Your display name"
+          />
 
-          <TextArea label="Biography" value={biography} onChange={(e) => setBiography(e.target.value)} placeholder="Tell teammates about yourself" rows={4} />
+          <TextArea
+            label="Biography"
+            value={biography}
+            onChange={(e) => setBiography(e.target.value)}
+            placeholder="Tell teammates about yourself"
+            rows={4}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Select label="Timezone" options={TIMEZONE_OPTIONS} value={timezone} onChange={setTimezone} />
-            <Select label="Locale" options={LOCALE_OPTIONS} value={locale} onChange={setLocale} />
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-surface-200/80 bg-layer-2 px-6 py-6 space-y-5">
-          <div>
-            <p className="text-sm font-semibold text-text-700">Notification Preferences</p>
-            <p className="text-xs text-text-400 mt-1">Control how you receive notifications</p>
-          </div>
-
-          <div className="space-y-3">
-            <Checkbox label="Email notifications for releases, approvals, and mentions" checked={notifEmail} onChange={setNotifEmail} />
-            <Checkbox label="Daily digest summary" checked={notifDigest} onChange={setNotifDigest} />
+            <Select
+              label="Timezone"
+              options={TIMEZONE_OPTIONS}
+              value={timezone}
+              onChange={setTimezone}
+            />
+            <Select
+              label="Locale"
+              options={LOCALE_OPTIONS}
+              value={locale}
+              onChange={setLocale}
+            />
           </div>
 
-          <p className="text-xs text-text-400 italic">More notification options coming soon.</p>
-        </div>
+          <div className="space-y-2">
+            <Checkbox
+              label="Email notifications"
+              checked={notifEmail}
+              onChange={setNotifEmail}
+            />
+            <Checkbox
+              label="Daily digest"
+              checked={notifDigest}
+              onChange={setNotifDigest}
+            />
+          </div>
 
-        <div className="flex items-center gap-3">
-          <Button variant="primary" onClick={handleSave} loading={saving}>Save changes</Button>
-          {saved && <span className="text-sm text-success-600">Saved</span>}
+          <div className="flex items-center gap-3">
+            <Button variant="primary" loading={saving} onClick={() => void handleSave()}>
+              Save profile
+            </Button>
+            {saved ? (
+              <span className="text-sm text-success-600">Saved</span>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

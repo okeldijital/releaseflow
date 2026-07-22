@@ -26,7 +26,8 @@ import {
 } from '@/lib/assignment-mentions-service';
 import { markCommentRead, getUnreadCommentCount } from '@/lib/assignment-comment-reads-repository';
 import { MentionPicker } from './mention-picker';
-import { Button, Avatar, EmptyState, LoadingState, Badge } from '@releaseflow/ui';
+import { Button, EmptyState, LoadingState, Badge } from '@releaseflow/ui';
+import { IdentityAvatar } from '@/components/identity-avatar';
 import { toast } from '@/stores/toast-store';
 
 const composerClassName = `
@@ -610,7 +611,11 @@ function CommentBody({
   if (comment.isDeleted) {
     return (
       <div className={`flex items-start gap-3 ${compact ? 'gap-2' : ''}`}>
-        <Avatar name={comment.authorName} size={compact ? 'xs' : 'sm'} />
+        <IdentityAvatar
+          userId={comment.authorId}
+          fallbackName={comment.authorName}
+          size={compact ? 'xs' : 'sm'}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-sm font-medium text-primary-400">{comment.authorName}</span>
@@ -624,7 +629,11 @@ function CommentBody({
 
   return (
     <div className={`flex items-start gap-3 ${compact ? 'gap-2' : ''}`}>
-      <Avatar name={comment.authorName} size={compact ? 'xs' : 'sm'} />
+      <IdentityAvatar
+        userId={comment.authorId}
+        fallbackName={comment.authorName}
+        size={compact ? 'xs' : 'sm'}
+      />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span className="text-sm font-medium text-primary-400">{comment.authorName}</span>

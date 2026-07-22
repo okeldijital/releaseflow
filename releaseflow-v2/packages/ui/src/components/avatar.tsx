@@ -1,5 +1,11 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
 interface AvatarProps {
-  src?: string;
+  /** Canonical profile image URL. Prefer identity.avatarUrl — never Auth photoURL. */
+  src?: string | null;
+  /** Display name for alt text and initials fallback. */
   name: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   className?: string;
@@ -29,29 +35,53 @@ function avatarColor(name: string): string {
   return avatarColors[idx]!;
 }
 
-export function Avatar({ src, name, size = 'md', className = '' }: AvatarProps) {
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt={name}
-        className={`${sizeClasses[size]} rounded-full object-cover shrink-0 ring-2 ring-surface-0 ${className}`}
-      />
-    );
-  }
+function InitialsAvatar({
+  name,
+  size,
+  className,
+}: {
+  name: string;
+  size: NonNullable<AvatarProps['size']>;
+  className: string;
+}) {
   return (
     <div
       className={`${sizeClasses[size]} ${avatarColor(name)} rounded-full flex items-center justify-center font-semibold shrink-0 select-none ${className}`}
       role="img"
       aria-label={name}
     >
-      <span aria-hidden="true">{name.charAt(0).toUpperCase()}</span>
+      <span aria-hidden="true">{name.charAt(0).toUpperCase() || '?'}</span>
     </div>
   );
 }
 
+/**
+ * BUILD-014B — Shared Avatar.
+ * Receives avatarUrl + displayName only. Image load failure → initials.
+ */
+export function Avatar({ src, name, size = 'md', className = '' }: AvatarProps) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+  const showImage = Boolean(src) && !failed;
+
+  if (showImage && src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className={`${sizeClasses[size]} rounded-full object-cover shrink-0 ring-2 ring-surface-0 ${className}`}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return <InitialsAvatar name={name || 'User'} size={size} className={className} />;
+}
+
 interface AvatarGroupProps {
-  users: { name: string; src?: string }[];
+  users: { name: string; src?: string | null }[];
   max?: number;
   size?: 'sm' | 'md';
   className?: string;

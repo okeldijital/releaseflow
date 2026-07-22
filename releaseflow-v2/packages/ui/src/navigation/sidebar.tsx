@@ -24,6 +24,8 @@ interface SidebarProps {
   activePath: string;
   onNavigate: (href: string) => void;
   userEmail?: string;
+  /** Canonical display name for Avatar (BUILD-014B). */
+  userName?: string;
   userImage?: string;
   onSignOut: () => void;
   /** true = icon-rail (desktop) / drawer-closed (mobile) */
@@ -73,6 +75,7 @@ export function Sidebar({
   activePath,
   onNavigate,
   userEmail,
+  userName,
   userImage,
   onSignOut,
   collapsed,
@@ -177,11 +180,14 @@ export function Sidebar({
     >
       <Avatar
         src={userImage}
-        name={userEmail ?? 'User'}
+        name={userName || userEmail || 'User'}
         size="md"
         className="shadow-sm"
       />
       <div className={`min-w-0 flex-1 ${collapsed ? 'lg:hidden' : ''}`}>
+        {userName ? (
+          <p className="truncate text-xs font-medium text-content-primary">{userName}</p>
+        ) : null}
         <p className="truncate text-xs font-medium text-content-secondary">{userEmail}</p>
       </div>
     </div>

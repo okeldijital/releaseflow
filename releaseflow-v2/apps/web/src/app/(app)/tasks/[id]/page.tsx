@@ -13,7 +13,9 @@ import {
   toJsDate,
   type TaskStatus,
 } from '@/lib/task-service';
-import { resolvePersonNames, resolveActorDisplayNames } from '@/lib/resolve-person-names';
+import { resolvePersonNames } from '@/lib/resolve-person-names';
+import { resolveIdentity } from '@/lib/identity-service';
+import { IdentityAvatar } from '@/components/identity-avatar';
 import { getRelease } from '@/lib/release-repository';
 import {
   Button,
@@ -97,10 +99,10 @@ export default function TaskDetailPage() {
       setCreatedByName('—');
       return;
     }
-    void resolveActorDisplayNames([task.createdBy], task.organisationId).then((m) => {
-      setCreatedByName(m.get(task.createdBy) ?? task.createdBy);
+    void resolveIdentity(task.createdBy).then((id) => {
+      setCreatedByName(id.displayName);
     });
-  }, [task?.createdBy, task?.organisationId]);
+  }, [task?.createdBy]);
 
   useEffect(() => {
     if (!task?.releaseId) {
@@ -269,11 +271,23 @@ export default function TaskDetailPage() {
             </div>
             <div>
               <p className="text-xs text-content-label uppercase tracking-wide">Assigned To</p>
-              <p className="mt-1 text-content-primary">{assigneeName}</p>
+              <div className="mt-1 flex items-center gap-2">
+                {assignment ? (
+                  <IdentityAvatar
+                    userId={assignment.assigneeUserId ?? assignment.assigneeId}
+                    fallbackName={assigneeName}
+                    size="sm"
+                  />
+                ) : null}
+                <p className="text-content-primary">{assigneeName}</p>
+              </div>
             </div>
             <div>
               <p className="text-xs text-content-label uppercase tracking-wide">Created By</p>
-              <p className="mt-1 text-content-primary">{createdByName}</p>
+              <div className="mt-1 flex items-center gap-2">
+                <IdentityAvatar userId={task.createdBy} fallbackName={createdByName} size="sm" />
+                <p className="text-content-primary">{createdByName}</p>
+              </div>
             </div>
             <div>
               <p className="text-xs text-content-label uppercase tracking-wide">Due Date</p>

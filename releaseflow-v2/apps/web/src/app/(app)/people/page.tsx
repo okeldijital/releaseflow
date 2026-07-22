@@ -19,11 +19,29 @@ import type { PlatformRole } from '@/lib/invitation-service';
 import {
   Button, Container, EmptyState, LoadingState, Select, Avatar, StatusBadge,
 } from '@releaseflow/ui';
+import { usePersonIdentity } from '@/hooks/useIdentity';
 import { Search } from '@releaseflow/ui';
 import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
 import { PLATFORM_ROLE_OPTIONS } from '@/lib/platform-roles';
 
 type CollaboratorStatus = 'Active' | 'Inactive' | 'Pending Invitation' | 'Revoked';
+
+function PersonIdentityAvatar({
+  person,
+  size = 'md',
+}: {
+  person: PersonRecord;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+}) {
+  const identity = usePersonIdentity(person);
+  return (
+    <Avatar
+      name={identity?.displayName || person.displayName}
+      src={identity?.avatarUrl}
+      size={size}
+    />
+  );
+}
 
 function getCollaboratorStatus(person: PersonRecord): CollaboratorStatus {
   if (person.invitationStatus === 'pending' || person.invitationStatus === 'invited') return 'Pending Invitation';
@@ -251,7 +269,7 @@ export default function PeoplePage() {
                 key={person.id}
                 className="flex items-center gap-4 rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3 hover:border-primary-200 transition-colors"
               >
-                <Avatar name={person.displayName} src={person.avatarUrl ?? undefined} size="md" />
+                <PersonIdentityAvatar person={person} size="md" />
                 <div className="flex-1 min-w-0">
                   <Link
                     href={`/people/${person.id}`}

@@ -39,12 +39,11 @@ export default function WelcomePage() {
   if (loading || !user) return null;
   if (hasPendingInvitation()) return null;
 
-  const displayName = user.displayName ?? '—';
-  const email = user.email ?? '—';
-  const avatarUrl = user.photoURL ?? null;
-  const initials = displayName !== '—'
-    ? displayName.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
-    : email.charAt(0).toUpperCase();
+  // Bootstrap only: seed users/{uid} from Auth email (identity lives on profile after).
+  const email = user.email ?? '';
+  const displayName = email.split('@')[0] || 'User';
+  const avatarUrl: string | null = null;
+  const initials = displayName.charAt(0).toUpperCase();
 
   async function handleContinue() {
     if (hasPendingInvitation()) {

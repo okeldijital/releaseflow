@@ -20,6 +20,8 @@ interface TopbarProps {
   onOpenNotifications?: () => void;
   onOpenCommandPalette?: () => void;
   userEmail?: string;
+  /** Canonical display name for Avatar (BUILD-014B). */
+  userName?: string;
   userImage?: string;
   onSignOut?: () => void;
   onNavigate?: (href: string) => void;
@@ -31,7 +33,7 @@ export function Topbar({
   collapsed, onToggle, sidebarId, breadcrumbs: _breadcrumbs, title: _title, children,
   showSearch = false, onSearch, notificationCount = 0,
   onOpenNotifications, onOpenCommandPalette,
-  userEmail, userImage, onSignOut, onNavigate,
+  userEmail, userName, userImage, onSignOut, onNavigate,
   hideMobileToggle,
 }: TopbarProps) {
   const [searchValue, setSearchValue] = useState('');
@@ -115,7 +117,7 @@ export function Topbar({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [userMenuOpen, userMenuActive, closeUserMenu]);
 
-  const userName = userEmail ?? 'User';
+  const avatarName = userName || userEmail || 'User';
 
   return (
     <header className="sticky top-0 z-30 shrink-0 bg-transparent">
@@ -210,7 +212,7 @@ export function Topbar({
               >
                 <Avatar
                   src={userImage}
-                  name={userName}
+                  name={avatarName}
                   size="md"
                 />
               </button>
