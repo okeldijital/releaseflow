@@ -30,13 +30,9 @@ import {
   getRecentlyUpdatedReleases,
 } from './release-repository';
 import { getDb } from './firebase';
-import type {
-  ReleaseStatus,
-  Release,
-} from '@/app/(app)/types';
+import type { ReleaseStatus } from '@/app/(app)/types';
 import type { CreateReleaseFields, UpdateReleaseFields } from './release-repository';
 import {
-  toReleaseCardModel,
   toReleaseCardModels,
   type ReleaseCardModel,
 } from './release-card-model';
