@@ -22,8 +22,11 @@ import type { ReleaseTypeVal, WizardTrack, PersonOption, SocialRow, SectionStatu
 import { createEmptyTrack, normalizeWizardTrack } from './release-wizard-types';
 import {
   parseDurationInput,
+  parseTimeInput,
   DURATION_INVALID_MESSAGE,
   DURATION_REQUIRED_MESSAGE,
+  PREVIEW_START_INVALID_MESSAGE,
+  PREVIEW_START_BEFORE_DURATION_MESSAGE,
 } from '@/lib/duration-format';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'offline' | 'conflict';
@@ -762,6 +765,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
             displayTitle: t.displayTitle.trim() || null,
             displayTitleEdited: t.displayTitleEdited,
             duration: t.duration ?? undefined,
+            previewStartTime: t.previewStartTime ?? null,
             genre: t.genre.trim() || undefined,
             isrc: t.isrc.trim() || undefined,
           });
@@ -863,13 +867,26 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
           }
         }
         // BUILD-012C — Duration required for all titled tracks
+        let durationSeconds: number | null = null;
         if (!t.durationDisplay.trim()) {
           remixErrors.duration = DURATION_REQUIRED_MESSAGE;
           valid = false;
         } else {
-          const parsed = t.duration ?? parseDurationInput(t.durationDisplay);
-          if (parsed === null) {
+          durationSeconds = t.duration ?? parseDurationInput(t.durationDisplay);
+          if (durationSeconds === null) {
             remixErrors.duration = DURATION_INVALID_MESSAGE;
+            valid = false;
+          }
+        }
+        // BUILD-012F — optional preview start; if set, must be MM:SS and < duration
+        if (t.previewStartDisplay.trim()) {
+          const preview =
+            t.previewStartTime ?? parseTimeInput(t.previewStartDisplay);
+          if (preview === null) {
+            remixErrors.previewStartTime = PREVIEW_START_INVALID_MESSAGE;
+            valid = false;
+          } else if (durationSeconds != null && preview >= durationSeconds) {
+            remixErrors.previewStartTime = PREVIEW_START_BEFORE_DURATION_MESSAGE;
             valid = false;
           }
         }

@@ -38,6 +38,8 @@ export interface TrackRecord {
   discNumber?: number;
   isrc?: string;
   duration?: number;
+  /** BUILD-012F — preferred DSP preview start position (seconds); null/omitted = distributor default */
+  previewStartTime?: number | null;
   language?: string;
   explicit: boolean;
   genre?: string;
@@ -79,6 +81,8 @@ export interface CreateTrackFields {
   discNumber?: number;
   isrc?: string;
   duration?: number;
+  /** BUILD-012F — seconds; omit or undefined when not set */
+  previewStartTime?: number | null;
   language?: string;
   explicit?: boolean;
   genre?: string;
@@ -106,6 +110,7 @@ export interface UpdateTrackFields {
   discNumber?: number | null;
   isrc?: string | null;
   duration?: number | null;
+  previewStartTime?: number | null;
   language?: string | null;
   explicit?: boolean;
   genre?: string | null;
@@ -245,6 +250,10 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     discNumber: fields.discNumber ?? null,
     isrc: fields.isrc ?? null,
     duration: fields.duration ?? null,
+    previewStartTime:
+      fields.previewStartTime === undefined || fields.previewStartTime === null
+        ? null
+        : fields.previewStartTime,
     language: fields.language ?? null,
     explicit: fields.explicit ?? false,
     genre: fields.genre ?? null,
@@ -289,6 +298,7 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     discNumber: fields.discNumber,
     isrc: fields.isrc,
     duration: fields.duration,
+    previewStartTime: fields.previewStartTime ?? null,
     language: fields.language,
     explicit: fields.explicit ?? false,
     genre: fields.genre,
@@ -323,6 +333,7 @@ export async function updateTrack(trackId: string, fields: UpdateTrackFields): P
   if (fields.discNumber !== undefined) update.discNumber = fields.discNumber;
   if (fields.isrc !== undefined) update.isrc = fields.isrc;
   if (fields.duration !== undefined) update.duration = fields.duration;
+  if (fields.previewStartTime !== undefined) update.previewStartTime = fields.previewStartTime;
   if (fields.language !== undefined) update.language = fields.language;
   if (fields.explicit !== undefined) update.explicit = fields.explicit;
   if (fields.genre !== undefined) update.genre = fields.genre;

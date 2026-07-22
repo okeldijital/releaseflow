@@ -19,9 +19,12 @@ export type TrackEditorValue = {
   featuredArtists: RepeatableArtistEntry[];
   displayTitle: string;
   displayTitleEdited: boolean;
-  /** BUILD-012C — Recording Metadata (track.duration seconds, track.genre) */
+  /** BUILD-012C/F — Recording Metadata */
   durationDisplay: string;
   duration: number | null;
+  /** BUILD-012F — preview start (seconds); display string for MM:SS input */
+  previewStartDisplay: string;
+  previewStartTime: number | null;
   genre: string;
   /** Production (optional sections) */
   mixed: boolean;
@@ -38,6 +41,7 @@ export type TrackEditorErrors = {
   originalWorkTitle?: string;
   originalWorkPrimaryArtist?: string;
   duration?: string;
+  previewStartTime?: string;
   genre?: string;
   originalWorkComposers?: string;
   originalWorkLyricists?: string;
@@ -99,6 +103,8 @@ export function emptyTrackEditorValue(
     displayTitleEdited: false,
     durationDisplay: '',
     duration: null,
+    previewStartDisplay: '',
+    previewStartTime: null,
     genre: '',
     mixed: true,
     mastered: true,

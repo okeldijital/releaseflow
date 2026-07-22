@@ -28,9 +28,12 @@ import {
 } from '@/lib/recording-type';
 import {
   parseDurationInput,
+  parseTimeInput,
   formatDurationDisplay,
   DURATION_INVALID_MESSAGE,
   DURATION_REQUIRED_MESSAGE,
+  PREVIEW_START_INVALID_MESSAGE,
+  PREVIEW_START_BEFORE_DURATION_MESSAGE,
 } from '@/lib/duration-format';
 import { EmptyState, LoadingState } from '@releaseflow/ui';
 
@@ -197,6 +200,8 @@ export default function NewTrackPage() {
   // BUILD-012C — Recording Metadata (canonical track.duration / track.genre)
   const [durationDisplay, setDurationDisplay] = useState('');
   const [duration, setDuration] = useState<number | null>(null);
+  const [previewStartDisplay, setPreviewStartDisplay] = useState('');
+  const [previewStartTime, setPreviewStartTime] = useState<number | null>(null);
   const [genre, setGenre] = useState('');
   // BUILD-012D — Publishing songwriting (Artist ids)
   const [originalWorkComposers, setOriginalWorkComposers] = useState<RepeatableArtistEntry[]>([]);
@@ -208,6 +213,7 @@ export default function NewTrackPage() {
     originalWorkTitle?: string;
     originalWorkPrimaryArtist?: string;
     duration?: string;
+    previewStartTime?: string;
     genre?: string;
   }>({});
 
@@ -301,6 +307,7 @@ export default function NewTrackPage() {
       originalWorkTitle?: string;
       originalWorkPrimaryArtist?: string;
       duration?: string;
+      previewStartTime?: string;
     } = {};
     // BUILD-011C — Original Work validation only for remix
     if (recordingType === 'remix') {
@@ -312,16 +319,31 @@ export default function NewTrackPage() {
       }
     }
     // BUILD-012C — Duration required
+    let durationSeconds: number | null = null;
     if (!durationDisplay.trim()) {
       errors.duration = DURATION_REQUIRED_MESSAGE;
     } else {
-      const parsed = duration ?? parseDurationInput(durationDisplay);
-      if (parsed === null) {
+      durationSeconds = duration ?? parseDurationInput(durationDisplay);
+      if (durationSeconds === null) {
         errors.duration = DURATION_INVALID_MESSAGE;
       }
     }
+    // BUILD-012F — optional preview start
+    if (previewStartDisplay.trim()) {
+      const preview = previewStartTime ?? parseTimeInput(previewStartDisplay);
+      if (preview === null) {
+        errors.previewStartTime = PREVIEW_START_INVALID_MESSAGE;
+      } else if (durationSeconds != null && preview >= durationSeconds) {
+        errors.previewStartTime = PREVIEW_START_BEFORE_DURATION_MESSAGE;
+      }
+    }
     setRemixErrors(errors);
-    return !errors.originalWorkTitle && !errors.originalWorkPrimaryArtist && !errors.duration;
+    return (
+      !errors.originalWorkTitle &&
+      !errors.originalWorkPrimaryArtist &&
+      !errors.duration &&
+      !errors.previewStartTime
+    );
   }
 
   function addCredit(role: CreditRoleKey, name: string) {
@@ -461,6 +483,8 @@ export default function NewTrackPage() {
         explicit: explicit === 'true',
         // BUILD-012C — prefer editor duration; fall back to audio-derived
         duration: duration ?? derivedDuration,
+        // BUILD-012F
+        previewStartTime: previewStartTime ?? null,
       });
 
       if (recordingPrimaryId) {
@@ -611,6 +635,8 @@ export default function NewTrackPage() {
             displayTitleEdited,
             durationDisplay,
             duration,
+            previewStartDisplay,
+            previewStartTime,
             genre,
             mixed: true,
             mastered: true,
@@ -641,6 +667,10 @@ export default function NewTrackPage() {
             }
             if (patch.durationDisplay !== undefined) setDurationDisplay(patch.durationDisplay);
             if (patch.duration !== undefined) setDuration(patch.duration);
+            if (patch.previewStartDisplay !== undefined) {
+              setPreviewStartDisplay(patch.previewStartDisplay);
+            }
+            if (patch.previewStartTime !== undefined) setPreviewStartTime(patch.previewStartTime);
             if (patch.genre !== undefined) setGenre(patch.genre);
             if (patch.isrc !== undefined) setIsrc(patch.isrc);
             if (patch.originalWorkComposers !== undefined) setOriginalWorkComposers(patch.originalWorkComposers);
@@ -876,6 +906,7 @@ function BasicsStep({
     originalWorkTitle?: string;
     originalWorkPrimaryArtist?: string;
     duration?: string;
+    previewStartTime?: string;
     genre?: string;
   };
   setRemixErrors: Dispatch<
@@ -884,6 +915,7 @@ function BasicsStep({
       originalWorkTitle?: string;
       originalWorkPrimaryArtist?: string;
       duration?: string;
+      previewStartTime?: string;
       genre?: string;
     }>
   >;

@@ -116,9 +116,19 @@ function fmtDurationDisplay(seconds?: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-function formatDuration(seconds?: number): string {
-  if (!seconds) return '—';
+function formatDuration(seconds?: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '—';
+  if (seconds === 0) return '0:00';
   return fmtDurationDisplay(seconds);
+}
+
+function parseTimeInputLocal(value: string): number | null {
+  const match = value.trim().match(/^(\d{1,2}):([0-5]\d)$/);
+  if (!match) return null;
+  const mins = parseInt(match[1]!, 10);
+  const secs = parseInt(match[2]!, 10);
+  if (mins > 99) return null;
+  return mins * 60 + secs;
 }
 
 /** BUILD-011 — resolve artist name for Original Work display without new picker UI. */
@@ -669,14 +679,30 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
           </div>
 
           <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 flex flex-col">
-            <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">Recording</h3>
+            <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">
+              Recording Metadata
+            </h3>
             <dl className="space-y-2 text-sm flex-1">
               <div className="flex justify-between">
                 <dt className="text-content-secondary">Duration</dt>
                 <dd className="text-content-primary font-medium">{formatDuration(track.duration)}</dd>
               </div>
+              <div className="flex justify-between">
+                <dt className="text-content-secondary">Preview Start Time</dt>
+                <dd className="text-content-primary font-medium">
+                  {track.previewStartTime != null && track.previewStartTime >= 0
+                    ? formatDuration(track.previewStartTime)
+                    : '—'}
+                </dd>
+              </div>
+              {track.genre ? (
+                <div className="flex justify-between">
+                  <dt className="text-content-secondary">Genre</dt>
+                  <dd className="text-content-primary">{track.genre}</dd>
+                </div>
+              ) : null}
             </dl>
-            {!track.duration ? (
+            {!track.duration && track.previewStartTime == null && !track.genre ? (
               <p className="text-xs text-content-label mt-3 pt-3 border-t border-surface-100">
                 No recording details yet. Add duration and technical specs.
               </p>
@@ -1490,6 +1516,12 @@ function EditPanel({
   const [trackNumber, setTrackNumber] = useState(track.trackNumber?.toString() ?? '');
   const [durationStr, setDurationStr] = useState(fmtDurationDisplay(track.duration));
   const [durationError, setDurationError] = useState('');
+  const [previewStartStr, setPreviewStartStr] = useState(
+    track.previewStartTime != null && track.previewStartTime >= 0
+      ? fmtDurationDisplay(track.previewStartTime) || '0:00'
+      : '',
+  );
+  const [previewStartError, setPreviewStartError] = useState('');
   const [saving, setSaving] = useState(false);
 
   // BUILD-011 — Original Work (in-memory retained when switching away from remix)
@@ -1566,6 +1598,12 @@ function EditPanel({
     setTrackNumber(track.trackNumber?.toString() ?? '');
     setDurationStr(fmtDurationDisplay(track.duration));
     setDurationError('');
+    setPreviewStartStr(
+      track.previewStartTime != null && track.previewStartTime >= 0
+        ? fmtDurationDisplay(track.previewStartTime) || '0:00'
+        : '',
+    );
+    setPreviewStartError('');
     setDisplayTitle(track.displayTitle ?? '');
     setDisplayTitleEdited(track.displayTitleEdited ?? false);
     setOriginalWorkTitle(track.originalWork?.title ?? '');
@@ -1669,6 +1707,19 @@ function EditPanel({
       if (parsed === null) { setDurationError('Invalid duration format. Use mm:ss (e.g. 3:45)'); return; }
       durationSeconds = parsed;
     }
+    let previewSeconds: number | null = null;
+    if (previewStartStr.trim()) {
+      const parsed = parseTimeInputLocal(previewStartStr);
+      if (parsed === null) {
+        setPreviewStartError('Invalid time format. Use mm:ss (e.g. 1:18)');
+        return;
+      }
+      if (durationSeconds != null && parsed >= durationSeconds) {
+        setPreviewStartError('Preview start time must be earlier than the track duration.');
+        return;
+      }
+      previewSeconds = parsed;
+    }
     setSaving(true);
     setArtistError('');
     try {
@@ -1683,6 +1734,7 @@ function EditPanel({
         isrc: isrc.trim() || null,
         trackNumber: trackNumber ? parseInt(trackNumber, 10) : null,
         duration: durationSeconds,
+        previewStartTime: previewSeconds,
         originalWork: recordingType === 'remix'
           ? {
               title: originalWorkTitle.trim(),
@@ -1938,6 +1990,29 @@ function EditPanel({
               }`}
             />
             {durationError ? <p className="text-xs text-danger-500 mt-0.5">{durationError}</p> : null}
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-content-label">Track Preview Start Time</label>
+            <p className="text-xs text-content-label">
+              Preferred starting point for DSP audio previews. Leave blank to use the distributor or DSP default.
+            </p>
+            <input
+              type="text"
+              value={previewStartStr}
+              onChange={(e) => {
+                setPreviewStartStr(e.target.value);
+                setPreviewStartError('');
+              }}
+              placeholder="MM:SS"
+              className={`block w-full h-10 rounded-xl border px-3 text-sm text-content-primary placeholder:text-content-label focus:outline-none ${
+                previewStartError
+                  ? 'border-danger-500 focus:border-danger-500'
+                  : 'border-surface-200 focus:border-primary-500'
+              }`}
+            />
+            {previewStartError ? (
+              <p className="text-xs text-danger-500 mt-0.5">{previewStartError}</p>
+            ) : null}
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-content-label">Track Number</label>

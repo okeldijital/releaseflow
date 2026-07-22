@@ -61,6 +61,8 @@ export function TracksStep({
       displayTitleEdited: t.displayTitleEdited,
       durationDisplay: t.durationDisplay,
       duration: t.duration,
+      previewStartDisplay: t.previewStartDisplay,
+      previewStartTime: t.previewStartTime,
       genre: t.genre,
       mixed: t.mixed,
       mastered: t.mastered,

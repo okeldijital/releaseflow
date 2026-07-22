@@ -39,6 +39,8 @@ export type WizardTrack = {
   displayTitleEdited: boolean;
   durationDisplay: string;
   duration: number | null;
+  previewStartDisplay: string;
+  previewStartTime: number | null;
   genre: string;
   mixed: boolean;
   mastered: boolean;
@@ -51,6 +53,7 @@ export type WizardTrack = {
     originalWorkPrimaryArtist?: string;
     featuredArtists?: string;
     duration?: string;
+    previewStartTime?: string;
     genre?: string;
   };
 };
@@ -73,6 +76,8 @@ export function createEmptyTrack(id = String(Date.now())): WizardTrack {
     displayTitleEdited: false,
     durationDisplay: '',
     duration: null,
+    previewStartDisplay: '',
+    previewStartTime: null,
     genre: '',
     mixed: true,
     mastered: true,
@@ -113,6 +118,8 @@ export function normalizeWizardTrack(
     originalWorkIswc: raw.originalWorkIswc ?? raw.iswc ?? '',
     durationDisplay: raw.durationDisplay ?? '',
     duration: raw.duration ?? null,
+    previewStartDisplay: raw.previewStartDisplay ?? '',
+    previewStartTime: raw.previewStartTime ?? null,
     genre: raw.genre ?? '',
     remixErrors: raw.remixErrors ?? {},
   };

@@ -9,7 +9,11 @@
 import { ArtistFieldPicker } from '@/components/artist-field-picker';
 import { ArtistRelationshipList } from '@/components/artists/artist-relationship-list';
 import { generateSuggestedDisplayTitle, findDuplicateArtistId } from '@/lib/display-title';
-import { parseDurationInput, formatDurationDisplay } from '@/lib/duration-format';
+import {
+  parseDurationInput,
+  parseTimeInput,
+  formatDurationDisplay,
+} from '@/lib/duration-format';
 import { trackEditorClasses } from './track-editor-styles';
 import { GenreSelect } from './genre-select';
 import type {
@@ -498,8 +502,8 @@ export function TrackEditor({
       ) : null}
 
       {/*
-        BUILD-012C — Recording Metadata (always for full editor).
-        Duration (seconds) + Genre (catalogue). After details, before Production.
+        BUILD-012C/F — Recording Metadata (always for full editor).
+        Duration → Preview Start (optional) → Genre. After details, before Production.
       */}
       {showDescriptiveMetadata ? (
         <div className={c.divider}>
@@ -540,7 +544,6 @@ export function TrackEditor({
                   }
                   const parsed = parseDurationInput(trimmed);
                   if (parsed === null) {
-                    // Leave display as typed; parent validation sets error message
                     onChange({ duration: null });
                     return;
                   }
@@ -549,11 +552,84 @@ export function TrackEditor({
                     durationDisplay: formatDurationDisplay(parsed),
                   });
                   onClearError?.('duration');
+                  // Re-check preview start against new duration
+                  if (
+                    value.previewStartTime != null &&
+                    value.previewStartTime >= parsed
+                  ) {
+                    // parent may re-validate; clear only if now valid
+                  } else {
+                    onClearError?.('previewStartTime');
+                  }
                 }}
                 placeholder="MM:SS"
                 className={c.input}
               />
               {errors?.duration ? <p className={c.error}>{errors.duration}</p> : null}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className={c.fieldLabel} htmlFor={`${instanceId}-preview-start`}>
+                Track Preview Start Time
+              </label>
+              <p className={`${c.helper} mb-1`}>
+                Preferred starting point for DSP audio previews. Leave blank to use the
+                distributor or DSP default.
+              </p>
+              <input
+                id={`${instanceId}-preview-start`}
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={value.previewStartDisplay}
+                onChange={(e) => {
+                  const display = e.target.value;
+                  const parsed = display.trim() ? parseTimeInput(display) : null;
+                  onChange({
+                    previewStartDisplay: display,
+                    previewStartTime: display.trim() ? parsed : null,
+                  });
+                  if (!display.trim()) {
+                    onClearError?.('previewStartTime');
+                  } else if (
+                    parsed !== null &&
+                    (value.duration == null || parsed < value.duration)
+                  ) {
+                    onClearError?.('previewStartTime');
+                  }
+                }}
+                onBlur={() => {
+                  const trimmed = value.previewStartDisplay.trim();
+                  if (!trimmed) {
+                    onChange({ previewStartDisplay: '', previewStartTime: null });
+                    onClearError?.('previewStartTime');
+                    return;
+                  }
+                  const parsed = parseTimeInput(trimmed);
+                  if (parsed === null) {
+                    onChange({ previewStartTime: null });
+                    return;
+                  }
+                  if (value.duration != null && parsed >= value.duration) {
+                    onChange({
+                      previewStartTime: parsed,
+                      previewStartDisplay: formatDurationDisplay(parsed),
+                    });
+                    // Surface comparison error via parent or inline: keep field, error from parent
+                    return;
+                  }
+                  onChange({
+                    previewStartTime: parsed,
+                    previewStartDisplay: formatDurationDisplay(parsed),
+                  });
+                  onClearError?.('previewStartTime');
+                }}
+                placeholder="MM:SS"
+                className={c.input}
+              />
+              {errors?.previewStartTime ? (
+                <p className={c.error}>{errors.previewStartTime}</p>
+              ) : null}
             </div>
 
             <GenreSelect
