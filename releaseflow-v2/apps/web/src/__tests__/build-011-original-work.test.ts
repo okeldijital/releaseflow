@@ -87,13 +87,31 @@ describe('BUILD-011 — source contracts', () => {
     expect(src).toContain('interface OriginalWork');
   });
 
-  it('create wizard shows Original Work only for remix', () => {
+  it('create wizard shows Original Work only for remix (BUILD-011C)', () => {
     const src = readFileSync(resolve(root, 'app/(app)/tracks/new/page.tsx'), 'utf8');
     expect(src).toContain('Original Work');
     expect(src).toContain('Original Song Title');
+    expect(src).toContain('Original Primary Artist');
+    expect(src).toContain('Original Featured Artists');
+    expect(src).toContain('Information about the original song being remixed.');
     expect(src).toContain('originalWorkTitle');
     expect(src).toContain("recordingType === 'remix'");
     expect(src).toContain('originalWork:');
+    // Group A binding (Original Work — never track.primaryArtistId)
+    expect(src).toContain('primaryArtistId: originalWorkPrimaryArtistId');
+    expect(src).toContain('featuredArtistIds: originalWorkFeaturedArtists');
+    // Group B — recording credit uses Primary Artist → track.primaryArtistId (separate state)
+    expect(src).toContain('label="Primary Artist"');
+    expect(src).toContain('primaryArtistId: recordingPrimaryId');
+    // Two distinct artist states must exist (separate bindings)
+    expect(src).toContain('originalWorkPrimaryArtistId');
+    expect(src).toMatch(/const \[primaryArtistId, setPrimaryArtistId\]/);
+    // Forbidden terminology / intermediate lists
+    expect(src).not.toContain('label="Original Artists"');
+    expect(src).not.toContain("role=\"original\"");
+    expect(src).not.toContain("role=\"remix\"");
+    expect(src).not.toContain('setOriginalArtists');
+    expect(src).not.toContain('setRemixArtists');
   });
 
   it('track workspace edit and details expose Original Work for remix', () => {
