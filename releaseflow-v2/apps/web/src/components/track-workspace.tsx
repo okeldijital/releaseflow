@@ -34,7 +34,6 @@ import {
   type ArtistOption,
   type RepeatableArtistEntry,
 } from '@/components/artists/artist-relationship-list';
-import { ArtistFieldPicker } from '@/components/artist-field-picker';
 import { OriginalWorkSection, emptyTrackEditorValue } from '@/components/track-editor';
 import { useArtists } from '@/hooks/useArtist';
 import {
