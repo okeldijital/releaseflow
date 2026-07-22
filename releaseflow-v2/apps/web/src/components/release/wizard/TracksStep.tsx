@@ -64,8 +64,8 @@ export function TracksStep({
       mixingEngineer: t.mixingEngineer,
       masteringEngineer: t.masteringEngineer,
       isrc: t.isrc,
-      composer: t.composer,
-      lyricist: t.lyricist,
+      composers: t.composers,
+      lyricists: t.lyricists,
       iswc: t.iswc,
       pubOpen: t.pubOpen,
     };

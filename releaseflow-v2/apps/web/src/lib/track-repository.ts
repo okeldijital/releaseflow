@@ -44,6 +44,9 @@ export interface TrackRecord {
   originalArtistIds?: string[];
   featuredArtistIds?: string[];
   remixArtistIds?: string[];
+  /** BUILD-012D — songwriting credits (Artist ids; roles at track level) */
+  composerArtistIds?: string[];
+  lyricistArtistIds?: string[];
   /** BUILD-011 — nested original song metadata; null/omitted when not a remix */
   originalWork?: OriginalWork | null;
   displayTitle?: string | null;
@@ -77,6 +80,9 @@ export interface CreateTrackFields {
   originalArtistIds?: string[];
   featuredArtistIds?: string[];
   remixArtistIds?: string[];
+  /** BUILD-012D */
+  composerArtistIds?: string[];
+  lyricistArtistIds?: string[];
   originalWork?: OriginalWork | null;
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
@@ -105,6 +111,9 @@ export interface UpdateTrackFields {
   originalArtistIds?: string[];
   featuredArtistIds?: string[];
   remixArtistIds?: string[];
+  /** BUILD-012D */
+  composerArtistIds?: string[];
+  lyricistArtistIds?: string[];
   originalWork?: OriginalWork | null;
   displayTitle?: string | null;
   displayTitleEdited?: boolean;
@@ -191,6 +200,8 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     originalArtistIds: normalizeArtistIdArray(fields.originalArtistIds),
     featuredArtistIds: normalizeArtistIdArray(fields.featuredArtistIds),
     remixArtistIds: normalizeArtistIdArray(fields.remixArtistIds),
+    composerArtistIds: normalizeArtistIdArray(fields.composerArtistIds),
+    lyricistArtistIds: normalizeArtistIdArray(fields.lyricistArtistIds),
     // BUILD-011: only store nested object for remix; null for other types
     originalWork,
     displayTitle: fields.displayTitle ?? null,
@@ -234,6 +245,8 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
     originalArtistIds: normalizeArtistIdArray(fields.originalArtistIds),
     featuredArtistIds: normalizeArtistIdArray(fields.featuredArtistIds),
     remixArtistIds: normalizeArtistIdArray(fields.remixArtistIds),
+    composerArtistIds: normalizeArtistIdArray(fields.composerArtistIds),
+    lyricistArtistIds: normalizeArtistIdArray(fields.lyricistArtistIds),
     originalWork,
     displayTitle: fields.displayTitle,
     displayTitleEdited: fields.displayTitleEdited,
@@ -275,6 +288,12 @@ export async function updateTrack(trackId: string, fields: UpdateTrackFields): P
   if (fields.remixArtistIds !== undefined) {
     update.remixArtistIds = normalizeArtistIdArray(fields.remixArtistIds);
   }
+  if (fields.composerArtistIds !== undefined) {
+    update.composerArtistIds = normalizeArtistIdArray(fields.composerArtistIds);
+  }
+  if (fields.lyricistArtistIds !== undefined) {
+    update.lyricistArtistIds = normalizeArtistIdArray(fields.lyricistArtistIds);
+  }
   if (fields.originalWork !== undefined) {
     if (fields.originalWork === null) {
       update.originalWork = null;
@@ -308,6 +327,8 @@ export async function getTrack(trackId: string): Promise<TrackRecord | null> {
     originalArtistIds: normalizeArtistIdArray(data.originalArtistIds),
     featuredArtistIds: normalizeArtistIdArray(data.featuredArtistIds),
     remixArtistIds: normalizeArtistIdArray(data.remixArtistIds),
+    composerArtistIds: normalizeArtistIdArray(data.composerArtistIds),
+    lyricistArtistIds: normalizeArtistIdArray(data.lyricistArtistIds),
     originalWork:
       recordingType === 'remix' ? normalizeOriginalWork(data.originalWork) : null,
   } as TrackRecord;
@@ -332,6 +353,8 @@ export async function getTracksByOrg(orgId: string): Promise<TrackRecord[]> {
       originalArtistIds: normalizeArtistIdArray(data.originalArtistIds),
       featuredArtistIds: normalizeArtistIdArray(data.featuredArtistIds),
       remixArtistIds: normalizeArtistIdArray(data.remixArtistIds),
+      composerArtistIds: normalizeArtistIdArray(data.composerArtistIds),
+      lyricistArtistIds: normalizeArtistIdArray(data.lyricistArtistIds),
       originalWork:
         recordingType === 'remix' ? normalizeOriginalWork(data.originalWork) : null,
     } as TrackRecord;

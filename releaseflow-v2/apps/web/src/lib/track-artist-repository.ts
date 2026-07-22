@@ -11,6 +11,7 @@ export type TrackArtistRole =
   | 'REMIX_ARTIST'
   | 'PRODUCER'
   | 'COMPOSER'
+  | 'LYRICIST'
   | 'WRITER'
   | 'MIX_ENGINEER'
   | 'MASTERING_ENGINEER';

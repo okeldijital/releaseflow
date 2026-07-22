@@ -42,8 +42,9 @@ export type WizardTrack = {
   mixingEngineer: string;
   masteringEngineer: string;
   isrc: string;
-  composer: string;
-  lyricist: string;
+  /** BUILD-012D — Artist-linked songwriting credits */
+  composers: RepeatableArtistEntry[];
+  lyricists: RepeatableArtistEntry[];
   iswc: string;
   pubOpen: boolean;
   remixErrors: {
@@ -76,8 +77,8 @@ export function createEmptyTrack(id = String(Date.now())): WizardTrack {
     mixingEngineer: '',
     masteringEngineer: '',
     isrc: '',
-    composer: '',
-    lyricist: '',
+    composers: [],
+    lyricists: [],
     iswc: '',
     pubOpen: false,
     remixErrors: {},
@@ -101,6 +102,8 @@ export function normalizeWizardTrack(raw: Partial<WizardTrack> & { id?: string; 
     durationDisplay: raw.durationDisplay ?? '',
     duration: raw.duration ?? null,
     genre: raw.genre ?? '',
+    composers: raw.composers ?? [],
+    lyricists: raw.lyricists ?? [],
     remixErrors: raw.remixErrors ?? {},
   };
 }

@@ -523,56 +523,107 @@ export function TrackEditor({
         </div>
       ) : null}
 
-      {/* Publishing */}
+      {/*
+        BUILD-012D — Publishing: Composer / Lyricist via shared Artist pickers,
+        then identifiers. Artist catalogue is role-agnostic.
+      */}
       {showPublishing ? (
-        <div className="mt-4 space-y-3">
-          <button
-            type="button"
-            onClick={() => onChange({ pubOpen: !value.pubOpen })}
-            className={c.pubToggle}
-          >
-            <span>Publishing Information</span>
-            <svg
-              className={`h-3.5 w-3.5 transition-transform ${value.pubOpen ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {value.pubOpen ? (
-            <div className="space-y-3 pt-2">
+        <div className={c.divider}>
+          <div>
+            <p className={`${c.sectionLabel} mb-1`}>Publishing</p>
+            <p className={`${c.helper} mb-3`}>
+              Information required for publishing and rights management.
+            </p>
+          </div>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <p className={`${c.helper} mb-1`}>People who composed the music.</p>
+              <ArtistRelationshipList
+                instanceId={`${instanceId}-composers`}
+                role="featured"
+                label="Composer(s)"
+                addLabel="+ Add Composer"
+                entries={value.composers}
+                artists={artists}
+                organizationId={organizationId}
+                onAdd={(artistId) => {
+                  if (value.composers.some((e) => e.artistId === artistId)) return;
+                  onChange({
+                    composers: [
+                      ...value.composers,
+                      { id: `${Date.now()}-${artistId}`, artistId },
+                    ],
+                  });
+                }}
+                onRemove={(entryId) =>
+                  onChange({
+                    composers: value.composers.filter((e) => e.id !== entryId),
+                  })
+                }
+                onReorder={(entries) => onChange({ composers: entries })}
+                onArtistCreated={onArtistCreated}
+                error={errors?.composers}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <p className={`${c.helper} mb-1`}>People who wrote the lyrics.</p>
+              <ArtistRelationshipList
+                instanceId={`${instanceId}-lyricists`}
+                role="featured"
+                label="Lyricist(s)"
+                addLabel="+ Add Lyricist"
+                entries={value.lyricists}
+                artists={artists}
+                organizationId={organizationId}
+                onAdd={(artistId) => {
+                  if (value.lyricists.some((e) => e.artistId === artistId)) return;
+                  onChange({
+                    lyricists: [
+                      ...value.lyricists,
+                      { id: `${Date.now()}-${artistId}`, artistId },
+                    ],
+                  });
+                }}
+                onRemove={(entryId) =>
+                  onChange({
+                    lyricists: value.lyricists.filter((e) => e.id !== entryId),
+                  })
+                }
+                onReorder={(entries) => onChange({ lyricists: entries })}
+                onArtistCreated={onArtistCreated}
+                error={errors?.lyricists}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className={c.fieldLabel} htmlFor={`${instanceId}-isrc`}>
+                ISRC
+              </label>
               <input
+                id={`${instanceId}-isrc`}
                 type="text"
                 value={value.isrc}
                 onChange={(e) => onChange({ isrc: e.target.value })}
-                placeholder="ISRC"
-                className={c.input}
-              />
-              <input
-                type="text"
-                value={value.composer}
-                onChange={(e) => onChange({ composer: e.target.value })}
-                placeholder="Composer(s)"
-                className={c.input}
-              />
-              <input
-                type="text"
-                value={value.lyricist}
-                onChange={(e) => onChange({ lyricist: e.target.value })}
-                placeholder="Lyricist(s)"
-                className={c.input}
-              />
-              <input
-                type="text"
-                value={value.iswc}
-                onChange={(e) => onChange({ iswc: e.target.value })}
-                placeholder="ISWC (optional)"
+                placeholder="e.g. USABC1234567"
                 className={c.input}
               />
             </div>
-          ) : null}
+
+            <div className="space-y-1.5">
+              <label className={c.fieldLabel} htmlFor={`${instanceId}-iswc`}>
+                ISWC (optional)
+              </label>
+              <input
+                id={`${instanceId}-iswc`}
+                type="text"
+                value={value.iswc}
+                onChange={(e) => onChange({ iswc: e.target.value })}
+                placeholder="ISWC"
+                className={c.input}
+              />
+            </div>
+          </div>
         </div>
       ) : null}
     </div>

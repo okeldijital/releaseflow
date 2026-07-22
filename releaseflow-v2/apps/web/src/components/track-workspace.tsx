@@ -759,7 +759,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
       {/* ── Publishing Tab ───────────────────────────────────────────── */}
       {tab === 'publishing' && (
-        <PublishingSection track={track} credits={credits} />
+        <PublishingSection track={track} credits={credits} organizationId={activeOrgId} />
       )}
 
       {/* ── Assignments Tab ──────────────────────────────────────────── */}
@@ -1228,15 +1228,26 @@ function CreditsSection({
 
 /* ─── Publishing Section ─────────────────────────────────────────── */
 
-function PublishingSection({ track, credits }: { track: TrackRecord; credits: TrackCredit[] }) {
+function PublishingSection({
+  track,
+  credits,
+  organizationId,
+}: {
+  track: TrackRecord;
+  credits: TrackCredit[];
+  organizationId: string | null;
+}) {
   const publisherNames = credits.filter((c) => c.role.toLowerCase() === 'publisher').map((c) => c.name);
-  const writerNames = credits.filter((c) => ['writer', 'lyricist', 'songwriter'].includes(c.role.toLowerCase())).map((c) => c.name);
-  const composerNames = credits.filter((c) => c.role.toLowerCase() === 'composer').map((c) => c.name);
+  const legacyWriterNames = credits.filter((c) => ['writer', 'lyricist', 'songwriter'].includes(c.role.toLowerCase())).map((c) => c.name);
+  const legacyComposerNames = credits.filter((c) => c.role.toLowerCase() === 'composer').map((c) => c.name);
+  const composerIds = track.composerArtistIds ?? [];
+  const lyricistIds = track.lyricistArtistIds ?? [];
 
   const hasIdentifiers = !!track.isrc;
   const hasRights = !!(track.explicit || track.language);
   const hasPerformance = !!track.trackNumber;
-  const hasDistribution = false;
+  const hasSongwriting =
+    composerIds.length > 0 || lyricistIds.length > 0 || legacyComposerNames.length > 0 || legacyWriterNames.length > 0;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1290,24 +1301,42 @@ function PublishingSection({ track, credits }: { track: TrackRecord; credits: Tr
       </div>
 
       <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 flex flex-col">
-        <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">Distribution</h3>
+        <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-3">Songwriting</h3>
         <dl className="space-y-2 text-sm flex-1">
-          <div className="flex justify-between">
-            <dt className="text-content-secondary">Publisher</dt>
-            <dd className="text-content-primary">{publisherNames.join(', ') || '—'}</dd>
+          <div className="flex justify-between gap-3">
+            <dt className="text-content-secondary shrink-0">Composer(s)</dt>
+            <dd className="text-content-primary text-right">
+              {composerIds.length > 0
+                ? composerIds.map((id) => (
+                    <span key={id} className="block">
+                      <OriginalWorkArtistName artistId={id} organizationId={organizationId} />
+                    </span>
+                  ))
+                : (legacyComposerNames.join(', ') || '—')}
+            </dd>
           </div>
-          <div className="flex justify-between">
-            <dt className="text-content-secondary">Writers</dt>
-            <dd className="text-content-primary">{writerNames.join(', ') || '—'}</dd>
+          <div className="flex justify-between gap-3">
+            <dt className="text-content-secondary shrink-0">Lyricist(s)</dt>
+            <dd className="text-content-primary text-right">
+              {lyricistIds.length > 0
+                ? lyricistIds.map((id) => (
+                    <span key={id} className="block">
+                      <OriginalWorkArtistName artistId={id} organizationId={organizationId} />
+                    </span>
+                  ))
+                : (legacyWriterNames.join(', ') || '—')}
+            </dd>
           </div>
-          <div className="flex justify-between">
-            <dt className="text-content-secondary">Composers</dt>
-            <dd className="text-content-primary">{composerNames.join(', ') || '—'}</dd>
-          </div>
+          {publisherNames.length > 0 ? (
+            <div className="flex justify-between">
+              <dt className="text-content-secondary">Publisher</dt>
+              <dd className="text-content-primary">{publisherNames.join(', ')}</dd>
+            </div>
+          ) : null}
         </dl>
-        {!hasDistribution && !publisherNames.length && !writerNames.length && !composerNames.length ? (
+        {!hasSongwriting ? (
           <p className="text-xs text-content-label mt-3 pt-3 border-t border-surface-100">
-            No distribution details yet. Add publisher, writers and composers.
+            No songwriting credits yet. Add composers and lyricists from the Artist catalogue.
           </p>
         ) : null}
       </div>
@@ -1475,6 +1504,13 @@ function EditPanel({
   );
   const [displayTitle, setDisplayTitle] = useState(track.displayTitle ?? '');
   const [displayTitleEdited, setDisplayTitleEdited] = useState(track.displayTitleEdited ?? false);
+  // BUILD-012D — Composer / Lyricist (Artist catalogue)
+  const [composerEntries, setComposerEntries] = useState<RepeatableArtistEntry[]>(() =>
+    (track.composerArtistIds ?? []).map((id) => ({ id, artistId: id })),
+  );
+  const [lyricistEntries, setLyricistEntries] = useState<RepeatableArtistEntry[]>(() =>
+    (track.lyricistArtistIds ?? []).map((id) => ({ id, artistId: id })),
+  );
   const [artistError, setArtistError] = useState('');
   const [extraArtists, setExtraArtists] = useState<ArtistOption[]>([]);
 
@@ -1527,6 +1563,8 @@ function EditPanel({
     setOriginalWorkFeaturedEntries(
       (track.originalWork?.featuredArtistIds ?? []).map((id) => ({ id, artistId: id })),
     );
+    setComposerEntries((track.composerArtistIds ?? []).map((id) => ({ id, artistId: id })));
+    setLyricistEntries((track.lyricistArtistIds ?? []).map((id) => ({ id, artistId: id })));
   }, [track]);
 
   useEffect(() => {
@@ -1642,6 +1680,8 @@ function EditPanel({
             originalArtistIds: originalEntries.map((e) => e.artistId).filter(Boolean),
             featuredArtistIds: featuredEntries.map((e) => e.artistId).filter(Boolean),
             remixArtistIds: remixEntries.map((e) => e.artistId).filter(Boolean),
+            composerArtistIds: composerEntries.map((e) => e.artistId).filter(Boolean),
+            lyricistArtistIds: lyricistEntries.map((e) => e.artistId).filter(Boolean),
           },
           {
             organizationId: activeOrgId,
@@ -1827,9 +1867,66 @@ function EditPanel({
         </div>
       </div>
 
-      {/* Publishing */}
+      {/* Publishing — BUILD-012D Composer / Lyricist via shared Artist pickers */}
       <div>
-        <p className="text-xs font-semibold text-content-label uppercase tracking-wider mb-3">Publishing</p>
+        <p className="text-xs font-semibold text-content-label uppercase tracking-wider mb-1">Publishing</p>
+        <p className="text-xs text-content-label mb-3">
+          Information required for publishing and rights management.
+        </p>
+        <div className="space-y-5 mb-6">
+          <div>
+            <p className="text-xs text-content-label mb-1">People who composed the music.</p>
+            <ArtistRelationshipList
+              instanceId={`edit-${track.id}-composers`}
+              role="featured"
+              label="Composer(s)"
+              addLabel="+ Add Composer"
+              entries={composerEntries}
+              artists={artists}
+              organizationId={activeOrgId}
+              onAdd={(artistId) => {
+                setComposerEntries((prev) => {
+                  if (prev.some((e) => e.artistId === artistId)) return prev;
+                  return [...prev, { id: artistId, artistId }];
+                });
+              }}
+              onRemove={(entryId) =>
+                setComposerEntries((prev) => prev.filter((e) => e.id !== entryId))
+              }
+              onReorder={setComposerEntries}
+              onArtistCreated={(a) => {
+                setExtraArtists((prev) => [...prev, a]);
+                void refreshArtists();
+              }}
+            />
+          </div>
+          <div>
+            <p className="text-xs text-content-label mb-1">People who wrote the lyrics.</p>
+            <ArtistRelationshipList
+              instanceId={`edit-${track.id}-lyricists`}
+              role="featured"
+              label="Lyricist(s)"
+              addLabel="+ Add Lyricist"
+              entries={lyricistEntries}
+              artists={artists}
+              organizationId={activeOrgId}
+              onAdd={(artistId) => {
+                setLyricistEntries((prev) => {
+                  if (prev.some((e) => e.artistId === artistId)) return prev;
+                  return [...prev, { id: artistId, artistId }];
+                });
+              }}
+              onRemove={(entryId) =>
+                setLyricistEntries((prev) => prev.filter((e) => e.id !== entryId))
+              }
+              onReorder={setLyricistEntries}
+              onArtistCreated={(a) => {
+                setExtraArtists((prev) => [...prev, a]);
+                void refreshArtists();
+              }}
+            />
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-content-label">ISRC</label>

@@ -1,7 +1,7 @@
 import type { RecordingType } from '@/lib/recording-type';
 import type { ArtistOption, RepeatableArtistEntry } from '@/components/artist-field-picker';
 
-/** Controlled track metadata edited by TrackEditor (BUILD-011C + BUILD-012C). */
+/** Controlled track metadata edited by TrackEditor (BUILD-011C–012D). */
 export type TrackEditorValue = {
   title: string;
   version: string;
@@ -24,10 +24,10 @@ export type TrackEditorValue = {
   mastered: boolean;
   mixingEngineer: string;
   masteringEngineer: string;
-  /** Publishing (optional sections) */
+  /** BUILD-012D — Publishing (Artist-linked songwriting + identifiers) */
   isrc: string;
-  composer: string;
-  lyricist: string;
+  composers: RepeatableArtistEntry[];
+  lyricists: RepeatableArtistEntry[];
   iswc: string;
   pubOpen: boolean;
 };
@@ -38,6 +38,8 @@ export type TrackEditorErrors = {
   originalWorkPrimaryArtist?: string;
   duration?: string;
   genre?: string;
+  composers?: string;
+  lyricists?: string;
 };
 
 export type TrackEditorPersonOption = { id: string; displayName: string };
@@ -98,8 +100,8 @@ export function emptyTrackEditorValue(
     mixingEngineer: '',
     masteringEngineer: '',
     isrc: '',
-    composer: '',
-    lyricist: '',
+    composers: [],
+    lyricists: [],
     iswc: '',
     pubOpen: false,
     ...overrides,

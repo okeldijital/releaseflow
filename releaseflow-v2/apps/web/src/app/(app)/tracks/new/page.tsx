@@ -198,6 +198,11 @@ export default function NewTrackPage() {
   const [durationDisplay, setDurationDisplay] = useState('');
   const [duration, setDuration] = useState<number | null>(null);
   const [genre, setGenre] = useState('');
+  // BUILD-012D — Publishing songwriting (Artist ids)
+  const [composers, setComposers] = useState<RepeatableArtistEntry[]>([]);
+  const [lyricists, setLyricists] = useState<RepeatableArtistEntry[]>([]);
+  const [isrc, setIsrc] = useState('');
+  const [iswc, setIswc] = useState('');
   const [remixErrors, setRemixErrors] = useState<{
     featuredArtists?: string;
     originalWorkTitle?: string;
@@ -213,7 +218,6 @@ export default function NewTrackPage() {
   const [credits, setCredits] = useState(emptyCredits());
   const [deliverables, setDeliverables] = useState(emptyDeliverables());
 
-  const [isrc, setIsrc] = useState('');
   const [language, setLanguage] = useState('');
   const [subgenre, setSubgenre] = useState('');
   const [explicit, setExplicit] = useState('false');
@@ -454,6 +458,9 @@ export default function NewTrackPage() {
         explicit: explicit === 'true',
         // BUILD-012C — prefer editor duration; fall back to audio-derived
         duration: duration ?? derivedDuration,
+        // BUILD-012D
+        composerArtistIds: composers.map((e) => e.artistId).filter(Boolean),
+        lyricistArtistIds: lyricists.map((e) => e.artistId).filter(Boolean),
       });
 
       if (recordingPrimaryId) {
@@ -472,6 +479,28 @@ export default function NewTrackPage() {
             trackId,
             artistId: entry.artistId,
             role: 'FEATURED_ARTIST',
+            position: idx + 1,
+          });
+        }
+      }
+      for (let idx = 0; idx < composers.length; idx++) {
+        const entry = composers[idx]!;
+        if (entry.artistId) {
+          await addArtistToTrack({
+            trackId,
+            artistId: entry.artistId,
+            role: 'COMPOSER',
+            position: idx + 1,
+          });
+        }
+      }
+      for (let idx = 0; idx < lyricists.length; idx++) {
+        const entry = lyricists[idx]!;
+        if (entry.artistId) {
+          await addArtistToTrack({
+            trackId,
+            artistId: entry.artistId,
+            role: 'LYRICIST',
             position: idx + 1,
           });
         }
@@ -584,11 +613,11 @@ export default function NewTrackPage() {
             mastered: true,
             mixingEngineer: '',
             masteringEngineer: '',
-            isrc: '',
-            composer: '',
-            lyricist: '',
-            iswc: '',
-            pubOpen: false,
+            isrc,
+            composers,
+            lyricists,
+            iswc,
+            pubOpen: true,
           }}
           onEditorChange={(patch: Partial<TrackEditorValue>) => {
             if (patch.title !== undefined) setTitle(patch.title);
@@ -610,12 +639,17 @@ export default function NewTrackPage() {
             if (patch.durationDisplay !== undefined) setDurationDisplay(patch.durationDisplay);
             if (patch.duration !== undefined) setDuration(patch.duration);
             if (patch.genre !== undefined) setGenre(patch.genre);
+            if (patch.isrc !== undefined) setIsrc(patch.isrc);
+            if (patch.composers !== undefined) setComposers(patch.composers);
+            if (patch.lyricists !== undefined) setLyricists(patch.lyricists);
+            if (patch.iswc !== undefined) setIswc(patch.iswc);
           }}
           remixErrors={remixErrors}
           setRemixErrors={setRemixErrors}
           artists={artists}
           activeOrgId={activeOrgId}
           onArtistCreated={handleArtistCreated}
+          showPublishing
           back={back}
           next={next}
         />
@@ -673,12 +707,14 @@ export default function NewTrackPage() {
 
       {currentStepKey === 'metadata' && (
         <MetadataStep
-          isrc={isrc}
-          setIsrc={setIsrc}
           language={language}
           setLanguage={setLanguage}
           genre={genre}
           durationDisplay={durationDisplay}
+          isrc={isrc}
+          composers={composers}
+          lyricists={lyricists}
+          artists={artists}
           subgenre={subgenre}
           setSubgenre={setSubgenre}
           explicit={explicit}
@@ -826,6 +862,7 @@ function BasicsStep({
   artists,
   activeOrgId,
   onArtistCreated,
+  showPublishing = false,
   back,
   next,
 }: {
@@ -850,14 +887,15 @@ function BasicsStep({
   artists: ArtistOption[];
   activeOrgId: string | null;
   onArtistCreated: (a: ArtistOption) => void;
+  showPublishing?: boolean;
   back: () => void;
   next: () => void;
 }) {
   return (
     <>
       {/*
-        BUILD-011C via canonical TrackEditor:
-        Track Title → Recording Type → [Original Work if remix] → Recording metadata
+        Canonical TrackEditor:
+        Title → Type → [Original Work] → Details → Recording Metadata → Publishing
       */}
       <TrackEditor
         instanceId="new-track"
@@ -872,6 +910,7 @@ function BasicsStep({
         titlePlaceholder="Track title"
         titleAutoFocus
         titleCentered
+        showPublishing={showPublishing}
       />
       <Nav back={back} next={next} canNext={!!editorValue.title.trim()} />
     </>
@@ -1136,16 +1175,19 @@ function DeliverablesStep({
 }
 
 function MetadataStep({
-  isrc, setIsrc, language, setLanguage, genre, durationDisplay, subgenre, setSubgenre,
+  language, setLanguage, genre, durationDisplay, isrc, composers, lyricists, artists,
+  subgenre, setSubgenre,
   explicit, setExplicit, label, setLabel, copyrightYear, setCopyrightYear,
   publishingYear, setPublishingYear, back, next, onLater,
 }: {
-  isrc: string;
-  setIsrc: (v: string) => void;
   language: string;
   setLanguage: (v: string) => void;
   genre: string;
   durationDisplay: string;
+  isrc: string;
+  composers: RepeatableArtistEntry[];
+  lyricists: RepeatableArtistEntry[];
+  artists: ArtistOption[];
   subgenre: string;
   setSubgenre: (v: string) => void;
   explicit: string;
@@ -1160,19 +1202,31 @@ function MetadataStep({
   next: () => void;
   onLater: () => void;
 }) {
+  const composerNames = composers
+    .map((e) => artists.find((a) => a.id === e.artistId)?.name)
+    .filter(Boolean)
+    .join(', ');
+  const lyricistNames = lyricists
+    .map((e) => artists.find((a) => a.id === e.artistId)?.name)
+    .filter(Boolean)
+    .join(', ');
   return (
     <>
       <div className="mt-8 space-y-3">
-        {/* BUILD-012C — Duration/Genre owned by TrackEditor; show read-only summary here */}
-        {(durationDisplay || genre) ? (
+        {/* BUILD-012C/D — Duration/Genre/Publishing owned by TrackEditor; summary here */}
+        {(durationDisplay || genre || isrc || composerNames || lyricistNames) ? (
           <p className="text-xs text-text-500 text-center">
-            Recording metadata: {[durationDisplay && `Duration ${durationDisplay}`, genre && `Genre ${genre}`]
+            {[
+              durationDisplay && `Duration ${durationDisplay}`,
+              genre && `Genre ${genre}`,
+              isrc && `ISRC ${isrc}`,
+              composerNames && `Composers ${composerNames}`,
+              lyricistNames && `Lyricists ${lyricistNames}`,
+            ]
               .filter(Boolean)
               .join(' · ')}
           </p>
         ) : null}
-        <input type="text" value={isrc} onChange={(e) => setIsrc(e.target.value)} placeholder="ISRC"
-          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
         <input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="Language"
           className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
         <input type="text" value={subgenre} onChange={(e) => setSubgenre(e.target.value)} placeholder="Subgenre"

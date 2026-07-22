@@ -187,6 +187,9 @@ export interface TrackArtistCreditsInput {
   originalArtistIds: string[];
   featuredArtistIds: string[];
   remixArtistIds: string[];
+  /** BUILD-012D — optional songwriting roles */
+  composerArtistIds?: string[];
+  lyricistArtistIds?: string[];
 }
 
 export interface SyncTrackArtistsOptions {
@@ -219,6 +222,10 @@ export async function syncTrackArtistCredits(
   const originalIds = credits.originalArtistIds.filter(Boolean);
   const featuredIds = credits.featuredArtistIds.filter(Boolean);
   const remixIds = credits.remixArtistIds.filter(Boolean);
+  const composerIds = (credits.composerArtistIds ?? []).filter(Boolean);
+  const lyricistIds = (credits.lyricistArtistIds ?? []).filter(Boolean);
+  const hasSongwriting =
+    credits.composerArtistIds !== undefined || credits.lyricistArtistIds !== undefined;
 
   const previousFeatured = (await getArtistsByRole(trackId, 'FEATURED_ARTIST')).map((r) => r.artistId);
   // Fall back to track doc if join rows empty (legacy)
@@ -243,6 +250,10 @@ export async function syncTrackArtistCredits(
     }
     await replaceTrackArtistsRole(trackId, 'FEATURED_ARTIST', featuredIds);
     await replaceTrackArtistsRole(trackId, 'REMIX_ARTIST', remixIds);
+    if (hasSongwriting) {
+      await replaceTrackArtistsRole(trackId, 'COMPOSER', composerIds);
+      await replaceTrackArtistsRole(trackId, 'LYRICIST', lyricistIds);
+    }
   }
 
   const displayTitle =
@@ -265,6 +276,12 @@ export async function syncTrackArtistCredits(
     originalArtistId: originalIds[0] ?? null,
     primaryArtistId: originalIds[0] ?? null,
     remixerArtistId: remixIds[0] ?? null,
+    ...(hasSongwriting
+      ? {
+          composerArtistIds: composerIds,
+          lyricistArtistIds: lyricistIds,
+        }
+      : {}),
     ...(displayTitle !== undefined
       ? {
           displayTitle: displayTitle || null,

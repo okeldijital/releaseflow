@@ -756,6 +756,9 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
             displayTitleEdited: t.displayTitleEdited,
             duration: t.duration ?? undefined,
             genre: t.genre.trim() || undefined,
+            isrc: t.isrc.trim() || undefined,
+            composerArtistIds: t.composers.map((e) => e.artistId).filter(Boolean),
+            lyricistArtistIds: t.lyricists.map((e) => e.artistId).filter(Boolean),
           });
           if (recordingPrimaryId) {
             await addArtistToTrack({
@@ -773,6 +776,29 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
                 trackId,
                 artistId: entry.artistId,
                 role: 'FEATURED_ARTIST',
+                position: idx + 1,
+              });
+            }
+          }
+          // BUILD-012D — songwriting roles (same Artist catalogue, track-level roles)
+          for (let idx = 0; idx < t.composers.length; idx++) {
+            const entry = t.composers[idx]!;
+            if (entry.artistId) {
+              await addArtistToTrack({
+                trackId,
+                artistId: entry.artistId,
+                role: 'COMPOSER',
+                position: idx + 1,
+              });
+            }
+          }
+          for (let idx = 0; idx < t.lyricists.length; idx++) {
+            const entry = t.lyricists[idx]!;
+            if (entry.artistId) {
+              await addArtistToTrack({
+                trackId,
+                artistId: entry.artistId,
+                role: 'LYRICIST',
                 position: idx + 1,
               });
             }
