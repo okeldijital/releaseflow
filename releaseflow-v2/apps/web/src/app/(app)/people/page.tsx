@@ -1,6 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+/**
+ * BUILD-018 — People directory.
+ * All person presentation goes through canonical PersonCard.
+ */
+
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { usePeople } from '@/hooks/usePerson';
 import { useOrgStore } from '@/stores/org-store';
@@ -17,61 +22,47 @@ import type { InvitationRecord } from '@/lib/invitation-service';
 import { resolvePersonSecurity, platformRoleLabel } from '@/lib/people-platform';
 import type { PlatformRole } from '@/lib/invitation-service';
 import {
-  Button, Container, EmptyState, LoadingState, Select, Avatar, StatusBadge,
+  archivePerson,
+  restorePerson,
+  toPersonCardModels,
+} from '@/lib/person-service';
+import type { PersonCardModel } from '@/lib/person-card-model';
+import { PersonCard } from '@/components/people/PersonCard';
+import {
+  Button,
+  Container,
+  EmptyState,
+  LoadingState,
+  Select,
+  Search,
 } from '@releaseflow/ui';
-import { usePersonIdentity } from '@/hooks/useIdentity';
-import { Search } from '@releaseflow/ui';
-import { EntityOverflowMenu } from '@/components/entity-overflow-menu';
+import { toast } from '@/stores/toast-store';
 import { PLATFORM_ROLE_OPTIONS } from '@/lib/platform-roles';
 
 type CollaboratorStatus = 'Active' | 'Inactive' | 'Pending Invitation' | 'Revoked';
 
-function PersonIdentityAvatar({
-  person,
-  size = 'md',
-}: {
-  person: PersonRecord;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
-}) {
-  const identity = usePersonIdentity(person);
-  return (
-    <Avatar
-      name={identity?.displayName || person.displayName}
-      src={identity?.avatarUrl}
-      size={size}
-    />
-  );
-}
-
 function getCollaboratorStatus(person: PersonRecord): CollaboratorStatus {
-  if (person.invitationStatus === 'pending' || person.invitationStatus === 'invited') return 'Pending Invitation';
+  if (person.invitationStatus === 'pending' || person.invitationStatus === 'invited') {
+    return 'Pending Invitation';
+  }
   if ((person.invitationStatus as string | null) === 'revoked') return 'Revoked';
   if (person.status === 'archived') return 'Inactive';
   return 'Active';
 }
 
-function getActiveAssignmentCount(personId: string, assignments: AssignmentRecord[]): number {
-  return assignments.filter((a) =>
-    a.assigneeId === personId
-    && !['completed', 'archived', 'cancelled', 'declined'].includes(a.status),
-  ).length;
-}
-
-function getReleaseCount(personId: string, assignments: AssignmentRecord[]): number {
-  const releaseIds = new Set(
-    assignments
-      .filter((a) => a.assigneeId === personId && a.entityType === 'release')
-      .map((a) => a.entityId),
-  );
-  return releaseIds.size;
-}
-
 export default function PeoplePage() {
   const { activeOrgId } = useOrgStore();
-  const { people, allPeople, loading } = usePeople();
+  const {
+    people,
+    allPeople,
+    personCards,
+    allPersonCards,
+    loading,
+    refresh,
+  } = usePeople();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<PersonRecord[] | null>(null);
+  const [searchCardModels, setSearchCardModels] = useState<PersonCardModel[] | null>(null);
   const [platformRoleFilter, setPlatformRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [releaseFilter, setReleaseFilter] = useState('all');
@@ -83,7 +74,9 @@ export default function PeoplePage() {
   useEffect(() => {
     if (!activeOrgId) return;
     Promise.all([
-      fetchAssignments(activeOrgId, { includeArchived: true }).catch(() => [] as AssignmentRecord[]),
+      fetchAssignments(activeOrgId, { includeArchived: true }).catch(
+        () => [] as AssignmentRecord[],
+      ),
       getReleasesByOrganization(activeOrgId).catch(() => [] as ReleaseRecord[]),
       getMembershipsByOrg(activeOrgId).catch(() => [] as MembershipRecord[]),
       fetchInvitationsByOrg(activeOrgId).catch(() => [] as InvitationRecord[]),
@@ -95,76 +88,150 @@ export default function PeoplePage() {
     });
   }, [activeOrgId]);
 
-  const releaseOptions = useMemo(() => releases.map((r) => ({ value: r.id, label: r.title })), [releases]);
+  const releaseOptions = useMemo(
+    () => releases.map((r) => ({ value: r.id, label: r.title })),
+    [releases],
+  );
 
-  const displayPeople = searchResults ?? people;
+  const personById = useMemo(() => {
+    const map = new Map<string, PersonRecord>();
+    for (const p of allPeople) map.set(p.id, p);
+    return map;
+  }, [allPeople]);
+
+  const displayCards = searchCardModels ?? personCards;
+  const isSearch = Boolean(searchQuery.trim() && searchCardModels);
 
   const filtered = useMemo(() => {
-    let result = displayPeople;
-    if (searchQuery.trim()) {
+    let result = displayCards;
+    if (searchQuery.trim() && !searchCardModels) {
       const q = searchQuery.toLowerCase();
-      result = result.filter((p) => {
-        const sec = resolvePersonSecurity(p, memberships, invitations);
+      result = result.filter((card) => {
+        const person = personById.get(card.id);
+        if (!person) {
+          return (
+            card.displayName.toLowerCase().includes(q)
+            || card.email.toLowerCase().includes(q)
+            || card.subtitle.toLowerCase().includes(q)
+          );
+        }
+        const sec = resolvePersonSecurity(person, memberships, invitations);
         return (
-          p.displayName.toLowerCase().includes(q)
-          || p.email.toLowerCase().includes(q)
+          card.displayName.toLowerCase().includes(q)
+          || card.email.toLowerCase().includes(q)
           || sec.platformRoleLabel.toLowerCase().includes(q)
+          || card.subtitle.toLowerCase().includes(q)
         );
       });
     }
-    // DOM-001: filter by Platform Role (security), not professional/contribution role.
     if (platformRoleFilter !== 'all') {
-      result = result.filter((p) => {
-        const sec = resolvePersonSecurity(p, memberships, invitations);
+      result = result.filter((card) => {
+        const person = personById.get(card.id);
+        if (!person) return false;
+        const sec = resolvePersonSecurity(person, memberships, invitations);
         return sec.platformRole === platformRoleFilter;
       });
     }
     if (statusFilter !== 'all') {
-      result = result.filter((p) => getCollaboratorStatus(p) === statusFilter);
+      result = result.filter((card) => {
+        const person = personById.get(card.id);
+        if (!person) return card.status === statusFilter.toLowerCase();
+        return getCollaboratorStatus(person) === statusFilter;
+      });
     }
     if (releaseFilter !== 'all') {
-      result = result.filter((p) =>
+      result = result.filter((card) =>
         assignments.some(
-          (a) => a.assigneeId === p.id && a.entityType === 'release' && a.entityId === releaseFilter,
+          (a) =>
+            a.assigneeId === card.id
+            && a.entityType === 'release'
+            && a.entityId === releaseFilter,
         ),
       );
     }
     return result;
   }, [
-    displayPeople, searchQuery, platformRoleFilter, statusFilter, releaseFilter,
-    assignments, memberships, invitations,
+    displayCards,
+    searchQuery,
+    searchCardModels,
+    platformRoleFilter,
+    statusFilter,
+    releaseFilter,
+    assignments,
+    memberships,
+    invitations,
+    personById,
   ]);
 
   async function handleSearch(q: string) {
     setSearchQuery(q);
     if (!q.trim() || !activeOrgId) {
-      setSearchResults(null);
+      setSearchCardModels(null);
       return;
     }
     try {
       const results = await searchPeople(activeOrgId, q);
-      setSearchResults(results);
+      setSearchCardModels(
+        await toPersonCardModels(activeOrgId, results, {
+          includeCounts: true,
+        }),
+      );
     } catch {
-      setSearchResults([]);
+      setSearchCardModels([]);
     }
   }
+
+  const handleArchive = useCallback(
+    async (personId: string) => {
+      try {
+        await archivePerson(personId);
+        toast.success('Person archived.');
+        await refresh();
+      } catch {
+        toast.error('Unable to archive person.');
+      }
+    },
+    [refresh],
+  );
+
+  const handleRestore = useCallback(
+    async (personId: string) => {
+      try {
+        await restorePerson(personId);
+        toast.success('Person restored.');
+        await refresh();
+      } catch {
+        toast.error('Unable to restore person.');
+      }
+    },
+    [refresh],
+  );
 
   if (!activeOrgId) {
     return (
       <Container size="wide" className="py-8 page-transition">
         <div className="mb-8">
-          <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">People</h1>
-          <p className="mt-1 text-sm text-text-400">Your collaborators and invited team members.</p>
+          <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">
+            People
+          </h1>
+          <p className="mt-1 text-sm text-text-400">
+            Your collaborators and invited team members.
+          </p>
         </div>
-        <EmptyState title="No organization selected" description="Select an organization to manage people." />
+        <EmptyState
+          title="No organization selected"
+          description="Select an organization to manage people."
+        />
       </Container>
     );
   }
 
-  if (loading && allPeople.length === 0) {
+  if (loading && allPersonCards.length === 0) {
     return (
       <Container size="wide" className="py-8 page-transition">
-        <div className="flex items-center justify-center py-32"><LoadingState /></div>
+        <div className="flex items-center justify-center py-32">
+          <LoadingState />
+        </div>
       </Container>
     );
   }
@@ -173,15 +240,28 @@ export default function PeoplePage() {
     <Container size="wide" className="py-8 page-transition">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">People</h1>
+          <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">
+            People
+          </h1>
           <p className="mt-1 text-sm text-text-400">
             Organization members and their platform access roles.
           </p>
         </div>
         <Link href="/people/invitations">
           <Button variant="primary" size="sm" className="rounded-xl">
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             Invite Collaborator
           </Button>
@@ -194,7 +274,7 @@ export default function PeoplePage() {
             <Search
               value={searchQuery}
               onChange={handleSearch}
-              placeholder="Search by name, email, or platform role..."
+              placeholder="Search by name, email, or role..."
             />
           </div>
         </div>
@@ -243,77 +323,31 @@ export default function PeoplePage() {
               ? `No collaborators match "${searchQuery}"`
               : 'Invite collaborators to begin working on releases.'
           }
-          action={!searchQuery ? { label: 'Invite Collaborator', onClick: () => {} } : undefined}
+          action={
+            !searchQuery
+              ? { label: 'Invite Collaborator', onClick: () => {} }
+              : undefined
+          }
         />
       ) : (
-        <div className="space-y-2">
-          {filtered.map((person) => {
-            const status = getCollaboratorStatus(person);
-            const security = resolvePersonSecurity(person, memberships, invitations);
-            const activeCount = getActiveAssignmentCount(person.id, assignments);
-            const releaseCount = getReleaseCount(person.id, assignments);
-            const menuItems = [
-              { id: 'view', label: 'View Profile', onClick: () => { window.location.href = `/people/${person.id}`; } },
-              ...(status === 'Pending Invitation' ? [
-                { id: 'resend', label: 'Resend Invitation', onClick: () => {} },
-                { id: 'cancel', label: 'Cancel Invitation', variant: 'danger' as const, onClick: () => {} },
-              ] : []),
-              ...(person.status === 'archived'
-                ? [{ id: 'reactivate', label: 'Reactivate', onClick: () => {} }]
-                : [{ id: 'deactivate', label: 'Deactivate', variant: 'danger' as const, onClick: () => {} }]
-              ),
-            ];
-
-            return (
-              <div
-                key={person.id}
-                className="flex items-center gap-4 rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3 hover:border-primary-200 transition-colors"
-              >
-                <PersonIdentityAvatar person={person} size="md" />
-                <div className="flex-1 min-w-0">
-                  <Link
-                    href={`/people/${person.id}`}
-                    className="text-sm font-medium text-primary-400 hover:text-primary-500 truncate block"
-                  >
-                    {person.displayName}
-                  </Link>
-                  {/* DOM-001: subtitle is Platform Role only — never contribution role */}
-                  <p className="text-xs text-text-500 truncate">{security.platformRoleLabel}</p>
-                </div>
-                <span className="hidden sm:inline-flex text-xs px-2 py-0.5 rounded-full bg-surface-800 text-text-400 shrink-0">
-                  {security.platformRoleLabel}
-                </span>
-                <StatusBadge status={status.toLowerCase().replace(/ /g, '_')} />
-                <div className="w-28 text-center">
-                  {activeCount > 0 ? (
-                    <Link
-                      href={`/assignments?person=${person.id}`}
-                      className="text-sm text-primary-400 hover:text-primary-500 font-medium"
-                    >
-                      {activeCount} Active
-                    </Link>
-                  ) : (
-                    <span className="text-sm text-text-500">0 Active</span>
-                  )}
-                </div>
-                <div className="w-28 text-center">
-                  {releaseCount > 0 ? (
-                    <Link
-                      href={`/people/${person.id}/releases`}
-                      className="text-sm text-primary-400 hover:text-primary-500 font-medium"
-                    >
-                      {releaseCount} Release{releaseCount !== 1 ? 's' : ''}
-                    </Link>
-                  ) : (
-                    <span className="text-sm text-text-500">0 Releases</span>
-                  )}
-                </div>
-                <div className="shrink-0">
-                  <EntityOverflowMenu items={menuItems} aria-label={`Actions for ${person.displayName}`} />
-                </div>
-              </div>
-            );
-          })}
+        <div
+          data-person-card-grid
+          data-person-search-results={isSearch ? 'true' : undefined}
+          className={
+            isSearch
+              ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3'
+              : 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
+          }
+        >
+          {filtered.map((person) => (
+            <PersonCard
+              key={person.id}
+              person={person}
+              size={isSearch ? 'compact' : 'standard'}
+              onArchive={handleArchive}
+              onRestore={handleRestore}
+            />
+          ))}
         </div>
       )}
     </Container>

@@ -68,8 +68,16 @@ export const MediaUrlService = {
     });
   },
 
-  /** Artist / person image thumbnail. */
+  /** Artist image thumbnail. */
   artist(publicId: string, size = 300): string {
+    return MediaUrlService.artworkThumbnail(publicId, size);
+  },
+
+  /**
+   * BUILD-018 — Person photo thumbnail via the canonical media pipeline.
+   * Square fill crop; never construct person URLs in components.
+   */
+  person(publicId: string, size = 300): string {
     return MediaUrlService.artworkThumbnail(publicId, size);
   },
 

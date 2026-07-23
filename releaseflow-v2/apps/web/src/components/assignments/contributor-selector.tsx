@@ -5,8 +5,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { fetchPeople } from '@/lib/person-service';
+import { fetchPeople, toPersonCardModels } from '@/lib/person-service';
 import type { PersonRecord } from '@/lib/people-repository';
+import type { PersonCardModel } from '@/lib/person-card-model';
 import { fetchAssignments } from '@/lib/assignment-service';
 import type { AssignmentRecord } from '@/lib/assignment-service';
 import { getMembershipsByOrg } from '@/lib/organization-repository';
@@ -17,8 +18,8 @@ import { resolvePersonSecurity } from '@/lib/people-platform';
 import { Avatar, Button, Input } from '@releaseflow/ui';
 import { toast } from '@/stores/toast-store';
 import { useAuth } from '@/contexts/auth-context';
-import { resolvePersonIdentity } from '@/lib/identity-service';
 import { usePersonIdentity } from '@/hooks/useIdentity';
+import { PersonCard } from '@/components/people/PersonCard';
 
 function ContributorPersonAvatar({
   person,
@@ -74,6 +75,7 @@ interface ContributorSelectorProps {
 export function ContributorSelector({ organizationId, value, onChange }: ContributorSelectorProps) {
   const { user } = useAuth();
   const [people, setPeople] = useState<PersonRecord[]>([]);
+  const [personCards, setPersonCards] = useState<PersonCardModel[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRecord[]>([]);
   const [memberships, setMemberships] = useState<MembershipRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,8 +99,9 @@ export function ContributorSelector({ organizationId, value, onChange }: Contrib
       setPeople(active);
       setAssignments(a);
       setMemberships(m);
-      // Warm identity cache for linked users (avatar resolution in list rows)
-      void Promise.all(active.map((person) => resolvePersonIdentity(person)));
+      setPersonCards(
+        await toPersonCardModels(organizationId, active, { includeCounts: true }),
+      );
     } finally {
       setLoading(false);
     }
@@ -122,14 +125,20 @@ export function ContributorSelector({ organizationId, value, onChange }: Contrib
     return map;
   }, [assignments]);
 
-  const ranked = useMemo(() => {
+  const personById = useMemo(() => {
+    const map = new Map(people.map((p) => [p.id, p]));
+    return map;
+  }, [people]);
+
+  const rankedCards = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let list = people;
+    let list = personCards;
     if (q) {
       list = list.filter(
         (p) =>
           p.displayName.toLowerCase().includes(q)
-          || p.email.toLowerCase().includes(q),
+          || p.email.toLowerCase().includes(q)
+          || p.subtitle.toLowerCase().includes(q),
       );
     }
     return [...list].sort((a, b) => {
@@ -138,9 +147,11 @@ export function ContributorSelector({ organizationId, value, onChange }: Contrib
       if (wa !== wb) return wa - wb;
       return a.displayName.localeCompare(b.displayName);
     });
-  }, [people, query, workload]);
+  }, [personCards, query, workload]);
 
-  function selectPerson(p: PersonRecord) {
+  function selectPersonId(personId: string) {
+    const p = personById.get(personId);
+    if (!p) return;
     const w = workload.get(p.id) ?? { active: 0, dueWeek: 0 };
     const sec = resolvePersonSecurity(p, memberships, []);
     onChange({
@@ -247,39 +258,23 @@ export function ContributorSelector({ organizationId, value, onChange }: Contrib
                     className="w-full min-h-[48px] rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-100 placeholder:text-text-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                   />
                 </div>
-                <div className="flex-1 overflow-y-auto p-2">
+                <div className="flex-1 overflow-y-auto p-2" data-person-search-results>
                   {loading ? (
                     <p className="text-sm text-text-500 p-4">Loading…</p>
-                  ) : ranked.length === 0 ? (
+                  ) : rankedCards.length === 0 ? (
                     <p className="text-sm text-text-500 p-4">No active collaborators found.</p>
                   ) : (
-                    ranked.map((p) => {
-                      const w = workload.get(p.id) ?? { active: 0, dueWeek: 0 };
-                      const sec = resolvePersonSecurity(p, memberships, []);
-                      const overloaded = w.active >= 10;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => selectPerson(p)}
-                          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-800 text-left min-h-[72px]"
-                        >
-                          <ContributorPersonAvatar person={p} size="md" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-surface-100 truncate">{p.displayName}</p>
-                            <p className="text-xs text-text-500">
-                              {sec.platformRoleLabel}
-                              {w.active > 0 ? ` · ${w.active} active` : ' · Available'}
-                            </p>
-                            {overloaded ? (
-                              <p className="text-xs text-warning-500 mt-0.5">
-                                ⚠ Already has {w.active} active assignments
-                              </p>
-                            ) : null}
-                          </div>
-                        </button>
-                      );
-                    })
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {rankedCards.map((card) => (
+                        <PersonCard
+                          key={card.id}
+                          person={card}
+                          size="compact"
+                          showMenu={false}
+                          onSelect={selectPersonId}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
                 <div className="p-3 border-t border-surface-700/60">

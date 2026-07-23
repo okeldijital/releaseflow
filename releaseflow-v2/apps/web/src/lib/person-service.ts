@@ -156,3 +156,36 @@ export async function checkPersonReadiness(personId: string): Promise<PersonRead
     missing,
   };
 }
+
+/**
+ * BUILD-018 — List people as canonical PersonCardModel[].
+ * Call sites must not assemble presentation labels themselves.
+ */
+export async function fetchPersonCardModels(
+  organizationId: string,
+  opts?: { includeCounts?: boolean },
+): Promise<import('./person-card-model').PersonCardModel[]> {
+  const people = await repoList(organizationId);
+  const { toPersonCardModels } = await import('./person-card-model');
+  return toPersonCardModels(organizationId, people, {
+    includeCounts: opts?.includeCounts !== false,
+  });
+}
+
+export async function fetchPersonSearchCardModels(
+  organizationId: string,
+  queryStr: string,
+): Promise<import('./person-card-model').PersonCardModel[]> {
+  const people = await repoSearch(organizationId, queryStr);
+  const { toPersonCardModels } = await import('./person-card-model');
+  return toPersonCardModels(organizationId, people, {
+    includeCounts: false,
+    includeRoleHints: false,
+  });
+}
+
+export { toPersonCardModel, toPersonCardModels } from './person-card-model';
+export type {
+  PersonCardModel,
+  PersonCardMenuAction,
+} from './person-card-model';

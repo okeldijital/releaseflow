@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { fetchPeople } from '@/lib/person-service';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { fetchPeople, toPersonCardModels } from '@/lib/person-service';
+import type { PersonCardModel } from '@/lib/person-card-model';
+import { PersonCard } from '@/components/people/PersonCard';
 import { invitePerson } from '@/lib/invitation-service';
 import type { PlatformRole } from '@/lib/invitation-service';
 import { getOrganization } from '@/lib/organization-repository';
@@ -26,6 +28,7 @@ export function PersonPickerDialog({
 }: PersonPickerDialogProps) {
   const [mode, setMode] = useState<'select' | 'invite'>('select');
   const [people, setPeople] = useState<PersonOption[]>([]);
+  const [personCards, setPersonCards] = useState<PersonCardModel[]>([]);
   const [loadingPeople, setLoadingPeople] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<PersonOption | null>(null);
@@ -40,7 +43,12 @@ export function PersonPickerDialog({
 
   const roleOptions = roles && roles.length > 0 ? roles : [contextRole];
   const filtered = filterPeopleForSearch(people, search);
+  const filteredCards = useMemo(() => {
+    const ids = new Set(filtered.map((p) => p.id));
+    return personCards.filter((c) => ids.has(c.id));
+  }, [personCards, filtered]);
   const showRoleSelector = selectedPerson !== null;
+  const optionById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
 
   useEffect(() => {
     if (open) {
@@ -56,7 +64,15 @@ export function PersonPickerDialog({
       if (organizationId) {
         setLoadingPeople(true);
         fetchPeople(organizationId)
-          .then((records) => setPeople(toPersonOptions(records.filter((r) => r.status !== 'archived'))))
+          .then(async (records) => {
+            const active = records.filter((r) => r.status !== 'archived');
+            setPeople(toPersonOptions(active));
+            setPersonCards(
+              await toPersonCardModels(organizationId, active, {
+                includeCounts: false,
+              }),
+            );
+          })
           .finally(() => setLoadingPeople(false));
       }
     }
@@ -156,8 +172,6 @@ export function PersonPickerDialog({
 
   if (!open && !closing) return null;
 
-  const personInitial = (name: string) => name.trim().charAt(0).toUpperCase();
-
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${closing ? 'opacity-0 transition-opacity duration-200' : ''}`} onKeyDown={handleKeyDown}>
       <div className={`fixed inset-0 bg-surface-900/60 backdrop-blur-sm ${closing ? 'opacity-0 transition-opacity duration-200' : ''}`} onClick={handleClose} />
@@ -190,39 +204,40 @@ export function PersonPickerDialog({
                 disabled={loadingPeople}
                 className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-3 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none disabled:opacity-50"
               />
-              <div ref={listRef} className="max-h-60 overflow-y-auto space-y-1">
+              <div
+                ref={listRef}
+                data-person-search-results
+                className="max-h-72 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2"
+              >
                 {loadingPeople ? (
-                  <p className="text-sm text-text-500 text-center py-4">Loading people...</p>
-                ) : filtered.length === 0 ? (
-                  <p className="text-sm text-text-500 text-center py-4">No people found.</p>
+                  <p className="text-sm text-text-500 text-center py-4 col-span-full">Loading people...</p>
+                ) : filteredCards.length === 0 ? (
+                  <p className="text-sm text-text-500 text-center py-4 col-span-full">No people found.</p>
                 ) : (
-                  filtered.map((p, idx) => (
-                    <button
-                      key={p.id}
+                  filteredCards.map((card, idx) => (
+                    <div
+                      key={card.id}
                       data-person-index={idx}
-                      type="button"
-                      onClick={() => handleSelectPerson(p)}
                       onMouseEnter={() => setActiveIndex(idx)}
-                      className={`w-full text-left rounded-xl border px-4 py-3 transition-all ${
-                        selectedPerson?.id === p.id ? 'border-primary-500/60 bg-primary-500/10' : activeIndex === idx ? 'border-surface-600 bg-surface-800' : 'border-surface-700 bg-surface-800 hover:border-surface-600'
-                      }`}
+                      className={
+                        selectedPerson?.id === card.id
+                          ? 'ring-2 ring-primary-500/60 rounded-xl'
+                          : activeIndex === idx
+                            ? 'ring-1 ring-surface-600 rounded-xl'
+                            : ''
+                      }
                     >
-                      <div className="flex items-center gap-3">
-                        {p.avatarUrl ? (
-                          <img src={p.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
-                        ) : (
-                          <span className="h-8 w-8 rounded-full bg-primary-500/10 flex items-center justify-center text-sm font-semibold text-primary-400 shrink-0">
-                            {personInitial(p.name)}
-                          </span>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-surface-100 truncate">{p.name}</p>
-                          <p className="text-xs text-text-500 truncate">
-                            {p.email}{p.department ? ` · ${p.department}` : ''}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
+                      <PersonCard
+                        person={card}
+                        size="compact"
+                        showMenu={false}
+                        showStats={false}
+                        onSelect={(id) => {
+                          const opt = optionById.get(id);
+                          if (opt) handleSelectPerson(opt);
+                        }}
+                      />
+                    </div>
                   ))
                 )}
               </div>
