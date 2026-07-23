@@ -53,7 +53,6 @@ function getCollaboratorStatus(person: PersonRecord): CollaboratorStatus {
 export default function PeoplePage() {
   const { activeOrgId } = useOrgStore();
   const {
-    people,
     allPeople,
     personCards,
     allPersonCards,
