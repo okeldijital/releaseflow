@@ -6,12 +6,15 @@ import { useAuth } from '@/contexts/auth-context';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
   listTasks,
+  listTaskCardModels,
   fetchTaskWithAssignment,
   listTasksByRelease,
   getTaskDashboardSummary,
+  toTaskCardModels,
   type TaskWithAssignment,
   type TaskListFilter,
   type TaskDashboardSummary,
+  type TaskCardModel,
 } from '@/lib/task-service';
 
 export function useTasks(filter: TaskListFilter = 'all_open', search = '') {
@@ -19,12 +22,14 @@ export function useTasks(filter: TaskListFilter = 'all_open', search = '') {
   const { user } = useAuth();
   const perms = usePermissions();
   const [rows, setRows] = useState<TaskWithAssignment[]>([]);
+  const [taskCards, setTaskCards] = useState<TaskCardModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!activeOrgId || !user?.uid) {
       setRows([]);
+      setTaskCards([]);
       setLoading(false);
       return;
     }
@@ -39,10 +44,12 @@ export function useTasks(filter: TaskListFilter = 'all_open', search = '') {
         isManager: perms.canManageAssignments,
       });
       setRows(data);
+      setTaskCards(await toTaskCardModels(activeOrgId, data));
     } catch (err) {
       console.error('[useTasks]', err);
       setError(err instanceof Error ? err.message : 'Failed to load tasks');
       setRows([]);
+      setTaskCards([]);
     } finally {
       setLoading(false);
     }
@@ -52,7 +59,7 @@ export function useTasks(filter: TaskListFilter = 'all_open', search = '') {
     void refresh();
   }, [refresh]);
 
-  return { rows, loading, error, refresh };
+  return { rows, taskCards, loading, error, refresh };
 }
 
 export function useTask(taskId: string | undefined) {
@@ -90,19 +97,24 @@ export function useTask(taskId: string | undefined) {
 export function useReleaseTasks(releaseId: string | undefined) {
   const { activeOrgId } = useOrgStore();
   const [rows, setRows] = useState<TaskWithAssignment[]>([]);
+  const [taskCards, setTaskCards] = useState<TaskCardModel[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     if (!activeOrgId || !releaseId) {
       setRows([]);
+      setTaskCards([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      setRows(await listTasksByRelease(activeOrgId, releaseId));
+      const data = await listTasksByRelease(activeOrgId, releaseId);
+      setRows(data);
+      setTaskCards(await toTaskCardModels(activeOrgId, data));
     } catch {
       setRows([]);
+      setTaskCards([]);
     } finally {
       setLoading(false);
     }
@@ -112,7 +124,7 @@ export function useReleaseTasks(releaseId: string | undefined) {
     void refresh();
   }, [refresh]);
 
-  return { rows, loading, refresh };
+  return { rows, taskCards, loading, refresh };
 }
 
 export function useTaskDashboardSummary() {
@@ -135,4 +147,34 @@ export function useTaskDashboardSummary() {
   }, [activeOrgId, user?.uid]);
 
   return { summary, loading };
+}
+
+/**
+ * BUILD-017 — Dashboard compact task list (assigned to me, open).
+ */
+export function useDashboardTaskCards(limit = 6) {
+  const { activeOrgId, orgVersion } = useOrgStore();
+  const { user } = useAuth();
+  const [taskCards, setTaskCards] = useState<TaskCardModel[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!activeOrgId || !user?.uid) {
+      setTaskCards([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    void listTaskCardModels({
+      organisationId: activeOrgId,
+      actorUid: user.uid,
+      filter: 'assigned_to_me',
+      isManager: false,
+    })
+      .then((cards) => setTaskCards(cards.slice(0, limit)))
+      .catch(() => setTaskCards([]))
+      .finally(() => setLoading(false));
+  }, [activeOrgId, user?.uid, limit, orgVersion]);
+
+  return { taskCards, loading };
 }

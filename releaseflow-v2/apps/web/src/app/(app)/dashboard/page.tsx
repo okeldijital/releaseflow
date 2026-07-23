@@ -20,7 +20,13 @@ import {
 } from '@/lib/assignment-workspace-service';
 import { buildAssignmentWorkspace } from '@/lib/assignment-workspace';
 import { getOrgReadinessSummaries } from '@/lib/release-readiness-service';
-import { getTaskDashboardSummary, type TaskDashboardSummary } from '@/lib/task-service';
+import {
+  getTaskDashboardSummary,
+  listTaskCardModels,
+  type TaskDashboardSummary,
+  type TaskCardModel,
+} from '@/lib/task-service';
+import { TaskCard } from '@/components/tasks/TaskCard';
 import type { Release } from '@/app/(app)/types';
 
 function timeAgo(d: Date): string {
@@ -113,6 +119,8 @@ export default function DashboardPage() {
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
   const [taskSummary, setTaskSummary] = useState<TaskDashboardSummary | null>(null);
   const [taskSummaryLoading, setTaskSummaryLoading] = useState(true);
+  const [dashboardTaskCards, setDashboardTaskCards] = useState<TaskCardModel[]>([]);
+  const [dashboardTasksLoading, setDashboardTasksLoading] = useState(true);
 
   useEffect(() => {
     if (!user?.uid || !activeOrgId) {
@@ -151,18 +159,30 @@ export default function DashboardPage() {
       .finally(() => setAssignmentsLoading(false));
   }, [activeOrgId, identityKeys]);
 
-  // BUILD-014 — Tasks widget
+  // BUILD-014 / BUILD-017 — Tasks KPI summary + compact TaskCards
   useEffect(() => {
     if (!activeOrgId || !user?.uid) {
       setTaskSummary(null);
       setTaskSummaryLoading(false);
+      setDashboardTaskCards([]);
+      setDashboardTasksLoading(false);
       return;
     }
     setTaskSummaryLoading(true);
+    setDashboardTasksLoading(true);
     void getTaskDashboardSummary(activeOrgId, user.uid)
       .then(setTaskSummary)
       .catch(() => setTaskSummary(null))
       .finally(() => setTaskSummaryLoading(false));
+    void listTaskCardModels({
+      organisationId: activeOrgId,
+      actorUid: user.uid,
+      filter: 'assigned_to_me',
+      isManager: false,
+    })
+      .then((cards) => setDashboardTaskCards(cards.slice(0, 6)))
+      .catch(() => setDashboardTaskCards([]))
+      .finally(() => setDashboardTasksLoading(false));
   }, [activeOrgId, user?.uid]);
 
   // BUG-009: load drafts via dedicated draft query (lifecycle == draft), not full catalogue filter.
@@ -331,7 +351,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* BUILD-014 — Tasks summary */}
+      {/* BUILD-014 / BUILD-017 — Tasks KPI summary + compact TaskCards */}
       <div className="mb-10">
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs font-semibold text-text-500 uppercase tracking-widest">Tasks</p>
@@ -361,6 +381,21 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
+        {dashboardTasksLoading ? (
+          <div className="mt-4">
+            <LoadingState />
+          </div>
+        ) : dashboardTaskCards.length > 0 ? (
+          <div
+            data-task-card-grid
+            data-dashboard-tasks
+            className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+          >
+            {dashboardTaskCards.map((task) => (
+              <TaskCard key={task.id} task={task} size="compact" showMenu={false} />
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="mb-10">

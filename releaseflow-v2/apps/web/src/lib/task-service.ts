@@ -644,6 +644,35 @@ export async function fetchTasksByPriority(
   return repoGetByPriority(organisationId, priority);
 }
 
+/**
+ * BUILD-017 — List tasks as canonical TaskCardModel[].
+ * Call sites must not assemble presentation labels themselves.
+ */
+export async function listTaskCardModels(
+  params: ListTasksParams,
+): Promise<import('./task-card-model').TaskCardModel[]> {
+  const rows = await listTasks(params);
+  const { toTaskCardModels } = await import('./task-card-model');
+  return toTaskCardModels(params.organisationId, rows);
+}
+
+export async function listTaskCardModelsByRelease(
+  organisationId: string,
+  releaseId: string,
+): Promise<import('./task-card-model').TaskCardModel[]> {
+  const rows = await listTasksByRelease(organisationId, releaseId);
+  const { toTaskCardModels } = await import('./task-card-model');
+  return toTaskCardModels(organisationId, rows);
+}
+
+export { toTaskCardModel, toTaskCardModels } from './task-card-model';
+export type {
+  TaskCardModel,
+  TaskCardMenuAction,
+  TaskCardAssignee,
+  TaskCardRelease,
+} from './task-card-model';
+
 // ── helpers ──────────────────────────────────────────────────────────
 
 function pickPrimaryAssignment(list: AssignmentRecord[]): AssignmentRecord | null {

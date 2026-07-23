@@ -1,28 +1,26 @@
 'use client';
 
 /**
- * BUILD-014 — Tasks catalogue.
+ * BUILD-014 / BUILD-017 — Tasks catalogue.
  * Page title: "Tasks" (never "My Tasks" / "Task List").
+ * All task rows render through the canonical TaskCard.
  */
 
-import { useMemo, useState, useEffect, Suspense } from 'react';
-import Link from 'next/link';
+import { useMemo, useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useTasks } from '@/hooks/useTask';
 import type { TaskListFilter } from '@/lib/task-service';
-import { toJsDate } from '@/lib/task-service';
-import { resolvePersonNames } from '@/lib/resolve-person-names';
-import { getReleasesByOrganization } from '@/lib/release-repository';
+import { completeTask, deleteTaskEntity } from '@/lib/task-service';
+import { toast } from '@/stores/toast-store';
+import { TaskCard } from '@/components/tasks/TaskCard';
 import {
   Button,
   Container,
   EmptyState,
   LoadingState,
-  Badge,
-  StatusBadge,
   Input,
 } from '@releaseflow/ui';
 
@@ -35,27 +33,6 @@ const FILTERS: { id: TaskListFilter; label: string }[] = [
   { id: 'due_today', label: 'Due Today' },
   { id: 'this_week', label: 'This Week' },
 ];
-
-const priorityColors: Record<string, string> = {
-  low: 'bg-surface-800 text-content-secondary',
-  medium: 'bg-primary-500/10 text-primary-400',
-  high: 'bg-warning-500/10 text-warning-600',
-  urgent: 'bg-danger-500/10 text-danger-600',
-};
-
-function formatDate(d: unknown): string {
-  const date = toJsDate(d);
-  if (!date) return '—';
-  return date.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
-function statusLabel(status: string): string {
-  return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 const FILTER_IDS = new Set(FILTERS.map((f) => f.id));
 
@@ -73,47 +50,53 @@ function TasksPageInner() {
   const [filter, setFilter] = useState<TaskListFilter>(initialFilter);
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
-  const { rows, loading, error } = useTasks(filter, searchDebounced);
-  const [assigneeNames, setAssigneeNames] = useState<Map<string, string>>(new Map());
-  const [releaseTitles, setReleaseTitles] = useState<Map<string, string>>(new Map());
+  const { taskCards, loading, error, refresh } = useTasks(filter, searchDebounced);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search.trim()), 250);
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => {
-    const ids = rows
-      .map((r) => r.assignment?.assigneeId)
-      .filter((id): id is string => Boolean(id));
-    if (ids.length === 0) {
-      setAssigneeNames(new Map());
-      return;
-    }
-    void resolvePersonNames(ids).then(setAssigneeNames);
-  }, [rows]);
-
-  useEffect(() => {
-    if (!activeOrgId) return;
-    void getReleasesByOrganization(activeOrgId)
-      .then((releases) => {
-        const map = new Map<string, string>();
-        for (const r of releases) {
-          map.set(r.id, r.displayTitle || r.title || r.id);
-        }
-        setReleaseTitles(map);
-      })
-      .catch(() => setReleaseTitles(new Map()));
-  }, [activeOrgId]);
-
   const canCreate = perms.canManageAssignments;
+  const canManage = perms.canManageAssignments;
+  const isSearch = searchDebounced.length > 0;
+  const cardSize = isSearch ? 'compact' : 'standard';
 
   const emptyDescription = useMemo(() => {
+    if (isSearch) return 'No tasks match your search.';
     if (filter === 'assigned_to_me') return 'No tasks are assigned to you.';
     if (filter === 'overdue') return 'Nothing overdue.';
     if (filter === 'completed') return 'No completed tasks yet.';
     return 'Create a task to track work.';
-  }, [filter]);
+  }, [filter, isSearch]);
+
+  const handleComplete = useCallback(
+    async (taskId: string) => {
+      if (!user?.uid) return;
+      try {
+        await completeTask(taskId, user.uid);
+        toast.success('Task completed');
+        await refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to complete task');
+      }
+    },
+    [user?.uid, refresh],
+  );
+
+  const handleDelete = useCallback(
+    async (taskId: string) => {
+      if (!user?.uid) return;
+      try {
+        await deleteTaskEntity(taskId, user.uid);
+        toast.success('Task deleted');
+        await refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to delete task');
+      }
+    },
+    [user?.uid, refresh],
+  );
 
   return (
     <Container className="py-6 sm:py-8">
@@ -165,80 +148,39 @@ function TasksPageInner() {
         <p className="text-sm text-danger-500 mb-4">{error}</p>
       ) : null}
 
-      {!loading && !error && rows.length === 0 ? (
+      {!loading && !error && taskCards.length === 0 ? (
         <EmptyState title="No tasks" description={emptyDescription} />
       ) : null}
 
-      {!loading && rows.length > 0 ? (
-        <div className="overflow-x-auto rounded-xl border border-surface-200 bg-layer-2 shadow-card">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-surface-200 bg-layer-1 text-xs uppercase tracking-wide text-content-label">
-              <tr>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Title</th>
-                <th className="px-4 py-3 font-medium">Assigned To</th>
-                <th className="px-4 py-3 font-medium">Priority</th>
-                <th className="px-4 py-3 font-medium">Due Date</th>
-                <th className="px-4 py-3 font-medium">Release</th>
-                <th className="px-4 py-3 font-medium">Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ task, assignment }) => {
-                const assigneeId = assignment?.assigneeId;
-                const assignee =
-                  assigneeId
-                    ? (assigneeNames.get(assigneeId) ?? '…')
-                    : '—';
-                const releaseLabel = task.releaseId
-                  ? (releaseTitles.get(task.releaseId) ?? task.releaseId)
-                  : '—';
-                return (
-                  <tr
-                    key={task.id}
-                    className="border-b border-surface-100 last:border-0 hover:bg-layer-1/60"
-                  >
-                    <td className="px-4 py-3">
-                      <StatusBadge status={statusLabel(task.status)} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/tasks/${task.id}`}
-                        className="font-medium text-primary-400 hover:underline"
-                      >
-                        {task.title}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-content-secondary">{assignee}</td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        label={task.priority}
-                        color={priorityColors[task.priority] ?? ''}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-content-secondary">
-                      {formatDate(task.dueDate)}
-                    </td>
-                    <td className="px-4 py-3 text-content-secondary">
-                      {task.releaseId ? (
-                        <Link
-                          href={`/releases/${task.releaseId}`}
-                          className="hover:text-primary-400"
-                        >
-                          {releaseLabel}
-                        </Link>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-content-label">
-                      {formatDate(task.updatedAt)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {!loading && taskCards.length > 0 ? (
+        <div
+          data-task-card-grid
+          data-task-search-results={isSearch ? 'true' : undefined}
+          className={
+            isSearch
+              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'
+              : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4'
+          }
+        >
+          {taskCards.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              size={cardSize}
+              onComplete={canManage ? handleComplete : undefined}
+              onEdit={
+                canManage
+                  ? (id) => router.push(`/tasks/${id}?edit=1`)
+                  : undefined
+              }
+              onReassign={
+                canManage
+                  ? (id) => router.push(`/tasks/${id}?reassign=1`)
+                  : undefined
+              }
+              onDeleteRequest={canManage ? handleDelete : undefined}
+            />
+          ))}
         </div>
       ) : null}
 
