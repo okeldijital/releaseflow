@@ -16,14 +16,41 @@ interface SearchResult {
   subtitle?: string;
 }
 
-export function CommandPalette() {
-  const [open, setOpen] = useState(false);
+export interface CommandPaletteProps {
+  /** Controlled open state from the application shell top bar. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Seed query when opened from the global Search field. */
+  initialQuery?: string;
+}
+
+export function CommandPalette({
+  open: controlledOpen,
+  onOpenChange,
+  initialQuery = '',
+}: CommandPaletteProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const value = typeof next === 'function' ? next(open) : next;
+      if (controlledOpen === undefined) setInternalOpen(value);
+      onOpenChange?.(value);
+    },
+    [controlledOpen, onOpenChange, open],
+  );
   const [queryText, setQueryText] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selected, setSelected] = useState(0);
   const [searching, setSearching] = useState(false);
   const { activeOrgId } = useOrgStore();
   const router = useRouter();
+
+  useEffect(() => {
+    if (open && initialQuery) {
+      setQueryText(initialQuery);
+    }
+  }, [open, initialQuery]);
 
   const search = useCallback(async (q: string) => {
     if (q.length < 2) { setResults([]); return; }
@@ -189,10 +216,15 @@ export function CommandPalette() {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setOpen((prev) => !prev);
-        setQueryText('');
-        setResults([]);
-        setSelected(0);
+        setOpen((prev) => {
+          const next = !prev;
+          if (next) {
+            setQueryText('');
+            setResults([]);
+            setSelected(0);
+          }
+          return next;
+        });
       }
       if (e.key === 'Escape' && open) {
         e.preventDefault();
@@ -201,7 +233,7 @@ export function CommandPalette() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open]);
+  }, [open, setOpen]);
 
   useEffect(() => {
     if (!open) return;

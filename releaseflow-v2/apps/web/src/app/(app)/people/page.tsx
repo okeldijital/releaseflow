@@ -9,7 +9,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { usePeople } from '@/hooks/usePerson';
 import { useOrgStore } from '@/stores/org-store';
-import { searchPeople } from '@/lib/people-repository';
 import type { PersonRecord } from '@/lib/people-repository';
 import { fetchAssignments } from '@/lib/assignment-service';
 import type { AssignmentRecord } from '@/lib/assignment-service';
@@ -24,9 +23,7 @@ import type { PlatformRole } from '@/lib/invitation-service';
 import {
   archivePerson,
   restorePerson,
-  toPersonCardModels,
 } from '@/lib/person-service';
-import type { PersonCardModel } from '@/lib/person-card-model';
 import { PersonCard } from '@/components/people/PersonCard';
 import {
   Button,
@@ -34,7 +31,6 @@ import {
   EmptyState,
   LoadingState,
   Select,
-  Search,
 } from '@releaseflow/ui';
 import { toast } from '@/stores/toast-store';
 import { PLATFORM_ROLE_OPTIONS } from '@/lib/platform-roles';
@@ -60,8 +56,6 @@ export default function PeoplePage() {
     refresh,
   } = usePeople();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchCardModels, setSearchCardModels] = useState<PersonCardModel[] | null>(null);
   const [platformRoleFilter, setPlatformRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [releaseFilter, setReleaseFilter] = useState('all');
@@ -98,31 +92,8 @@ export default function PeoplePage() {
     return map;
   }, [allPeople]);
 
-  const displayCards = searchCardModels ?? personCards;
-  const isSearch = Boolean(searchQuery.trim() && searchCardModels);
-
   const filtered = useMemo(() => {
-    let result = displayCards;
-    if (searchQuery.trim() && !searchCardModels) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((card) => {
-        const person = personById.get(card.id);
-        if (!person) {
-          return (
-            card.displayName.toLowerCase().includes(q)
-            || card.email.toLowerCase().includes(q)
-            || card.subtitle.toLowerCase().includes(q)
-          );
-        }
-        const sec = resolvePersonSecurity(person, memberships, invitations);
-        return (
-          card.displayName.toLowerCase().includes(q)
-          || card.email.toLowerCase().includes(q)
-          || sec.platformRoleLabel.toLowerCase().includes(q)
-          || card.subtitle.toLowerCase().includes(q)
-        );
-      });
-    }
+    let result = personCards;
     if (platformRoleFilter !== 'all') {
       result = result.filter((card) => {
         const person = personById.get(card.id);
@@ -150,9 +121,7 @@ export default function PeoplePage() {
     }
     return result;
   }, [
-    displayCards,
-    searchQuery,
-    searchCardModels,
+    personCards,
     platformRoleFilter,
     statusFilter,
     releaseFilter,
@@ -161,24 +130,6 @@ export default function PeoplePage() {
     invitations,
     personById,
   ]);
-
-  async function handleSearch(q: string) {
-    setSearchQuery(q);
-    if (!q.trim() || !activeOrgId) {
-      setSearchCardModels(null);
-      return;
-    }
-    try {
-      const results = await searchPeople(activeOrgId, q);
-      setSearchCardModels(
-        await toPersonCardModels(activeOrgId, results, {
-          includeCounts: true,
-        }),
-      );
-    } catch {
-      setSearchCardModels([]);
-    }
-  }
 
   const handleArchive = useCallback(
     async (personId: string) => {
@@ -267,82 +218,58 @@ export default function PeoplePage() {
         </Link>
       </div>
 
-      <div className="mb-6 space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <Search
-              value={searchQuery}
-              onChange={handleSearch}
-              placeholder="Search by name, email, or role..."
-            />
-          </div>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <Select
-            label="Platform Role"
-            options={[
-              { value: 'all', label: 'All Roles' },
-              ...PLATFORM_ROLE_OPTIONS.map((r) => ({
-                value: r,
-                label: platformRoleLabel(r as PlatformRole),
-              })),
-            ]}
-            value={platformRoleFilter}
-            onChange={setPlatformRoleFilter}
-            className="w-48"
-          />
-          <Select
-            label="Status"
-            options={[
-              { value: 'all', label: 'All Status' },
-              { value: 'Active', label: 'Active' },
-              { value: 'Inactive', label: 'Inactive' },
-              { value: 'Pending Invitation', label: 'Pending Invitation' },
-              { value: 'Revoked', label: 'Revoked' },
-            ]}
-            value={statusFilter}
-            onChange={setStatusFilter}
-            className="w-48"
-          />
-          <Select
-            label="Release"
-            options={[{ value: 'all', label: 'All Releases' }, ...releaseOptions]}
-            value={releaseFilter}
-            onChange={setReleaseFilter}
-            className="w-48"
-          />
-        </div>
+      <div className="mb-6 flex items-center gap-3 flex-wrap">
+        <Select
+          label="Platform Role"
+          options={[
+            { value: 'all', label: 'All Roles' },
+            ...PLATFORM_ROLE_OPTIONS.map((r) => ({
+              value: r,
+              label: platformRoleLabel(r as PlatformRole),
+            })),
+          ]}
+          value={platformRoleFilter}
+          onChange={setPlatformRoleFilter}
+          className="w-48"
+        />
+        <Select
+          label="Status"
+          options={[
+            { value: 'all', label: 'All Status' },
+            { value: 'Active', label: 'Active' },
+            { value: 'Inactive', label: 'Inactive' },
+            { value: 'Pending Invitation', label: 'Pending Invitation' },
+            { value: 'Revoked', label: 'Revoked' },
+          ]}
+          value={statusFilter}
+          onChange={setStatusFilter}
+          className="w-48"
+        />
+        <Select
+          label="Release"
+          options={[{ value: 'all', label: 'All Releases' }, ...releaseOptions]}
+          value={releaseFilter}
+          onChange={setReleaseFilter}
+          className="w-48"
+        />
       </div>
 
       {filtered.length === 0 ? (
         <EmptyState
-          title={searchQuery ? 'No results found' : 'No collaborators yet'}
-          description={
-            searchQuery
-              ? `No collaborators match "${searchQuery}"`
-              : 'Invite collaborators to begin working on releases.'
-          }
-          action={
-            !searchQuery
-              ? { label: 'Invite Collaborator', onClick: () => {} }
-              : undefined
-          }
+          title="No collaborators yet"
+          description="Invite collaborators to begin working on releases."
+          action={{ label: 'Invite Collaborator', onClick: () => {} }}
         />
       ) : (
         <div
           data-person-card-grid
-          data-person-search-results={isSearch ? 'true' : undefined}
-          className={
-            isSearch
-              ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3'
-              : 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
-          }
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
         >
           {filtered.map((person) => (
             <PersonCard
               key={person.id}
               person={person}
-              size={isSearch ? 'compact' : 'standard'}
+              size="standard"
               onArchive={handleArchive}
               onRestore={handleRestore}
             />

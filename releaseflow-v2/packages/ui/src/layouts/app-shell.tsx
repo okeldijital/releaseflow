@@ -77,13 +77,9 @@ export function AppShell({
     });
   };
 
-  // Global keyboard shortcuts
+  // Global keyboard shortcuts (⌘K is owned by CommandPalette — do not double-bind)
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        onOpenCommandPalette?.();
-      }
       // ⌘\ to toggle sidebar
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
         e.preventDefault();
@@ -92,8 +88,7 @@ export function AppShell({
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onOpenCommandPalette]);
+  }, []);
 
   return (
     /*
@@ -145,7 +140,7 @@ export function AppShell({
               : undefined
           }
           title={title}
-          showSearch={!!onSearch}
+          showSearch
           onSearch={onSearch}
           notificationCount={notificationCount ?? 0}
           onOpenNotifications={onOpenNotifications}

@@ -11,7 +11,6 @@ import { getReleasesByTrack } from '@/lib/release-track-repository';
 import { editTrack, archiveTrackById, duplicateTrack, removeTrack } from '@/lib/track-service';
 import { fetchReleasesByOrg } from '@/lib/release-service';
 import { toast } from '@/stores/toast-store';
-import { useDebounce } from '@/hooks/useDebounce';
 import type { TrackRecord } from '@/lib/track-repository';
 import type { ReleaseRecord } from '@/lib/release-repository';
 import { ArtworkDisplay, ArtworkPlaceholder } from '@/components/release/artwork-display';
@@ -295,8 +294,6 @@ export default function TracksPage() {
   const [trackReleaseMap, setTrackReleaseMap] = useState<Record<string, string>>({});
   const [mappingsLoaded, setMappingsLoaded] = useState(false);
 
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 200);
   const [filterRelease, setFilterRelease] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterGenre, setFilterGenre] = useState('');
@@ -397,7 +394,6 @@ export default function TracksPage() {
       .map((group) => ({
         ...group,
         tracks: group.tracks.filter((t) => {
-          if (debouncedSearch && !t.title.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
           if (filterRelease && trackReleaseMap[t.id] !== filterRelease) return false;
           if (filterStatus && t.status !== filterStatus) return false;
           if (filterGenre && t.genre !== filterGenre) return false;
@@ -407,7 +403,6 @@ export default function TracksPage() {
       .filter((group) => group.tracks.length > 0);
 
     const filteredUnassigned = groupedTracks.unassigned.filter((t) => {
-      if (debouncedSearch && !t.title.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
       if (filterRelease) return false;
       if (filterStatus && t.status !== filterStatus) return false;
       if (filterGenre && t.genre !== filterGenre) return false;
@@ -415,7 +410,7 @@ export default function TracksPage() {
     });
 
     return { sortedGroups: filteredGroups, unassigned: filteredUnassigned };
-  }, [groupedTracks, debouncedSearch, filterRelease, filterStatus, filterGenre, trackReleaseMap]);
+  }, [groupedTracks, filterRelease, filterStatus, filterGenre, trackReleaseMap]);
 
   const sortedFilteredGroups = useMemo(() => {
     const groups = filteredGroupedTracks.sortedGroups.map((group) => ({
@@ -490,10 +485,9 @@ export default function TracksPage() {
     return { total, inProduction, ready, released };
   }, [tracks, trackReleaseMap, releaseMap]);
 
-  const hasActiveFilters = debouncedSearch || filterRelease || filterStatus || filterGenre;
+  const hasActiveFilters = Boolean(filterRelease || filterStatus || filterGenre);
 
   function clearFilters() {
-    setSearch('');
     setFilterRelease('');
     setFilterStatus('');
     setFilterGenre('');
@@ -554,46 +548,30 @@ export default function TracksPage() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-2">
-        <div className="flex-1">
-          <Input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search tracks..."
-            className="w-full"
-            leftIcon={
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            }
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="h-10 rounded-xl border border-divider bg-layer-3 px-3 text-sm text-content-primary focus:border-primary-500/60 focus:outline-none"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => setShowFilters(!showFilters)}
-            className={`h-10 px-3 rounded-xl border transition-colors ${
-              hasActiveFilters
-                ? 'border-primary-500/60 bg-primary-500/10 text-primary-400'
-                : 'border-divider text-content-secondary hover:text-content-primary'
-            }`}
-            aria-pressed={showFilters}
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-          </button>
-        </div>
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          className="h-10 rounded-xl border border-divider bg-layer-3 px-3 text-sm text-content-primary focus:border-primary-500/60 focus:outline-none"
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => setShowFilters(!showFilters)}
+          className={`h-10 px-3 rounded-xl border transition-colors ${
+            hasActiveFilters
+              ? 'border-primary-500/60 bg-primary-500/10 text-primary-400'
+              : 'border-divider text-content-secondary hover:text-content-primary'
+          }`}
+          aria-pressed={showFilters}
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+        </button>
       </div>
 
       {showFilters && (

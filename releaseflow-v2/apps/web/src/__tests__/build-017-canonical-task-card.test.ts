@@ -201,13 +201,14 @@ describe('BUILD-017 TaskCardModel + mapper', () => {
 });
 
 describe('BUILD-017 call sites consume TaskCard', () => {
-  it('tasks page uses TaskCard grid (search uses compact)', () => {
+  it('tasks page uses TaskCard grid (catalogue search is global shell)', () => {
     const page = readFileSync(tasksPagePath, 'utf8');
     expect(page).toContain('TaskCard');
     expect(page).toContain('taskCards');
     expect(page).toContain('data-task-card-grid');
-    expect(page).toContain("size={cardSize}");
-    expect(page).toContain("isSearch ? 'compact'");
+    expect(page).toContain('size="standard"');
+    // Page-level catalogue search removed — global top bar owns search
+    expect(page).not.toContain('placeholder="Search title or description');
     expect(page).not.toContain('<table');
     expect(page).not.toContain('resolvePersonNames');
   });

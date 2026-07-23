@@ -6,11 +6,10 @@ import { useRouter } from 'next/navigation';
 import { useOrgStore } from '@/stores/org-store';
 import { useReleases } from '@/hooks/useRelease';
 import { useNeedsAttentionReleases, useContinueWorking, useUpcomingReleases, useRecentlyUpdated } from '@/hooks/useRelease';
-import { Button, EmptyState, Input, LoadingState } from '@releaseflow/ui';
+import { Button, EmptyState, LoadingState } from '@releaseflow/ui';
 import { ReleaseCard, type ReleaseCardSize } from '@/components/release/cards/ReleaseCard';
 import { RELEASE_STATUS_CONFIG, RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-config';
 import type { Release } from '@/app/(app)/types';
-import { useDebounce } from '@/hooks/useDebounce';
 import { AuthorizationService } from '@/lib/auth/authorization-service';
 import {
   buildReleaseWorkspace,
@@ -207,8 +206,7 @@ export default function ReleasesPage() {
   const { releases, loading, error, refresh } = useReleases();
   const canCreate = AuthorizationService.canCreateRelease();
   const isCollab = AuthorizationService.isCollaboratorWorkspace();
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 300);
+
   const [view, setView] = useState<ViewMode>(() => {
     if (typeof window !== 'undefined') return (localStorage.getItem('rf-releases-view') as ViewMode) || 'grid';
     return 'grid';
@@ -229,9 +227,16 @@ export default function ReleasesPage() {
   }, [view]);
 
   const filteredAll = useMemo(() => {
-    const searched = filterReleases(releases as Release[], debouncedSearch, filterStatus, filterType, filterLifecycle, filterReadiness);
+    const searched = filterReleases(
+      releases as Release[],
+      '',
+      filterStatus,
+      filterType,
+      filterLifecycle,
+      filterReadiness,
+    );
     return sortReleases(searched, 'newest');
-  }, [releases, debouncedSearch, filterStatus, filterType, filterLifecycle, filterReadiness]);
+  }, [releases, filterStatus, filterType, filterLifecycle, filterReadiness]);
 
   // BUG-008B — workspace builder organizes only; catalogue integrity asserted in development.
   const workspaceSections = useMemo(
@@ -246,10 +251,13 @@ export default function ReleasesPage() {
     [filteredAll, needsAttention.data, continueWorking.data, upcomingReleases.data, recentlyUpdated.data],
   );
 
-  const hasActiveFilters = debouncedSearch || filterStatus.length > 0 || filterType.length > 0 || filterLifecycle.length > 0 || filterReadiness.length > 0;
+  const hasActiveFilters =
+    filterStatus.length > 0
+    || filterType.length > 0
+    || filterLifecycle.length > 0
+    || filterReadiness.length > 0;
 
   function clearFilters() {
-    setSearch('');
     setFilterStatus([]);
     setFilterType([]);
     setFilterLifecycle([]);
@@ -337,64 +345,51 @@ export default function ReleasesPage() {
         </div>
       </div>
 
-      {/* Search + Sort + View Toggle */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <div className="flex-1">
-          <Input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search releases..."
-            className="w-full"
-            leftIcon={
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            }
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            value="newest"
-            disabled
-            className="h-10 rounded-xl border border-surface-200 bg-layer-2 px-3 text-sm text-text-600 focus:border-primary-500/60 focus:outline-none opacity-60"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+      {/* Toolbar: Sort / Filters / View (search lives in global header) */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        <select
+          value="newest"
+          disabled
+          className="h-10 rounded-xl border border-surface-200 bg-layer-2 px-3 text-sm text-text-600 focus:border-primary-500/60 focus:outline-none opacity-60"
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => setShowFilters(!showFilters)}
+          className={`h-10 px-3 rounded-xl border transition-colors ${
+            hasActiveFilters
+              ? 'border-primary-500/60 bg-primary-500/10 text-primary-400'
+              : 'border-surface-200 text-text-400 hover:text-text-600'
+          }`}
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+        </button>
+        <div className="flex rounded-xl border border-surface-200 overflow-hidden">
           <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`h-10 px-3 rounded-xl border transition-colors ${
-              hasActiveFilters
-                ? 'border-primary-500/60 bg-primary-500/10 text-primary-400'
-                : 'border-surface-200 text-text-400 hover:text-text-600'
-            }`}
+            type="button"
+            onClick={() => setView('grid')}
+            className={`p-2 ${view === 'grid' ? 'bg-primary-500/10 text-primary-400' : 'text-text-400 hover:text-text-600'}`}
+            aria-label="Grid view"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
             </svg>
           </button>
-          <div className="flex rounded-xl border border-surface-200 overflow-hidden">
-            <button
-              onClick={() => setView('grid')}
-              className={`p-2 ${view === 'grid' ? 'bg-primary-500/10 text-primary-400' : 'text-text-400 hover:text-text-600'}`}
-              aria-label="Grid view"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-              </svg>
-            </button>
-            <button
-              onClick={() => setView('list')}
-              className={`p-2 ${view === 'list' ? 'bg-primary-500/10 text-primary-400' : 'text-text-400 hover:text-text-600'}`}
-              aria-label="List view"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-              </svg>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setView('list')}
+            className={`p-2 ${view === 'list' ? 'bg-primary-500/10 text-primary-400' : 'text-text-400 hover:text-text-600'}`}
+            aria-label="List view"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+          </button>
         </div>
       </div>
 

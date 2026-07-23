@@ -71,7 +71,6 @@ export default function ArtistsPage() {
     setStatusFilter,
     bumpArtistCatalogue,
   } = useArtists();
-  const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [sort, setSort] = useState('name-asc');
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -93,21 +92,13 @@ export default function ArtistsPage() {
   );
 
   const filteredArtists = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const list = q
-      ? artistCards.filter(
-          (a) =>
-            a.name.toLowerCase().includes(q) ||
-            (a.stageName?.toLowerCase().includes(q) ?? false) ||
-            (a.legalName?.toLowerCase().includes(q) ?? false),
-        )
+    const typeFiltered = filterType
+      ? artistCards.filter((a) => a.artistType === filterType)
       : artistCards;
-
-    const typeFiltered = filterType ? list.filter((a) => a.artistType === filterType) : list;
     return sortCardModels(typeFiltered, sort);
-  }, [artistCards, search, filterType, sort]);
+  }, [artistCards, filterType, sort]);
 
-  const hasActiveFilters = Boolean(search || filterType || statusFilter !== 'all');
+  const hasActiveFilters = Boolean(filterType || statusFilter !== 'all');
 
   const handleDeleteClick = useCallback(
     async (artistId: string, artistName: string) => {
@@ -296,40 +287,29 @@ export default function ArtistsPage() {
         ))}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-2">
-        <div className="flex-1">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search artists..."
-            className="block w-full h-10 rounded-xl border border-divider bg-layer-3 px-4 text-sm text-content-primary placeholder:text-content-label focus:border-primary-500/60 focus:outline-none"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="h-10 rounded-xl border border-divider bg-layer-3 px-3 text-sm text-content-primary focus:border-primary-500/60 focus:outline-none"
-          >
-            {TYPE_FILTERS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="h-10 rounded-xl border border-divider bg-layer-3 px-3 text-sm text-content-primary focus:border-primary-500/60 focus:outline-none"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          className="h-10 rounded-xl border border-divider bg-layer-3 px-3 text-sm text-content-primary focus:border-primary-500/60 focus:outline-none"
+        >
+          {TYPE_FILTERS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          className="h-10 rounded-xl border border-divider bg-layer-3 px-3 text-sm text-content-primary focus:border-primary-500/60 focus:outline-none"
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="h-3" />
@@ -350,14 +330,13 @@ export default function ArtistsPage() {
         />
       ) : filteredArtists.length === 0 ? (
         <EmptyState
-          title="No artists match your search"
-          description="Try adjusting your filters or search terms."
+          title="No artists match your filters"
+          description="Try adjusting your filters."
           action={
             hasActiveFilters
               ? {
                   label: 'Clear Filters',
                   onClick: () => {
-                    setSearch('');
                     setFilterType('');
                     setStatusFilter('all');
                   },

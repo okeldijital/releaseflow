@@ -260,6 +260,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { resolveRole, loading: roleLoading, isCollaborator } = useRoleStore();
   const [orgs, setOrgs] = useState<OrganizationRecord[]>([]);
   const { count: notificationCount } = useNotificationBadge();
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [commandPaletteQuery, setCommandPaletteQuery] = useState('');
 
   // AUTH-001: load AuthorizationService context when user/org changes.
   useEffect(() => {
@@ -432,6 +434,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         onSignOut={handleSignOut}
         notificationCount={notificationCount}
         onOpenNotifications={() => router.push('/notifications')}
+        onOpenCommandPalette={() => {
+          setCommandPaletteQuery('');
+          setCommandPaletteOpen(true);
+        }}
+        onSearch={(q) => {
+          setCommandPaletteQuery(q);
+          setCommandPaletteOpen(true);
+        }}
         bottomNav={
           isCollab ? (
             <BottomNav
@@ -485,7 +495,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
-      <CommandPalette />
+      <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+        initialQuery={commandPaletteQuery}
+      />
     </>
   );
 }

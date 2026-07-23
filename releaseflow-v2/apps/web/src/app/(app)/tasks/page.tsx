@@ -6,7 +6,7 @@
  * All task rows render through the canonical TaskCard.
  */
 
-import { useMemo, useState, useEffect, Suspense, useCallback } from 'react';
+import { useMemo, useState, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
@@ -21,7 +21,6 @@ import {
   Container,
   EmptyState,
   LoadingState,
-  Input,
 } from '@releaseflow/ui';
 
 const FILTERS: { id: TaskListFilter; label: string }[] = [
@@ -48,27 +47,17 @@ function TasksPageInner() {
     return perms.canManageAssignments ? 'all_open' : 'assigned_to_me';
   })();
   const [filter, setFilter] = useState<TaskListFilter>(initialFilter);
-  const [search, setSearch] = useState('');
-  const [searchDebounced, setSearchDebounced] = useState('');
-  const { taskCards, loading, error, refresh } = useTasks(filter, searchDebounced);
-
-  useEffect(() => {
-    const t = setTimeout(() => setSearchDebounced(search.trim()), 250);
-    return () => clearTimeout(t);
-  }, [search]);
+  const { taskCards, loading, error, refresh } = useTasks(filter, '');
 
   const canCreate = perms.canManageAssignments;
   const canManage = perms.canManageAssignments;
-  const isSearch = searchDebounced.length > 0;
-  const cardSize = isSearch ? 'compact' : 'standard';
 
   const emptyDescription = useMemo(() => {
-    if (isSearch) return 'No tasks match your search.';
     if (filter === 'assigned_to_me') return 'No tasks are assigned to you.';
     if (filter === 'overdue') return 'Nothing overdue.';
     if (filter === 'completed') return 'No completed tasks yet.';
     return 'Create a task to track work.';
-  }, [filter, isSearch]);
+  }, [filter]);
 
   const handleComplete = useCallback(
     async (taskId: string) => {
@@ -117,30 +106,21 @@ function TasksPageInner() {
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-1.5">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setFilter(f.id)}
-              className={`text-xs px-3 py-1.5 rounded-lg border min-h-[36px] transition-colors ${
-                filter === f.id
-                  ? 'border-primary-500 bg-primary-500/10 text-primary-400'
-                  : 'border-surface-200 text-content-secondary hover:border-primary-200'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <div className="w-full sm:w-64">
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search title or description…"
-          />
-        </div>
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        {FILTERS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setFilter(f.id)}
+            className={`text-xs px-3 py-1.5 rounded-lg border min-h-[36px] transition-colors ${
+              filter === f.id
+                ? 'border-primary-500 bg-primary-500/10 text-primary-400'
+                : 'border-surface-200 text-content-secondary hover:border-primary-200'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {loading ? <LoadingState /> : null}
@@ -155,18 +135,13 @@ function TasksPageInner() {
       {!loading && taskCards.length > 0 ? (
         <div
           data-task-card-grid
-          data-task-search-results={isSearch ? 'true' : undefined}
-          className={
-            isSearch
-              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'
-              : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4'
-          }
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
         >
           {taskCards.map((task) => (
             <TaskCard
               key={task.id}
               task={task}
-              size={cardSize}
+              size="standard"
               onComplete={canManage ? handleComplete : undefined}
               onEdit={
                 canManage

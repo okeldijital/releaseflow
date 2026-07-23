@@ -5,6 +5,10 @@ import {
   type OverflowMenuPosition,
 } from '../components/overflow-menu';
 import { Avatar } from '../components/avatar';
+import { Search } from '../components/search';
+
+/** BRAND-001 — same official mark as sidebar (no recolour). */
+const RELEASEFLOW_LOGO_SRC = '/icons/ReleaseFlow-Logo.svg';
 
 interface TopbarProps {
   collapsed: boolean;
@@ -14,6 +18,7 @@ interface TopbarProps {
   breadcrumbs?: ReactNode;
   title?: string;
   children?: ReactNode;
+  /** Always-on global search in the shell (default true). */
   showSearch?: boolean;
   onSearch?: (query: string) => void;
   notificationCount?: number;
@@ -29,11 +34,27 @@ interface TopbarProps {
   hideMobileToggle?: boolean;
 }
 
+/**
+ * Canonical global header:
+ * Logo | Sidebar Toggle | Global Search | Notifications | Avatar
+ */
 export function Topbar({
-  collapsed, onToggle, sidebarId, breadcrumbs: _breadcrumbs, title: _title, children,
-  showSearch = false, onSearch, notificationCount = 0,
-  onOpenNotifications, onOpenCommandPalette,
-  userEmail, userName, userImage, onSignOut, onNavigate,
+  collapsed,
+  onToggle,
+  sidebarId,
+  breadcrumbs: _breadcrumbs,
+  title: _title,
+  children,
+  showSearch = true,
+  onSearch,
+  notificationCount = 0,
+  onOpenNotifications,
+  onOpenCommandPalette,
+  userEmail,
+  userName,
+  userImage,
+  onSignOut,
+  onNavigate,
   hideMobileToggle,
 }: TopbarProps) {
   const [searchValue, setSearchValue] = useState('');
@@ -46,6 +67,10 @@ export function Topbar({
   function handleSearch(v: string) {
     setSearchValue(v);
     onSearch?.(v);
+  }
+
+  function openGlobalSearch() {
+    onOpenCommandPalette?.();
   }
 
   const closeUserMenu = useCallback((focusTrigger = true) => {
@@ -63,6 +88,14 @@ export function Topbar({
   }, []);
 
   const userMenuItems: OverflowMenuItem[] = [
+    {
+      id: 'profile',
+      label: 'Profile',
+      variant: 'secondary',
+      onClick: () => {
+        onNavigate?.('/profile');
+      },
+    },
     {
       id: 'administration',
       label: 'Administration',
@@ -115,18 +148,35 @@ export function Topbar({
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [userMenuOpen, userMenuActive, closeUserMenu]);
+  }, [userMenuOpen, userMenuActive, closeUserMenu, userMenuItems.length]);
 
   const avatarName = userName || userEmail || 'User';
 
   return (
-    <header className="sticky top-0 z-30 shrink-0 bg-transparent">
-      <div className="flex h-16 items-center justify-between gap-4 px-4 lg:px-6">
-        {/* Left Section: Mobile drawer toggle */}
-        <div className="flex min-w-0 items-center gap-3">
+    <header className="sticky top-0 z-30 shrink-0 bg-transparent border-b border-surface-200/40 backdrop-blur-sm">
+      <div className="flex h-16 items-center gap-3 px-3 sm:px-4 lg:px-6">
+        {/* Left: Logo + Sidebar toggle */}
+        <div className="flex min-w-0 items-center gap-2 shrink-0">
           <button
+            type="button"
+            onClick={() => onNavigate?.('/dashboard')}
+            className="flex items-center shrink-0 rounded-lg p-1 hover:bg-surface-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            aria-label="ReleaseFlow home"
+          >
+            <img
+              src={RELEASEFLOW_LOGO_SRC}
+              alt="ReleaseFlow"
+              width={36}
+              height={36}
+              className="h-8 w-8 sm:h-9 sm:w-9 object-contain"
+              decoding="async"
+              draggable={false}
+            />
+          </button>
+          <button
+            type="button"
             onClick={onToggle}
-            className={`rounded-lg p-2 text-content-primary hover:bg-surface-100 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${hideMobileToggle ? 'hidden md:inline-flex' : 'lg:hidden'}`}
+            className={`rounded-lg p-2 text-content-primary hover:bg-surface-100 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${hideMobileToggle ? 'hidden md:inline-flex' : ''}`}
             aria-label={collapsed ? 'Open navigation' : 'Close navigation'}
             aria-expanded={!collapsed}
             aria-controls={sidebarId}
@@ -137,53 +187,57 @@ export function Topbar({
           </button>
         </div>
 
-        {/* Center/Right Section: Search, Org Switcher, Notifications, User Menu */}
-        <div className="flex items-center gap-3 shrink-0">
-          {showSearch && (
-            <div className="relative w-full max-w-md hidden sm:block">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <svg className="h-4 w-4 text-content-label" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+        {/* Center: Global Search (500–700px, flex-centered) */}
+        {showSearch ? (
+          <div className="flex flex-1 min-w-0 justify-center px-1 sm:px-2">
+            <div className="relative w-full max-w-[min(100%,700px)] min-w-0 sm:min-w-[200px] md:min-w-[280px] lg:min-w-[360px]">
+              {/* Desktop / tablet: existing Search component */}
+              <div
+                className="hidden sm:block w-full"
+                onFocusCapture={openGlobalSearch}
+                onClick={openGlobalSearch}
+              >
+                <Search
+                  value={searchValue}
+                  onChange={handleSearch}
+                  placeholder="Search releases, tracks, artists, people..."
+                  className="w-full"
+                />
               </div>
-              <input
-                type="text"
-                role="searchbox"
-                placeholder="Search releases, tasks, assets..."
-                value={searchValue}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="block w-[300px] lg:w-[380px] rounded-xl border border-surface-200/70 bg-surface-50 py-1.5 pl-9 pr-14 text-sm text-content-primary placeholder:text-content-label focus:border-primary-400 focus:bg-layer-2 focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all duration-150"
-              />
-              {searchValue ? (
-                <button
-                  type="button"
-                  onClick={() => { setSearchValue(''); onSearch?.(''); }}
-                  className="absolute right-11 top-1/2 -translate-y-1/2 p-1 rounded-md text-content-label transition-colors"
-                  aria-label="Clear search"
-                >
-                  <svg className="h-3 w-3" viewBox="0 0 14 14" fill="currentColor">
-                    <path d="M3.646 3.646a.5.5 0 01.708 0L7 6.293l2.646-2.647a.5.5 0 01.708.708L7.707 7l2.647 2.646a.5.5 0 01-.708.708L7 7.707 4.354 10.354a.5.5 0 01-.708-.708L6.293 7 3.646 4.354a.5.5 0 010-.708z" />
-                  </svg>
-                </button>
+              {/* Mobile: same control pattern — open global search (no second search impl) */}
+              <button
+                type="button"
+                onClick={openGlobalSearch}
+                className="sm:hidden flex w-full items-center gap-2 h-10 rounded-md border border-surface-700 bg-surface-800 px-3 text-sm text-content-label"
+                aria-label="Open search"
+              >
+                <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path
+                    fillRule="evenodd"
+                    d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span className="truncate">Search…</span>
+              </button>
+              {onOpenCommandPalette ? (
+                <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center rounded border border-surface-200 bg-layer-2 px-1.5 py-0.5 text-caption font-medium text-content-label shadow-sm">
+                  ⌘K
+                </kbd>
               ) : null}
-              {onOpenCommandPalette && (
-                <button
-                  onClick={onOpenCommandPalette}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-0.5 rounded border border-surface-200 bg-layer-2 px-1.5 py-0.5 text-caption font-medium text-content-label shadow-sm hover:border-surface-300 transition-colors duration-150"
-                  aria-label="Open command palette"
-                >
-                  <kbd className="font-mono text-caption">⌘K</kbd>
-                </button>
-              )}
             </div>
-          )}
+          </div>
+        ) : (
+          <div className="flex-1 min-w-0" />
+        )}
 
-          {/* Org Switcher select element child */}
+        {/* Right: org switcher, notifications, avatar */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {children}
 
-          {/* Notification Center Trigger */}
-          {onOpenNotifications && (
+          {onOpenNotifications ? (
             <button
+              type="button"
               onClick={onOpenNotifications}
               className="relative rounded-lg p-2 text-content-primary hover:bg-surface-100 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
               aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount} unread)` : ''}`}
@@ -191,19 +245,19 @@ export function Topbar({
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
-              {notificationCount > 0 && (
+              {notificationCount > 0 ? (
                 <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-danger-500 text-caption font-bold text-surface-50 ring-2 ring-surface-0">
                   {notificationCount > 9 ? '9+' : notificationCount}
                 </span>
-              )}
+              ) : null}
             </button>
-          )}
+          ) : null}
 
-          {/* User Menu Dropdown */}
-          {userEmail && (
+          {userEmail ? (
             <div className="relative">
               <button
                 ref={userMenuTriggerRef}
+                type="button"
                 onClick={() => (userMenuOpen ? closeUserMenu(false) : openUserMenu())}
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-surface-200 shadow-sm hover:ring-2 hover:ring-primary-500/20 active:scale-95 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                 aria-label="User account menu"
@@ -217,7 +271,7 @@ export function Topbar({
                 />
               </button>
 
-              {userMenuOpen && userMenuPos && (
+              {userMenuOpen && userMenuPos ? (
                 <OverflowMenuPanel
                   items={userMenuItems}
                   position={userMenuPos}
@@ -236,9 +290,9 @@ export function Topbar({
                   }}
                   onClose={() => closeUserMenu(false)}
                 />
-              )}
+              ) : null}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </header>
@@ -258,7 +312,7 @@ export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
         {items.map((item, i) => (
           <li key={i} className="flex items-center gap-2 min-w-0">
             {i > 0 ? (
-                <svg className="h-3.5 w-3.5 text-content-label shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <svg className="h-3.5 w-3.5 text-content-label shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             ) : null}
