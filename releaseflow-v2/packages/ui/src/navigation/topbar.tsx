@@ -7,9 +7,6 @@ import {
 import { Avatar } from '../components/avatar';
 import { Search } from '../components/search';
 
-/** BRAND-001 — same official mark as sidebar (no recolour). */
-const RELEASEFLOW_LOGO_SRC = '/icons/ReleaseFlow-Logo.svg';
-
 interface TopbarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -36,7 +33,7 @@ interface TopbarProps {
 
 /**
  * Canonical global header:
- * Logo | Sidebar Toggle | Global Search | Notifications | Avatar
+ * Org Switcher | Hamburger (mobile/tablet) | Global Search | Notifications | Avatar
  */
 export function Topbar({
   collapsed,
@@ -155,28 +152,12 @@ export function Topbar({
   return (
     <header className="sticky top-0 z-30 shrink-0 bg-transparent border-b border-surface-200/40 backdrop-blur-sm">
       <div className="flex h-16 items-center gap-3 px-3 sm:px-4 lg:px-6">
-        {/* Left: Logo + Sidebar toggle */}
-        <div className="flex min-w-0 items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => onNavigate?.('/dashboard')}
-            className="flex items-center shrink-0 rounded-lg p-1 hover:bg-surface-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            aria-label="ReleaseFlow home"
-          >
-            <img
-              src={RELEASEFLOW_LOGO_SRC}
-              alt="ReleaseFlow"
-              width={36}
-              height={36}
-              className="h-8 w-8 sm:h-9 sm:w-9 object-contain"
-              decoding="async"
-              draggable={false}
-            />
-          </button>
+        {/* Left: Hamburger (mobile/tablet only) + Org switcher / global controls */}
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={onToggle}
-            className={`rounded-lg p-2 text-content-primary hover:bg-surface-100 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${hideMobileToggle ? 'hidden md:inline-flex' : ''}`}
+            className={`rounded-lg p-2 text-content-primary hover:bg-surface-100 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 lg:hidden ${hideMobileToggle ? 'hidden md:inline-flex' : ''}`}
             aria-label={collapsed ? 'Open navigation' : 'Close navigation'}
             aria-expanded={!collapsed}
             aria-controls={sidebarId}
@@ -185,6 +166,7 @@ export function Topbar({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
+          {children}
         </div>
 
         {/* Center: Global Search (500–700px, flex-centered) */}
@@ -231,9 +213,8 @@ export function Topbar({
           <div className="flex-1 min-w-0" />
         )}
 
-        {/* Right: org switcher, notifications, avatar */}
+        {/* Right: notifications, avatar */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {children}
 
           {onOpenNotifications ? (
             <button
