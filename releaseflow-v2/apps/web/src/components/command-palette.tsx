@@ -317,7 +317,7 @@ export function CommandPalette({
                 onClick={() => navigate(item.href)}
                 role="option"
                 aria-selected={i === selected}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${i === selected ? 'bg-primary-500/10' : 'hover:bg-layer-3'}`}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 ${i === selected ? 'bg-primary-500/10' : 'hover:bg-layer-3'}`}
               >
                 <span className={`text-xs rounded px-1.5 py-0.5 shrink-0 ${
                   item.type === 'release' ? 'bg-primary-50 text-primary-600' :
