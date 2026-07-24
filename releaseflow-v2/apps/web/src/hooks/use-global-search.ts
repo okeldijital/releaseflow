@@ -41,8 +41,9 @@ export function useGlobalSearch(
           setResults(data);
           setSearching(false);
         }
-      } catch {
+      } catch (err) {
         if (!controller.signal.aborted) {
+          console.error('[useGlobalSearch]', err);
           setError(true);
           setSearching(false);
         }
