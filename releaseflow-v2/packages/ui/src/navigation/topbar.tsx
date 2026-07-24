@@ -15,6 +15,8 @@ interface TopbarProps {
   breadcrumbs?: ReactNode;
   title?: string;
   children?: ReactNode;
+  /** Logo node rendered in the header (e.g. ReleaseFlowLogo). */
+  logo?: ReactNode;
   /** Always-on global search in the shell (default true). */
   showSearch?: boolean;
   onSearch?: (query: string) => void;
@@ -42,6 +44,7 @@ export function Topbar({
   breadcrumbs: _breadcrumbs,
   title: _title,
   children,
+  logo,
   showSearch = true,
   onSearch,
   notificationCount = 0,
@@ -152,7 +155,7 @@ export function Topbar({
   return (
     <header className="sticky top-0 z-30 shrink-0 bg-transparent border-b border-surface-200/40 backdrop-blur-sm">
       <div className="flex h-16 items-center gap-3 px-3 sm:px-4 lg:px-6">
-        {/* Left: Hamburger (mobile/tablet only) + Org switcher / global controls */}
+        {/* Left: Hamburger (mobile/tablet only) + Logo + Org switcher / global controls */}
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
@@ -166,6 +169,7 @@ export function Topbar({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
+          {logo ? <div className="flex items-center shrink-0">{logo}</div> : null}
           {children}
         </div>
 

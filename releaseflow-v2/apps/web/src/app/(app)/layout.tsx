@@ -11,6 +11,7 @@ import { signOut as firebaseSignOut } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
 import { AppShell, Skeleton, BottomNav } from '@releaseflow/ui';
 import { CommandPalette } from '@/components/command-palette';
+import { ReleaseFlowLogo } from '@/components/branding/releaseflow-logo';
 import type { NavItem, NavSection } from '@releaseflow/ui';
 import { getOrganizationsByUser } from '@/lib/organization-repository';
 import type { OrganizationRecord } from '@/lib/organization-repository';
@@ -442,6 +443,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           setCommandPaletteQuery(q);
           setCommandPaletteOpen(true);
         }}
+        logo={<ReleaseFlowLogo width={32} />}
         bottomNav={
           isCollab ? (
             <BottomNav

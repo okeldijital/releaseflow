@@ -40,24 +40,6 @@ function isActive(activePath: string, item: NavItem): boolean {
   return activePath === item.href || activePath.startsWith(item.href + '/');
 }
 
-/** BRAND-001 — official logo from app public assets (no recolour / no badge). */
-const RELEASEFLOW_LOGO_SRC = '/icons/ReleaseFlow-Logo.svg';
-
-function BrandLogo({ collapsed }: { collapsed: boolean }) {
-  const size = collapsed ? 32 : 112;
-  return (
-    <img
-      src={RELEASEFLOW_LOGO_SRC}
-      alt="ReleaseFlow"
-      width={size}
-      height={size}
-      className="shrink-0 object-contain"
-      style={{ width: size, height: 'auto', maxWidth: size, aspectRatio: '1 / 1' }}
-      decoding="async"
-      draggable={false}
-    />
-  );
-}
 
 function SignOutIcon() {
   return (
@@ -130,6 +112,7 @@ export function Sidebar({
       firstFocusable?.focus();
     }
   }, [collapsed]);
+
 
   const grouped = items.reduce(
     (acc, item) => {
@@ -266,12 +249,7 @@ export function Sidebar({
           </svg>
         </button>
 
-        {/* ── Zone 1 — Brand (BRAND-001 official logo; wordmark is in the asset) ─ */}
-        <div className="flex h-16 items-center px-4 shrink-0 overflow-hidden">
-          <BrandLogo collapsed={collapsed} />
-        </div>
-
-        {/* ── Zone 2 — Navigation ─────────────────────────────────── */}
+        {/* ── Navigation ─────────────────────────────────── */}
         <nav className="flex-1 overflow-y-auto py-4 space-y-4 px-3" aria-label="Site navigation">
           {sectionOrder.map((key) => {
             const groupItems = grouped[key];
@@ -350,7 +328,7 @@ export function Sidebar({
           })}
         </nav>
 
-          {/* ── Zone 3 — User / Sign Out ─────────────────── */}
+          {/* ── User / Sign Out ─────────────────── */}
           <div className="shrink-0 p-3 space-y-1">
             {/* User card */}
           <div className="hidden lg:block">

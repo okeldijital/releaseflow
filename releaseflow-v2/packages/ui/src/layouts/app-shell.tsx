@@ -17,6 +17,8 @@ interface AppShellProps {
   breadcrumbItems?: { label: string; href?: string }[];
   title?: string;
   topbarChildren?: ReactNode;
+  /** Logo node rendered in the Topbar (e.g. ReleaseFlowLogo). */
+  logo?: ReactNode;
   children: ReactNode;
   onSearch?: (query: string) => void;
   notificationCount?: number;
@@ -42,6 +44,7 @@ export function AppShell({
   breadcrumbItems,
   title,
   topbarChildren,
+  logo,
   children,
   onSearch,
   notificationCount,
@@ -95,8 +98,10 @@ export function AppShell({
      * Root frame: full viewport, no overflow.
      * `overflow-hidden` on the root prevents double scrollbars — only the
      * main content column scrolls internally.
+     *
+     * Flex column layout: full-width Topbar on top, then sidebar + content row.
      */
-    <div className="flex h-screen overflow-hidden bg-layer-1 text-content-primary">
+    <div className="flex h-screen flex-col overflow-hidden bg-layer-1 text-content-primary">
       <div className="app-canvas-glow" aria-hidden="true" />
 
       {/* ── Skip link (accessibility) ────────────────────────────────── */}
@@ -107,53 +112,54 @@ export function AppShell({
         Skip to main content
       </a>
 
-      {/* ── Sidebar ──────────────────────────────────────────────────── */}
-      {/*
-       * Render nothing until mounted so we avoid hydration mismatch from
-       * localStorage. The skeleton loading state in layout.tsx covers this.
-       */}
-      {mounted && (
-        <Sidebar
-          items={navItems}
-          sections={navSections}
-          activePath={activePath}
-          onNavigate={onNavigate}
-          userEmail={userEmail}
-          userName={userName}
-          userImage={userImage}
-          onSignOut={onSignOut}
-          collapsed={collapsed}
-          onToggle={handleToggle}
-          hideMobile={hideMobileSidebar}
-        />
-      )}
+      {/* ── Full-width header ────────────────────────────────────────── */}
+      <Topbar
+        collapsed={collapsed}
+        onToggle={handleToggle}
+        sidebarId="rf-sidebar"
+        breadcrumbs={
+          breadcrumbItems && breadcrumbItems.length > 0
+            ? <Breadcrumbs items={breadcrumbItems} />
+            : undefined
+        }
+        title={title}
+        showSearch
+        onSearch={onSearch}
+        notificationCount={notificationCount ?? 0}
+        onOpenNotifications={onOpenNotifications}
+        onOpenCommandPalette={onOpenCommandPalette}
+        userEmail={userEmail}
+        userName={userName}
+        userImage={userImage}
+        onSignOut={onSignOut}
+        onNavigate={onNavigate}
+        hideMobileToggle={hideMobileSidebar}
+        logo={logo}
+      >
+        {topbarChildren}
+      </Topbar>
 
-      {/* ── Content column ───────────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden relative">
-        <Topbar
-          collapsed={collapsed}
-          onToggle={handleToggle}
-          sidebarId="rf-sidebar"
-          breadcrumbs={
-            breadcrumbItems && breadcrumbItems.length > 0
-              ? <Breadcrumbs items={breadcrumbItems} />
-              : undefined
-          }
-          title={title}
-          showSearch
-          onSearch={onSearch}
-          notificationCount={notificationCount ?? 0}
-          onOpenNotifications={onOpenNotifications}
-          onOpenCommandPalette={onOpenCommandPalette}
-          userEmail={userEmail}
-          userName={userName}
-          userImage={userImage}
-          onSignOut={onSignOut}
-          onNavigate={onNavigate}
-          hideMobileToggle={hideMobileSidebar}
-        >
-          {topbarChildren}
-        </Topbar>
+      {/* ── Sidebar + Content row ─────────────────────────────────────── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden relative">
+        {/*
+         * Render nothing until mounted so we avoid hydration mismatch from
+         * localStorage. The skeleton loading state in layout.tsx covers this.
+         */}
+        {mounted && (
+          <Sidebar
+            items={navItems}
+            sections={navSections}
+            activePath={activePath}
+            onNavigate={onNavigate}
+            userEmail={userEmail}
+            userName={userName}
+            userImage={userImage}
+            onSignOut={onSignOut}
+            collapsed={collapsed}
+            onToggle={handleToggle}
+            hideMobile={hideMobileSidebar}
+          />
+        )}
 
         {/* Main scrollable area */}
         <main
