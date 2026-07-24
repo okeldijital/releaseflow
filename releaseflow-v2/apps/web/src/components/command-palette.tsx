@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Badge } from '@releaseflow/ui';
 import { useOrgStore } from '@/stores/org-store';
 import { useGlobalSearch } from '@/hooks/use-global-search';
 
@@ -162,15 +163,19 @@ export function CommandPalette({
                 aria-selected={i === selected}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 ${i === selected ? 'bg-primary-500/10' : 'hover:bg-layer-3'}`}
               >
-                <span className={`text-xs rounded px-1.5 py-0.5 shrink-0 ${
-                  item.type === 'release' ? 'bg-primary-50 text-primary-600' :
-                  item.type === 'artist' ? 'bg-info-50 text-info-600' :
-                  item.type === 'campaign' ? 'bg-success-50 text-success-600' :
-                  item.type === 'track' ? 'bg-warning-50 text-warning-700' :
-                  item.type === 'person' ? 'bg-secondary-50 text-secondary-600' :
-                  item.type === 'task' ? 'bg-accent-50 text-accent-700' :
-                   'bg-surface-100 text-content-secondary'
-                }`}>{item.type}</span>
+                <Badge
+                  label={item.type}
+                  color={
+                    item.type === 'release' ? 'bg-primary-50 text-primary-600' :
+                    item.type === 'artist' ? 'bg-info-50 text-info-600' :
+                    item.type === 'campaign' ? 'bg-success-50 text-success-600' :
+                    item.type === 'track' ? 'bg-warning-50 text-warning-700' :
+                    item.type === 'person' ? 'bg-secondary-50 text-secondary-600' :
+                    item.type === 'task' ? 'bg-danger-50 text-danger-600' :
+                     'bg-surface-100 text-text-600'
+                  }
+                  size="sm"
+                />
                 <span className="min-w-0 flex-1">
                   <span className="truncate text-content-primary block">{item.title}</span>
                   {item.subtitle ? (
