@@ -2,25 +2,20 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, getDocs, orderBy, limit } from '@firebase/firestore';
-import { getDb } from '@/lib/firebase';
-import { fetchArtistSearch } from '@/lib/artist-service';
 import { useOrgStore } from '@/stores/org-store';
+import { useGlobalSearch } from '@/hooks/use-global-search';
 
-interface SearchResult {
+interface DisplayItem {
   id: string;
   title: string;
-  type: 'release' | 'artist' | 'campaign' | 'contributor' | 'track';
-  href: string;
-  /** EPIC-202A — secondary line (e.g. Featured Artist role) */
+  type: string;
+  url: string;
   subtitle?: string;
 }
 
 export interface CommandPaletteProps {
-  /** Controlled open state from the application shell top bar. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  /** Seed query when opened from the global Search field. */
   initialQuery?: string;
 }
 
@@ -40,10 +35,9 @@ export function CommandPalette({
     [controlledOpen, onOpenChange, open],
   );
   const [queryText, setQueryText] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
   const [selected, setSelected] = useState(0);
-  const [searching, setSearching] = useState(false);
   const { activeOrgId } = useOrgStore();
+  const { results, searching, error } = useGlobalSearch(queryText, activeOrgId);
   const router = useRouter();
 
   useEffect(() => {
@@ -51,166 +45,6 @@ export function CommandPalette({
       setQueryText(initialQuery);
     }
   }, [open, initialQuery]);
-
-  const search = useCallback(async (q: string) => {
-    if (q.length < 2) { setResults([]); return; }
-    setSearching(true);
-    const db = getDb();
-    if (!db) return;
-
-    const all: SearchResult[] = [];
-
-    if (activeOrgId) {
-      const relSnap = await getDocs(query(
-        collection(db, 'releases'),
-        where('organizationId', '==', activeOrgId),
-        orderBy('title'),
-        limit(10),
-      ));
-      for (const d of relSnap.docs) {
-        const data = d.data();
-        const title = data.title as string;
-        if (!title) continue;
-        const lifecycle = data.lifecycle as string;
-        const actionLabel = lifecycle === 'draft' ? 'Continue Editing' : 'Open Release';
-        const href = `/releases/${d.id}`;
-        if ((q.toLowerCase()).length === 0 || title.toLowerCase().includes(q.toLowerCase())) {
-          all.push({ id: d.id, title, type: 'release', href, subtitle: actionLabel });
-        }
-      }
-    }
-
-    if (activeOrgId) {
-      const artists = await fetchArtistSearch(activeOrgId, q);
-      artists.slice(0, 5).forEach((a) => {
-        all.push({ id: a.id, title: a.name, type: 'artist', href: `/artists/${a.id}` });
-      });
-
-      // EPIC-202A — track search by title / displayTitle / linked artist names
-      try {
-        const { fetchTracksByOrg } = await import('@/lib/track-service');
-        const { fetchArtist } = await import('@/lib/artist-service');
-        const { resolveTrackDisplayTitle } = await import('@/lib/display-title');
-        const { resolveRecordingType } = await import('@/lib/recording-type');
-        const tracks = await fetchTracksByOrg(activeOrgId);
-        const qLower = q.toLowerCase();
-        const nameCache = new Map<string, string>();
-
-        const orgId = activeOrgId;
-        async function nameFor(id: string): Promise<string> {
-          const cached = nameCache.get(id);
-          if (cached !== undefined) return cached;
-          const a = await fetchArtist(orgId, id);
-          const n = a?.name ?? '';
-          nameCache.set(id, n);
-          return n;
-        }
-
-        for (const t of tracks) {
-          if (all.filter((r) => r.type === 'track').length >= 5) break;
-
-          const titleMatch =
-            t.title.toLowerCase().includes(qLower) ||
-            (t.displayTitle ?? '').toLowerCase().includes(qLower);
-
-          const originalIds = [
-            ...(t.originalArtistIds ?? []),
-            t.primaryArtistId,
-            t.originalArtistId,
-          ].filter(Boolean) as string[];
-          const featuredIds = t.featuredArtistIds ?? [];
-          const remixIds = [
-            ...(t.remixArtistIds ?? []),
-            t.remixerArtistId,
-          ].filter(Boolean) as string[];
-
-          let roleHit: string | null = null;
-          let originalNames: string[] = [];
-          let featuredNames: string[] = [];
-          let remixNames: string[] = [];
-
-          if (!titleMatch) {
-            for (const id of originalIds) {
-              const n = await nameFor(id);
-              if (n && n.toLowerCase().includes(qLower)) {
-                roleHit = 'Original Artist';
-                break;
-              }
-            }
-            if (!roleHit) {
-              for (const id of featuredIds) {
-                const n = await nameFor(id);
-                if (n && n.toLowerCase().includes(qLower)) {
-                  roleHit = 'Featured Artist';
-                  break;
-                }
-              }
-            }
-            if (!roleHit) {
-              for (const id of remixIds) {
-                const n = await nameFor(id);
-                if (n && n.toLowerCase().includes(qLower)) {
-                  roleHit = 'Remix Artist';
-                  break;
-                }
-              }
-            }
-            if (!roleHit) continue;
-          }
-
-          originalNames = await Promise.all(originalIds.map(nameFor));
-          featuredNames = await Promise.all(featuredIds.map(nameFor));
-          remixNames = await Promise.all(remixIds.map(nameFor));
-          originalNames = originalNames.filter(Boolean);
-          featuredNames = featuredNames.filter(Boolean);
-          remixNames = remixNames.filter(Boolean);
-
-          const display = resolveTrackDisplayTitle({
-            title: t.title,
-            displayTitle: t.displayTitle,
-            displayTitleEdited: t.displayTitleEdited,
-            originalArtistNames: originalNames,
-            featuredArtistNames: featuredNames,
-            remixArtistNames: remixNames,
-            isRemix: resolveRecordingType(t.recordingType) === 'remix',
-            includeOriginalPrefix: false,
-          });
-
-          all.push({
-            id: t.id,
-            title: display,
-            type: 'track',
-            href: `/tracks/${t.id}`,
-            subtitle: roleHit ?? undefined,
-          });
-        }
-      } catch {
-        /* track search best-effort */
-      }
-    }
-
-    if (activeOrgId) {
-      const campSnap = await getDocs(query(
-        collection(db, 'campaigns'),
-        orderBy('name'),
-        limit(5),
-      ));
-      campSnap.docs.forEach((d) => {
-        const data = d.data();
-        if ((data.name as string)?.toLowerCase().includes(q.toLowerCase())) {
-          all.push({ id: d.id, title: data.name as string, type: 'campaign', href: `/campaigns/${d.id}` });
-        }
-      });
-    }
-
-    setResults(all.slice(0, 10));
-    setSearching(false);
-  }, [activeOrgId]);
-
-  useEffect(() => {
-    const t = setTimeout(() => { search(queryText); }, 200);
-    return () => clearTimeout(t);
-  }, [queryText, search]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -220,7 +54,6 @@ export function CommandPalette({
           const next = !prev;
           if (next) {
             setQueryText('');
-            setResults([]);
             setSelected(0);
           }
           return next;
@@ -256,22 +89,30 @@ export function CommandPalette({
 
   if (!open) return null;
 
-  const navigate = (href: string) => {
+  const navigate = (url: string) => {
     setOpen(false);
-    router.push(href);
+    router.push(url);
   };
 
-  const navItems: SearchResult[] = [
-    { id: 'nav-dash', title: 'Dashboard', type: 'contributor', href: '/dashboard' },
-    { id: 'nav-rel', title: 'Releases', type: 'release', href: '/releases' },
-    { id: 'nav-art', title: 'Artists', type: 'artist', href: '/artists' },
-    { id: 'nav-camp', title: 'Campaigns', type: 'campaign', href: '/campaigns' },
-    { id: 'nav-ops', title: 'Operations Center', type: 'contributor', href: '/dashboard' },
-    { id: 'nav-app', title: 'Approvals', type: 'contributor', href: '/approvals' },
-    { id: 'nav-con', title: 'Contributor', type: 'contributor', href: '/contributor' },
+  const navItems: DisplayItem[] = [
+    { id: 'nav-dash', title: 'Dashboard', type: 'dashboard', url: '/dashboard' },
+    { id: 'nav-rel', title: 'Releases', type: 'release', url: '/releases' },
+    { id: 'nav-art', title: 'Artists', type: 'artist', url: '/artists' },
+    { id: 'nav-camp', title: 'Campaigns', type: 'campaign', url: '/campaigns' },
+    { id: 'nav-ops', title: 'Operations Center', type: 'dashboard', url: '/dashboard' },
+    { id: 'nav-app', title: 'Approvals', type: 'dashboard', url: '/approvals' },
+    { id: 'nav-con', title: 'Contributor', type: 'dashboard', url: '/contributor' },
   ];
 
-  const display = queryText ? results : navItems;
+  const display: DisplayItem[] = queryText
+    ? results.map((r) => ({
+        id: r.id,
+        title: r.title,
+        type: r.type,
+        url: r.url,
+        subtitle: r.subtitle,
+      }))
+    : navItems;
 
   return (
     <>
@@ -291,7 +132,7 @@ export function CommandPalette({
             onKeyDown={(e) => {
               if (e.key === 'ArrowDown') { e.preventDefault(); setSelected((s) => Math.min(s + 1, display.length - 1)); }
               if (e.key === 'ArrowUp') { e.preventDefault(); setSelected((s) => Math.max(s - 1, 0)); }
-              if (e.key === 'Enter') { const item = display[selected]; if (item) navigate(item.href); }
+              if (e.key === 'Enter') { const item = display[selected]; if (item) navigate(item.url); }
             }}
             placeholder="Search releases, tracks, artists..."
             className="flex-1 bg-transparent text-sm text-content-primary placeholder:text-content-label outline-none"
@@ -305,8 +146,10 @@ export function CommandPalette({
 
         {searching ? (
           <div className="p-4 text-sm text-content-label text-center" role="status">Searching...</div>
+        ) : error ? (
+          <div className="p-4 text-sm text-content-label text-center" role="alert">Unable to search. Please try again.</div>
         ) : display.length === 0 ? (
-          <div className="p-4 text-sm text-content-label text-center" role="status">No results found.</div>
+          <div className="p-4 text-sm text-content-label text-center" role="status">{queryText ? 'No results found. Try another search.' : 'No results found.'}</div>
         ) : (
           <div className="max-h-64 overflow-y-auto py-2" id="palette-results" role="listbox">
             {!queryText ? <p className="px-4 py-1 text-xs font-medium text-content-label uppercase">Navigate</p> : null}
@@ -314,7 +157,7 @@ export function CommandPalette({
               <button
                 key={item.id}
                 id={`palette-option-${i}`}
-                onClick={() => navigate(item.href)}
+                onClick={() => navigate(item.url)}
                 role="option"
                 aria-selected={i === selected}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 ${i === selected ? 'bg-primary-500/10' : 'hover:bg-layer-3'}`}
@@ -324,12 +167,14 @@ export function CommandPalette({
                   item.type === 'artist' ? 'bg-info-50 text-info-600' :
                   item.type === 'campaign' ? 'bg-success-50 text-success-600' :
                   item.type === 'track' ? 'bg-warning-50 text-warning-700' :
+                  item.type === 'person' ? 'bg-secondary-50 text-secondary-600' :
+                  item.type === 'task' ? 'bg-accent-50 text-accent-700' :
                    'bg-surface-100 text-content-secondary'
                 }`}>{item.type}</span>
                 <span className="min-w-0 flex-1">
                   <span className="truncate text-content-primary block">{item.title}</span>
                   {item.subtitle ? (
-                    <span className="truncate text-xs text-content-label block">Role: {item.subtitle}</span>
+                    <span className="truncate text-xs text-content-label block">{item.subtitle}</span>
                   ) : null}
                 </span>
               </button>
