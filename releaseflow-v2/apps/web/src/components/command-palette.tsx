@@ -275,7 +275,7 @@ export function CommandPalette({
 
   return (
     <>
-      <div className="fixed inset-0 z-[90] bg-black/30" onClick={() => setOpen(false)} aria-hidden="true" />
+      <div className="fixed inset-0 z-[90] bg-surface-900/40 backdrop-blur-sm" onClick={() => setOpen(false)} aria-hidden="true" />
       <div
         className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[91] w-full max-w-lg bg-layer-2 rounded-xl border border-surface-200 shadow-modal overflow-hidden"
         role="dialog"
@@ -300,7 +300,7 @@ export function CommandPalette({
             aria-controls="palette-results"
             aria-activedescendant={display[selected] ? `palette-option-${selected}` : undefined}
           />
-          <kbd className="text-xs text-content-label bg-surface-100 rounded px-1.5 py-0.5">ESC</kbd>
+          <kbd className="text-xs text-content-label bg-layer-2 border border-surface-200 rounded px-1.5 py-0.5">ESC</kbd>
         </div>
 
         {searching ? (
@@ -317,13 +317,13 @@ export function CommandPalette({
                 onClick={() => navigate(item.href)}
                 role="option"
                 aria-selected={i === selected}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${i === selected ? 'bg-surface-100' : 'hover:bg-surface-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${i === selected ? 'bg-primary-500/10' : 'hover:bg-layer-3'}`}
               >
                 <span className={`text-xs rounded px-1.5 py-0.5 shrink-0 ${
-                  item.type === 'release' ? 'bg-primary-50 text-primary-500' :
-                  item.type === 'artist' ? 'bg-info-50 text-info-500' :
-                  item.type === 'campaign' ? 'bg-success-50 text-success-500' :
-                  item.type === 'track' ? 'bg-warning-50 text-warning-600' :
+                  item.type === 'release' ? 'bg-primary-50 text-primary-600' :
+                  item.type === 'artist' ? 'bg-info-50 text-info-600' :
+                  item.type === 'campaign' ? 'bg-success-50 text-success-600' :
+                  item.type === 'track' ? 'bg-warning-50 text-warning-700' :
                    'bg-surface-100 text-content-secondary'
                 }`}>{item.type}</span>
                 <span className="min-w-0 flex-1">
