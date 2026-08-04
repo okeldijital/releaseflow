@@ -24,9 +24,46 @@ export function ReleaseWizard({ mode = 'create', releaseId, draftId }: { mode?: 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [showSaveOnCancel, setShowSaveOnCancel] = useState(false);
   const [showNavWarning, setShowNavWarning] = useState(false);
-  const { user, activeOrgId, step, STEPS, currentStepKey, stepProps, handlers, labelOptions, assignerOpen, setAssignerOpen, assignerLabel, assignerRole, assignerTrackId, assignerField, assignerCallback, loadingEdit, editForbidden, hasUnsavedChanges, savingDraft, saveState, lastSavedAt } = wizard;
+  const {
+    user,
+    activeOrgId,
+    step,
+    setStep,
+    STEPS,
+    totalSteps,
+    currentStepKey,
+    stepProps,
+    handlers,
+    labelOptions,
+    assignerOpen,
+    setAssignerOpen,
+    assignerLabel,
+    assignerRole,
+    assignerTrackId,
+    assignerField,
+    assignerCallback,
+    loadingEdit,
+    editForbidden,
+    hasUnsavedChanges,
+    savingDraft,
+    saveState,
+    lastSavedAt,
+  } = wizard;
 
   useUnsavedChanges(hasUnsavedChanges);
+
+  // BUILD-028 — title sourced from existing draft/wizard state (Step 1 / releaseTitle)
+  const displayReleaseTitle = stepProps.releaseTitle.trim() || 'Untitled Release';
+  const stepLabel = `Draft Release • Step ${step + 1} of ${totalSteps}`;
+  const canGoBack = step > 0;
+  const canGoNext = step < totalSteps - 1;
+
+  /** Progress dots: completed + current use setStep; future locked (same as no multi-step skip via next). */
+  function goToStep(index: number) {
+    if (index < 0 || index >= totalSteps) return;
+    if (index > step) return;
+    setStep(index);
+  }
 
   // Navigation protection for browser back/forward
   useEffect(() => {
@@ -63,30 +100,93 @@ export function ReleaseWizard({ mode = 'create', releaseId, draftId }: { mode?: 
 
   return (
     <div className="mx-auto max-w-lg px-5 sm:px-7 py-12 page-transition">
-      <div className="flex items-center justify-between mb-8">
-        <button
-          type="button"
-          onClick={() => {
-            if (hasUnsavedChanges) {
-              setShowSaveOnCancel(true);
-            } else {
-              setCancelOpen(true);
-            }
-          }}
-          className="flex items-center gap-1 text-sm text-text-400 hover:text-text-200 transition-colors"
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Cancel
-        </button>
-        <SaveDraftButton onClick={handlers.saveDraft} loading={savingDraft} state={saveState} lastSavedAt={lastSavedAt} />
-      </div>
+      {/* BUILD-028 — header: Cancel · Previous · step context · Next · Save Draft (same handlers as footer Nav) */}
+      <div className="mb-6 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (hasUnsavedChanges) {
+                setShowSaveOnCancel(true);
+              } else {
+                setCancelOpen(true);
+              }
+            }}
+            className="flex items-center gap-1 text-sm text-text-400 hover:text-text-200 transition-colors shrink-0"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Cancel
+          </button>
 
-      <div className="flex items-center justify-center gap-2 mb-10">
-        {STEPS.map((_, i) => (
-          <span key={i} className={`block rounded-full transition-all duration-300 ${i < step ? 'h-2 w-2 bg-primary-500/40' : i === step ? 'h-2.5 w-2.5 bg-primary-500 shadow-[0_0_6px_rgba(204,85,0,0.4)]' : 'h-1.5 w-1.5 bg-surface-700'}`} />
-        ))}
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-center min-w-0">
+            <button
+              type="button"
+              onClick={handlers.back}
+              disabled={!canGoBack}
+              className="text-sm font-medium text-text-400 hover:text-text-200 disabled:opacity-30 disabled:pointer-events-none transition-colors shrink-0"
+              aria-label="Previous step"
+            >
+              ← Previous
+            </button>
+            <p className="text-xs sm:text-sm font-medium text-text-300 text-center truncate px-1" aria-live="polite">
+              {stepLabel}
+            </p>
+            <button
+              type="button"
+              onClick={handlers.next}
+              disabled={!canGoNext}
+              className="text-sm font-medium text-text-400 hover:text-text-200 disabled:opacity-30 disabled:pointer-events-none transition-colors shrink-0"
+              aria-label="Next step"
+            >
+              Next →
+            </button>
+          </div>
+
+          <div className="shrink-0">
+            <SaveDraftButton onClick={handlers.saveDraft} loading={savingDraft} state={saveState} lastSavedAt={lastSavedAt} />
+          </div>
+        </div>
+
+        <p className="text-center text-base sm:text-lg font-semibold text-primary-400 tracking-tight truncate" title={displayReleaseTitle}>
+          {displayReleaseTitle}
+        </p>
+
+        {/* Existing progress dots — extended to be clickable for completed/current only */}
+        <div className="flex items-center justify-center gap-2" role="navigation" aria-label="Wizard steps">
+          {STEPS.map((_, i) => {
+            const isCompleted = i < step;
+            const isCurrent = i === step;
+            const isFuture = i > step;
+            const className = `block rounded-full transition-all duration-300 ${
+              isCompleted
+                ? 'h-2 w-2 bg-primary-500/40'
+                : isCurrent
+                  ? 'h-2.5 w-2.5 bg-primary-500 shadow-[0_0_6px_rgba(204,85,0,0.4)]'
+                  : 'h-1.5 w-1.5 bg-surface-700'
+            }`;
+            if (isFuture) {
+              return (
+                <span
+                  key={i}
+                  className={`${className} cursor-default`}
+                  aria-hidden="true"
+                />
+              );
+            }
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => goToStep(i)}
+                className={`${className} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40`}
+                aria-label={`Go to step ${i + 1} of ${totalSteps}`}
+                aria-current={isCurrent ? 'step' : undefined}
+              />
+            );
+          })}
+        </div>
       </div>
 
       <StepTitle step={currentStepKey ?? 'type'} />
