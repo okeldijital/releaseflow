@@ -1,19 +1,36 @@
 'use client';
 
 import { type Dispatch, type SetStateAction } from 'react';
-import { PROMO_ASSETS, SOCIAL_PLATFORMS, type PersonOption, type SocialRow, type InviteTarget } from './release-wizard-types';
+import {
+  PROMO_ASSETS,
+  PUBLISH_DESTINATIONS,
+  type PersonOption,
+  type PromotionAssetEntry,
+  type InviteTarget,
+} from './release-wizard-types';
 import { PersonSelect, InviteForm, Nav } from './wizard-ui';
 
-export function PromoStep({ promoAssets, setPromoAssets, assetDesigners, setAssetDesigners, people, socialRows, setSocialRows, addSocialRow, removeSocialRow, inviteName, setInviteName, inviteEmail, setInviteEmail, inviteRole, setInviteRole, showInviteForm, setShowInviteForm, inviteTarget, setInviteTarget, handleInvite, back, next }: {
-  promoAssets: string[];
-  setPromoAssets: Dispatch<SetStateAction<string[]>>;
-  assetDesigners: Record<string, string>;
-  setAssetDesigners: Dispatch<SetStateAction<Record<string, string>>>;
+export function PromoStep({
+  promotionAssets,
+  setPromotionAssets,
+  people,
+  inviteName,
+  setInviteName,
+  inviteEmail,
+  setInviteEmail,
+  inviteRole,
+  setInviteRole,
+  showInviteForm,
+  setShowInviteForm,
+  inviteTarget,
+  setInviteTarget,
+  handleInvite,
+  back,
+  next,
+}: {
+  promotionAssets: PromotionAssetEntry[];
+  setPromotionAssets: Dispatch<SetStateAction<PromotionAssetEntry[]>>;
   people: PersonOption[];
-  socialRows: SocialRow[];
-  setSocialRows: Dispatch<SetStateAction<SocialRow[]>>;
-  addSocialRow: () => void;
-  removeSocialRow: (id: string) => void;
   inviteName: string;
   setInviteName: (v: string) => void;
   inviteEmail: string;
@@ -28,55 +45,195 @@ export function PromoStep({ promoAssets, setPromoAssets, assetDesigners, setAsse
   back: () => void;
   next: () => void;
 }) {
+  function toggleAsset(type: string) {
+    setPromotionAssets((prev) =>
+      prev.map((a) => {
+        if (a.type !== type) return a;
+        const enabled = !a.enabled;
+        return {
+          ...a,
+          enabled,
+          // Disabled assets clear destinations (validation: no dest required when off)
+          publishDestinations: enabled ? a.publishDestinations : [],
+        };
+      }),
+    );
+  }
+
+  function setDesigner(type: string, designerId: string) {
+    setPromotionAssets((prev) =>
+      prev.map((a) =>
+        a.type === type
+          ? { ...a, designerId: designerId.trim() ? designerId : null }
+          : a,
+      ),
+    );
+  }
+
+  function toggleDestination(type: string, destination: string) {
+    setPromotionAssets((prev) =>
+      prev.map((a) => {
+        if (a.type !== type) return a;
+        const has = a.publishDestinations.includes(destination);
+        return {
+          ...a,
+          publishDestinations: has
+            ? a.publishDestinations.filter((d) => d !== destination)
+            : [...a.publishDestinations, destination],
+        };
+      }),
+    );
+  }
+
   return (
     <>
-      <p className="mt-2 text-sm text-text-400 text-center">Select assets and assign designers.</p>
+      <p className="mt-2 text-sm text-text-400 text-center">
+        Select assets, assign designers, and choose where each asset will be published.
+      </p>
       <div className="mt-8 space-y-4">
-        {PROMO_ASSETS.map((a) => {
-          const selected = promoAssets.includes(a.key);
+        {PROMO_ASSETS.map((meta) => {
+          const asset =
+            promotionAssets.find((a) => a.type === meta.key)
+            ?? {
+              type: meta.key,
+              enabled: false,
+              designerId: null,
+              publishDestinations: [] as string[],
+            };
+          const selected = asset.enabled;
+
           return (
-            <div key={a.key} className={`rounded-xl border transition-all ${selected ? 'border-primary-500/60 bg-primary-500/5' : 'border-surface-700 bg-surface-900'}`}>
-              <button onClick={() => setPromoAssets((p: string[]) => p.includes(a.key) ? p.filter((x) => x !== a.key) : [...p, a.key])}
-                className="w-full text-left px-5 py-3.5 flex items-center gap-3">
-                <span className={`h-4 w-4 rounded border-2 flex items-center justify-center ${selected ? 'border-primary-500 bg-primary-500' : 'border-surface-600'}`}>
-                  {selected && <svg className="h-3 w-3 text-surface-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+            <div
+              key={meta.key}
+              className={`rounded-xl border transition-all ${
+                selected
+                  ? 'border-primary-500/60 bg-primary-500/5'
+                  : 'border-surface-700 bg-surface-900'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => toggleAsset(meta.key)}
+                className="w-full text-left px-5 py-3.5 flex items-center gap-3"
+              >
+                <span
+                  className={`h-4 w-4 rounded border-2 flex items-center justify-center ${
+                    selected
+                      ? 'border-primary-500 bg-primary-500'
+                      : 'border-surface-600'
+                  }`}
+                >
+                  {selected ? (
+                    <svg
+                      className="h-3 w-3 text-surface-50"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeWidth={3}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  ) : null}
                 </span>
-                <span className="text-sm font-medium text-surface-100">{a.label}</span>
+                <span className="text-sm font-medium text-surface-100">
+                  {meta.label}
+                </span>
               </button>
-              {selected && (
-                <div className="px-5 pb-4">
-                  <PersonSelect value={assetDesigners[a.key] ?? ''} onChange={(v) => setAssetDesigners((p) => ({ ...p, [a.key]: v }))} people={people} onInvite={() => { setInviteTarget({ type: 'promo', key: a.key }); setShowInviteForm(true); }} />
-                  {showInviteForm && inviteTarget?.key === a.key && (
-                    <div className="mt-4"><InviteForm name={inviteName} setName={setInviteName} email={inviteEmail} setEmail={setInviteEmail} role={inviteRole} setRole={setInviteRole} onSend={handleInvite} onCancel={() => { setShowInviteForm(false); setInviteTarget(null); }} /></div>
-                  )}
+
+              {selected ? (
+                <div className="px-5 pb-4 space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold text-text-500 uppercase tracking-wider mb-2">
+                      Designer
+                    </p>
+                    <PersonSelect
+                      value={asset.designerId ?? ''}
+                      onChange={(v) => setDesigner(meta.key, v)}
+                      people={people}
+                      onInvite={() => {
+                        setInviteTarget({ type: 'promo', key: meta.key });
+                        setShowInviteForm(true);
+                      }}
+                    />
+                    {showInviteForm && inviteTarget?.key === meta.key ? (
+                      <div className="mt-4">
+                        <InviteForm
+                          name={inviteName}
+                          setName={setInviteName}
+                          email={inviteEmail}
+                          setEmail={setInviteEmail}
+                          role={inviteRole}
+                          setRole={setInviteRole}
+                          onSend={handleInvite}
+                          onCancel={() => {
+                            setShowInviteForm(false);
+                            setInviteTarget(null);
+                          }}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Reuses destination list as multi-select checkboxes (no second selector component) */}
+                  <div>
+                    <p className="text-xs font-semibold text-text-500 uppercase tracking-wider mb-2">
+                      Publish To
+                    </p>
+                    <div className="space-y-2">
+                      {PUBLISH_DESTINATIONS.map((dest) => {
+                        const on = asset.publishDestinations.includes(dest.key);
+                        return (
+                          <button
+                            key={dest.key}
+                            type="button"
+                            onClick={() => toggleDestination(meta.key, dest.key)}
+                            className={`w-full text-left px-3 py-2 rounded-lg border flex items-center gap-3 transition-colors ${
+                              on
+                                ? 'border-primary-500/50 bg-primary-500/10'
+                                : 'border-surface-700 bg-surface-950 hover:border-surface-600'
+                            }`}
+                          >
+                            <span
+                              className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                                on
+                                  ? 'border-primary-500 bg-primary-500'
+                                  : 'border-surface-600'
+                              }`}
+                            >
+                              {on ? (
+                                <svg
+                                  className="h-3 w-3 text-surface-50"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeWidth={3}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                              ) : null}
+                            </span>
+                            <span className="text-sm text-surface-100">
+                              {dest.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
-              )}
+              ) : null}
             </div>
           );
         })}
       </div>
 
-      <p className="mt-8 text-sm font-medium text-surface-100 text-center mb-3">Social Accounts</p>
-      <div className="space-y-3">
-        {socialRows.map((r) => (
-          <div key={r.id} className="rounded-xl border border-surface-700 bg-surface-900 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-text-500 uppercase tracking-wider">Social Account</span>
-              <button onClick={() => removeSocialRow(r.id)} className="text-xs text-danger-400">Remove</button>
-            </div>
-            <select value={r.platform} onChange={(e) => setSocialRows((p) => p.map((x) => x.id === r.id ? { ...x, platform: e.target.value } : x))}
-              className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 focus:border-primary-500/60 focus:outline-none">
-              <option value="">Platform</option>
-              {SOCIAL_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-            <input type="text" value={r.url} onChange={(e) => setSocialRows((p) => p.map((x) => x.id === r.id ? { ...x, url: e.target.value } : x))}
-              placeholder="Page URL" className="block w-full h-10 rounded-xl border border-surface-700 bg-surface-950 px-4 text-sm text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:outline-none" />
-            <PersonSelect value={r.personId} onChange={(v) => setSocialRows((p) => p.map((x) => x.id === r.id ? { ...x, personId: v } : x))} people={people} onInvite={() => {}} />
-          </div>
-        ))}
-        <button onClick={addSocialRow} className="w-full h-12 rounded-xl border border-dashed border-surface-600 bg-transparent text-sm font-medium text-text-500 hover:text-text-300 active:scale-[0.98] transition-all">+ Add Social Account</button>
-      </div>
-      <Nav back={back} next={next}/>
+      <Nav back={back} next={next} />
     </>
   );
 }

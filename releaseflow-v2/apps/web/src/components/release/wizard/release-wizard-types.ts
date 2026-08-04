@@ -17,7 +17,131 @@ export const PROMO_ASSETS = [
   { key: 'press_kit', label: 'Press Kit' },
 ];
 
+/** Legacy global social platforms (pre–BUILD-029). */
 export const SOCIAL_PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'X', 'LinkedIn', 'Website'] as const;
+
+/**
+ * BUILD-029 — Publish destinations owned by each promotional asset.
+ * Keys are stable in draft state; labels are UI-only.
+ */
+export const PUBLISH_DESTINATIONS = [
+  { key: 'instagram', label: 'Instagram' },
+  { key: 'instagram_story', label: 'Instagram Stories' },
+  { key: 'instagram_reels', label: 'Instagram Reels' },
+  { key: 'facebook', label: 'Facebook' },
+  { key: 'tiktok', label: 'TikTok' },
+  { key: 'youtube', label: 'YouTube' },
+  { key: 'x', label: 'X' },
+  { key: 'linkedin', label: 'LinkedIn' },
+  { key: 'website', label: 'Website' },
+] as const;
+
+export type PublishDestinationKey = (typeof PUBLISH_DESTINATIONS)[number]['key'];
+
+/** BUILD-029 — one production deliverable in the Promotion step. */
+export type PromotionAssetEntry = {
+  type: string;
+  enabled: boolean;
+  designerId: string | null;
+  publishDestinations: string[];
+  // Future: dueDate, approvalStatus, upload, notes, completionStatus
+};
+
+/** Legacy global social row (pre–BUILD-029). */
+export type SocialRow = { id: string; platform: string; url: string; personId: string };
+
+export function defaultPromotionAssets(): PromotionAssetEntry[] {
+  return PROMO_ASSETS.map((a) => ({
+    type: a.key,
+    enabled: false,
+    designerId: null,
+    publishDestinations: [],
+  }));
+}
+
+/** Map legacy SOCIAL_PLATFORMS labels → PUBLISH_DESTINATIONS keys. */
+function legacyPlatformToDestination(platform: string): string | null {
+  const p = platform.trim().toLowerCase();
+  if (!p) return null;
+  const map: Record<string, string> = {
+    facebook: 'facebook',
+    instagram: 'instagram',
+    tiktok: 'tiktok',
+    youtube: 'youtube',
+    x: 'x',
+    twitter: 'x',
+    linkedin: 'linkedin',
+    website: 'website',
+    'instagram stories': 'instagram_story',
+    'instagram story': 'instagram_story',
+    'instagram reels': 'instagram_reels',
+    'instagram reel': 'instagram_reels',
+  };
+  return map[p] ?? (PUBLISH_DESTINATIONS.some((d) => d.key === p) ? p : null);
+}
+
+/** Draft slice used to hydrate promotion assets (avoids forward-ref to WizardDraftData). */
+export type PromotionDraftSlice = {
+  promotionAssets?: PromotionAssetEntry[];
+  promoAssets?: string[];
+  assetDesigners?: Record<string, string>;
+  socialRows?: SocialRow[];
+};
+
+/**
+ * BUILD-029 — hydrate promotion assets from draft.
+ * Prefers `promotionAssets`; migrates from promoAssets + assetDesigners + socialRows.
+ */
+export function hydratePromotionAssets(wd: PromotionDraftSlice): PromotionAssetEntry[] {
+  if (Array.isArray(wd.promotionAssets) && wd.promotionAssets.length > 0) {
+    return PROMO_ASSETS.map((a) => {
+      const found = wd.promotionAssets!.find((x) => x.type === a.key);
+      return {
+        type: a.key,
+        enabled: Boolean(found?.enabled),
+        designerId: found?.designerId?.trim() ? found.designerId : null,
+        publishDestinations: Array.isArray(found?.publishDestinations)
+          ? [...new Set(found.publishDestinations.filter(Boolean))]
+          : [],
+      };
+    });
+  }
+
+  const enabled = new Set(wd.promoAssets ?? []);
+  const designers = wd.assetDesigners ?? {};
+  const legacyDestinations = [
+    ...new Set(
+      (wd.socialRows ?? [])
+        .map((r) => legacyPlatformToDestination(r.platform))
+        .filter((x): x is string => Boolean(x)),
+    ),
+  ];
+
+  return PROMO_ASSETS.map((a) => {
+    const isOn = enabled.has(a.key);
+    const designer = designers[a.key]?.trim() || null;
+    return {
+      type: a.key,
+      enabled: isOn,
+      designerId: designer,
+      // Best-effort: seed destinations from global social rows onto enabled assets only
+      publishDestinations: isOn ? [...legacyDestinations] : [],
+    };
+  });
+}
+
+/** Derive legacy fields for draft compatibility and review summaries. */
+export function deriveLegacyPromoFields(assets: PromotionAssetEntry[]): {
+  promoAssets: string[];
+  assetDesigners: Record<string, string>;
+} {
+  const promoAssets = assets.filter((a) => a.enabled).map((a) => a.type);
+  const assetDesigners: Record<string, string> = {};
+  for (const a of assets) {
+    if (a.designerId) assetDesigners[a.type] = a.designerId;
+  }
+  return { promoAssets, assetDesigners };
+}
 
 export type ReleaseTypeVal = typeof RELEASE_TYPES[number]['value'];
 
@@ -132,7 +256,6 @@ export function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export type SocialRow = { id: string; platform: string; url: string; personId: string };
 export type SectionStatusMap = Record<string, 'complete' | 'incomplete' | 'skipped'>;
 export type AssignerField = 'mixingEngineer' | 'masteringEngineer' | 'emailManager';
 export type InviteTarget = { type: string; key?: string } | null;
@@ -151,8 +274,16 @@ export interface WizardDraftData {
   tracks: WizardTrack[];
   /** BUILD-013 — structured liner notes document */
   linerNotes: RichTextDocument | null;
+  /**
+   * BUILD-029 — per-asset promotion deliverables (designer + publish destinations).
+   * Source of truth for the Promotion step.
+   */
+  promotionAssets?: PromotionAssetEntry[];
+  /** @deprecated Prefer promotionAssets; kept for draft compatibility. */
   promoAssets: string[];
+  /** @deprecated Prefer promotionAssets[].designerId */
   assetDesigners: Record<string, string>;
+  /** @deprecated Global social accounts removed in BUILD-029; kept for read/migrate only. */
   socialRows: SocialRow[];
   hasEmail: boolean | null;
   emailSubject: string;

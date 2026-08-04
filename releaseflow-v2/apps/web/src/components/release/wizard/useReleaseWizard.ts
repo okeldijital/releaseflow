@@ -18,8 +18,23 @@ import type { UploadState } from '@/components/release/ReleaseArtwork';
 import { toast } from '@/stores/toast-store';
 import type { LabelOption } from '@/components/label-field-picker';
 import type { ReleaseRecord } from '@/lib/release-repository';
-import type { ReleaseTypeVal, WizardTrack, PersonOption, SocialRow, SectionStatusMap, AssignerField, InviteTarget, WizardDraftData } from './release-wizard-types';
-import { createEmptyTrack, normalizeWizardTrack } from './release-wizard-types';
+import type {
+  ReleaseTypeVal,
+  WizardTrack,
+  PersonOption,
+  SectionStatusMap,
+  AssignerField,
+  InviteTarget,
+  WizardDraftData,
+  PromotionAssetEntry,
+} from './release-wizard-types';
+import {
+  createEmptyTrack,
+  normalizeWizardTrack,
+  defaultPromotionAssets,
+  hydratePromotionAssets,
+  deriveLegacyPromoFields,
+} from './release-wizard-types';
 import type { RichTextDocument } from '@/lib/rich-text';
 import { isRichTextEmpty, normalizeRichText } from '@/lib/rich-text';
 import {
@@ -77,9 +92,12 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
 
   const [tracks, setTracks] = useState<WizardTrack[]>([createEmptyTrack('1')]);
 
-  const [promoAssets, setPromoAssets] = useState<string[]>([]);
-  const [assetDesigners, setAssetDesigners] = useState<Record<string, string>>({});
-  const [socialRows, setSocialRows] = useState<SocialRow[]>([]);
+  /** BUILD-029 — source of truth for Promotion step deliverables */
+  const [promotionAssets, setPromotionAssets] = useState<PromotionAssetEntry[]>(
+    () => defaultPromotionAssets(),
+  );
+  // Legacy-derived views for review / completion (kept in sync on serialize)
+  const { promoAssets, assetDesigners } = deriveLegacyPromoFields(promotionAssets);
 
   const [hasEmail, setHasEmail] = useState<boolean | null>(null);
   const [emailSubject, setEmailSubject] = useState('');
@@ -221,9 +239,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
         ),
       );
       setLinerNotes(normalizeRichText(wd.linerNotes) ?? null);
-      setPromoAssets(wd.promoAssets ?? []);
-      setAssetDesigners(wd.assetDesigners ?? {});
-      setSocialRows(wd.socialRows ?? []);
+      setPromotionAssets(hydratePromotionAssets(wd));
       setHasEmail(wd.hasEmail ?? null);
       setEmailSubject(wd.emailSubject ?? '');
       setEmailPreviewText(wd.emailPreviewText ?? '');
@@ -309,7 +325,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
       triggerAutoSave();
     }, 30000);
     return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
-  }, [hasUnsavedChanges, step, tracks, promoAssets, socialRows, hasArtwork, mode]);
+  }, [hasUnsavedChanges, step, tracks, promotionAssets, hasArtwork, mode]);
 
   // Auto-save on step change
   useEffect(() => {
@@ -357,9 +373,10 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
       artworkDesigner,
       tracks,
       linerNotes,
-      promoAssets,
-      assetDesigners,
-      socialRows,
+      promotionAssets,
+      promoAssets: deriveLegacyPromoFields(promotionAssets).promoAssets,
+      assetDesigners: deriveLegacyPromoFields(promotionAssets).assetDesigners,
+      socialRows: [],
       hasEmail,
       emailSubject,
       emailPreviewText,
@@ -396,7 +413,13 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     if (tracks.some((t) => t.title.trim())) completed++;
     if (primaryArtist || featuredArtists.length > 0) completed++;
     if (recordLabel || upc || primaryGenre) completed++;
-    if (promoAssets.length > 0 || socialRows.some((r) => r.url)) completed++;
+    if (
+      promotionAssets.some(
+        (a) => a.enabled || a.publishDestinations.length > 0 || Boolean(a.designerId),
+      )
+    ) {
+      completed++;
+    }
     if (hasEmail !== null) completed++;
     return Math.round((completed / total) * 100);
   }
@@ -908,9 +931,6 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     return valid;
   }
 
-  function addSocialRow() { setSocialRows((p) => [...p, { id: String(Date.now()), platform: '', url: '', personId: '' }]); }
-  function removeSocialRow(id: string) { setSocialRows((p) => p.filter((r) => r.id !== id)); }
-
   async function handleInvite() {
     if (!activeOrgId || !inviteName.trim() || !inviteEmail.trim()) return;
     await invitePerson({
@@ -923,7 +943,15 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
       invitedByUserId: user!.uid,
       invitedByName: user!.displayName || user!.email?.split('@')[0] || 'Administrator',
     });
-    if (inviteTarget?.key) setAssetDesigners((p) => ({ ...p, [inviteTarget!.key!]: inviteEmail }));
+    if (inviteTarget?.key) {
+      const key = inviteTarget.key;
+      setPromotionAssets((p) =>
+        p.map((a) =>
+          a.type === key ? { ...a, designerId: inviteEmail } : a,
+        ),
+      );
+      setHasUnsavedChanges(true);
+    }
     setShowInviteForm(false); setInviteName(''); setInviteEmail(''); setInviteRole(''); setInviteTarget(null);
   }
 
@@ -947,9 +975,11 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     handleArtworkUpload,
     handleArtworkRemove,
     tracks,
-    promoAssets, setPromoAssets: (v: SetStateAction<string[]>) => dirty(setHasUnsavedChanges, setPromoAssets, v),
-    assetDesigners, setAssetDesigners: (v: SetStateAction<Record<string, string>>) => dirty(setHasUnsavedChanges, setAssetDesigners, v),
-    socialRows, setSocialRows: (v: SetStateAction<SocialRow[]>) => dirty(setHasUnsavedChanges, setSocialRows, v),
+    promotionAssets,
+    setPromotionAssets: (v: SetStateAction<PromotionAssetEntry[]>) =>
+      dirty(setHasUnsavedChanges, setPromotionAssets, v),
+    promoAssets,
+    assetDesigners,
     hasEmail, setHasEmail: (v: SetStateAction<boolean | null>) => dirty(setHasUnsavedChanges, setHasEmail, v),
     emailSubject, setEmailSubject: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setEmailSubject, v),
     emailPreviewText, setEmailPreviewText: (v: SetStateAction<string>) => dirty(setHasUnsavedChanges, setEmailPreviewText, v),
@@ -999,8 +1029,6 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
     updateTrackFields,
     removeTrack,
     validateRemixTracks,
-    addSocialRow,
-    removeSocialRow,
     openAssigner,
     handleLaunch,
     saveDraft,

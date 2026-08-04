@@ -298,15 +298,9 @@ export function ReleaseWizard({ mode = 'create', releaseId, draftId }: { mode?: 
       )}
       {currentStepKey === 'promotion' && (
         <PromoStep
-          promoAssets={stepProps.promoAssets}
-          setPromoAssets={stepProps.setPromoAssets}
-          assetDesigners={stepProps.assetDesigners}
-          setAssetDesigners={stepProps.setAssetDesigners}
+          promotionAssets={stepProps.promotionAssets}
+          setPromotionAssets={stepProps.setPromotionAssets}
           people={stepProps.people}
-          socialRows={stepProps.socialRows}
-          setSocialRows={stepProps.setSocialRows}
-          addSocialRow={handlers.addSocialRow}
-          removeSocialRow={handlers.removeSocialRow}
           inviteName={stepProps.inviteName}
           setInviteName={stepProps.setInviteName}
           inviteEmail={stepProps.inviteEmail}
