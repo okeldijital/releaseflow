@@ -11,6 +11,7 @@ import { signOut as firebaseSignOut } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
 import { AppShell, Skeleton, BottomNav } from '@releaseflow/ui';
 import { CommandPalette } from '@/components/command-palette';
+import { FeedbackTrigger } from '@/components/feedback';
 import { ReleaseFlowLogo } from '@/components/branding/releaseflow-logo';
 import type { NavItem, NavSection } from '@releaseflow/ui';
 import { getOrganizationsByUser } from '@/lib/organization-repository';
@@ -502,6 +503,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         onOpenChange={setCommandPaletteOpen}
         initialQuery={commandPaletteQuery}
       />
+      {/* BUILD-302B — global feedback trigger (authenticated shell only) */}
+      <FeedbackTrigger />
     </>
   );
 }

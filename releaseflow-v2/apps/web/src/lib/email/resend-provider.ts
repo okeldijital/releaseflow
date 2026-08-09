@@ -47,14 +47,17 @@ export class ResendProvider implements EmailProvider {
         defaultFromJson: JSON.stringify(this.defaultFrom),
       });
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         from: resolvedFrom,
         to: to,
         subject: message.subject,
         html: message.html,
       };
+      // Optional plain-text + reply-to (BUILD-302C feedback + future mail)
+      if (message.text) payload.text = message.text;
+      if (message.replyTo) payload.reply_to = message.replyTo;
 
-      console.log(JSON.stringify({ ...payload, html: 'HTML REDACTED' }, null, 2));
+      console.log(JSON.stringify({ ...payload, html: 'HTML REDACTED', text: message.text ? 'TEXT REDACTED' : undefined }, null, 2));
 
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',

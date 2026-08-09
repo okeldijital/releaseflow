@@ -1,5 +1,5 @@
 /**
- * BUILD-302A — Feedback infrastructure public surface.
+ * BUILD-302A / BUILD-302B — Feedback infrastructure public surface.
  */
 
 export type {
@@ -26,3 +26,40 @@ export {
   FEEDBACK_MESSAGE_MAX_LENGTH,
   submitFeedback,
 } from './feedback-service';
+
+export {
+  formatFeedbackContextDisplay,
+  type FeedbackContextDisplay,
+} from './feedback-context-display';
+
+export {
+  isFeedbackMessageReady,
+  sendFeedbackFromUi,
+  type FeedbackSubmitResult,
+} from './feedback-submission';
+
+export {
+  buildFeedbackEmailSubject,
+  type FeedbackSubjectEntityTitles,
+} from './feedback-email-subject';
+
+export {
+  escapeHtml,
+  buildFeedbackContextLines,
+  renderFeedbackEmailHtml,
+  renderFeedbackEmailText,
+  formatFeedbackEmailTimestamp,
+  type FeedbackEmailIdentity,
+  type FeedbackEmailRenderInput,
+} from './feedback-email-template';
+
+export {
+  FEEDBACK_NOTIFICATION_EMAIL_ENV,
+  getFeedbackNotificationEmail,
+  requireFeedbackNotificationEmail,
+} from './feedback-email-config';
+
+export {
+  triggerFeedbackEmailDelivery,
+  type TriggerFeedbackEmailResult,
+} from './trigger-feedback-email';
