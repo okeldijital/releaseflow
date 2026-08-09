@@ -366,5 +366,26 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // BUILD-302A — In-app feedback (create-only for clients).
+    // Tenant isolation via organizationId (mirrored organisationId on write).
+    // emailDeliveryStatus starts pending; only trusted server infra may update later (BUILD-302C).
+    // No client read/list/update/delete — management UI is out of scope.
+    match /feedback/{docId} {
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.organizationId is string
+        && request.resource.data.organizationId.size() > 0
+        && isOrgMember(request.resource.data.organizationId)
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.emailDeliveryStatus == 'pending'
+        && request.resource.data.context is map
+        && request.resource.data.context.route is string
+        && request.resource.data.context.module is string
+        && request.resource.data.context.page is string;
+      allow get, list: if false;
+      allow update, delete: if false;
+    }
+
   }
 }
