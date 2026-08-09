@@ -5,10 +5,15 @@ interface OverlayProps {
   className?: string;
 }
 
+/**
+ * Full-viewport dimming layer. Sits *behind* dialog content (z-0 vs content z-10).
+ * Intentionally no backdrop-blur: blur + high z-index stacked above the panel
+ * softens modal content (BUILD-302D). Separation is via design-token dim only.
+ */
 export function Overlay({ onClick, className = '' }: OverlayProps) {
   return (
     <div
-      className={`fixed inset-0 bg-surface-900/40 backdrop-blur-sm animate-fade-in z-50 ${className}`}
+      className={`fixed inset-0 z-0 bg-surface-900/50 animate-fade-in ${className}`}
       onClick={onClick}
       aria-hidden="true"
     />
