@@ -105,7 +105,7 @@ export default function NewArtistPage() {
 
   return (
     <div className="mx-auto max-w-lg px-6 py-8">
-      <Link href="/artists" className="text-sm text-text-400 hover:text-surface-50 mb-6 inline-block">&larr; Back</Link>
+      <Link href="/library/artists" className="text-sm text-text-400 hover:text-surface-50 mb-6 inline-block">&larr; Back</Link>
       <p className="text-display-md font-semibold text-primary-400 tracking-tight mb-8">New Artist</p>
 
       {showDuplicateWarning && duplicates.length > 0 && (
@@ -182,7 +182,7 @@ export default function NewArtistPage() {
             <Button type="submit" loading={submitting} disabled={submitting || !name.trim()}>
               {submitting ? 'Creating...' : 'Create Artist'}
             </Button>
-            <Link href="/artists" className="text-sm text-text-400 hover:text-surface-50">Cancel</Link>
+            <Link href="/library/artists" className="text-sm text-text-400 hover:text-surface-50">Cancel</Link>
           </div>
         </form>
       </Card>

@@ -49,7 +49,8 @@ describe('MUX-002 collaborator mobile workspace', () => {
   });
 
   it('schedule has Releases domain tab', () => {
-    const src = read('app/(app)/schedule/page.tsx');
+    // BUILD-220F: operational UI lives in schedule-view; /schedule redirects to Calendar
+    const src = read('app/(app)/schedule/schedule-view.tsx');
     expect(src).toContain("id: 'releases'");
     expect(src).toContain('domain');
   });

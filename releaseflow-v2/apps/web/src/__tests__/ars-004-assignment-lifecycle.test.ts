@@ -44,7 +44,9 @@ describe('ARS-004 assignment domain finalization contracts', () => {
   });
 
   it('work and contributor pages redirect away from Task UI', () => {
-    expect(read('app/(app)/work/page.tsx')).toContain("router.replace('/assignments')");
+    // BUILD-220C — /work → /collaboration/assignments
+    expect(read('app/(app)/work/page.tsx')).toContain('LegacyCollaborationRedirect');
+    expect(read('app/(app)/work/page.tsx')).toContain('/work');
     expect(read('app/(app)/contributor/page.tsx')).toContain("router.replace('/home')");
   });
 
@@ -55,7 +57,7 @@ describe('ARS-004 assignment domain finalization contracts', () => {
   });
 
   it('identity comparisons for assignee use assignment-identity module in key pages', () => {
-    expect(read('app/(app)/assignments/page.tsx')).toContain('assignmentMatchesIdentity');
+    expect(read('app/(app)/assignments/assignments-view.tsx')).toContain('assignmentMatchesIdentity');
     expect(read('app/(app)/home/page.tsx')).toContain('assignmentMatchesIdentity');
     expect(read('app/(app)/assignments/[id]/page.tsx')).toContain('assignmentMatchesIdentity');
   });

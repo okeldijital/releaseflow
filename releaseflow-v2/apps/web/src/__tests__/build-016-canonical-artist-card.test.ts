@@ -18,7 +18,7 @@ const root = join(__dirname, '..');
 const cardPath = join(root, 'components/artists/ArtistCard.tsx');
 const modelPath = join(root, 'lib/artist-card-model.ts');
 const servicePath = join(root, 'lib/artist-service.ts');
-const artistsPagePath = join(root, 'app/(app)/artists/page.tsx');
+const artistsPagePath = join(root, 'app/(app)/artists/artists-view.tsx');
 const pickerPath = join(root, 'components/artist-field-picker.tsx');
 
 function walkTsx(dir: string, acc: string[] = []): string[] {

@@ -382,7 +382,7 @@ export default function ArtistDetailPage() {
     return (
       <div className="mx-auto max-w-5xl px-5 sm:px-7 py-8">
         <div className="flex items-center justify-between mb-6">
-          <Link href="/artists" className="text-sm text-text-400 hover:text-surface-50 inline-block">&larr; Artists</Link>
+          <Link href="/library/artists" className="text-sm text-text-400 hover:text-surface-50 inline-block">&larr; Artists</Link>
         </div>
         <EmptyState title="Artist not found" description="This artist may have been deleted or belongs to another organization." action={{ label: 'Back to Artists', onClick: () => router.push('/artists') }} />
       </div>
@@ -392,7 +392,7 @@ export default function ArtistDetailPage() {
   return (
     <div className="mx-auto max-w-5xl px-5 sm:px-7 py-8 page-transition">
       <div className="flex items-center justify-between mb-6">
-        <Link href="/artists" className="text-sm text-text-400 hover:text-surface-50 inline-block">&larr; Artists</Link>
+        <Link href="/library/artists" className="text-sm text-text-400 hover:text-surface-50 inline-block">&larr; Artists</Link>
         <EntityOverflowMenu items={overflowMenuItems} aria-label="Artist actions" />
       </div>
 

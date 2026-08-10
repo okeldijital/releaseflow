@@ -316,7 +316,7 @@ describe('EPIC-207 source contracts', () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const src = fs.readFileSync(
-      path.resolve(__dirname, '../app/(app)/assignments/page.tsx'),
+      path.resolve(__dirname, '../app/(app)/assignments/assignments-view.tsx'),
       'utf8',
     );
     expect(src).toContain('buildAssignmentWorkspace');

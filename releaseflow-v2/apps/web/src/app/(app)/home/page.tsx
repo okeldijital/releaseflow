@@ -393,7 +393,7 @@ export default function HomePage() {
           {[
             { href: '/releases', label: 'Releases' },
             { href: '/tracks', label: 'Tracks' },
-            { href: '/schedule', label: 'Schedule' },
+            { href: '/calendar/schedule', label: 'Schedule' },
             { href: '/comments', label: 'Comments' },
           ].map((item) => (
             <Link

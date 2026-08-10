@@ -361,7 +361,7 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
       {/* Back navigation */}
       <div className="mb-6">
-        <Link href="/tracks" className="inline-flex items-center gap-1.5 text-sm text-content-secondary hover:text-content-primary transition-colors">
+        <Link href="/library/tracks" className="inline-flex items-center gap-1.5 text-sm text-content-secondary hover:text-content-primary transition-colors">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>

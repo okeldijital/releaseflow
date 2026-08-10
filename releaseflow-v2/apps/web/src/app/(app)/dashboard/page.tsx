@@ -308,7 +308,7 @@ export default function DashboardPage() {
         <div className="mb-10">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs font-semibold text-text-500 uppercase tracking-widest">Draft Releases</p>
-            <Link href="/releases?lifecycle=draft" className="text-xs text-primary-400 hover:text-primary-300 font-medium">View All Drafts</Link>
+            <Link href="/releases/draft" className="text-xs text-primary-400 hover:text-primary-300 font-medium">View All Drafts</Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {drafts.map((d) => (
@@ -339,13 +339,13 @@ export default function DashboardPage() {
           <Link href="/releases/new" className="block rounded-xl border border-surface-700/60 bg-surface-900 p-4 text-center hover:border-primary-500/40 transition-all duration-150">
             <p className="text-sm font-medium text-primary-400">+ New Release</p>
           </Link>
-          <Link href="/tracks" className="block rounded-xl border border-surface-700/60 bg-surface-900 p-4 text-center hover:border-primary-500/40 transition-all duration-150">
+          <Link href="/library/tracks" className="block rounded-xl border border-surface-700/60 bg-surface-900 p-4 text-center hover:border-primary-500/40 transition-all duration-150">
             <p className="text-sm font-medium text-surface-100">Tracks</p>
           </Link>
           <Link href="/people" className="block rounded-xl border border-surface-700/60 bg-surface-900 p-4 text-center hover:border-primary-500/40 transition-all duration-150">
             <p className="text-sm font-medium text-surface-100">People</p>
           </Link>
-          <Link href="/schedule" className="block rounded-xl border border-surface-700/60 bg-surface-900 p-4 text-center hover:border-primary-500/40 transition-all duration-150">
+          <Link href="/calendar/schedule" className="block rounded-xl border border-surface-700/60 bg-surface-900 p-4 text-center hover:border-primary-500/40 transition-all duration-150">
             <p className="text-sm font-medium text-surface-100">Schedule</p>
           </Link>
         </div>
@@ -364,11 +364,11 @@ export default function DashboardPage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             {[
-              { label: 'Assigned to Me', count: taskSummary?.assignedToMe ?? 0, href: '/tasks?filter=assigned_to_me' },
-              { label: 'Created by Me', count: taskSummary?.createdByMe ?? 0, href: '/tasks?filter=created_by_me' },
-              { label: 'Overdue', count: taskSummary?.overdue ?? 0, href: '/tasks?filter=overdue' },
-              { label: 'Due Today', count: taskSummary?.dueToday ?? 0, href: '/tasks?filter=due_today' },
-              { label: 'Upcoming', count: taskSummary?.upcoming ?? 0, href: '/tasks?filter=this_week' },
+              { label: 'Assigned to Me', count: taskSummary?.assignedToMe ?? 0, href: '/collaboration/tasks?filter=assigned_to_me' },
+              { label: 'Created by Me', count: taskSummary?.createdByMe ?? 0, href: '/collaboration/tasks?filter=created_by_me' },
+              { label: 'Overdue', count: taskSummary?.overdue ?? 0, href: '/collaboration/tasks?filter=overdue' },
+              { label: 'Due Today', count: taskSummary?.dueToday ?? 0, href: '/collaboration/tasks?filter=due_today' },
+              { label: 'Upcoming', count: taskSummary?.upcoming ?? 0, href: '/collaboration/tasks?filter=this_week' },
             ].map((s) => (
               <Link
                 key={s.label}

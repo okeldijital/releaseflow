@@ -33,6 +33,8 @@ const adminNavSections: NavSection[] = [
   { key: 'releases', label: 'Releases' },
   { key: 'collaboration', label: 'Collaboration' },
   { key: 'library', label: 'Library' },
+  { key: 'media-files', label: 'Media Files' },
+  { key: 'calendar', label: 'Calendar' },
   { key: 'system', label: 'System' },
 ];
 
@@ -52,62 +54,50 @@ const adminNavItems: NavItem[] = [
   {
     label: 'Draft Releases',
     icon: NavIcon({ d: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z' }),
-    href: '/releases?lifecycle=draft',
+    href: '/releases/draft',
     section: 'releases',
   },
   {
     label: 'Active Releases',
     icon: NavIcon({ d: 'M13 10V3L4 14h7v7l9-11h-7z' }),
-    href: '/releases?lifecycle=active',
+    href: '/releases/active',
     section: 'releases',
   },
   {
     label: 'Archived Releases',
     icon: NavIcon({ d: 'M5 8h14M5 8a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v1a2 2 0 01-2 2M5 8v10.414a2 2 0 00.293.707l3.414 3.414a2 2 0 002.828 0l3.414-3.414a2 2 0 00.293-.707V8H5z' }),
-    href: '/releases?lifecycle=archived',
+    href: '/releases/archived',
     section: 'releases',
   },
   {
     label: 'Schedule',
     icon: NavIcon({ d: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' }),
-    href: '/schedule',
+    href: '/releases/schedule',
     section: 'releases',
   },
   {
-    label: 'Assignments',
-    icon: NavIcon({ d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' }),
-    href: '/assignments',
-    section: 'collaboration',
-  },
-  {
-    label: 'Tasks',
-    icon: NavIcon({ d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' }),
-    href: '/tasks',
-    section: 'collaboration',
-  },
-  {
-    label: 'Inbox',
-    icon: NavIcon({ d: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' }),
-    href: '/notifications',
-    section: 'collaboration',
-  },
-  {
-    label: 'People',
+    label: 'Collaboration',
     icon: NavIcon({ d: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' }),
-    href: '/people',
+    href: '/collaboration',
     section: 'collaboration',
   },
   {
-    label: 'Tracks',
-    icon: NavIcon({ d: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }),
-    href: '/tracks',
+    label: 'Library',
+    icon: NavIcon({ d: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' }),
+    href: '/library',
     section: 'library',
   },
   {
-    label: 'Artists',
-    icon: NavIcon({ d: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' }),
-    href: '/artists',
-    section: 'library',
+    label: 'Media Files',
+    icon: NavIcon({ d: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' }),
+    href: '/media-files',
+    section: 'media-files',
+  },
+  {
+    label: 'Calendar',
+    icon: NavIcon({ d: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' }),
+    href: '/calendar',
+    section: 'calendar',
   },
   {
     label: 'Administration',
@@ -134,13 +124,13 @@ const collaboratorNavItems: NavItem[] = [
   {
     label: 'My Assignments',
     icon: NavIcon({ d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' }),
-    href: '/assignments',
+    href: '/collaboration/assignments',
     section: 'main',
   },
   {
     label: 'Tasks',
     icon: NavIcon({ d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' }),
-    href: '/tasks',
+    href: '/collaboration/tasks',
     section: 'main',
   },
   {
@@ -150,15 +140,15 @@ const collaboratorNavItems: NavItem[] = [
     section: 'main',
   },
   {
-    label: 'Tracks',
+    label: 'Library',
     icon: NavIcon({ d: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' }),
-    href: '/tracks',
+    href: '/library',
     section: 'main',
   },
   {
-    label: 'Schedule',
+    label: 'Calendar',
     icon: NavIcon({ d: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' }),
-    href: '/schedule',
+    href: '/calendar',
     section: 'main',
   },
   {
@@ -186,12 +176,12 @@ const collaboratorBottomNavItems: NavItem[] = [
   {
     label: 'Work',
     icon: NavIcon({ d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' }),
-    href: '/assignments',
+    href: '/collaboration/assignments',
   },
   {
-    label: 'Schedule',
+    label: 'Calendar',
     icon: NavIcon({ d: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' }),
-    href: '/schedule',
+    href: '/calendar',
   },
   {
     label: 'Comments',
@@ -216,6 +206,8 @@ const ROUTE_GUARDS: RouteGuard[] = [
   // MUX-002: tracks readable for collaborators (artist.read); write still gated in UI
   { prefix: '/tracks', check: () => AuthorizationService.can('artist.read') || AuthorizationService.can('artist.write') },
   { prefix: '/artists', check: () => AuthorizationService.can('artist.write') },
+  { prefix: '/library', check: () => AuthorizationService.can('artist.read') || AuthorizationService.can('artist.write') },
+  { prefix: '/calendar', check: () => AuthorizationService.canViewPersonalSchedule() },
   { prefix: '/releases/new', check: () => AuthorizationService.canCreateRelease() },
 ];
 
@@ -225,8 +217,10 @@ const COLLABORATOR_BLOCKED_PREFIXES = [
   '/administration',
   '/organizations',
   '/people',
-  // tracks + releases allowed read-only (MUX-002)
+  '/collaboration/people',
+  // tracks + releases allowed read-only (MUX-002); artists catalogue still blocked
   '/artists',
+  '/library/artists',
   '/releases/new',
 ];
 
@@ -241,6 +235,16 @@ const NAV_CAN: Record<string, (() => boolean) | null> = {
   '/dashboard': () => AuthorizationService.canCreateRelease(),
   '/releases': () => AuthorizationService.canViewReleases(),
   '/schedule': () => AuthorizationService.canViewPersonalSchedule(),
+  '/calendar': () => AuthorizationService.canViewPersonalSchedule(),
+  '/calendar/schedule': () => AuthorizationService.canViewPersonalSchedule(),
+  '/calendar/deadlines': () => AuthorizationService.canViewPersonalSchedule(),
+  '/calendar/releases': () => AuthorizationService.canViewPersonalSchedule(),
+  '/collaboration': () => AuthorizationService.canViewAssignments(),
+  '/collaboration/assignments': () => AuthorizationService.canViewAssignments(),
+  '/collaboration/tasks': () => AuthorizationService.canViewAssignments(),
+  '/collaboration/inbox': null,
+  '/collaboration/people': () => AuthorizationService.canManagePeople(),
+  // Legacy list paths still gated (redirect wrappers)
   '/assignments': () => AuthorizationService.canViewAssignments(),
   '/tasks': () => AuthorizationService.canViewAssignments(),
   '/notifications': null,
@@ -248,6 +252,11 @@ const NAV_CAN: Record<string, (() => boolean) | null> = {
   '/people': () => AuthorizationService.canManagePeople(),
   '/tracks': () => AuthorizationService.can('artist.read') || AuthorizationService.can('artist.write'),
   '/artists': () => AuthorizationService.can('artist.write'),
+  '/library': () => AuthorizationService.can('artist.read') || AuthorizationService.can('artist.write'),
+  '/library/tracks': () => AuthorizationService.can('artist.read') || AuthorizationService.can('artist.write'),
+  '/library/artists': () => AuthorizationService.can('artist.write'),
+  '/media-files': () => AuthorizationService.canViewReleases() || AuthorizationService.can('artist.read'),
+  '/assets': () => AuthorizationService.canViewReleases() || AuthorizationService.can('artist.read'),
   '/administration': () => AuthorizationService.canViewAdministration(),
 };
 
@@ -402,16 +411,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   const withBadge = (items: NavItem[]): NavItem[] =>
-    items.map((item) =>
-      item.href === '/notifications' && notificationCount > 0
+    items.map((item) => {
+      const href = item.href ?? '';
+      const isInbox =
+        href === '/notifications'
+        || href === '/collaboration/inbox'
+        || href === '/collaboration';
+      return isInbox && notificationCount > 0
         ? { ...item, badge: notificationCount }
-        : item,
-    );
+        : item;
+    });
 
   const filterByPermission = (items: NavItem[]): NavItem[] =>
     items.filter((item) => {
       const href = item.href ?? '';
-      const check = NAV_CAN[href];
+      // Prefix match for module roots (e.g. /collaboration)
+      const check =
+        NAV_CAN[href]
+        ?? (href.startsWith('/collaboration')
+          ? NAV_CAN['/collaboration']
+          : undefined);
       if (check === undefined) return true;
       if (check === null) return true;
       return check();

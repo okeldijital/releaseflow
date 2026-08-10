@@ -51,8 +51,9 @@ describe('BUILD-015 call sites use size not layout forks', () => {
   });
 
   it('releases page grid uses size prop', () => {
+    // BUILD-220B — shared module owns card grid (routes are thin wrappers)
     const page = readFileSync(
-      join(__dirname, '../app/(app)/releases/page.tsx'),
+      join(__dirname, '../app/(app)/releases/_components/releases-module.tsx'),
       'utf8',
     );
     expect(page).toContain('size="compact"');

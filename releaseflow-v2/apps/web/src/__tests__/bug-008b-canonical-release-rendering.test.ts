@@ -215,8 +215,9 @@ describe('BUG-008B source contracts', () => {
   it('Releases page has no bespoke All Releases table cells', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
+    // BUILD-220B — presentation lives in shared ReleasesModule
     const src = fs.readFileSync(
-      path.resolve(__dirname, '../app/(app)/releases/page.tsx'),
+      path.resolve(__dirname, '../app/(app)/releases/_components/releases-module.tsx'),
       'utf8',
     );
     expect(src).toContain('ReleaseCardGrid');

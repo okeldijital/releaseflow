@@ -17,6 +17,7 @@ export default defineConfig({
       '@releaseflow/core/auth/registry': path.resolve(__dirname, '../../packages/core/src/auth/registry.ts'),
       '@releaseflow/core/auth/authorization': path.resolve(__dirname, '../../packages/core/src/auth/authorization.ts'),
       '@releaseflow/core': path.resolve(__dirname, '../../packages/core/src/index.ts'),
+      '@releaseflow/ui': path.resolve(__dirname, '../../packages/ui/src/index.ts'),
     },
   },
 });
