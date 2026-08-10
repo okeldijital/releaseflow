@@ -147,16 +147,28 @@ describe('BUILD-220B internal links updated', () => {
     expect(dash).not.toContain('lifecycle=draft');
   });
 
-  it('sidebar internal release links use canonical paths (structure unchanged)', () => {
+  it('sidebar exposes single Releases module; lifecycle lives in PageTabs', () => {
+    // BUILD-220H: global sidebar is modules-only; lifecycle is PageTabs.
     const layout = read('app/(app)/layout.tsx');
-    expect(layout).toContain("href: '/releases/draft'");
-    expect(layout).toContain("href: '/releases/active'");
-    expect(layout).toContain("href: '/releases/archived'");
-    expect(layout).toContain("href: '/releases/schedule'");
-    expect(layout).not.toContain('lifecycle=');
-    // Structure still has same section labels (not migrated away)
-    expect(layout).toContain("label: 'Draft Releases'");
-    expect(layout).toContain("label: 'All Releases'");
+    const adminStart = layout.indexOf('const adminNavItems');
+    const adminEnd = layout.indexOf('const collaboratorNavSections');
+    const admin = layout.slice(adminStart, adminEnd);
+    expect(admin).toContain("label: 'Releases'");
+    expect(admin).toContain("href: '/releases'");
+    expect(admin).not.toContain("label: 'All Releases'");
+    expect(admin).not.toContain("label: 'Draft Releases'");
+    expect(admin).not.toContain("label: 'Active Releases'");
+    expect(admin).not.toContain("label: 'Archived Releases'");
+    expect(admin).not.toContain("href: '/releases/draft'");
+    expect(admin).not.toContain('lifecycle=');
+    // Canonical lifecycle paths remain in PageTabs config
+    expect(RELEASE_PAGE_TABS.map((t) => t.href)).toEqual([
+      '/releases',
+      '/releases/draft',
+      '/releases/active',
+      '/releases/archived',
+      '/releases/schedule',
+    ]);
   });
 });
 

@@ -37,7 +37,12 @@ export { Notification, NotificationFeed } from './components/notification';
 
 export { AppShell, WorkspaceLayout, DashboardLayout, Page } from './layouts/app-shell';
 export { ModulePage, type ModulePageProps } from './layouts/module-page';
-export { Sidebar, type NavItem, type NavSection } from './navigation/sidebar';
+export {
+  Sidebar,
+  shouldShowNavSectionHeading,
+  type NavItem,
+  type NavSection,
+} from './navigation/sidebar';
 export { Topbar, Breadcrumbs } from './navigation/topbar';
 export { BottomNav } from './navigation/bottom-nav';
 /** BUILD-220A — Canonical path-based module navigation (distinct from content `Tabs`). */

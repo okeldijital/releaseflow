@@ -191,13 +191,18 @@ describe('BUILD-220F legacy redirects', () => {
 describe('BUILD-220F sidebar & command palette', () => {
   it('admin sidebar has single Calendar module link', () => {
     const layout = read('app/(app)/layout.tsx');
-    expect(layout).toContain("label: 'Calendar'");
-    expect(layout).toContain("href: '/calendar'");
-    // Sidebar must not list Schedule/Deadlines/Releases as Calendar children
-    const calSection = layout.indexOf("key: 'calendar'");
-    expect(calSection).toBeGreaterThan(-1);
-    // Releases section still has its own Schedule → /releases/schedule
-    expect(layout).toContain("href: '/releases/schedule'");
+    const adminStart = layout.indexOf('const adminNavItems');
+    const adminEnd = layout.indexOf('const collaboratorNavSections');
+    const admin = layout.slice(adminStart, adminEnd);
+    expect(admin).toContain("label: 'Calendar'");
+    expect(admin).toContain("href: '/calendar'");
+    // Sidebar must not list Calendar subsections
+    expect(admin).not.toMatch(/label: 'Deadlines'/);
+    // Releases → Schedule is PageTabs, not sidebar
+    expect(admin).not.toContain("href: '/releases/schedule'");
+    expect(RELEASE_PAGE_TABS.find((t) => t.id === 'schedule')?.href).toBe(
+      '/releases/schedule',
+    );
   });
 
   it('collaborator nav points at Calendar not raw /schedule', () => {

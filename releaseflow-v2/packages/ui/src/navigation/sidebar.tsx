@@ -40,6 +40,32 @@ function isActive(activePath: string, item: NavItem): boolean {
   return activePath === item.href || activePath.startsWith(item.href + '/');
 }
 
+/**
+ * BUILD-220H — Whether a section heading should render.
+ *
+ * Hide when:
+ * - label is empty / whitespace (flat module list), or
+ * - exactly one child and section label === child label (case-insensitive)
+ *   e.g. "Releases" → "Releases" must not become RELEASES / Releases.
+ *
+ * Does NOT flatten multi-child lifecycle groups (those must be removed
+ * from the nav data model, not hidden).
+ */
+export function shouldShowNavSectionHeading(
+  sectionLabel: string,
+  groupItems: Pick<NavItem, 'label'>[],
+): boolean {
+  const label = sectionLabel.trim();
+  if (!label) return false;
+  if (
+    groupItems.length === 1 &&
+    groupItems[0]!.label.trim().toLowerCase() === label.toLowerCase()
+  ) {
+    return false;
+  }
+  return true;
+}
+
 
 function SignOutIcon() {
   return (
@@ -255,14 +281,16 @@ export function Sidebar({
             const groupItems = grouped[key];
             if (!groupItems || groupItems.length === 0) return null;
             const label = sectionLabelMap.get(key) ?? key;
+            const showHeading =
+              !collapsed && shouldShowNavSectionHeading(label, groupItems);
 
             return (
               <div key={key}>
-                {/* Section divider in collapsed mode, label in expanded */}
-                {collapsed
-                  ? null
-                  : <p className="mb-1 px-3 text-caption font-medium uppercase tracking-[0.1em] text-content-secondary" role="heading" aria-level={2}>{label}</p>
-                }
+                {/* Section heading: suppressed for empty labels and
+                    single-item sections whose label matches the item. */}
+                {showHeading ? (
+                  <p className="mb-1 px-3 text-caption font-medium uppercase tracking-[0.1em] text-content-secondary" role="heading" aria-level={2}>{label}</p>
+                ) : null}
 
                 <ul className="space-y-1" role="list">
                   {groupItems.map((item) => {
