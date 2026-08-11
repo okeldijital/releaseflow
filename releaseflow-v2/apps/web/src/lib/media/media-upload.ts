@@ -105,7 +105,7 @@ export async function uploadFile(
     };
   } catch (err) {
     if (isStorageError(err)) {
-      throw new Error(err.message);
+      throw new Error(err.message, { cause: err });
     }
     throw err;
   }
@@ -141,7 +141,7 @@ export async function destroyFile(options: DestroyFileOptions): Promise<{ succes
     return { success: true };
   } catch (err) {
     if (isStorageError(err)) {
-      throw new Error(err.message);
+      throw new Error(err.message, { cause: err });
     }
     throw err;
   }
