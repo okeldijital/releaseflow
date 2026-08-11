@@ -105,8 +105,6 @@ export async function replaceArtwork(
       providerPath: result.publicId,
     });
 
-    // Old artwork binaries are removed below, so their RF references must no
-    // longer advertise an active provider object.
     await Promise.all(
       previousReferences
         .filter((reference) => reference.status === 'active')
@@ -156,6 +154,17 @@ export async function removeArtwork(
         error: err instanceof Error ? err.message : 'Failed to delete artwork from storage.',
       };
     }
+
+    const references = await listReferencesForAssetSafe(organizationId, artworkId);
+    await Promise.all(
+      references
+        .filter((reference) => reference.status === 'active')
+        .map((reference) =>
+          updateReferenceSafe(organizationId, reference.id, {
+            status: 'detached',
+          }),
+        ),
+    );
 
     await deleteArtwork(organizationId, artworkId);
     return { success: true };
