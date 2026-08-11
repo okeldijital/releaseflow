@@ -115,6 +115,42 @@ export async function createLocationSafe(
   return toStorageLocationSafeDto(created);
 }
 
+/**
+ * Resolve the Cloudinary location used by the legacy Cloudinary upload path.
+ *
+ * New organizations may not yet have a configured storage_locations record.
+ * In that case we create one as the explicit platform-default Cloudinary
+ * location. This does not change upload routing; it only supplies the durable
+ * RF configuration node required by StorageReference.
+ */
+export async function ensureCloudinaryStorageLocation(
+  organizationId: string,
+): Promise<StorageLocationRecord> {
+  const locations = await listStorageLocations(organizationId);
+  const activeCloudinary = locations.filter(
+    (location) =>
+      location.providerId === CLOUDINARY_PROVIDER_ID &&
+      location.status === 'active',
+  );
+
+  const preferred =
+    activeCloudinary.find((location) => location.isDefault) ??
+    activeCloudinary[0];
+
+  if (preferred) return preferred;
+
+  getStorageProvider(CLOUDINARY_PROVIDER_ID);
+  const created = await createStorageLocation(organizationId, {
+    name: 'Cloudinary (Platform Default)',
+    providerId: CLOUDINARY_PROVIDER_ID,
+    rootPath: '/ReleaseFlow',
+    isDefault: true,
+    status: 'active',
+  });
+  await clearOtherDefaultLocations(organizationId, created.id);
+  return created;
+}
+
 export async function updateLocationSafe(
   organizationId: string,
   id: string,
