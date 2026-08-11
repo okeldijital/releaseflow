@@ -76,6 +76,7 @@ export {
   createLocationSafe,
   updateLocationSafe,
   deleteLocationSafe,
+  ensureCloudinaryStorageLocation,
   buildProviderCatalog,
   isRegisteredProviderId,
   assertRegisteredProvider,
@@ -178,3 +179,9 @@ export {
   type SyncStorageReferenceInput,
   type StorageReferenceSyncDeps,
 } from './storage-reference-sync';
+
+// EPIC-301 — Production lifecycle integration (Cloudinary-first)
+export {
+  createProductionStorageReference,
+  type CreateProductionStorageReferenceInput,
+} from './storage-reference-lifecycle-service';
