@@ -1,9 +1,8 @@
 /**
- * BUILD-014D — Canonical client media transport.
+ * BUILD-014D / BUILD-301A — Canonical client media transport.
  *
- * All feature uploads go through uploadFile().
- * All destroys go through destroyFile().
- * URL generation via MediaUrlService (public cloud name only).
+ * Public contracts for uploadFile / destroyFile are unchanged.
+ * Internally they resolve through StorageProvider → CloudinaryStorageProvider.
  *
  * Browser never reads Cloudinary API secrets or server config modules.
  */
@@ -14,6 +13,11 @@ import {
 } from '@releaseflow/firebase/cloudinary';
 import type { UploadResult } from '@releaseflow/firebase/cloudinary';
 import { getAuthInstance } from '@/lib/firebase';
+import {
+  getDefaultStorageProvider,
+  isStorageError,
+  CLOUDINARY_PROVIDER_ID,
+} from '@/lib/storage';
 
 const ALLOWED_MIME_TYPES = [
   'image/png',
@@ -47,18 +51,13 @@ export interface MediaUploadResult {
   createdAt?: string;
 }
 
-interface UploadSignature {
-  cloudName: string;
-  apiKey: string;
-  timestamp: number;
-  signature: string;
-  folder: string;
-}
-
 /**
- * Uploads a file to Cloudinary using a server-generated signed upload.
- * The client never holds the API secret; it requests a short-lived signature
- * from /api/media/upload-signature and posts to Cloudinary.
+ * Uploads a file via the storage provider abstraction (default: cloudinary).
+ * Return shape remains the historical UploadResult (publicId, secureUrl, …)
+ * so artwork/media/avatar callers need no changes.
+ *
+ * Note: `publicId` in the return value is the Cloudinary provider file id for
+ * backward compatibility. Prefer StorageObject.providerFileId for new code.
  */
 export async function uploadFile(
   file: File,
@@ -70,60 +69,46 @@ export async function uploadFile(
   }
   const idToken = await currentUser.getIdToken();
 
-  const signatureRes = await fetch('/api/media/upload-signature', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${idToken}`,
-    },
-    body: JSON.stringify({
-      entityType: options.entityType,
-      entityId: options.entityId,
-      organizationId: options.organizationId,
-      tags: options.tags ?? [],
-    }),
-  });
+  const provider = getDefaultStorageProvider(null, options.organizationId);
 
-  if (!signatureRes.ok) {
-    let message = 'Failed to request upload signature';
-    try {
-      const data = (await signatureRes.json()) as { error?: string };
-      message = data?.error ?? message;
-    } catch {
-      /* keep default */
+  try {
+    const stored = await provider.upload({
+      payload: file,
+      filename: file.name,
+      contentType: file.type || undefined,
+      context: {
+        organizationId: options.organizationId,
+        entityType: options.entityType,
+        entityId: options.entityId,
+        tags: options.tags,
+        accessToken: idToken,
+      },
+    });
+
+    const meta = (stored.metadata ?? {}) as {
+      format?: string;
+      width?: number;
+      height?: number;
+    };
+
+    // Map StorageObject → historical UploadResult for callers.
+    // providerFileId is the external id (Cloudinary publicId).
+    return {
+      publicId: stored.providerFileId,
+      url: stored.downloadUrl ?? '',
+      secureUrl: stored.downloadUrl ?? '',
+      format: meta.format ?? '',
+      bytes: stored.sizeBytes ?? 0,
+      createdAt: stored.createdAt ?? '',
+      width: typeof meta.width === 'number' ? meta.width : undefined,
+      height: typeof meta.height === 'number' ? meta.height : undefined,
+    };
+  } catch (err) {
+    if (isStorageError(err)) {
+      throw new Error(err.message);
     }
-    throw new Error(message);
+    throw err;
   }
-
-  const sig = (await signatureRes.json()) as UploadSignature;
-
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('api_key', sig.apiKey);
-  formData.append('timestamp', String(sig.timestamp));
-  formData.append('signature', sig.signature);
-  formData.append('folder', sig.folder);
-
-  const uploadRes = await fetch(
-    `https://api.cloudinary.com/v1_1/${sig.cloudName}/auto/upload`,
-    { method: 'POST', body: formData },
-  );
-
-  const data = await uploadRes.json();
-  if (data.error) {
-    throw new Error(data.error.message ?? 'Cloudinary upload failed');
-  }
-
-  return {
-    publicId: data.public_id as string,
-    url: data.url as string,
-    secureUrl: data.secure_url as string,
-    format: data.format as string,
-    bytes: data.bytes as number,
-    createdAt: data.created_at as string,
-    width: typeof data.width === 'number' ? data.width : undefined,
-    height: typeof data.height === 'number' ? data.height : undefined,
-  };
 }
 
 export interface DestroyFileOptions {
@@ -133,7 +118,9 @@ export interface DestroyFileOptions {
 }
 
 /**
- * Canonical destroy via /api/media/destroy.
+ * Canonical destroy via StorageProvider.delete (cloudinary adapter).
+ * Options still accept `publicId` for backward compatibility; it is mapped
+ * to providerFileId inside the provider.
  */
 export async function destroyFile(options: DestroyFileOptions): Promise<{ success: true }> {
   const currentUser = getAuthInstance()?.currentUser;
@@ -142,31 +129,22 @@ export async function destroyFile(options: DestroyFileOptions): Promise<{ succes
   }
   const idToken = await currentUser.getIdToken();
 
-  const res = await fetch('/api/media/destroy', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${idToken}`,
-    },
-    body: JSON.stringify({
-      publicId: options.publicId,
+  const provider = getDefaultStorageProvider(null, options.organizationId);
+
+  try {
+    await provider.delete({
+      providerFileId: options.publicId,
       organizationId: options.organizationId,
       entityType: options.entityType,
-    }),
-  });
-
-  if (!res.ok) {
-    let message = 'Failed to delete media';
-    try {
-      const data = (await res.json()) as { error?: string };
-      message = data?.error ?? message;
-    } catch {
-      /* keep default */
+      accessToken: idToken,
+    });
+    return { success: true };
+  } catch (err) {
+    if (isStorageError(err)) {
+      throw new Error(err.message);
     }
-    throw new Error(message);
+    throw err;
   }
-
-  return { success: true };
 }
 
 /** Best-effort destroy; never throws. */
@@ -192,6 +170,15 @@ export function transformImage(
 }
 
 export function getAssetUrl(publicId: string): string {
+  // Prefer provider when possible; MediaUrlService remains for pure sync URL builds.
+  try {
+    // Sync path: Cloudinary download URL does not need async.
+    if (CLOUDINARY_PROVIDER_ID) {
+      return cloudinaryGetAssetUrl(publicId);
+    }
+  } catch {
+    /* fall through */
+  }
   return cloudinaryGetAssetUrl(publicId);
 }
 

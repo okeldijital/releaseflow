@@ -47,6 +47,10 @@ export const PERMISSIONS = {
   UserRemove: 'user.remove',
   AdminAccess: 'admin.access',
 
+  // --- Storage configuration (BUILD-301D) ---
+  StorageRead: 'storage.read',
+  StorageManage: 'storage.manage',
+
   // --- Schedule ---
   ScheduleTeam: 'schedule.team',
   SchedulePersonal: 'schedule.personal',
@@ -95,6 +99,8 @@ export const CAPABILITIES = {
   manageOrganization: PERMISSIONS.OrganizationManage,
   viewOrganizationSettings: PERMISSIONS.OrganizationManage,
   viewAdministration: PERMISSIONS.AdminAccess,
+  viewStorageSettings: PERMISSIONS.StorageRead,
+  manageStorageSettings: PERMISSIONS.StorageManage,
   accessAdministration: PERMISSIONS.AdminAccess,
   manageAssignments: PERMISSIONS.AssignmentManage,
   assignWork: PERMISSIONS.AssignmentManage,

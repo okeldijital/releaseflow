@@ -94,6 +94,41 @@ service cloud.firestore {
     match /organizations/{orgId}/media_reviews/{reviewId}   { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
     match /organizations/{orgId}/media_comments/{commentId} { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
     match /organizations/{orgId}/artworks/{artworkId}     { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
+    // BUILD-301D — storage locations (org-scoped configuration; no secrets in docs)
+    match /organizations/{orgId}/storage_locations/{locationId} {
+      allow read, list: if isAuth() && isOrgMember(orgId);
+      allow create: if isAuth() && isOrgMember(orgId) && orgCreateMatch(orgId)
+        && request.resource.data.organizationId == orgId;
+      allow update, delete: if isAuth() && isOrgMember(orgId)
+        && resource.data.organizationId == orgId;
+    }
+    // BUILD-301E — storage policies (org-scoped routing config; no secrets)
+    match /organizations/{orgId}/storage_policies/{policyId} {
+      allow read, list: if isAuth() && isOrgMember(orgId);
+      allow create: if isAuth() && isOrgMember(orgId) && orgCreateMatch(orgId)
+        && request.resource.data.organizationId == orgId;
+      allow update, delete: if isAuth() && isOrgMember(orgId)
+        && resource.data.organizationId == orgId;
+    }
+    // BUILD-301E — folder templates (org-scoped logical paths; no provider paths)
+    match /organizations/{orgId}/folder_templates/{templateId} {
+      allow read, list: if isAuth() && isOrgMember(orgId);
+      allow create: if isAuth() && isOrgMember(orgId) && orgCreateMatch(orgId)
+        && request.resource.data.organizationId == orgId;
+      allow update, delete: if isAuth() && isOrgMember(orgId)
+        && resource.data.organizationId == orgId;
+    }
+    // BUILD-301F — durable storage references (org-scoped; no secrets / no downloadUrl identity)
+    match /organizations/{orgId}/storage_references/{referenceId} {
+      allow read, list: if isAuth() && isOrgMember(orgId);
+      allow create: if isAuth() && isOrgMember(orgId) && orgCreateMatch(orgId)
+        && request.resource.data.organizationId == orgId;
+      allow update: if isAuth() && isOrgMember(orgId)
+        && resource.data.organizationId == orgId
+        && request.resource.data.organizationId == orgId;
+      allow delete: if isAuth() && isOrgMember(orgId)
+        && resource.data.organizationId == orgId;
+    }
     // RBAC-001 — memberships: prevent arbitrary privilege escalation.
     match /memberships/{docId} {
       allow read: if isAuth() && (

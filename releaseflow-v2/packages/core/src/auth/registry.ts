@@ -186,6 +186,18 @@ export const PERMISSION_REGISTRY: readonly PermissionRegistryEntry[] = Object.fr
     usedBy: ['Administration'],
   },
   {
+    id: 'storage.read',
+    description: 'View organization storage locations and provider catalog metadata.',
+    defaultRoles: ['owner', 'administrator'],
+    usedBy: ['Organization Storage Settings'],
+  },
+  {
+    id: 'storage.manage',
+    description: 'Create, update, disable, and delete organization storage locations.',
+    defaultRoles: ['owner', 'administrator'],
+    usedBy: ['Organization Storage Settings'],
+  },
+  {
     id: 'schedule.team',
     description: 'View team schedule and capacity planning.',
     defaultRoles: MANAGERS,

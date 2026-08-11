@@ -67,6 +67,7 @@ export const ROLE_PERMISSIONS: Record<RoleId, RolePermissions> = {
     'organization.manage',
     'user.invite', 'user.remove',
     'admin.access',
+    'storage.read', 'storage.manage',
     'schedule.team', 'schedule.personal', 'schedule.reschedule',
     'readiness.view', 'readiness.manage',
   ],
