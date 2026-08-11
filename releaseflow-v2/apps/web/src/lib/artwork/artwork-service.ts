@@ -3,6 +3,11 @@
  * No Cloudinary-specific helpers in this module.
  */
 import { AuthorizationService } from '@/lib/auth/authorization-service';
+import {
+  createProductionStorageReference,
+  listReferencesForAssetSafe,
+  updateReferenceSafe,
+} from '@/lib/storage';
 import { uploadFile, destroyFile, attemptDestroyFile } from '@/lib/media/media-upload';
 import {
   createArtwork,
@@ -40,6 +45,14 @@ export async function uploadArtwork(
       width: uploadResult.width ?? 0,
       height: uploadResult.height ?? 0,
       format: uploadResult.format,
+    });
+
+    await createProductionStorageReference({
+      organizationId,
+      domainAssetId: artwork.id,
+      assetType: 'artwork',
+      providerFileId: uploadResult.publicId,
+      providerPath: uploadResult.publicId,
     });
   } catch (err) {
     await attemptDestroyFile({
@@ -82,6 +95,26 @@ export async function replaceArtwork(
       secureUrl: result.secureUrl,
     });
 
+    const previousReferences = await listReferencesForAssetSafe(organizationId, artworkId);
+
+    await createProductionStorageReference({
+      organizationId,
+      domainAssetId: artworkId,
+      assetType: 'artwork',
+      providerFileId: result.publicId,
+      providerPath: result.publicId,
+    });
+
+    await Promise.all(
+      previousReferences
+        .filter((reference) => reference.status === 'active')
+        .map((reference) =>
+          updateReferenceSafe(organizationId, reference.id, {
+            status: 'detached',
+          }),
+        ),
+    );
+
     // Best-effort remove previous asset
     if (existing.publicId && existing.publicId !== result.publicId) {
       await attemptDestroyFile({
@@ -121,6 +154,17 @@ export async function removeArtwork(
         error: err instanceof Error ? err.message : 'Failed to delete artwork from storage.',
       };
     }
+
+    const references = await listReferencesForAssetSafe(organizationId, artworkId);
+    await Promise.all(
+      references
+        .filter((reference) => reference.status === 'active')
+        .map((reference) =>
+          updateReferenceSafe(organizationId, reference.id, {
+            status: 'detached',
+          }),
+        ),
+    );
 
     await deleteArtwork(organizationId, artworkId);
     return { success: true };
