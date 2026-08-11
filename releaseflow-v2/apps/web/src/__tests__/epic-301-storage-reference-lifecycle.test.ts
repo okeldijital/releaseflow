@@ -1,7 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-const ensureCloudinaryStorageLocation = vi.fn();
-const createReferenceSafe = vi.fn();
+/**
+ * Vitest hoists vi.mock() factories to the top of the file. Mock fns must be
+ * created via vi.hoisted() so they exist before those factories evaluate.
+ */
+const { ensureCloudinaryStorageLocation, createReferenceSafe } = vi.hoisted(() => ({
+  ensureCloudinaryStorageLocation: vi.fn(),
+  createReferenceSafe: vi.fn(),
+}));
 
 vi.mock('@/lib/storage/storage-location-service', () => ({
   ensureCloudinaryStorageLocation,
