@@ -3,6 +3,7 @@
  * No Cloudinary-specific helpers in this module.
  */
 import { AuthorizationService } from '@/lib/auth/authorization-service';
+import { createProductionStorageReference } from '@/lib/storage';
 import { uploadFile, destroyFile, attemptDestroyFile } from '@/lib/media/media-upload';
 import {
   createArtwork,
@@ -40,6 +41,14 @@ export async function uploadArtwork(
       width: uploadResult.width ?? 0,
       height: uploadResult.height ?? 0,
       format: uploadResult.format,
+    });
+
+    await createProductionStorageReference({
+      organizationId,
+      domainAssetId: artwork.id,
+      assetType: 'artwork',
+      providerFileId: uploadResult.publicId,
+      providerPath: uploadResult.publicId,
     });
   } catch (err) {
     await attemptDestroyFile({
@@ -80,6 +89,14 @@ export async function replaceArtwork(
     await updateArtwork(organizationId, artworkId, {
       publicId: result.publicId,
       secureUrl: result.secureUrl,
+    });
+
+    await createProductionStorageReference({
+      organizationId,
+      domainAssetId: artworkId,
+      assetType: 'artwork',
+      providerFileId: result.publicId,
+      providerPath: result.publicId,
     });
 
     // Best-effort remove previous asset
