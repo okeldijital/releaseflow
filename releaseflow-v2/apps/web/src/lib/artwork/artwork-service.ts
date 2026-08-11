@@ -3,7 +3,11 @@
  * No Cloudinary-specific helpers in this module.
  */
 import { AuthorizationService } from '@/lib/auth/authorization-service';
-import { createProductionStorageReference } from '@/lib/storage';
+import {
+  createProductionStorageReference,
+  listReferencesForAssetSafe,
+  updateReferenceSafe,
+} from '@/lib/storage';
 import { uploadFile, destroyFile, attemptDestroyFile } from '@/lib/media/media-upload';
 import {
   createArtwork,
@@ -91,6 +95,8 @@ export async function replaceArtwork(
       secureUrl: result.secureUrl,
     });
 
+    const previousReferences = await listReferencesForAssetSafe(organizationId, artworkId);
+
     await createProductionStorageReference({
       organizationId,
       domainAssetId: artworkId,
@@ -98,6 +104,18 @@ export async function replaceArtwork(
       providerFileId: result.publicId,
       providerPath: result.publicId,
     });
+
+    // Old artwork binaries are removed below, so their RF references must no
+    // longer advertise an active provider object.
+    await Promise.all(
+      previousReferences
+        .filter((reference) => reference.status === 'active')
+        .map((reference) =>
+          updateReferenceSafe(organizationId, reference.id, {
+            status: 'detached',
+          }),
+        ),
+    );
 
     // Best-effort remove previous asset
     if (existing.publicId && existing.publicId !== result.publicId) {
