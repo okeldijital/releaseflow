@@ -20,6 +20,7 @@ import {
 import { uploadFile, getImageDimensions, generateThumbnailUrl } from './media-upload';
 import { upsertArtworkDeliverable } from '@/lib/deliverable-service';
 import { AuthorizationService } from '@/lib/auth/authorization-service';
+import { createProductionStorageReference } from '@/lib/storage';
 import type { MediaAsset, MediaVersion, MediaReview, MediaUsage } from './media-types';
 
 export async function uploadReleaseArtwork(
@@ -28,7 +29,7 @@ export async function uploadReleaseArtwork(
   organizationId: string,
   userId: string,
   notes?: string,
-):   Promise<{ assetId: string; versionId: string; deliverableId: string } | { error: string }> {
+): Promise<{ assetId: string; versionId: string; deliverableId: string } | { error: string }> {
   try {
     if (!(await AuthorizationService.canAsync('media.upload', organizationId, userId))) {
       return { error: 'You do not have permission to upload media for this organization.' };
@@ -76,6 +77,14 @@ export async function uploadReleaseArtwork(
       uploadedBy: userId,
     });
 
+    await createProductionStorageReference({
+      organizationId,
+      domainAssetId: assetId,
+      assetType: 'artwork',
+      providerFileId: result.publicId,
+      providerPath: result.publicId,
+    });
+
     await trackMediaUsage(organizationId, {
       assetId,
       contextType: 'release',
@@ -104,7 +113,7 @@ export async function replaceReleaseArtwork(
   file: File,
   userId: string,
   notes?: string,
-):   Promise<{ versionId: string } | { error: string }> {
+): Promise<{ versionId: string } | { error: string }> {
   try {
     if (!(await AuthorizationService.canAsync('media.replace', organizationId, userId))) {
       return { error: 'You do not have permission to replace this media asset.' };
@@ -152,6 +161,14 @@ export async function replaceReleaseArtwork(
       fileSize: result.bytes,
       dimensions: dimensions ?? undefined,
       status: 'draft',
+    });
+
+    await createProductionStorageReference({
+      organizationId,
+      domainAssetId: assetId,
+      assetType: 'artwork',
+      providerFileId: result.publicId,
+      providerPath: result.publicId,
     });
 
     await upsertArtworkDeliverable(asset.releaseId, userId, userId, {
