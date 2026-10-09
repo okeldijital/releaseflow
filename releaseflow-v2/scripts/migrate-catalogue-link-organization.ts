@@ -14,7 +14,7 @@
  */
 
 import { applicationDefault, cert, initializeApp, type ServiceAccount } from 'firebase-admin/app';
-import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import { getFirestore, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
 import { existsSync, readFileSync } from 'node:fs';
 
 const BATCH_LIMIT = 400;
@@ -65,7 +65,7 @@ async function migrateCatalogueLinks(execute: boolean): Promise<MigrationReport>
   let batch = db.batch();
   let pendingWrites = 0;
 
-  const queueUpdate = async (ref: FirebaseFirestore.DocumentReference, organizationId: string) => {
+  const queueUpdate = async (ref: DocumentReference, organizationId: string) => {
     if (!execute) return;
     batch.update(ref, { organizationId });
     pendingWrites += 1;
