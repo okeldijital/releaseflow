@@ -63,6 +63,31 @@ beforeEach(async () => {
     await setDoc(doc(db, "releases/release-b"), {
       organizationId: "org-b", createdBy: "user-owner-b", lifecycle: "draft", version: 1, title: "Synthetic Release B"
     });
+
+    await setDoc(doc(db, "tracks/track-a"), {
+      organizationId: "org-a", createdBy: "user-owner-a", title: "Synthetic Track A", status: "draft"
+    });
+    await setDoc(doc(db, "tracks/track-b"), {
+      organizationId: "org-b", createdBy: "user-owner-b", title: "Synthetic Track B", status: "draft"
+    });
+    await setDoc(doc(db, "organizations/org-a/artists/artist-a"), {
+      organizationId: "org-a", name: "Synthetic Artist A", status: "active"
+    });
+    await setDoc(doc(db, "organizations/org-b/artists/artist-b"), {
+      organizationId: "org-b", name: "Synthetic Artist B", status: "active"
+    });
+    await setDoc(doc(db, "release_tracks/link-a"), {
+      releaseId: "release-a", trackId: "track-a", position: 1
+    });
+    await setDoc(doc(db, "release_tracks/link-b"), {
+      releaseId: "release-b", trackId: "track-b", position: 1
+    });
+    await setDoc(doc(db, "track_artists/track-artist-a"), {
+      trackId: "track-a", artistId: "artist-a", role: "PRIMARY_ARTIST", position: 1
+    });
+    await setDoc(doc(db, "track_artists/track-artist-b"), {
+      trackId: "track-b", artistId: "artist-b", role: "PRIMARY_ARTIST", position: 1
+    });
     await setDoc(doc(db, "workflows/workflow-b"), {
       organizationId: "org-b", name: "Synthetic Workflow B"
     });
@@ -246,4 +271,62 @@ test("organization A member cannot create an activity event in organization B", 
   await assertFails(setDoc(doc(db, "activity_events/forged-event"), {
     organizationId: "org-b", actorId: "user-member-a", action: "release.deleted", entityId: "release-b"
   }));
+});
+
+
+test("organization A member can read its own track but cannot read organization B track", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertSucceeds(getDoc(doc(db, "tracks/track-a")));
+  await assertFails(getDoc(doc(db, "tracks/track-b")));
+});
+
+test("organization A member can read its own release-track link but not organization B link", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertSucceeds(getDoc(doc(db, "release_tracks/link-a")));
+  await assertFails(getDoc(doc(db, "release_tracks/link-b")));
+});
+
+test("organization A member cannot create a release-track link across organizations", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertFails(setDoc(doc(db, "release_tracks/forged-cross-tenant"), {
+    releaseId: "release-a", trackId: "track-b", position: 2
+  }));
+});
+
+test("organization A member cannot link an organization B artist to an organization A track", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertFails(setDoc(doc(db, "track_artists/forged-cross-tenant"), {
+    trackId: "track-a", artistId: "artist-b", role: "FEATURED_ARTIST", position: 2
+  }));
+});
+
+test("organization A member cannot read organization B track-artist credits", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertSucceeds(getDoc(doc(db, "track_artists/track-artist-a")));
+  await assertFails(getDoc(doc(db, "track_artists/track-artist-b")));
+});
+
+test("owner can atomically create a track and link it to a release in the same organization", async () => {
+  const db = env.authenticatedContext("user-owner-a").firestore();
+  const batch = writeBatch(db);
+  batch.set(doc(db, "tracks/track-new-a"), {
+    organizationId: "org-a", createdBy: "user-owner-a", title: "Synthetic New Track A", status: "draft"
+  });
+  batch.set(doc(db, "release_tracks/link-new-a"), {
+    releaseId: "release-a", trackId: "track-new-a", position: 2
+  });
+  await assertSucceeds(batch.commit());
+});
+
+test("organization A member cannot create a track in organization B", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertFails(setDoc(doc(db, "tracks/forged-track-b"), {
+    organizationId: "org-b", createdBy: "user-member-a", title: "Forged Track", status: "draft"
+  }));
+});
+
+test("organization A member cannot move an existing release-track link to another release or track", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertFails(updateDoc(doc(db, "release_tracks/link-a"), { trackId: "track-b" }));
+  await assertFails(updateDoc(doc(db, "release_tracks/link-a"), { releaseId: "release-b" }));
 });
