@@ -7,7 +7,7 @@ import {
   assertFails,
   assertSucceeds,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch } from "firebase/firestore";
+import { doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, collection, query, where } from "firebase/firestore";
 
 const PROJECT_ID = "releaseflow-rules-test";
 const EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST;
@@ -329,4 +329,33 @@ test("organization A member cannot move an existing release-track link to anothe
   const db = env.authenticatedContext("user-member-a").firestore();
   await assertFails(updateDoc(doc(db, "release_tracks/link-a"), { trackId: "track-b" }));
   await assertFails(updateDoc(doc(db, "release_tracks/link-a"), { releaseId: "release-b" }));
+});
+
+
+test("organization A member can query release-track links for an organization A release", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  const result = await assertSucceeds(getDocs(query(
+    collection(db, "release_tracks"),
+    where("releaseId", "==", "release-a")
+  )));
+  assert.equal(result.size, 1);
+});
+
+test("organization A member can query track-artist credits within organization A", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  const result = await assertSucceeds(getDocs(query(
+    collection(db, "track_artists"),
+    where("organizationId", "==", "org-a"),
+    where("artistId", "==", "artist-a")
+  )));
+  assert.equal(result.size, 1);
+});
+
+test("organization A member cannot query track-artist credits from organization B", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertFails(getDocs(query(
+    collection(db, "track_artists"),
+    where("organizationId", "==", "org-b"),
+    where("artistId", "==", "artist-b")
+  )));
 });
