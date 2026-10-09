@@ -64,31 +64,42 @@ service cloud.firestore {
         && hasOrgAccess(getAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId)).data.organizationId);
     }
 
+    function organizationArtistExists(orgId, artistId) {
+      return exists(/databases/$(database)/documents/organizations/$(orgId)/artists/$(artistId));
+    }
+
+    function organizationArtistExistsAfter(orgId, artistId) {
+      return existsAfter(/databases/$(database)/documents/organizations/$(orgId)/artists/$(artistId));
+    }
+
     function trackArtistCanRead() {
-      return resource.data.trackId is string
+      return resource.data.organizationId is string
+        && resource.data.trackId is string
         && resource.data.artistId is string
         && exists(/databases/$(database)/documents/tracks/$(resource.data.trackId))
-        && get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId is string
-        && exists(/databases/$(database)/documents/organizations/$(get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId)/artists/$(resource.data.artistId))
-        && hasOrgAccess(get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId);
+        && get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId == resource.data.organizationId
+        && organizationArtistExists(resource.data.organizationId, resource.data.artistId)
+        && hasOrgAccess(resource.data.organizationId);
     }
 
     function trackArtistCanWriteAfter() {
-      return request.resource.data.trackId is string
+      return request.resource.data.organizationId is string
+        && request.resource.data.trackId is string
         && request.resource.data.artistId is string
         && existsAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId))
-        && getAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.organizationId is string
-        && existsAfter(/databases/$(database)/documents/organizations/$(getAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.organizationId)/artists/$(request.resource.data.artistId))
-        && hasOrgAccess(getAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.organizationId);
+        && getAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.organizationId == request.resource.data.organizationId
+        && organizationArtistExistsAfter(request.resource.data.organizationId, request.resource.data.artistId)
+        && hasOrgAccess(request.resource.data.organizationId);
     }
 
     function trackArtistCanWriteExisting() {
-      return resource.data.trackId is string
+      return resource.data.organizationId is string
+        && resource.data.trackId is string
         && resource.data.artistId is string
         && exists(/databases/$(database)/documents/tracks/$(resource.data.trackId))
-        && get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId is string
-        && exists(/databases/$(database)/documents/organizations/$(get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId)/artists/$(resource.data.artistId))
-        && hasOrgAccess(get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId);
+        && get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId == resource.data.organizationId
+        && organizationArtistExists(resource.data.organizationId, resource.data.artistId)
+        && hasOrgAccess(resource.data.organizationId);
     }
 
     function memberRole(orgId) {
