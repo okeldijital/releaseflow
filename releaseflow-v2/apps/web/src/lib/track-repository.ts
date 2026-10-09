@@ -280,6 +280,7 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
 
   const releaseTrackRef = doc(collection(db, 'release_tracks'));
   batch.set(releaseTrackRef, {
+    organizationId: fields.organizationId,
     releaseId: fields.releaseId,
     trackId: trackRef.id,
     position,
