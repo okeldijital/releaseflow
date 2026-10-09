@@ -7,7 +7,7 @@ import {
   assertFails,
   assertSucceeds,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch } from "firebase/firestore";
 
 const PROJECT_ID = "releaseflow-rules-test";
 const EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST;
@@ -68,6 +68,17 @@ beforeEach(async () => {
     });
     await setDoc(doc(db, "assets/asset-b"), {
       organizationId: "org-b", name: "Synthetic Asset B"
+    });
+    await setDoc(doc(db, "invitations/invite-token-a"), {
+      token: "invite-token-a",
+      status: "pending",
+      organizationId: "org-a",
+      organizationName: "Synthetic Org A",
+      inviteeEmail: "invitee@example.com",
+      platformRole: "collaborator",
+      invitedByUserId: "user-owner-a",
+      createdAt: 1,
+      expiresAt: 4102444800000
     });
   });
 });
@@ -130,4 +141,72 @@ test("authenticated non-member cannot read a representative broadly guarded work
 test("authenticated non-member cannot read a representative broadly guarded asset", async () => {
   const db = env.authenticatedContext("user-outsider-b").firestore();
   await assertFails(getDoc(doc(db, "assets/asset-b")));
+});
+
+test("owner can create an organization and its owner membership index", async () => {
+  const db = env.authenticatedContext("new-owner").firestore();
+  await assertSucceeds(setDoc(doc(db, "organizations/org-new"), {
+    ownerId: "new-owner", name: "Synthetic New Org"
+  }));
+  await assertSucceeds(setDoc(doc(db, "memberships/membership-new-owner"), {
+    organizationId: "org-new",
+    userId: "new-owner",
+    roleId: "owner",
+    status: "active"
+  }));
+  await assertSucceeds(setDoc(doc(db, "organizations/org-new/members/new-owner"), {
+    userId: "new-owner",
+    roleId: "owner",
+    status: "active"
+  }));
+});
+
+test("invitee with matching authenticated email can accept an invitation and create membership records atomically", async () => {
+  const db = env.authenticatedContext("user-invitee", { email: "invitee@example.com" }).firestore();
+  const batch = writeBatch(db);
+  const now = Date.now();
+  batch.update(doc(db, "invitations/invite-token-a"), {
+    status: "accepted",
+    acceptedAt: now,
+    updatedAt: now
+  });
+  batch.set(doc(db, "memberships/membership-invitee"), {
+    organizationId: "org-a",
+    userId: "user-invitee",
+    roleId: "contributor",
+    status: "active",
+    invitationToken: "invite-token-a"
+  });
+  batch.set(doc(db, "organizations/org-a/members/user-invitee"), {
+    userId: "user-invitee",
+    roleId: "contributor",
+    status: "active",
+    invitationToken: "invite-token-a"
+  });
+  await assertSucceeds(batch.commit());
+});
+
+test("invitee with mismatched authenticated email cannot accept an invitation", async () => {
+  const db = env.authenticatedContext("user-wrong-email", { email: "wrong@example.com" }).firestore();
+  const batch = writeBatch(db);
+  const now = Date.now();
+  batch.update(doc(db, "invitations/invite-token-a"), {
+    status: "accepted",
+    acceptedAt: now,
+    updatedAt: now
+  });
+  batch.set(doc(db, "memberships/membership-wrong-email"), {
+    organizationId: "org-a",
+    userId: "user-wrong-email",
+    roleId: "contributor",
+    status: "active",
+    invitationToken: "invite-token-a"
+  });
+  batch.set(doc(db, "organizations/org-a/members/user-wrong-email"), {
+    userId: "user-wrong-email",
+    roleId: "contributor",
+    status: "active",
+    invitationToken: "invite-token-a"
+  });
+  await assertFails(batch.commit());
 });
