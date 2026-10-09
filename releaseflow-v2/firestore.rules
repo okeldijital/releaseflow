@@ -158,7 +158,7 @@ service cloud.firestore {
       allow update, delete: if isOrgOwner(orgId);
     }
     match /organizations/{orgId}/artists/{artistId} {
-      allow read: if isOrgMember(orgId) || isAuth();
+      allow read: if hasOrgAccess(orgId);
       allow write: if isManagerOrAbove(orgId);
     }
     // Member index used by rules — users may write own active membership (invite accept);
@@ -193,12 +193,11 @@ service cloud.firestore {
       allow delete: if isOrgOwner(orgId) || isAdminOrAbove(orgId);
     }
 
-    // Media subsystem — organization-scoped subcollections (multi-tenant).
-    // Tenant isolation is enforced by the path ({orgId}); rules only gate on
-    // authentication. Per-role permissions (upload/replace/delete/approve)
-    // are enforced server-side; do not encode them here.
+    // Media subsystem — organization-scoped subcollections.
+    // The path tenant must belong to the authenticated user; operation-specific
+    // role permissions remain a separate policy decision.
     function mediaGuard(orgId) {
-      return isAuth();
+      return hasOrgAccess(orgId);
     }
     match /organizations/{orgId}/media_assets/{assetId}     { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
     match /organizations/{orgId}/media_versions/{versionId} { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
