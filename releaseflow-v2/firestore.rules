@@ -69,9 +69,12 @@ service cloud.firestore {
     }
 
     function trackArtistCanRead() {
+      // Reads are tenant-scoped by organizationId. Do not depend on artistId
+      // here: valid queries by trackId/role do not constrain artistId, and
+      // Firestore Rules must be able to prove the query safe for all results.
+      // Same-tenant track/artist referential integrity is enforced on writes
+      // and by the catalogue-link migration gate.
       return resource.data.organizationId is string
-        && resource.data.artistId is string
-        && organizationArtistExists(resource.data.organizationId, resource.data.artistId)
         && hasOrgAccess(resource.data.organizationId);
     }
 
