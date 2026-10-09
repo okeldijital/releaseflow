@@ -384,12 +384,12 @@ export async function removeArtistFromRelease(releaseId: string, artistId: strin
  * tracks they are linked to. Used by the Artist catalogue listing to render
  * per-row counts without issuing a query per artist.
  */
-export async function getArtistLinkCounts(_organizationId: string): Promise<Record<string, { releases: number; tracks: number }>> {
+export async function getArtistLinkCounts(organizationId: string): Promise<Record<string, { releases: number; tracks: number }>> {
   const db = getDb();
   if (!db) return {};
   const [releaseArtistsSnap, trackArtistsSnap] = await Promise.all([
     getDocs(query(collection(db, 'release_artists'))),
-    getDocs(query(collection(db, 'track_artists'))),
+    getDocs(query(collection(db, 'track_artists'), where('organizationId', '==', organizationId))),
   ]);
   const counts: Record<string, { releases: number; tracks: number }> = {};
   const touch = (artistId: string) => {
@@ -451,7 +451,7 @@ export async function getArtistUsage(organizationId: string, artistId: string): 
   if (!db) return { tracks: 0, releases: 0, publishingCredits: 0, featuredAppearances: 0, remixes: 0 };
 
   const trackArtistsSnap = await getDocs(
-    query(collection(db, 'track_artists'), where('artistId', '==', artistId)),
+    query(collection(db, 'track_artists'), where('organizationId', '==', organizationId), where('artistId', '==', artistId)),
   );
 
   const releaseArtistsSnap = await getDocs(
@@ -489,7 +489,7 @@ export async function canDeleteArtist(organizationId: string, artistId: string):
   if (!db) return { allowed: false, references: { tracks: 0, releases: 0, publishingRecords: 0 } };
 
   const trackArtistsSnap = await getDocs(
-    query(collection(db, 'track_artists'), where('artistId', '==', artistId)),
+    query(collection(db, 'track_artists'), where('organizationId', '==', organizationId), where('artistId', '==', artistId)),
   );
 
   const releaseArtistsSnap = await getDocs(
@@ -547,7 +547,7 @@ export async function mergeArtists(
   const batch = writeBatch(db);
 
   const trackArtistsSnap = await getDocs(
-    query(collection(db, 'track_artists'), where('artistId', '==', sourceArtistId)),
+    query(collection(db, 'track_artists'), where('organizationId', '==', organizationId), where('artistId', '==', sourceArtistId)),
   );
   for (const d of trackArtistsSnap.docs) {
     batch.update(d.ref, { artistId: destinationArtistId, updatedAt: Timestamp.now() });
