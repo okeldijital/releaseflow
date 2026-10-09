@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Isolated Firestore Rules security regression tests for ReleaseFlow RR-001",
   "scripts": {
-    "test": "firebase emulators:exec --project releaseflow-rules-test --only firestore \"npm run test:emulator\"",
+    "test": "firebase emulators:exec --config ../../firebase.json --project releaseflow-rules-test --only firestore \"npm run test:emulator\"",
     "test:emulator": "node --test test/*.test.mjs"
   },
   "devDependencies": {
