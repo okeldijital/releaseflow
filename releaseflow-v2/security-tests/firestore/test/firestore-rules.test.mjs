@@ -77,10 +77,10 @@ beforeEach(async () => {
       organizationId: "org-b", name: "Synthetic Artist B", status: "active"
     });
     await setDoc(doc(db, "release_tracks/link-a"), {
-      releaseId: "release-a", trackId: "track-a", position: 1
+      organizationId: "org-a", releaseId: "release-a", trackId: "track-a", position: 1
     });
     await setDoc(doc(db, "release_tracks/link-b"), {
-      releaseId: "release-b", trackId: "track-b", position: 1
+      organizationId: "org-b", releaseId: "release-b", trackId: "track-b", position: 1
     });
     await setDoc(doc(db, "track_artists/track-artist-a"), {
       organizationId: "org-a", trackId: "track-a", artistId: "artist-a", role: "PRIMARY_ARTIST", position: 1
@@ -289,7 +289,7 @@ test("organization A member can read its own release-track link but not organiza
 test("organization A member cannot create a release-track link across organizations", async () => {
   const db = env.authenticatedContext("user-member-a").firestore();
   await assertFails(setDoc(doc(db, "release_tracks/forged-cross-tenant"), {
-    releaseId: "release-a", trackId: "track-b", position: 2
+    organizationId: "org-a", releaseId: "release-a", trackId: "track-b", position: 2
   }));
 });
 
@@ -313,7 +313,7 @@ test("owner can atomically create a track and link it to a release in the same o
     organizationId: "org-a", createdBy: "user-owner-a", title: "Synthetic New Track A", status: "draft"
   });
   batch.set(doc(db, "release_tracks/link-new-a"), {
-    releaseId: "release-a", trackId: "track-new-a", position: 2
+    organizationId: "org-a", releaseId: "release-a", trackId: "track-new-a", position: 2
   });
   await assertSucceeds(batch.commit());
 });
@@ -336,6 +336,7 @@ test("organization A member can query release-track links for an organization A 
   const db = env.authenticatedContext("user-member-a").firestore();
   const result = await assertSucceeds(getDocs(query(
     collection(db, "release_tracks"),
+    where("organizationId", "==", "org-a"),
     where("releaseId", "==", "release-a")
   )));
   assert.equal(result.size, 1);
