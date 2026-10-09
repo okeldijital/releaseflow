@@ -44,7 +44,7 @@ describe('global search by track artist credit', () => {
         id: 'track-1',
         organizationId: 'org-1',
         title: 'Cow Song',
-        displayTitle: 'Cow Song feat. Lungiswa Plaatjies',
+        displayTitle: 'Cow Song',
         isrc: 'ZAX000000001',
         recordingType: 'original',
       },
@@ -78,7 +78,7 @@ describe('global search by track artist credit', () => {
 
     expect(trackResult).toMatchObject({
       id: 'track-1',
-      title: 'Cow Song feat. Lungiswa Plaatjies',
+      title: 'Cow Song',
       subtitle: 'Featured Artist: Lungiswa Plaatjies',
       url: '/tracks/track-1',
     });
