@@ -454,10 +454,19 @@ export async function deleteTrack(trackId: string, organizationId?: string, acto
     throw new Error('Firestore not initialized');
   }
 
+  const trackSnap = await getDoc(doc(db, 'tracks', trackId));
+  if (!trackSnap.exists()) return;
+  const tenantId = trackSnap.data().organizationId as string | undefined;
+  if (!tenantId) throw new Error('Track organization is required before deleting its release links.');
+
   const batch = writeBatch(db);
 
   const releaseTracksSnap = await getDocs(
-    query(collection(db, 'release_tracks'), where('trackId', '==', trackId)),
+    query(
+      collection(db, 'release_tracks'),
+      where('organizationId', '==', tenantId),
+      where('trackId', '==', trackId),
+    ),
   );
   for (const doc of releaseTracksSnap.docs) {
     batch.delete(doc.ref);
