@@ -96,7 +96,7 @@ export async function fetchTracksByOrg(orgId: string): Promise<TrackRecord[]> {
 }
 
 export async function fetchTracksByArtist(orgId: string, artistId: string): Promise<TrackRecord[]> {
-  const links = await getTracksByArtist(artistId);
+  const links = await getTracksByArtist(orgId, artistId);
   if (links.length === 0) return [];
   const all = await getTracksByOrg(orgId);
   const ids = new Set(links.map((l) => l.trackId));
@@ -118,10 +118,10 @@ export async function fetchArtistTracksByRole(
   artistId: string,
 ): Promise<ArtistTracksByRole> {
   const [origLinks, featLinks, remixLinks, allLinks] = await Promise.all([
-    getTracksAsOriginalArtist(artistId),
-    getTracksAsFeaturedArtist(artistId),
-    getTracksAsRemixArtist(artistId),
-    getAllArtistTracks(artistId),
+    getTracksAsOriginalArtist(orgId, artistId),
+    getTracksAsFeaturedArtist(orgId, artistId),
+    getTracksAsRemixArtist(orgId, artistId),
+    getAllArtistTracks(orgId, artistId),
   ]);
   const allTracks = await getTracksByOrg(orgId);
   const byId = new Map(allTracks.map((t) => [t.id, t]));
@@ -236,11 +236,12 @@ export async function syncTrackArtistCredits(
       : (existing?.featuredArtistIds ?? []);
 
   if (opts.syncJoinRows !== false) {
-    await replaceTrackArtistsRole(trackId, 'ORIGINAL_ARTIST', originalIds);
+    await replaceTrackArtistsRole(opts.organizationId, trackId, 'ORIGINAL_ARTIST', originalIds);
     // Keep PRIMARY_ARTIST in sync for original-style first credit (legacy consumers)
     await removeArtistsFromTrackByRole(trackId, 'PRIMARY_ARTIST');
     if (originalIds[0]) {
       await addArtistToTrack({
+        organizationId: opts.organizationId,
         trackId,
         artistId: originalIds[0],
         role: 'PRIMARY_ARTIST',
@@ -248,11 +249,11 @@ export async function syncTrackArtistCredits(
         isPrimary: true,
       });
     }
-    await replaceTrackArtistsRole(trackId, 'FEATURED_ARTIST', featuredIds);
-    await replaceTrackArtistsRole(trackId, 'REMIX_ARTIST', remixIds);
+    await replaceTrackArtistsRole(opts.organizationId, trackId, 'FEATURED_ARTIST', featuredIds);
+    await replaceTrackArtistsRole(opts.organizationId, trackId, 'REMIX_ARTIST', remixIds);
     if (hasSongwriting) {
-      await replaceTrackArtistsRole(trackId, 'COMPOSER', composerIds);
-      await replaceTrackArtistsRole(trackId, 'LYRICIST', lyricistIds);
+      await replaceTrackArtistsRole(opts.organizationId, trackId, 'COMPOSER', composerIds);
+      await replaceTrackArtistsRole(opts.organizationId, trackId, 'LYRICIST', lyricistIds);
     }
   }
 
@@ -295,6 +296,7 @@ export async function syncTrackArtistCredits(
 }
 
 async function replaceTrackArtistsRole(
+  organizationId: string,
   trackId: string,
   role: TrackArtistRole,
   artistIds: string[],
@@ -304,6 +306,7 @@ async function replaceTrackArtistsRole(
     const artistId = artistIds[i];
     if (!artistId) continue;
     await addArtistToTrack({
+      organizationId,
       trackId,
       artistId,
       role,
