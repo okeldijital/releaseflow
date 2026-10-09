@@ -8,6 +8,7 @@ import { resolveRecordingType } from '@/lib/recording-type';
 
 export interface ReleaseTrackRecord {
   id: string;
+  organizationId: string;
   releaseId: string;
   trackId: string;
   position: number;
@@ -17,7 +18,19 @@ export interface ReleaseTrackRecord {
 export async function addTrackToRelease(releaseId: string, trackId: string, position: number): Promise<string> {
   const db = getDb();
   if (!db) throw new Error('Firestore not initialized');
+  const [releaseSnap, trackSnap] = await Promise.all([
+    getDoc(doc(db, 'releases', releaseId)),
+    getDoc(doc(db, 'tracks', trackId)),
+  ]);
+  if (!releaseSnap.exists() || !trackSnap.exists()) {
+    throw new Error('Both the release and track must exist before linking them.');
+  }
+  const organizationId = releaseSnap.data().organizationId as string | undefined;
+  if (!organizationId || trackSnap.data().organizationId !== organizationId) {
+    throw new Error('The release and track must belong to the same organization.');
+  }
   const ref = await addDoc(collection(db, 'release_tracks'), {
+    organizationId,
     releaseId,
     trackId,
     position,
@@ -36,8 +49,17 @@ export async function getTracksByRelease(releaseId: string): Promise<(ReleaseTra
   const db = getDb();
   if (!db) return [];
 
+  const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
+  if (!releaseSnap.exists()) return [];
+  const organizationId = releaseSnap.data().organizationId as string | undefined;
+  if (!organizationId) return [];
   const snap = await getDocs(
-    query(collection(db, 'release_tracks'), where('releaseId', '==', releaseId), orderBy('position', 'asc')),
+    query(
+      collection(db, 'release_tracks'),
+      where('organizationId', '==', organizationId),
+      where('releaseId', '==', releaseId),
+      orderBy('position', 'asc'),
+    ),
   );
 
   const records = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ReleaseTrackRecord);
@@ -66,8 +88,16 @@ export async function getTracksByRelease(releaseId: string): Promise<(ReleaseTra
 export async function getReleasesByTrack(trackId: string): Promise<string[]> {
   const db = getDb();
   if (!db) return [];
+  const trackSnap = await getDoc(doc(db, 'tracks', trackId));
+  if (!trackSnap.exists()) return [];
+  const organizationId = trackSnap.data().organizationId as string | undefined;
+  if (!organizationId) return [];
   const snap = await getDocs(
-    query(collection(db, 'release_tracks'), where('trackId', '==', trackId)),
+    query(
+      collection(db, 'release_tracks'),
+      where('organizationId', '==', organizationId),
+      where('trackId', '==', trackId),
+    ),
   );
   return snap.docs.map((d) => (d.data() as { releaseId: string }).releaseId);
 }
@@ -75,8 +105,17 @@ export async function getReleasesByTrack(trackId: string): Promise<string[]> {
 export async function reorderTrack(releaseId: string, trackId: string, newPosition: number): Promise<void> {
   const db = getDb();
   if (!db) return;
+  const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
+  if (!releaseSnap.exists()) return;
+  const organizationId = releaseSnap.data().organizationId as string | undefined;
+  if (!organizationId) return;
   const snap = await getDocs(
-    query(collection(db, 'release_tracks'), where('releaseId', '==', releaseId), where('trackId', '==', trackId)),
+    query(
+      collection(db, 'release_tracks'),
+      where('organizationId', '==', organizationId),
+      where('releaseId', '==', releaseId),
+      where('trackId', '==', trackId),
+    ),
   );
   if (snap.docs.length === 0) return;
   const firstDoc = snap.docs[0];
@@ -87,9 +126,14 @@ export async function reorderTrack(releaseId: string, trackId: string, newPositi
 export async function getReleaseTrackRecordId(trackId: string, releaseId: string): Promise<string | null> {
   const db = getDb();
   if (!db) return null;
+  const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
+  if (!releaseSnap.exists()) return null;
+  const organizationId = releaseSnap.data().organizationId as string | undefined;
+  if (!organizationId) return null;
   const snap = await getDocs(
     query(
       collection(db, 'release_tracks'),
+      where('organizationId', '==', organizationId),
       where('trackId', '==', trackId),
       where('releaseId', '==', releaseId),
     ),
@@ -100,8 +144,16 @@ export async function getReleaseTrackRecordId(trackId: string, releaseId: string
 export async function getNextPosition(releaseId: string): Promise<number> {
   const db = getDb();
   if (!db) return 1;
+  const releaseSnap = await getDoc(doc(db, 'releases', releaseId));
+  if (!releaseSnap.exists()) return 1;
+  const organizationId = releaseSnap.data().organizationId as string | undefined;
+  if (!organizationId) return 1;
   const snap = await getDocs(
-    query(collection(db, 'release_tracks'), where('releaseId', '==', releaseId)),
+    query(
+      collection(db, 'release_tracks'),
+      where('organizationId', '==', organizationId),
+      where('releaseId', '==', releaseId),
+    ),
   );
   return snap.size + 1;
 }
