@@ -38,6 +38,59 @@ service cloud.firestore {
       return isOrgOwner(orgId) || isOrgMember(orgId) || isOrgMemberAfter(orgId);
     }
 
+    function hasOrgAccess(orgId) {
+      return isOrgOwner(orgId) || isOrgMember(orgId);
+    }
+
+    function releaseTrackCanRead() {
+      return resource.data.releaseId is string
+        && resource.data.trackId is string
+        && exists(/databases/$(database)/documents/releases/$(resource.data.releaseId))
+        && exists(/databases/$(database)/documents/tracks/$(resource.data.trackId))
+        && get(/databases/$(database)/documents/releases/$(resource.data.releaseId)).data.organizationId is string
+        && get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId
+          == get(/databases/$(database)/documents/releases/$(resource.data.releaseId)).data.organizationId
+        && hasOrgAccess(get(/databases/$(database)/documents/releases/$(resource.data.releaseId)).data.organizationId);
+    }
+
+    function releaseTrackCanWriteAfter() {
+      return request.resource.data.releaseId is string
+        && request.resource.data.trackId is string
+        && existsAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId))
+        && existsAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId))
+        && getAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId)).data.organizationId is string
+        && getAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.organizationId
+          == getAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId)).data.organizationId
+        && hasOrgAccess(getAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId)).data.organizationId);
+    }
+
+    function trackArtistCanRead() {
+      return resource.data.trackId is string
+        && resource.data.artistId is string
+        && exists(/databases/$(database)/documents/tracks/$(resource.data.trackId))
+        && get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId is string
+        && exists(/databases/$(database)/documents/organizations/$(get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId)/artists/$(resource.data.artistId))
+        && hasOrgAccess(get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId);
+    }
+
+    function trackArtistCanWriteAfter() {
+      return request.resource.data.trackId is string
+        && request.resource.data.artistId is string
+        && existsAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId))
+        && getAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.organizationId is string
+        && existsAfter(/databases/$(database)/documents/organizations/$(getAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.organizationId)/artists/$(request.resource.data.artistId))
+        && hasOrgAccess(getAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.organizationId);
+    }
+
+    function trackArtistCanWriteExisting() {
+      return resource.data.trackId is string
+        && resource.data.artistId is string
+        && exists(/databases/$(database)/documents/tracks/$(resource.data.trackId))
+        && get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId is string
+        && exists(/databases/$(database)/documents/organizations/$(get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId)/artists/$(resource.data.artistId))
+        && hasOrgAccess(get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId);
+    }
+
     function memberRole(orgId) {
       return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.roleId;
     }
@@ -263,29 +316,43 @@ service cloud.firestore {
     }
     match /stages/{docId}           { allow read,write: if isAuth(); }
 
-    // Tracks — organization-scoped via organizationId
+    // Tracks — organization-scoped; role checks align with release operations.
     match /tracks/{trackId} {
-      allow read, list: if isAuth() && resource.data.organizationId != null;
-      allow create: if isAuth() && request.resource.data.organizationId != null;
-      allow update, delete: if isAuth() && resource.data.organizationId != null;
+      allow read, list: if resource.data.organizationId is string
+        && hasOrgAccess(resource.data.organizationId);
+      allow create: if request.resource.data.organizationId is string
+        && request.resource.data.createdBy == request.auth.uid
+        && isManagerOrAbove(request.resource.data.organizationId);
+      allow update: if resource.data.organizationId is string
+        && hasOrgAccess(resource.data.organizationId)
+        && isManagerOrAbove(resource.data.organizationId)
+        && request.resource.data.organizationId == resource.data.organizationId;
+      allow delete: if resource.data.organizationId is string
+        && isAdminOrAbove(resource.data.organizationId);
     }
 
-    // Release-track links — validated against release ownership
+    // Release-track links derive tenant ownership from both linked entities.
+    // getAfter permits createTrack's atomic track + link batch without trusting client org IDs.
     match /release_tracks/{id} {
-      allow read, list: if isAuth();
-      allow create: if isAuth()
-        && request.resource.data.releaseId != null
-        && request.resource.data.trackId != null
-        && request.resource.data.position != null;
-      allow update: if isAuth() && resource.data.releaseId != null;
-      allow delete: if isAuth() && resource.data.releaseId != null;
+      allow read, list: if releaseTrackCanRead();
+      allow create: if releaseTrackCanWriteAfter()
+        && request.resource.data.position is number;
+      allow update: if releaseTrackCanRead()
+        && releaseTrackCanWriteAfter()
+        && request.resource.data.releaseId == resource.data.releaseId
+        && request.resource.data.trackId == resource.data.trackId
+        && request.resource.data.position is number;
+      allow delete: if releaseTrackCanRead();
     }
 
-    // Track-artist links
+    // Track-artist credits must point to a track and an artist in the same tenant.
     match /track_artists/{id} {
-      allow read, list: if isAuth();
-      allow create: if isAuth() && request.resource.data.trackId != null && request.resource.data.artistId != null;
-      allow update, delete: if isAuth();
+      allow read, list: if trackArtistCanRead();
+      allow create: if trackArtistCanWriteAfter();
+      allow update: if trackArtistCanWriteExisting()
+        && trackArtistCanWriteAfter()
+        && request.resource.data.trackId == resource.data.trackId;
+      allow delete: if trackArtistCanWriteExisting();
     }
 
     // Person assignments (tracks, releases, etc.)
