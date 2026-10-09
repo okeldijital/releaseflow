@@ -231,7 +231,11 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
   const now = Timestamp.now();
 
   const positionSnap = await getDocs(
-    query(collection(db, 'release_tracks'), where('releaseId', '==', fields.releaseId)),
+    query(
+      collection(db, 'release_tracks'),
+      where('organizationId', '==', fields.organizationId),
+      where('releaseId', '==', fields.releaseId),
+    ),
   );
   const position = fields.position ?? (positionSnap.size + 1);
 
