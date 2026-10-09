@@ -83,10 +83,10 @@ beforeEach(async () => {
       releaseId: "release-b", trackId: "track-b", position: 1
     });
     await setDoc(doc(db, "track_artists/track-artist-a"), {
-      trackId: "track-a", artistId: "artist-a", role: "PRIMARY_ARTIST", position: 1
+      organizationId: "org-a", trackId: "track-a", artistId: "artist-a", role: "PRIMARY_ARTIST", position: 1
     });
     await setDoc(doc(db, "track_artists/track-artist-b"), {
-      trackId: "track-b", artistId: "artist-b", role: "PRIMARY_ARTIST", position: 1
+      organizationId: "org-b", trackId: "track-b", artistId: "artist-b", role: "PRIMARY_ARTIST", position: 1
     });
     await setDoc(doc(db, "workflows/workflow-b"), {
       organizationId: "org-b", name: "Synthetic Workflow B"
@@ -296,7 +296,7 @@ test("organization A member cannot create a release-track link across organizati
 test("organization A member cannot link an organization B artist to an organization A track", async () => {
   const db = env.authenticatedContext("user-member-a").firestore();
   await assertFails(setDoc(doc(db, "track_artists/forged-cross-tenant"), {
-    trackId: "track-a", artistId: "artist-b", role: "FEATURED_ARTIST", position: 2
+    organizationId: "org-a", trackId: "track-a", artistId: "artist-b", role: "FEATURED_ARTIST", position: 2
   }));
 });
 
