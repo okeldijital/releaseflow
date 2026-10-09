@@ -360,3 +360,20 @@ test("organization A member cannot query track-artist credits from organization 
     where("artistId", "==", "artist-b")
   )));
 });
+
+
+test("organization A member can query credits for a track in organization A", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  const result = await assertSucceeds(getDocs(query(
+    collection(db, "track_artists"),
+    where("organizationId", "==", "org-a"),
+    where("trackId", "==", "track-a"),
+    where("role", "==", "PRIMARY_ARTIST")
+  )));
+  assert.equal(result.size, 1);
+});
+
+test("organization A member can update a release-track position without changing its tenant links", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertSucceeds(updateDoc(doc(db, "release_tracks/link-a"), { position: 3 }));
+});
