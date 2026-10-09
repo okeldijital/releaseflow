@@ -52,6 +52,33 @@ service cloud.firestore {
       );
     }
 
+    // Invitation acceptance is the only non-owner path that may create a
+    // membership. The invitation must be accepted in the same atomic write,
+    // belong to this organization, target the authenticated email, and map to
+    // the exact canonical role assigned by the invitation contract.
+    function invitationRoleMatches(roleId, invitation) {
+      return (
+        invitation.platformRole == 'administrator' && roleId == 'administrator'
+      ) || (
+        invitation.platformRole == 'release_manager' && roleId == 'release_manager'
+      ) || (
+        invitation.platformRole == 'collaborator' && roleId == 'contributor'
+      );
+    }
+
+    function hasValidAcceptedInvitation(orgId, roleId) {
+      return isAuth()
+        && request.auth.token.email is string
+        && request.resource.data.invitationToken is string
+        && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationToken)).data.status == 'accepted'
+        && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationToken)).data.organizationId == orgId
+        && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationToken)).data.inviteeEmail == request.auth.token.email
+        && invitationRoleMatches(
+          roleId,
+          getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationToken)).data
+        );
+    }
+
     // Organization management stays owner-only (organization.manage).
     match /organizations/{orgId} {
       allow read: if isAuth();
@@ -69,7 +96,13 @@ service cloud.firestore {
       allow create: if isAuth()
         && request.auth.uid == memberId
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.roleId is string;
+        && (
+          (
+            isOrgOwner(orgId)
+            && request.resource.data.roleId == 'owner'
+          )
+          || hasValidAcceptedInvitation(orgId, request.resource.data.roleId)
+        );
       allow update: if isAuth() && (
         isOrgOwner(orgId)
         || isAdminOrAbove(orgId)
@@ -138,7 +171,16 @@ service cloud.firestore {
       allow create: if isAuth()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.organizationId is string
-        && request.resource.data.roleId is string;
+        && (
+          (
+            isOrgOwner(request.resource.data.organizationId)
+            && request.resource.data.roleId == 'owner'
+          )
+          || hasValidAcceptedInvitation(
+            request.resource.data.organizationId,
+            request.resource.data.roleId
+          )
+        );
       allow update: if isAuth() && (
         isOrgOwner(resource.data.organizationId)
         || isAdminOrAbove(resource.data.organizationId)
@@ -159,10 +201,11 @@ service cloud.firestore {
     // Core operational collections — tenant isolation via organizationId
     // RBAC-001: create requires membership + manager role; collaborators cannot create.
     match /releases/{docId} {
-      allow read, list: if isAuth() && (
-        orgMatch(resource.data.organizationId)
-        || isOrgMember(resource.data.organizationId)
-      );
+      allow read, list: if isAuth()
+        && (
+          isOrgOwner(resource.data.organizationId)
+          || isOrgMember(resource.data.organizationId)
+        );
       allow create: if isAuth()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.organizationId is string
@@ -177,7 +220,21 @@ service cloud.firestore {
       allow delete: if isAuth()
         && isAdminOrAbove(resource.data.organizationId);
     }
-    match /workflows/{docId}        { allow read,write: if isAuth(); }
+    match /workflows/{docId} {
+      allow read, list: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId));
+      allow create: if isAuth()
+        && request.resource.data.organizationId is string
+        && (isOrgOwner(request.resource.data.organizationId) || isOrgMember(request.resource.data.organizationId));
+      allow update: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId))
+        && request.resource.data.organizationId == resource.data.organizationId;
+      allow delete: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId));
+    }
     match /stages/{docId}           { allow read,write: if isAuth(); }
 
     // Tracks — organization-scoped via organizationId
@@ -259,7 +316,19 @@ service cloud.firestore {
       allow read,write: if isAuth();
     }
     match /assets/{docId} {
-      allow read,write: if isAuth();
+      allow read, list: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId));
+      allow create: if isAuth()
+        && request.resource.data.organizationId is string
+        && (isOrgOwner(request.resource.data.organizationId) || isOrgMember(request.resource.data.organizationId));
+      allow update: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId))
+        && request.resource.data.organizationId == resource.data.organizationId;
+      allow delete: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId));
     }
     // CE-UAT-001 — Invitation verification must work before the invitee signs in.
     // Possession of the unguessable token is the credential for public `get`.
@@ -280,6 +349,9 @@ service cloud.firestore {
         || (
           resource.data.status == 'pending'
           && request.resource.data.status == 'accepted'
+          && request.auth.token.email is string
+          && resource.data.inviteeEmail == request.auth.token.email
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedAt', 'updatedAt'])
         )
       );
       allow delete: if isAuth() && isAdminOrAbove(resource.data.organizationId);
