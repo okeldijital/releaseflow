@@ -76,6 +76,18 @@ beforeEach(async () => {
     await setDoc(doc(db, "organizations/org-b/artists/artist-b"), {
       organizationId: "org-b", name: "Synthetic Artist B", status: "active"
     });
+    await setDoc(doc(db, "organizations/org-a/media_assets/media-a"), {
+      organizationId: "org-a", name: "Synthetic Media A"
+    });
+    await setDoc(doc(db, "organizations/org-b/media_assets/media-b"), {
+      organizationId: "org-b", name: "Synthetic Media B"
+    });
+    await setDoc(doc(db, "organizations/org-a/artworks/artwork-a"), {
+      organizationId: "org-a", title: "Synthetic Artwork A"
+    });
+    await setDoc(doc(db, "organizations/org-b/artworks/artwork-b"), {
+      organizationId: "org-b", title: "Synthetic Artwork B"
+    });
     await setDoc(doc(db, "release_tracks/link-a"), {
       organizationId: "org-a", releaseId: "release-a", trackId: "track-a", position: 1
     });
@@ -243,6 +255,31 @@ test("invitee with mismatched authenticated email cannot accept an invitation", 
     invitationToken: "invite-token-a"
   });
   await assertFails(batch.commit());
+});
+
+test("organization A member can read own organization artist but not organization B artist", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertSucceeds(getDoc(doc(db, "organizations/org-a/artists/artist-a")));
+  await assertFails(getDoc(doc(db, "organizations/org-b/artists/artist-b")));
+});
+
+test("authenticated non-member cannot read organization artist records", async () => {
+  const db = env.authenticatedContext("user-outsider-b").firestore();
+  await assertFails(getDoc(doc(db, "organizations/org-a/artists/artist-a")));
+});
+
+test("organization A member can read own media but not organization B media or artwork", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertSucceeds(getDoc(doc(db, "organizations/org-a/media_assets/media-a")));
+  await assertSucceeds(getDoc(doc(db, "organizations/org-a/artworks/artwork-a")));
+  await assertFails(getDoc(doc(db, "organizations/org-b/media_assets/media-b")));
+  await assertFails(getDoc(doc(db, "organizations/org-b/artworks/artwork-b")));
+});
+
+test("authenticated non-member cannot read organization media or artwork", async () => {
+  const db = env.authenticatedContext("user-outsider-b").firestore();
+  await assertFails(getDoc(doc(db, "organizations/org-a/media_assets/media-a")));
+  await assertFails(getDoc(doc(db, "organizations/org-a/artworks/artwork-a")));
 });
 
 test("organization A collaborator cannot read organization B people records", async () => {
