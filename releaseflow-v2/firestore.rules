@@ -43,25 +43,21 @@ service cloud.firestore {
     }
 
     function releaseTrackCanRead() {
-      return resource.data.releaseId is string
-        && resource.data.trackId is string
-        && exists(/databases/$(database)/documents/releases/$(resource.data.releaseId))
-        && exists(/databases/$(database)/documents/tracks/$(resource.data.trackId))
-        && get(/databases/$(database)/documents/releases/$(resource.data.releaseId)).data.organizationId is string
-        && get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId
-          == get(/databases/$(database)/documents/releases/$(resource.data.releaseId)).data.organizationId
-        && hasOrgAccess(get(/databases/$(database)/documents/releases/$(resource.data.releaseId)).data.organizationId);
+      return resource.data.organizationId is string
+        && hasOrgAccess(resource.data.organizationId);
     }
 
     function releaseTrackCanWriteAfter() {
-      return request.resource.data.releaseId is string
+      return request.resource.data.organizationId is string
+        && request.resource.data.releaseId is string
         && request.resource.data.trackId is string
         && existsAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId))
         && existsAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId))
         && getAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId)).data.organizationId is string
         && getAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.organizationId
           == getAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId)).data.organizationId
-        && hasOrgAccess(getAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId)).data.organizationId);
+        && request.resource.data.organizationId == getAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId)).data.organizationId
+        && hasOrgAccess(request.resource.data.organizationId);
     }
 
     function organizationArtistExists(orgId, artistId) {
@@ -74,10 +70,7 @@ service cloud.firestore {
 
     function trackArtistCanRead() {
       return resource.data.organizationId is string
-        && resource.data.trackId is string
         && resource.data.artistId is string
-        && exists(/databases/$(database)/documents/tracks/$(resource.data.trackId))
-        && get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId == resource.data.organizationId
         && organizationArtistExists(resource.data.organizationId, resource.data.artistId)
         && hasOrgAccess(resource.data.organizationId);
     }
@@ -350,6 +343,7 @@ service cloud.firestore {
         && request.resource.data.position is number;
       allow update: if releaseTrackCanRead()
         && releaseTrackCanWriteAfter()
+        && request.resource.data.organizationId == resource.data.organizationId
         && request.resource.data.releaseId == resource.data.releaseId
         && request.resource.data.trackId == resource.data.trackId
         && request.resource.data.position is number;
