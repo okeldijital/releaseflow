@@ -26,7 +26,7 @@ function requireIsolatedEmulator() {
 
 before(async () => {
   requireIsolatedEmulator();
-  const rules = await readFile(resolve(process.cwd(), "../firestore.rules"), "utf8");
+  const rules = await readFile(resolve(process.cwd(), "../../firestore.rules"), "utf8");
   env = await initializeTestEnvironment({
     projectId: PROJECT_ID,
     firestore: { host: "127.0.0.1", port: 8080, rules },
