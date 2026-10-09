@@ -124,11 +124,11 @@ export async function removeArtistFromTrack(recordId: string): Promise<void> {
   await deleteDoc(doc(db, 'track_artists', recordId));
 }
 
-export async function removeArtistsFromTrackByRole(trackId: string, role: TrackArtistRole): Promise<void> {
+export async function removeArtistsFromTrackByRole(organizationId: string, trackId: string, role: TrackArtistRole): Promise<void> {
   const db = getDb();
   if (!db) return;
   const snap = await getDocs(
-    query(collection(db, 'track_artists'), where('trackId', '==', trackId), where('role', '==', role)),
+    query(collection(db, 'track_artists'), where('organizationId', '==', organizationId), where('trackId', '==', trackId), where('role', '==', role)),
   );
   if (snap.empty) return;
   const batch = writeBatch(db);
@@ -136,11 +136,11 @@ export async function removeArtistsFromTrackByRole(trackId: string, role: TrackA
   await batch.commit();
 }
 
-export async function removeAllArtistsFromTrack(trackId: string): Promise<void> {
+export async function removeAllArtistsFromTrack(organizationId: string, trackId: string): Promise<void> {
   const db = getDb();
   if (!db) return;
   const snap = await getDocs(
-    query(collection(db, 'track_artists'), where('trackId', '==', trackId)),
+    query(collection(db, 'track_artists'), where('organizationId', '==', organizationId), where('trackId', '==', trackId)),
   );
   if (snap.empty) return;
   const batch = writeBatch(db);
@@ -148,12 +148,13 @@ export async function removeAllArtistsFromTrack(trackId: string): Promise<void> 
   await batch.commit();
 }
 
-export async function getArtistsByRole(trackId: string, role: TrackArtistRole): Promise<TrackArtistRecord[]> {
+export async function getArtistsByRole(organizationId: string, trackId: string, role: TrackArtistRole): Promise<TrackArtistRecord[]> {
   const db = getDb();
   if (!db) return [];
   const snap = await getDocs(
     query(
       collection(db, 'track_artists'),
+      where('organizationId', '==', organizationId),
       where('trackId', '==', trackId),
       where('role', '==', role),
       orderBy('position', 'asc'),
@@ -162,12 +163,13 @@ export async function getArtistsByRole(trackId: string, role: TrackArtistRole): 
   return snap.docs.map((d) => normalizeDoc({ id: d.id, ...d.data() }));
 }
 
-export async function getArtistsByTrack(trackId: string): Promise<TrackArtistRecord[]> {
+export async function getArtistsByTrack(organizationId: string, trackId: string): Promise<TrackArtistRecord[]> {
   const db = getDb();
   if (!db) return [];
   const snap = await getDocs(
     query(
       collection(db, 'track_artists'),
+      where('organizationId', '==', organizationId),
       where('trackId', '==', trackId),
       orderBy('position', 'asc'),
     ),
@@ -228,7 +230,7 @@ export async function ensureArtistInTrack(
   position: number,
   isPrimary?: boolean,
 ): Promise<TrackArtistRecord | null> {
-  const existing = await getArtistsByRole(trackId, role);
+  const existing = await getArtistsByRole(organizationId, trackId, role);
   const already = existing.find((a) => a.artistId === artistId);
   if (already) return already;
   return addArtistToTrack({ organizationId, trackId, artistId, role, position, isPrimary });
