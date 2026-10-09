@@ -204,7 +204,7 @@ describe('BUG-008A page render contract (source)', () => {
     expect(moduleSrc).toContain('filteredAll');
     expect(moduleSrc).toContain('buildReleaseWorkspace');
     expect(moduleSrc).toContain('resolveReleaseCardVariant');
-    expect(moduleSrc).not.toMatch(/All Releases[\\s\\S]{0,400}col-span-4">Release</);
+    expect(moduleSrc).not.toMatch(/All Releases[\s\S]{0,400}col-span-4">Release</);
   });
 
   it('CollapsibleSection is defined outside the component that renders the page', async () => {
@@ -226,7 +226,7 @@ describe('BUG-008A page render contract (source)', () => {
     const cardPath = path.resolve(__dirname, '../components/release/cards/ReleaseCard.tsx');
     const src = fs.readFileSync(cardPath, 'utf8');
 
-    const nullReturns = src.match(/return\\s+null\\s*;/g) ?? [];
+    const nullReturns = src.match(/return\s+null\s*;/g) ?? [];
     expect(nullReturns).toHaveLength(0);
   });
 });
