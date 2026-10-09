@@ -69,6 +69,15 @@ beforeEach(async () => {
     await setDoc(doc(db, "assets/asset-b"), {
       organizationId: "org-b", name: "Synthetic Asset B"
     });
+    await setDoc(doc(db, "people/person-b"), {
+      organizationId: "org-b", userId: "user-owner-b", email: "person-b@example.com", displayName: "Org B Person"
+    });
+    await setDoc(doc(db, "activity_events/event-b"), {
+      organizationId: "org-b", actorId: "user-owner-b", action: "release.updated", entityType: "release", entityId: "release-b"
+    });
+    await setDoc(doc(db, "activity_events/event-a"), {
+      organizationId: "org-a", actorId: "user-owner-a", action: "release.created", entityType: "release", entityId: "release-a"
+    });
     await setDoc(doc(db, "invitations/invite-token-a"), {
       token: "invite-token-a",
       status: "pending",
@@ -209,4 +218,32 @@ test("invitee with mismatched authenticated email cannot accept an invitation", 
     invitationToken: "invite-token-a"
   });
   await assertFails(batch.commit());
+});
+
+test("organization A collaborator cannot read organization B people records", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertFails(getDoc(doc(db, "people/person-b")));
+});
+
+test("organization A collaborator cannot read organization B activity events", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertFails(getDoc(doc(db, "activity_events/event-b")));
+});
+
+test("organization A member can read own organization's activity events", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertSucceeds(getDoc(doc(db, "activity_events/event-a")));
+});
+
+test("organization A member cannot alter or delete immutable activity events", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertFails(updateDoc(doc(db, "activity_events/event-a"), { action: "tampered" }));
+  await assertFails(deleteDoc(doc(db, "activity_events/event-a")));
+});
+
+test("organization A member cannot create an activity event in organization B", async () => {
+  const db = env.authenticatedContext("user-member-a").firestore();
+  await assertFails(setDoc(doc(db, "activity_events/forged-event"), {
+    organizationId: "org-b", actorId: "user-member-a", action: "release.deleted", entityId: "release-b"
+  }));
 });
