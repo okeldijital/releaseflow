@@ -190,31 +190,34 @@ describe('BUG-008A workspace pipeline', () => {
 });
 
 describe('BUG-008A page render contract (source)', () => {
-  it('All Releases path invokes ReleaseCard (not ad-hoc table rows only)', async () => {
+  it('All Releases path delegates to the shared module that renders ReleaseCards', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const pagePath = path.resolve(__dirname, '../app/(app)/releases/page.tsx');
-    const src = fs.readFileSync(pagePath, 'utf8');
+    const modulePath = path.resolve(__dirname, '../app/(app)/releases/_components/releases-module.tsx');
+    const pageSrc = fs.readFileSync(pagePath, 'utf8');
+    const moduleSrc = fs.readFileSync(modulePath, 'utf8');
 
-    expect(src).toContain('ReleaseCardGrid');
-    expect(src).toContain('title="All Releases"');
-    expect(src).toContain('filteredAll');
-    expect(src).toContain('buildReleaseWorkspace');
-    expect(src).toContain('resolveReleaseCardVariant');
-    expect(src).not.toMatch(/All Releases[\s\S]{0,400}col-span-4">Release</);
+    expect(pageSrc).toContain('ReleasesModule');
+    expect(moduleSrc).toContain('ReleaseCardGrid');
+    expect(moduleSrc).toContain('title="All Releases"');
+    expect(moduleSrc).toContain('filteredAll');
+    expect(moduleSrc).toContain('buildReleaseWorkspace');
+    expect(moduleSrc).toContain('resolveReleaseCardVariant');
+    expect(moduleSrc).not.toMatch(/All Releases[\s\S]{0,400}col-span-4">Release</);
   });
 
-  it('CollapsibleSection is defined outside ReleasesPage (stable identity)', async () => {
+  it('CollapsibleSection is defined outside the component that renders the page', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const pagePath = path.resolve(__dirname, '../app/(app)/releases/page.tsx');
-    const src = fs.readFileSync(pagePath, 'utf8');
+    const modulePath = path.resolve(__dirname, '../app/(app)/releases/_components/releases-module.tsx');
+    const src = fs.readFileSync(modulePath, 'utf8');
 
     const collapsibleIdx = src.indexOf('function CollapsibleSection');
-    const pageIdx = src.indexOf('export default function ReleasesPage');
+    const gridIdx = src.indexOf('function ReleaseCardGrid');
     expect(collapsibleIdx).toBeGreaterThan(-1);
-    expect(pageIdx).toBeGreaterThan(-1);
-    expect(collapsibleIdx).toBeLessThan(pageIdx);
+    expect(gridIdx).toBeGreaterThan(-1);
+    expect(collapsibleIdx).toBeLessThan(gridIdx);
   });
 
   it('ReleaseCard has no silent null return for variants', async () => {

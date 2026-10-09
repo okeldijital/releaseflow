@@ -805,6 +805,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
           });
           if (recordingPrimaryId) {
             await addArtistToTrack({
+              organizationId: activeOrgId,
               trackId,
               artistId: recordingPrimaryId,
               role: 'PRIMARY_ARTIST',
@@ -816,6 +817,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
             const entry = t.featuredArtists[idx]!;
             if (entry.artistId) {
               await addArtistToTrack({
+              organizationId: activeOrgId,
                 trackId,
                 artistId: entry.artistId,
                 role: 'FEATURED_ARTIST',
@@ -829,6 +831,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
               const entry = t.originalWorkComposers[idx]!;
               if (entry.artistId) {
                 await addArtistToTrack({
+              organizationId: activeOrgId,
                   trackId,
                   artistId: entry.artistId,
                   role: 'COMPOSER',
@@ -840,6 +843,7 @@ export function useReleaseWizard({ mode = 'create', releaseId: editReleaseId, dr
               const entry = t.originalWorkLyricists[idx]!;
               if (entry.artistId) {
                 await addArtistToTrack({
+              organizationId: activeOrgId,
                   trackId,
                   artistId: entry.artistId,
                   role: 'LYRICIST',

@@ -11,7 +11,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "migrate:artists": "tsx scripts/migrate-artists.ts",
     "migrate:artists:execute": "tsx scripts/migrate-artists.ts --execute",
-    "migrate:artists:purge": "tsx scripts/migrate-artists.ts --execute --delete-legacy"
+    "migrate:artists:purge": "tsx scripts/migrate-artists.ts --execute --delete-legacy",
+    "migrate:catalogue-links": "tsx scripts/migrate-catalogue-link-organization.ts",
+    "migrate:catalogue-links:execute": "tsx scripts/migrate-catalogue-link-organization.ts --execute"
   },
   "devDependencies": {
     "firebase-admin": "^13.1.0",

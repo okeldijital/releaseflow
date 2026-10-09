@@ -188,11 +188,14 @@ describe('NOT-001 domain wiring', () => {
     expect(src).toContain('oldAssigneeId');
   });
 
-  it('inbox page uses category filters', () => {
+  it('legacy notifications route redirects to the canonical collaboration inbox', () => {
     const page = read('app/(app)/notifications/page.tsx');
-    expect(page).toContain('INBOX_FILTERS');
-    expect(page).toContain('Inbox');
-    expect(page).toContain('filterNotificationsByCategory');
+    expect(page).toContain('LegacyCollaborationRedirect');
+    expect(page).toContain('fromPath="/notifications"');
+
+    const inbox = read('app/(app)/notifications/notifications-view.tsx');
+    expect(inbox).toContain('INBOX_FILTERS');
+    expect(inbox).toContain('filterNotificationsByCategory');
   });
 
   it('badge uses live subscription', () => {

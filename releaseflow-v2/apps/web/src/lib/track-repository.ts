@@ -231,7 +231,11 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
   const now = Timestamp.now();
 
   const positionSnap = await getDocs(
-    query(collection(db, 'release_tracks'), where('releaseId', '==', fields.releaseId)),
+    query(
+      collection(db, 'release_tracks'),
+      where('organizationId', '==', fields.organizationId),
+      where('releaseId', '==', fields.releaseId),
+    ),
   );
   const position = fields.position ?? (positionSnap.size + 1);
 
@@ -280,6 +284,7 @@ export async function createTrack(fields: CreateTrackFields): Promise<TrackRecor
 
   const releaseTrackRef = doc(collection(db, 'release_tracks'));
   batch.set(releaseTrackRef, {
+    organizationId: fields.organizationId,
     releaseId: fields.releaseId,
     trackId: trackRef.id,
     position,
@@ -449,10 +454,19 @@ export async function deleteTrack(trackId: string, organizationId?: string, acto
     throw new Error('Firestore not initialized');
   }
 
+  const trackSnap = await getDoc(doc(db, 'tracks', trackId));
+  if (!trackSnap.exists()) return;
+  const tenantId = trackSnap.data().organizationId as string | undefined;
+  if (!tenantId) throw new Error('Track organization is required before deleting its release links.');
+
   const batch = writeBatch(db);
 
   const releaseTracksSnap = await getDocs(
-    query(collection(db, 'release_tracks'), where('trackId', '==', trackId)),
+    query(
+      collection(db, 'release_tracks'),
+      where('organizationId', '==', tenantId),
+      where('trackId', '==', trackId),
+    ),
   );
   for (const doc of releaseTracksSnap.docs) {
     batch.delete(doc.ref);

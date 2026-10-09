@@ -1,5 +1,6 @@
 import { getAllReleases } from './release-repository';
 import { getTracksByOrg } from './track-repository';
+import { getTracksByArtist, type TrackArtistRole } from './track-artist-repository';
 import { searchArtists } from './artist-repository';
 import { searchPeople } from './people-repository';
 import { getTasks } from './task-repository';
@@ -53,33 +54,88 @@ async function searchReleases(
   return results;
 }
 
+const TRACK_ARTIST_ROLE_LABELS: Record<TrackArtistRole, string> = {
+  PRIMARY_ARTIST: 'Primary Artist',
+  ORIGINAL_ARTIST: 'Original Artist',
+  FEATURED_ARTIST: 'Featured Artist',
+  REMIX_ARTIST: 'Remix Artist',
+  PRODUCER: 'Producer',
+  COMPOSER: 'Composer',
+  LYRICIST: 'Lyricist',
+  WRITER: 'Writer',
+  MIX_ENGINEER: 'Mix Engineer',
+  MASTERING_ENGINEER: 'Mastering Engineer',
+};
+
 async function searchTracks(
   q: string,
   orgId: string,
 ): Promise<SearchResult[]> {
-  const tracks = await getTracksByOrg(orgId);
-  const results: SearchResult[] = [];
+  const [tracks, matchingArtists] = await Promise.all([
+    getTracksByOrg(orgId),
+    searchArtists(orgId, q),
+  ]);
+  const tracksById = new Map(tracks.map((track) => [track.id, track]));
+  const resultsByTrackId = new Map<string, SearchResult>();
 
-  for (const t of tracks) {
-    const titleScore = scoreMatch(t.title, q);
-    const displayScore = t.displayTitle ? scoreMatch(t.displayTitle, q) : 0;
-    const isrcScore = t.isrc ? scoreMatch(t.isrc, q) : 0;
-    const maxScore = Math.max(titleScore, displayScore, isrcScore);
+  // Direct track metadata matches remain first-class search results.
+  for (const track of tracks) {
+    const titleScore = scoreMatch(track.title, q);
+    const displayScore = track.displayTitle ? scoreMatch(track.displayTitle, q) : 0;
+    const isrcScore = track.isrc ? scoreMatch(track.isrc, q) : 0;
+    const score = Math.max(titleScore, displayScore, isrcScore);
 
-    if (maxScore > 0) {
-      results.push({
+    if (score > 0) {
+      resultsByTrackId.set(track.id, {
         type: 'track',
-        id: t.id,
-        title: t.displayTitle ?? t.title,
+        id: track.id,
+        title: track.displayTitle ?? track.title,
         subtitle: 'Track',
-        url: `/tracks/${t.id}`,
-        badge: t.recordingType ?? 'original',
-        score: maxScore,
+        url: `/tracks/${track.id}`,
+        badge: track.recordingType ?? 'original',
+        score,
       });
     }
   }
 
-  return results;
+  // Artist-name queries also surface tracks where that artist is credited.
+  const artistLinks = await Promise.all(
+    matchingArtists.map(async (artist) => ({
+      artist,
+      links: await getTracksByArtist(orgId, artist.id),
+    })),
+  );
+
+  for (const { artist, links } of artistLinks) {
+    const artistScore = Math.max(
+      scoreMatch(artist.name, q),
+      artist.stageName ? scoreMatch(artist.stageName, q) : 0,
+      artist.legalName ? scoreMatch(artist.legalName, q) : 0,
+    );
+
+    for (const link of links) {
+      const track = tracksById.get(link.trackId);
+      if (!track) continue;
+
+      const roleLabel = TRACK_ARTIST_ROLE_LABELS[link.role] ?? 'Artist Credit';
+      const current = resultsByTrackId.get(track.id);
+      const roleSubtitle = `${roleLabel}: ${artist.name}`;
+      resultsByTrackId.set(track.id, {
+        type: 'track',
+        id: track.id,
+        title: track.displayTitle ?? track.title,
+        subtitle:
+          current?.subtitle && current.subtitle !== 'Track'
+            ? `${current.subtitle}; ${roleSubtitle}`
+            : roleSubtitle,
+        url: `/tracks/${track.id}`,
+        badge: track.recordingType ?? 'original',
+        score: Math.max(current?.score ?? 0, artistScore),
+      });
+    }
+  }
+
+  return [...resultsByTrackId.values()];
 }
 
 async function searchArtistsFn(

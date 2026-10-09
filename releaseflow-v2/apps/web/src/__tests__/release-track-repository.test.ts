@@ -40,13 +40,16 @@ describe('getTracksByRelease orphan tolerance', () => {
     mockGetDocs.mockResolvedValue({
       size: 3,
       docs: [
-        { id: 'linkA', data: () => ({ releaseId: 'r1', trackId: 'trackA', position: 1 }) },
-        { id: 'linkB', data: () => ({ releaseId: 'r1', trackId: 'orphanTrack', position: 2 }) },
-        { id: 'linkC', data: () => ({ releaseId: 'r1', trackId: 'trackC', position: 3 }) },
+        { id: 'linkA', data: () => ({ organizationId: 'org1', releaseId: 'r1', trackId: 'trackA', position: 1 }) },
+        { id: 'linkB', data: () => ({ organizationId: 'org1', releaseId: 'r1', trackId: 'orphanTrack', position: 2 }) },
+        { id: 'linkC', data: () => ({ organizationId: 'org1', releaseId: 'r1', trackId: 'trackC', position: 3 }) },
       ],
     });
 
     mockGetDoc.mockImplementation(async ({ id }: { id: string }) => {
+      if (id === 'r1') {
+        return { exists: () => true, data: () => ({ organizationId: 'org1' }) };
+      }
       if (id === 'orphanTrack') {
         return { exists: () => false };
       }
@@ -108,12 +111,17 @@ describe('getTracksByRelease orphan tolerance', () => {
     mockGetDocs.mockResolvedValue({
       size: 2,
       docs: [
-        { id: 'linkX', data: () => ({ releaseId: 'r1', trackId: 'missing1', position: 1 }) },
-        { id: 'linkY', data: () => ({ releaseId: 'r1', trackId: 'missing2', position: 2 }) },
+        { id: 'linkX', data: () => ({ organizationId: 'org1', releaseId: 'r1', trackId: 'missing1', position: 1 }) },
+        { id: 'linkY', data: () => ({ organizationId: 'org1', releaseId: 'r1', trackId: 'missing2', position: 2 }) },
       ],
     });
 
-    mockGetDoc.mockResolvedValue({ exists: () => false });
+    mockGetDoc.mockImplementation(async ({ id }: { id: string }) => {
+      if (id === 'r1') {
+        return { exists: () => true, data: () => ({ organizationId: 'org1' }) };
+      }
+      return { exists: () => false };
+    });
 
     const results = await getTracksByRelease('r1');
     expect(results).toHaveLength(0);

@@ -143,11 +143,17 @@ describe('EPIC-202A Track Workspace surfaces', () => {
     expect(src).toContain('FEATURED_ARTIST');
   });
 
-  it('command palette indexes tracks by artist role', () => {
-    const src = read('components/command-palette.tsx');
+  it('global search indexes tracks by credited artist role', () => {
+    const src = read('lib/search-service.ts');
+    expect(src).toContain('getTracksByArtist');
+    expect(src).toContain('FEATURED_ARTIST');
     expect(src).toContain('Featured Artist');
-    expect(src).toContain("type: 'track'");
-    expect(src).toContain('featuredArtistIds');
+    expect(src).toContain('ORIGINAL_ARTIST');
+    expect(src).toContain('REMIX_ARTIST');
+
+    const palette = read('components/command-palette.tsx');
+    expect(palette).toContain('useGlobalSearch');
+    expect(palette).toContain('Search releases, tracks, artists...');
   });
 
   it('display-title exports resolveTrackDisplayTitle as shared util', () => {

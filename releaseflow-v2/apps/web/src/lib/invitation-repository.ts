@@ -498,12 +498,14 @@ export async function acceptInvitationAtomically(
           roleId: systemRole,
           status: 'active',
           invitedBy: invitedByUserId,
+          invitationToken: invitation.id,
           createdAt: now,
         });
       } else {
         transaction.update(doc(db, 'memberships', existingMembershipId), {
           roleId: systemRole,
           status: 'active',
+          invitationToken: invitation.id,
         });
       }
 
@@ -514,6 +516,7 @@ export async function acceptInvitationAtomically(
         roleId: systemRole,
         status: 'active',
         platformRole,
+        invitationToken: invitation.id,
         updatedAt: now,
       }, { merge: true });
 

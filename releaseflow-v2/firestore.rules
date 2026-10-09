@@ -26,6 +26,78 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.status == 'active';
     }
 
+    // Atomic onboarding may create the member index and related records in one batch.
+    function isOrgMemberAfter(orgId) {
+      return isAuth()
+        && existsAfter(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid))
+        && getAfter(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.status == 'active'
+        && getAfter(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.userId == request.auth.uid;
+    }
+
+    function hasOrgAccessAfter(orgId) {
+      return isOrgOwner(orgId) || isOrgMember(orgId) || isOrgMemberAfter(orgId);
+    }
+
+    function hasOrgAccess(orgId) {
+      return isOrgOwner(orgId) || isOrgMember(orgId);
+    }
+
+    function releaseTrackCanRead() {
+      return resource.data.organizationId is string
+        && hasOrgAccess(resource.data.organizationId);
+    }
+
+    function releaseTrackCanWriteAfter() {
+      return request.resource.data.organizationId is string
+        && request.resource.data.releaseId is string
+        && request.resource.data.trackId is string
+        && existsAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId))
+        && existsAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId))
+        && getAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId)).data.organizationId is string
+        && getAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.organizationId
+          == getAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId)).data.organizationId
+        && request.resource.data.organizationId == getAfter(/databases/$(database)/documents/releases/$(request.resource.data.releaseId)).data.organizationId
+        && hasOrgAccess(request.resource.data.organizationId);
+    }
+
+    function organizationArtistExists(orgId, artistId) {
+      return exists(/databases/$(database)/documents/organizations/$(orgId)/artists/$(artistId));
+    }
+
+    function organizationArtistExistsAfter(orgId, artistId) {
+      return existsAfter(/databases/$(database)/documents/organizations/$(orgId)/artists/$(artistId));
+    }
+
+    function trackArtistCanRead() {
+      // Reads are tenant-scoped by organizationId. Do not depend on artistId
+      // here: valid queries by trackId/role do not constrain artistId, and
+      // Firestore Rules must be able to prove the query safe for all results.
+      // Same-tenant track/artist referential integrity is enforced on writes
+      // and by the catalogue-link migration gate.
+      return resource.data.organizationId is string
+        && hasOrgAccess(resource.data.organizationId);
+    }
+
+    function trackArtistCanWriteAfter() {
+      return request.resource.data.organizationId is string
+        && request.resource.data.trackId is string
+        && request.resource.data.artistId is string
+        && existsAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId))
+        && getAfter(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.organizationId == request.resource.data.organizationId
+        && organizationArtistExistsAfter(request.resource.data.organizationId, request.resource.data.artistId)
+        && hasOrgAccess(request.resource.data.organizationId);
+    }
+
+    function trackArtistCanWriteExisting() {
+      return resource.data.organizationId is string
+        && resource.data.trackId is string
+        && resource.data.artistId is string
+        && exists(/databases/$(database)/documents/tracks/$(resource.data.trackId))
+        && get(/databases/$(database)/documents/tracks/$(resource.data.trackId)).data.organizationId == resource.data.organizationId
+        && organizationArtistExists(resource.data.organizationId, resource.data.artistId)
+        && hasOrgAccess(resource.data.organizationId);
+    }
+
     function memberRole(orgId) {
       return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.roleId;
     }
@@ -52,6 +124,33 @@ service cloud.firestore {
       );
     }
 
+    // Invitation acceptance is the only non-owner path that may create a
+    // membership. The invitation must be accepted in the same atomic write,
+    // belong to this organization, target the authenticated email, and map to
+    // the exact canonical role assigned by the invitation contract.
+    function invitationRoleMatches(roleId, invitation) {
+      return (
+        invitation.platformRole == 'administrator' && roleId == 'administrator'
+      ) || (
+        invitation.platformRole == 'release_manager' && roleId == 'release_manager'
+      ) || (
+        invitation.platformRole == 'collaborator' && roleId == 'contributor'
+      );
+    }
+
+    function hasValidAcceptedInvitation(orgId, roleId) {
+      return isAuth()
+        && request.auth.token.email is string
+        && request.resource.data.invitationToken is string
+        && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationToken)).data.status == 'accepted'
+        && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationToken)).data.organizationId == orgId
+        && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationToken)).data.inviteeEmail == request.auth.token.email
+        && invitationRoleMatches(
+          roleId,
+          getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationToken)).data
+        );
+    }
+
     // Organization management stays owner-only (organization.manage).
     match /organizations/{orgId} {
       allow read: if isAuth();
@@ -59,7 +158,7 @@ service cloud.firestore {
       allow update, delete: if isOrgOwner(orgId);
     }
     match /organizations/{orgId}/artists/{artistId} {
-      allow read: if isOrgMember(orgId) || isAuth();
+      allow read: if hasOrgAccess(orgId);
       allow write: if isManagerOrAbove(orgId);
     }
     // Member index used by rules — users may write own active membership (invite accept);
@@ -69,24 +168,36 @@ service cloud.firestore {
       allow create: if isAuth()
         && request.auth.uid == memberId
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.roleId is string;
+        && (
+          (
+            isOrgOwner(orgId)
+            && request.resource.data.roleId == 'owner'
+          )
+          || hasValidAcceptedInvitation(orgId, request.resource.data.roleId)
+        );
       allow update: if isAuth() && (
         isOrgOwner(orgId)
         || isAdminOrAbove(orgId)
         || (
           request.auth.uid == memberId
+          && request.resource.data.userId == request.auth.uid
           && request.resource.data.roleId == resource.data.roleId
+          && request.resource.data.status == resource.data.status
+        )
+        || (
+          request.auth.uid == memberId
+          && request.resource.data.userId == request.auth.uid
+          && hasValidAcceptedInvitation(orgId, request.resource.data.roleId)
         )
       );
       allow delete: if isOrgOwner(orgId) || isAdminOrAbove(orgId);
     }
 
-    // Media subsystem — organization-scoped subcollections (multi-tenant).
-    // Tenant isolation is enforced by the path ({orgId}); rules only gate on
-    // authentication. Per-role permissions (upload/replace/delete/approve)
-    // are enforced server-side; do not encode them here.
+    // Media subsystem — organization-scoped subcollections.
+    // The path tenant must belong to the authenticated user; operation-specific
+    // role permissions remain a separate policy decision.
     function mediaGuard(orgId) {
-      return isAuth();
+      return hasOrgAccess(orgId);
     }
     match /organizations/{orgId}/media_assets/{assetId}     { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
     match /organizations/{orgId}/media_versions/{versionId} { allow read,list: if mediaGuard(orgId); allow create: if mediaGuard(orgId) && orgCreateMatch(orgId); allow update,delete: if mediaGuard(orgId); }
@@ -138,15 +249,31 @@ service cloud.firestore {
       allow create: if isAuth()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.organizationId is string
-        && request.resource.data.roleId is string;
+        && (
+          (
+            isOrgOwner(request.resource.data.organizationId)
+            && request.resource.data.roleId == 'owner'
+          )
+          || hasValidAcceptedInvitation(
+            request.resource.data.organizationId,
+            request.resource.data.roleId
+          )
+        );
       allow update: if isAuth() && (
         isOrgOwner(resource.data.organizationId)
         || isAdminOrAbove(resource.data.organizationId)
         || (
           resource.data.userId == request.auth.uid
           && request.resource.data.roleId == resource.data.roleId
+          && request.resource.data.status == resource.data.status
           && request.resource.data.organizationId == resource.data.organizationId
           && request.resource.data.userId == resource.data.userId
+        )
+        || (
+          resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.organizationId == resource.data.organizationId
+          && hasValidAcceptedInvitation(resource.data.organizationId, request.resource.data.roleId)
         )
       );
       allow delete: if isAuth() && (
@@ -159,10 +286,11 @@ service cloud.firestore {
     // Core operational collections — tenant isolation via organizationId
     // RBAC-001: create requires membership + manager role; collaborators cannot create.
     match /releases/{docId} {
-      allow read, list: if isAuth() && (
-        orgMatch(resource.data.organizationId)
-        || isOrgMember(resource.data.organizationId)
-      );
+      allow read, list: if isAuth()
+        && (
+          isOrgOwner(resource.data.organizationId)
+          || isOrgMember(resource.data.organizationId)
+        );
       allow create: if isAuth()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.organizationId is string
@@ -177,32 +305,61 @@ service cloud.firestore {
       allow delete: if isAuth()
         && isAdminOrAbove(resource.data.organizationId);
     }
-    match /workflows/{docId}        { allow read,write: if isAuth(); }
+    match /workflows/{docId} {
+      allow read, list: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId));
+      allow create: if isAuth()
+        && request.resource.data.organizationId is string
+        && (isOrgOwner(request.resource.data.organizationId) || isOrgMember(request.resource.data.organizationId));
+      allow update: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId))
+        && request.resource.data.organizationId == resource.data.organizationId;
+      allow delete: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId));
+    }
     match /stages/{docId}           { allow read,write: if isAuth(); }
 
-    // Tracks — organization-scoped via organizationId
+    // Tracks — organization-scoped; role checks align with release operations.
     match /tracks/{trackId} {
-      allow read, list: if isAuth() && resource.data.organizationId != null;
-      allow create: if isAuth() && request.resource.data.organizationId != null;
-      allow update, delete: if isAuth() && resource.data.organizationId != null;
+      allow read, list: if resource.data.organizationId is string
+        && hasOrgAccess(resource.data.organizationId);
+      allow create: if request.resource.data.organizationId is string
+        && request.resource.data.createdBy == request.auth.uid
+        && isManagerOrAbove(request.resource.data.organizationId);
+      allow update: if resource.data.organizationId is string
+        && hasOrgAccess(resource.data.organizationId)
+        && isManagerOrAbove(resource.data.organizationId)
+        && request.resource.data.organizationId == resource.data.organizationId;
+      allow delete: if resource.data.organizationId is string
+        && isAdminOrAbove(resource.data.organizationId);
     }
 
-    // Release-track links — validated against release ownership
+    // Release-track links derive tenant ownership from both linked entities.
+    // getAfter permits createTrack's atomic track + link batch without trusting client org IDs.
     match /release_tracks/{id} {
-      allow read, list: if isAuth();
-      allow create: if isAuth()
-        && request.resource.data.releaseId != null
-        && request.resource.data.trackId != null
-        && request.resource.data.position != null;
-      allow update: if isAuth() && resource.data.releaseId != null;
-      allow delete: if isAuth() && resource.data.releaseId != null;
+      allow read, list: if releaseTrackCanRead();
+      allow create: if releaseTrackCanWriteAfter()
+        && request.resource.data.position is number;
+      allow update: if releaseTrackCanRead()
+        && releaseTrackCanWriteAfter()
+        && request.resource.data.organizationId == resource.data.organizationId
+        && request.resource.data.releaseId == resource.data.releaseId
+        && request.resource.data.trackId == resource.data.trackId
+        && request.resource.data.position is number;
+      allow delete: if releaseTrackCanRead();
     }
 
-    // Track-artist links
+    // Track-artist credits must point to a track and an artist in the same tenant.
     match /track_artists/{id} {
-      allow read, list: if isAuth();
-      allow create: if isAuth() && request.resource.data.trackId != null && request.resource.data.artistId != null;
-      allow update, delete: if isAuth();
+      allow read, list: if trackArtistCanRead();
+      allow create: if trackArtistCanWriteAfter();
+      allow update: if trackArtistCanWriteExisting()
+        && trackArtistCanWriteAfter()
+        && request.resource.data.trackId == resource.data.trackId;
+      allow delete: if trackArtistCanWriteExisting();
     }
 
     // Person assignments (tracks, releases, etc.)
@@ -254,12 +411,36 @@ service cloud.firestore {
       allow update, delete: if isAuth() && orgMatch(resource.data.organizationId);
     }
 
-    // New entities — org scoped from creation
+    // People are organization-scoped collaborator identities.
     match /people/{docId} {
-      allow read,write: if isAuth();
+      allow read: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId));
+      allow create: if isAuth()
+        && request.resource.data.organizationId is string
+        && hasOrgAccessAfter(request.resource.data.organizationId);
+      allow update: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId))
+        && request.resource.data.organizationId == resource.data.organizationId;
+      allow delete: if isAuth()
+        && resource.data.organizationId is string
+        && isAdminOrAbove(resource.data.organizationId);
     }
     match /assets/{docId} {
-      allow read,write: if isAuth();
+      allow read, list: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId));
+      allow create: if isAuth()
+        && request.resource.data.organizationId is string
+        && (isOrgOwner(request.resource.data.organizationId) || isOrgMember(request.resource.data.organizationId));
+      allow update: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId))
+        && request.resource.data.organizationId == resource.data.organizationId;
+      allow delete: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId));
     }
     // CE-UAT-001 — Invitation verification must work before the invitee signs in.
     // Possession of the unguessable token is the credential for public `get`.
@@ -280,16 +461,24 @@ service cloud.firestore {
         || (
           resource.data.status == 'pending'
           && request.resource.data.status == 'accepted'
+          && request.auth.token.email is string
+          && resource.data.inviteeEmail == request.auth.token.email
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedAt', 'updatedAt'])
         )
       );
       allow delete: if isAuth() && isAdminOrAbove(resource.data.organizationId);
     }
 
-    // Audit log: any auth user can read, only actor can create
+    // Organization-scoped audit events: readable by tenant members and immutable to clients.
     match /activity_events/{docId} {
-      allow read: if isAuth();
-      allow create: if isAuth() && request.resource.data.actorId == request.auth.uid;
-      allow update,delete: if isAuth();
+      allow read: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId));
+      allow create: if isAuth()
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.organizationId is string
+        && hasOrgAccessAfter(request.resource.data.organizationId);
+      allow update, delete: if false;
     }
 
     // User-scoped: only owner can access

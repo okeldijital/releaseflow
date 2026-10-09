@@ -215,10 +215,10 @@ export function TrackWorkspace({ track, trackId, activeOrgId, onRefresh }: Track
 
       // EPIC-202A — load all performance roles (join table first, track doc fallback)
       const [originalRows, primaryRows, featuredRows, remixRows] = await Promise.all([
-        getArtistsByRole(trackId, 'ORIGINAL_ARTIST'),
-        getArtistsByRole(trackId, 'PRIMARY_ARTIST'),
-        getArtistsByRole(trackId, 'FEATURED_ARTIST'),
-        getArtistsByRole(trackId, 'REMIX_ARTIST'),
+        getArtistsByRole(activeOrgId, trackId, 'ORIGINAL_ARTIST'),
+        getArtistsByRole(activeOrgId, trackId, 'PRIMARY_ARTIST'),
+        getArtistsByRole(activeOrgId, trackId, 'FEATURED_ARTIST'),
+        getArtistsByRole(activeOrgId, trackId, 'REMIX_ARTIST'),
       ]);
 
       const originalIds =

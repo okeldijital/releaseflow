@@ -18,6 +18,7 @@ export type TrackArtistRole =
 
 export interface TrackArtistRecord {
   id: string;
+  organizationId: string;
   trackId: string;
   artistId: string;
   role: TrackArtistRole;
@@ -29,6 +30,7 @@ export interface TrackArtistRecord {
 }
 
 export interface AddArtistToTrackFields {
+  organizationId: string;
   trackId: string;
   artistId: string;
   role: TrackArtistRole;
@@ -56,6 +58,7 @@ function normalizeDoc(d: { id: string; [key: string]: unknown }): TrackArtistRec
 
   return {
     id: d.id,
+    organizationId: data.organizationId as string,
     trackId: data.trackId as string,
     artistId: data.artistId as string,
     role: role ?? 'ORIGINAL_ARTIST',
@@ -72,6 +75,7 @@ export async function addArtistToTrack(fields: AddArtistToTrackFields): Promise<
   if (!db) throw new Error('Firestore not initialized');
   const now = Timestamp.now();
   const ref = await addDoc(collection(db, 'track_artists'), {
+    organizationId: fields.organizationId,
     trackId: fields.trackId,
     artistId: fields.artistId,
     role: fields.role,
@@ -83,6 +87,7 @@ export async function addArtistToTrack(fields: AddArtistToTrackFields): Promise<
   });
   return {
     id: ref.id,
+    organizationId: fields.organizationId,
     trackId: fields.trackId,
     artistId: fields.artistId,
     role: fields.role,
@@ -119,11 +124,11 @@ export async function removeArtistFromTrack(recordId: string): Promise<void> {
   await deleteDoc(doc(db, 'track_artists', recordId));
 }
 
-export async function removeArtistsFromTrackByRole(trackId: string, role: TrackArtistRole): Promise<void> {
+export async function removeArtistsFromTrackByRole(organizationId: string, trackId: string, role: TrackArtistRole): Promise<void> {
   const db = getDb();
   if (!db) return;
   const snap = await getDocs(
-    query(collection(db, 'track_artists'), where('trackId', '==', trackId), where('role', '==', role)),
+    query(collection(db, 'track_artists'), where('organizationId', '==', organizationId), where('trackId', '==', trackId), where('role', '==', role)),
   );
   if (snap.empty) return;
   const batch = writeBatch(db);
@@ -131,11 +136,11 @@ export async function removeArtistsFromTrackByRole(trackId: string, role: TrackA
   await batch.commit();
 }
 
-export async function removeAllArtistsFromTrack(trackId: string): Promise<void> {
+export async function removeAllArtistsFromTrack(organizationId: string, trackId: string): Promise<void> {
   const db = getDb();
   if (!db) return;
   const snap = await getDocs(
-    query(collection(db, 'track_artists'), where('trackId', '==', trackId)),
+    query(collection(db, 'track_artists'), where('organizationId', '==', organizationId), where('trackId', '==', trackId)),
   );
   if (snap.empty) return;
   const batch = writeBatch(db);
@@ -143,12 +148,13 @@ export async function removeAllArtistsFromTrack(trackId: string): Promise<void> 
   await batch.commit();
 }
 
-export async function getArtistsByRole(trackId: string, role: TrackArtistRole): Promise<TrackArtistRecord[]> {
+export async function getArtistsByRole(organizationId: string, trackId: string, role: TrackArtistRole): Promise<TrackArtistRecord[]> {
   const db = getDb();
   if (!db) return [];
   const snap = await getDocs(
     query(
       collection(db, 'track_artists'),
+      where('organizationId', '==', organizationId),
       where('trackId', '==', trackId),
       where('role', '==', role),
       orderBy('position', 'asc'),
@@ -157,12 +163,13 @@ export async function getArtistsByRole(trackId: string, role: TrackArtistRole): 
   return snap.docs.map((d) => normalizeDoc({ id: d.id, ...d.data() }));
 }
 
-export async function getArtistsByTrack(trackId: string): Promise<TrackArtistRecord[]> {
+export async function getArtistsByTrack(organizationId: string, trackId: string): Promise<TrackArtistRecord[]> {
   const db = getDb();
   if (!db) return [];
   const snap = await getDocs(
     query(
       collection(db, 'track_artists'),
+      where('organizationId', '==', organizationId),
       where('trackId', '==', trackId),
       orderBy('position', 'asc'),
     ),
@@ -170,55 +177,61 @@ export async function getArtistsByTrack(trackId: string): Promise<TrackArtistRec
   return snap.docs.map((d) => normalizeDoc({ id: d.id, ...d.data() }));
 }
 
-export async function getTracksByArtist(artistId: string): Promise<TrackArtistRecord[]> {
+export async function getTracksByArtist(organizationId: string, artistId: string): Promise<TrackArtistRecord[]> {
   const db = getDb();
-  if (!db) return [];
+  if (!db || !organizationId || !artistId) return [];
   const snap = await getDocs(
-    query(collection(db, 'track_artists'), where('artistId', '==', artistId)),
+    query(
+      collection(db, 'track_artists'),
+      where('organizationId', '==', organizationId),
+      where('artistId', '==', artistId),
+    ),
   );
   return snap.docs.map((d) => normalizeDoc({ id: d.id, ...d.data() }));
 }
 
 /** EPIC-202 — tracks where artist is credited in a specific role */
 export async function getTracksByArtistRole(
+  organizationId: string,
   artistId: string,
   role: TrackArtistRole,
 ): Promise<TrackArtistRecord[]> {
-  const all = await getTracksByArtist(artistId);
+  const all = await getTracksByArtist(organizationId, artistId);
   return all
     .filter((l) => l.role === role)
     .sort((a, b) => a.position - b.position);
 }
 
-export async function getTracksAsOriginalArtist(artistId: string): Promise<TrackArtistRecord[]> {
-  const all = await getTracksByArtist(artistId);
+export async function getTracksAsOriginalArtist(organizationId: string, artistId: string): Promise<TrackArtistRecord[]> {
+  const all = await getTracksByArtist(organizationId, artistId);
   return all.filter(
     (l) => l.role === 'ORIGINAL_ARTIST' || l.role === 'PRIMARY_ARTIST',
   );
 }
 
-export async function getTracksAsFeaturedArtist(artistId: string): Promise<TrackArtistRecord[]> {
-  return getTracksByArtistRole(artistId, 'FEATURED_ARTIST');
+export async function getTracksAsFeaturedArtist(organizationId: string, artistId: string): Promise<TrackArtistRecord[]> {
+  return getTracksByArtistRole(organizationId, artistId, 'FEATURED_ARTIST');
 }
 
-export async function getTracksAsRemixArtist(artistId: string): Promise<TrackArtistRecord[]> {
-  return getTracksByArtistRole(artistId, 'REMIX_ARTIST');
+export async function getTracksAsRemixArtist(organizationId: string, artistId: string): Promise<TrackArtistRecord[]> {
+  return getTracksByArtistRole(organizationId, artistId, 'REMIX_ARTIST');
 }
 
 /** Union of every role for an artist (may include same track multiple times if multi-credited). */
-export async function getAllArtistTracks(artistId: string): Promise<TrackArtistRecord[]> {
-  return getTracksByArtist(artistId);
+export async function getAllArtistTracks(organizationId: string, artistId: string): Promise<TrackArtistRecord[]> {
+  return getTracksByArtist(organizationId, artistId);
 }
 
 export async function ensureArtistInTrack(
+  organizationId: string,
   trackId: string,
   artistId: string,
   role: TrackArtistRole,
   position: number,
   isPrimary?: boolean,
 ): Promise<TrackArtistRecord | null> {
-  const existing = await getArtistsByRole(trackId, role);
+  const existing = await getArtistsByRole(organizationId, trackId, role);
   const already = existing.find((a) => a.artistId === artistId);
   if (already) return already;
-  return addArtistToTrack({ trackId, artistId, role, position, isPrimary });
+  return addArtistToTrack({ organizationId, trackId, artistId, role, position, isPrimary });
 }
