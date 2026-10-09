@@ -24,8 +24,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
-          cache-dependency-path: releaseflow-v2/security-tests/firestore/package.json
 
       - name: Set up Java for Firebase Emulator
         uses: actions/setup-java@v4
