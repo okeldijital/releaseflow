@@ -227,7 +227,7 @@ export async function syncTrackArtistCredits(
   const hasSongwriting =
     credits.composerArtistIds !== undefined || credits.lyricistArtistIds !== undefined;
 
-  const previousFeatured = (await getArtistsByRole(trackId, 'FEATURED_ARTIST')).map((r) => r.artistId);
+  const previousFeatured = (await getArtistsByRole(opts.organizationId, trackId, 'FEATURED_ARTIST')).map((r) => r.artistId);
   // Fall back to track doc if join rows empty (legacy)
   const existing = await getTrack(trackId);
   const prevFeatured =
@@ -238,7 +238,7 @@ export async function syncTrackArtistCredits(
   if (opts.syncJoinRows !== false) {
     await replaceTrackArtistsRole(opts.organizationId, trackId, 'ORIGINAL_ARTIST', originalIds);
     // Keep PRIMARY_ARTIST in sync for original-style first credit (legacy consumers)
-    await removeArtistsFromTrackByRole(trackId, 'PRIMARY_ARTIST');
+    await removeArtistsFromTrackByRole(opts.organizationId, trackId, 'PRIMARY_ARTIST');
     if (originalIds[0]) {
       await addArtistToTrack({
         organizationId: opts.organizationId,
@@ -301,7 +301,7 @@ async function replaceTrackArtistsRole(
   role: TrackArtistRole,
   artistIds: string[],
 ): Promise<void> {
-  await removeArtistsFromTrackByRole(trackId, role);
+  await removeArtistsFromTrackByRole(organizationId, trackId, role);
   for (let i = 0; i < artistIds.length; i++) {
     const artistId = artistIds[i];
     if (!artistId) continue;
