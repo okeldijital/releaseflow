@@ -85,10 +85,10 @@ async function fetchContextForTrack(trackId: string): Promise<AssignmentReleaseC
   }
 
   const [origRows, primaryRows, featRows, remixRows] = await Promise.all([
-    getArtistsByRole(trackId, 'ORIGINAL_ARTIST'),
-    getArtistsByRole(trackId, 'PRIMARY_ARTIST'),
-    getArtistsByRole(trackId, 'FEATURED_ARTIST'),
-    getArtistsByRole(trackId, 'REMIX_ARTIST'),
+    getArtistsByRole(track.organizationId, trackId, 'ORIGINAL_ARTIST'),
+    getArtistsByRole(track.organizationId, trackId, 'PRIMARY_ARTIST'),
+    getArtistsByRole(track.organizationId, trackId, 'FEATURED_ARTIST'),
+    getArtistsByRole(track.organizationId, trackId, 'REMIX_ARTIST'),
   ]);
 
   const originalIds =
