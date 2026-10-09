@@ -327,7 +327,7 @@ export default function ArtistDetailPage() {
     if (!activeOrgId) return;
     setLinkTrackBusy(true);
     try {
-      await addArtistToTrack({ trackId, artistId: id, role: 'PRIMARY_ARTIST', position: 0, isPrimary: true });
+      await addArtistToTrack({ organizationId: activeOrgId, trackId, artistId: id, role: 'PRIMARY_ARTIST', position: 0, isPrimary: true });
       setLinkTrackOpen(false);
       setTrackSearch('');
       await loadRelationships();
