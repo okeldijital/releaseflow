@@ -489,6 +489,7 @@ export default function NewTrackPage() {
 
       if (recordingPrimaryId) {
         await addArtistToTrack({
+          organizationId: activeOrgId,
           trackId,
           artistId: recordingPrimaryId,
           role: 'PRIMARY_ARTIST',
@@ -500,6 +501,7 @@ export default function NewTrackPage() {
         const entry = featuredArtists[idx]!;
         if (entry.artistId) {
           await addArtistToTrack({
+          organizationId: activeOrgId,
             trackId,
             artistId: entry.artistId,
             role: 'FEATURED_ARTIST',
@@ -513,6 +515,7 @@ export default function NewTrackPage() {
           const entry = originalWorkComposers[idx]!;
           if (entry.artistId) {
             await addArtistToTrack({
+          organizationId: activeOrgId,
               trackId,
               artistId: entry.artistId,
               role: 'COMPOSER',
@@ -524,6 +527,7 @@ export default function NewTrackPage() {
           const entry = originalWorkLyricists[idx]!;
           if (entry.artistId) {
             await addArtistToTrack({
+          organizationId: activeOrgId,
               trackId,
               artistId: entry.artistId,
               role: 'LYRICIST',
