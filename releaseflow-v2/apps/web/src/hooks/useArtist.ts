@@ -67,7 +67,7 @@ export function useArtist(artistId: string | undefined) {
       const [relResult, credResult, trackResult, d, discResult] = await Promise.allSettled([
         fetchArtistReleases(artistId),
         fetchCreditsByArtist(artistId),
-        getTracksByArtist(artistId),
+        getTracksByArtist(activeOrgId, artistId),
         validateDeleteArtist(activeOrgId, artistId),
         getDiscography(activeOrgId, artistId),
       ]);
