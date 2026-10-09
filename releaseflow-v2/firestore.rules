@@ -108,7 +108,14 @@ service cloud.firestore {
         || isAdminOrAbove(orgId)
         || (
           request.auth.uid == memberId
+          && request.resource.data.userId == request.auth.uid
           && request.resource.data.roleId == resource.data.roleId
+          && request.resource.data.status == resource.data.status
+        )
+        || (
+          request.auth.uid == memberId
+          && request.resource.data.userId == request.auth.uid
+          && hasValidAcceptedInvitation(orgId, request.resource.data.roleId)
         )
       );
       allow delete: if isOrgOwner(orgId) || isAdminOrAbove(orgId);
@@ -187,8 +194,15 @@ service cloud.firestore {
         || (
           resource.data.userId == request.auth.uid
           && request.resource.data.roleId == resource.data.roleId
+          && request.resource.data.status == resource.data.status
           && request.resource.data.organizationId == resource.data.organizationId
           && request.resource.data.userId == resource.data.userId
+        )
+        || (
+          resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.organizationId == resource.data.organizationId
+          && hasValidAcceptedInvitation(resource.data.organizationId, request.resource.data.roleId)
         )
       );
       allow delete: if isAuth() && (
