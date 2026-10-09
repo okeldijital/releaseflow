@@ -27,7 +27,7 @@ export interface ReleaseHealth {
 
 export async function computeTrackReadiness(
   trackId: string,
-  _orgId: string,
+  orgId: string,
 ): Promise<TrackReadiness> {
   let track = null;
   let artists: unknown[] = [];
@@ -36,7 +36,7 @@ export async function computeTrackReadiness(
   let tasks: unknown[] = [];
 
   try { track = await getTrack(trackId); } catch { /* collection may not exist */ }
-  try { artists = await getArtistsByTrack(trackId); } catch { /* collection may not exist */ }
+  try { artists = await getArtistsByTrack(orgId, trackId); } catch { /* collection may not exist */ }
   try { assets = await getAssetsByTrack(trackId); } catch { /* collection may not exist */ }
   try { specs = await getSpecificationsByTrack(trackId); } catch { /* collection may not exist */ }
   try { tasks = await getTasksByEntity('track', trackId); } catch { /* collection may not exist */ }
