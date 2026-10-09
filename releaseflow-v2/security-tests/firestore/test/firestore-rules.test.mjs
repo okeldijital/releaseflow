@@ -300,6 +300,14 @@ test("organization A member cannot link an organization B artist to an organizat
   }));
 });
 
+
+test("organization A owner can create a valid same-tenant track-artist credit", async () => {
+  const db = env.authenticatedContext("user-owner-a").firestore();
+  await assertSucceeds(setDoc(doc(db, "track_artists/valid-credit-a"), {
+    organizationId: "org-a", trackId: "track-a", artistId: "artist-a", role: "FEATURED_ARTIST", position: 2
+  }));
+});
+
 test("organization A member cannot read organization B track-artist credits", async () => {
   const db = env.authenticatedContext("user-member-a").firestore();
   await assertSucceeds(getDoc(doc(db, "track_artists/track-artist-a")));
