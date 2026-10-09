@@ -26,6 +26,18 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.status == 'active';
     }
 
+    // Atomic onboarding may create the member index and related records in one batch.
+    function isOrgMemberAfter(orgId) {
+      return isAuth()
+        && existsAfter(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid))
+        && getAfter(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.status == 'active'
+        && getAfter(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.userId == request.auth.uid;
+    }
+
+    function hasOrgAccessAfter(orgId) {
+      return isOrgOwner(orgId) || isOrgMember(orgId) || isOrgMemberAfter(orgId);
+    }
+
     function memberRole(orgId) {
       return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.roleId;
     }
@@ -325,9 +337,21 @@ service cloud.firestore {
       allow update, delete: if isAuth() && orgMatch(resource.data.organizationId);
     }
 
-    // New entities — org scoped from creation
+    // People are organization-scoped collaborator identities.
     match /people/{docId} {
-      allow read,write: if isAuth();
+      allow read: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId));
+      allow create: if isAuth()
+        && request.resource.data.organizationId is string
+        && hasOrgAccessAfter(request.resource.data.organizationId);
+      allow update: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId))
+        && request.resource.data.organizationId == resource.data.organizationId;
+      allow delete: if isAuth()
+        && resource.data.organizationId is string
+        && isAdminOrAbove(resource.data.organizationId);
     }
     match /assets/{docId} {
       allow read, list: if isAuth()
@@ -371,11 +395,16 @@ service cloud.firestore {
       allow delete: if isAuth() && isAdminOrAbove(resource.data.organizationId);
     }
 
-    // Audit log: any auth user can read, only actor can create
+    // Organization-scoped audit events: readable by tenant members and immutable to clients.
     match /activity_events/{docId} {
-      allow read: if isAuth();
-      allow create: if isAuth() && request.resource.data.actorId == request.auth.uid;
-      allow update,delete: if isAuth();
+      allow read: if isAuth()
+        && resource.data.organizationId is string
+        && (isOrgOwner(resource.data.organizationId) || isOrgMember(resource.data.organizationId));
+      allow create: if isAuth()
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.organizationId is string
+        && hasOrgAccessAfter(request.resource.data.organizationId);
+      allow update, delete: if false;
     }
 
     // User-scoped: only owner can access
