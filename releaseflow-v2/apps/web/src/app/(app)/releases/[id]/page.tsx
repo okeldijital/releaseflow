@@ -314,10 +314,10 @@ export default function ReleaseWorkspacePage() {
 
         try {
           const [originalRecs, primaryRecs, remixRecs, featuredRecs] = await Promise.all([
-            getArtistsByRole(t.id, 'ORIGINAL_ARTIST'),
-            getArtistsByRole(t.id, 'PRIMARY_ARTIST'),
-            getArtistsByRole(t.id, 'REMIX_ARTIST'),
-            getArtistsByRole(t.id, 'FEATURED_ARTIST'),
+            getArtistsByRole(activeOrgId, t.id, 'ORIGINAL_ARTIST'),
+            getArtistsByRole(activeOrgId, t.id, 'PRIMARY_ARTIST'),
+            getArtistsByRole(activeOrgId, t.id, 'REMIX_ARTIST'),
+            getArtistsByRole(activeOrgId, t.id, 'FEATURED_ARTIST'),
           ]);
 
           const originalIds =
