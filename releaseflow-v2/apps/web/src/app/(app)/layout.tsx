@@ -10,7 +10,7 @@ import { AuthorizationService } from '@/lib/auth/authorization-service';
 import { signOut as firebaseSignOut } from '@firebase/auth';
 import { getAuthInstance } from '@/lib/firebase';
 import { AppShell, Skeleton, BottomNav } from '@releaseflow/ui';
-import { CommandPalette } from '@/components/command-palette';
+import { useOpenWorkspaceSearch } from '@/components/app-providers';
 import { FeedbackTrigger } from '@/components/feedback';
 import { StudioWordmark } from '@/components/branding/studio-wordmark';
 import type { NavItem, NavSection } from '@releaseflow/ui';
@@ -18,10 +18,24 @@ import { getOrganizationsByUser } from '@/lib/organization-repository';
 import type { OrganizationRecord } from '@/lib/organization-repository';
 import { useNotificationBadge } from '@/hooks/useNotificationBadge';
 
-function NavIcon({ d }: { d: string }) {
+const workspaceSymbols = {
+  overview: <><rect x="3.5" y="3.5" width="6" height="17" rx="1.6" /><rect x="13" y="3.5" width="7.5" height="6" rx="1.6" /><path d="M13.5 14h6.5m-6.5 5H18" /></>,
+  releases: <><rect x="4" y="6.5" width="16" height="14" rx="2.5" /><path d="M7 3.5h10" /><circle cx="12" cy="13.5" r="3.25" /></>,
+  team: <><circle cx="9" cy="8" r="3" /><path d="M3 19c.3-4 2.5-6 6-6s5.7 2 6 6M15 5.3a3 3 0 0 1 0 5.5m1.4 2.6c2.8.6 4.3 2.5 4.6 5.6" /></>,
+  library: <><path d="M5 4.5v15m4-15v15m4-15v15m3-14.7 3.8 14.5" /></>,
+  media: <><rect x="3.5" y="4.5" width="17" height="15" rx="2.7" /><circle cx="8.5" cy="9.5" r="1" /><path d="m5 17 4.3-4.6 2.4 2.2 3.8-4.1 4.3 4.9" /></>,
+  calendar: <><rect x="3.8" y="5" width="16.4" height="15.5" rx="2.5" /><path d="M8 3.2v4m8-4v4M4 10h16m-11.5 4h3" /></>,
+  settings: <><path d="M3.5 7h5m5.5 0h6.5m-17 10H13m5.5 0h2" /><circle cx="11.3" cy="7" r="2.7" /><circle cx="15.8" cy="17" r="2.7" /></>,
+  assignments: <><rect x="5" y="5.5" width="14" height="15" rx="2.3" /><rect x="9" y="3" width="6" height="4" rx="1.4" /><path d="M9 12h6m-6 4h4" /></>,
+  tasks: <><rect x="4" y="4" width="16" height="16" rx="4" /><path d="m8 12 2.7 2.8L16.5 9" /></>,
+  comments: <path d="M20.5 11.2c0 4.6-3.8 7.5-8.4 7.5-1.3 0-2.4-.2-3.4-.7l-4.5 1.7 1.2-4a7.1 7.1 0 0 1-1.9-4.5c0-4.2 3.7-7.5 8.6-7.5 4.6 0 8.4 3.1 8.4 7.5Z" />,
+  profile: <><circle cx="12" cy="8" r="3.5" /><path d="M5 20c.5-4.2 2.7-6.3 7-6.3s6.5 2.1 7 6.3" /></>,
+};
+
+function NavIcon({ name }: { name: keyof typeof workspaceSymbols }) {
   return (
-    <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={d} />
+    <svg className="studio-nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      {workspaceSymbols[name]}
     </svg>
   );
 }
@@ -42,43 +56,43 @@ const adminNavSections: NavSection[] = [
 const adminNavItems: NavItem[] = [
   {
     label: 'Dashboard',
-    icon: NavIcon({ d: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' }),
+    icon: <NavIcon name="overview" />,
     href: '/dashboard',
     section: 'modules',
   },
   {
     label: 'Releases',
-    icon: NavIcon({ d: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }),
+    icon: <NavIcon name="releases" />,
     href: '/releases',
     section: 'modules',
   },
   {
     label: 'Collaboration',
-    icon: NavIcon({ d: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' }),
+    icon: <NavIcon name="team" />,
     href: '/collaboration',
     section: 'modules',
   },
   {
     label: 'Library',
-    icon: NavIcon({ d: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' }),
+    icon: <NavIcon name="library" />,
     href: '/library',
     section: 'modules',
   },
   {
     label: 'Media Files',
-    icon: NavIcon({ d: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' }),
+    icon: <NavIcon name="media" />,
     href: '/media-files',
     section: 'modules',
   },
   {
     label: 'Calendar',
-    icon: NavIcon({ d: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' }),
+    icon: <NavIcon name="calendar" />,
     href: '/calendar',
     section: 'modules',
   },
   {
     label: 'Administration',
-    icon: NavIcon({ d: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' }),
+    icon: <NavIcon name="settings" />,
     href: '/administration',
     section: 'modules',
   },
@@ -94,49 +108,49 @@ const collaboratorNavSections: NavSection[] = [
 const collaboratorNavItems: NavItem[] = [
   {
     label: 'Home',
-    icon: NavIcon({ d: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' }),
+    icon: <NavIcon name="overview" />,
     href: '/home',
     section: 'main',
   },
   {
     label: 'My Assignments',
-    icon: NavIcon({ d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' }),
+    icon: <NavIcon name="assignments" />,
     href: '/collaboration/assignments',
     section: 'main',
   },
   {
     label: 'Tasks',
-    icon: NavIcon({ d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' }),
+    icon: <NavIcon name="tasks" />,
     href: '/collaboration/tasks',
     section: 'main',
   },
   {
     label: 'Releases',
-    icon: NavIcon({ d: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }),
+    icon: <NavIcon name="releases" />,
     href: '/releases',
     section: 'main',
   },
   {
     label: 'Library',
-    icon: NavIcon({ d: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' }),
+    icon: <NavIcon name="library" />,
     href: '/library',
     section: 'main',
   },
   {
     label: 'Calendar',
-    icon: NavIcon({ d: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' }),
+    icon: <NavIcon name="calendar" />,
     href: '/calendar',
     section: 'main',
   },
   {
     label: 'Comments',
-    icon: NavIcon({ d: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.043 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' }),
+    icon: <NavIcon name="comments" />,
     href: '/comments',
     section: 'main',
   },
   {
     label: 'Profile',
-    icon: NavIcon({ d: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' }),
+    icon: <NavIcon name="profile" />,
     href: '/profile',
     section: 'main',
   },
@@ -147,27 +161,27 @@ const collaboratorNavItems: NavItem[] = [
 const collaboratorBottomNavItems: NavItem[] = [
   {
     label: 'Home',
-    icon: NavIcon({ d: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' }),
+    icon: <NavIcon name="overview" />,
     href: '/home',
   },
   {
     label: 'Work',
-    icon: NavIcon({ d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' }),
+    icon: <NavIcon name="assignments" />,
     href: '/collaboration/assignments',
   },
   {
     label: 'Calendar',
-    icon: NavIcon({ d: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' }),
+    icon: <NavIcon name="calendar" />,
     href: '/calendar',
   },
   {
     label: 'Comments',
-    icon: NavIcon({ d: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.043 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' }),
+    icon: <NavIcon name="comments" />,
     href: '/comments',
   },
   {
     label: 'Profile',
-    icon: NavIcon({ d: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' }),
+    icon: <NavIcon name="profile" />,
     href: '/profile',
   },
 ];
@@ -248,8 +262,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { resolveRole, loading: roleLoading, isCollaborator } = useRoleStore();
   const [orgs, setOrgs] = useState<OrganizationRecord[]>([]);
   const { count: notificationCount } = useNotificationBadge();
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [commandPaletteQuery, setCommandPaletteQuery] = useState('');
+  const openGlobalSearch = useOpenWorkspaceSearch();
 
   // AUTH-001: load AuthorizationService context when user/org changes.
   useEffect(() => {
@@ -322,8 +335,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading || (user && roleLoading && !activeOrgId)) {
     return (
-      <div className="flex min-h-screen bg-surface-50">
-        <aside className="w-[232px] border-r border-surface-200/80 bg-surface-50 px-4 py-5 space-y-5 hidden lg:block">
+      <div className="flex min-h-screen bg-layer-3">
+        <aside className="w-[232px] border-r border-surface-200/80 bg-layer-3 px-4 py-5 space-y-5 hidden lg:block">
           <div className="flex items-center gap-2.5 px-1 pb-3 border-b border-surface-200/60">
             <Skeleton className="h-7 w-7 rounded-lg" />
             <Skeleton className="h-4 w-24" />
@@ -367,7 +380,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // While role resolves for active org, show skeleton (never flash admin chrome).
   if (roleLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface-50">
+      <div className="flex min-h-screen items-center justify-center bg-layer-3">
         <div className="h-5 w-5 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
       </div>
     );
@@ -432,14 +445,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         onSignOut={handleSignOut}
         notificationCount={notificationCount}
         onOpenNotifications={() => router.push('/notifications')}
-        onOpenCommandPalette={() => {
-          setCommandPaletteQuery('');
-          setCommandPaletteOpen(true);
-        }}
-        onSearch={(q) => {
-          setCommandPaletteQuery(q);
-          setCommandPaletteOpen(true);
-        }}
+        onOpenCommandPalette={openGlobalSearch}
         logo={<StudioWordmark />}
         bottomNav={
           isCollab ? (
@@ -457,7 +463,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <select
               value={activeOrgId ?? ''}
               onChange={(e) => setActiveOrgId(e.target.value || null)}
-              className="h-9 min-h-[40px] rounded-lg border border-surface-200 bg-layer-2 px-3 pr-7 text-body-small font-medium text-text-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 transition-all duration-150 cursor-pointer hover:border-surface-300 max-w-[140px] sm:max-w-none"
+              className="h-9 min-h-[40px] rounded-lg border border-divider bg-layer-2 px-3 pr-7 text-body-small font-medium text-content-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 transition-all duration-150 cursor-pointer hover:border-surface-300 max-w-[140px] sm:max-w-none"
               aria-label="Active organisation"
             >
               {orgs.map((org) => (
@@ -470,7 +476,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <select
               value={activeOrgId ?? ''}
               onChange={(e) => setActiveOrgId(e.target.value || null)}
-              className="hidden sm:block h-8 rounded-lg border border-surface-200 bg-layer-2 px-3 pr-7 text-body-small font-medium text-text-700"
+              className="hidden sm:block h-8 rounded-lg border border-divider bg-layer-2 px-3 pr-7 text-body-small font-medium text-content-secondary"
               aria-label="Active organisation"
             >
               {orgs.map((org) => (
@@ -486,7 +492,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </AppShell>
       {switchingOrg && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-950/30 backdrop-blur-sm transition-all duration-300">
-          <div className="rounded-xl bg-surface-50 px-6 py-4 shadow-raised border border-surface-200/80 animate-scale-in">
+          <div className="rounded-xl bg-layer-3 px-6 py-4 shadow-raised border border-surface-200/80 animate-scale-in">
             <div className="flex items-center gap-3">
               <div className="h-4 w-4 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
               <span className="text-sm text-text-600">Switching organisation&hellip;</span>
@@ -494,11 +500,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
-      <CommandPalette
-        open={commandPaletteOpen}
-        onOpenChange={setCommandPaletteOpen}
-        initialQuery={commandPaletteQuery}
-      />
       {/* BUILD-302B — global feedback trigger (authenticated shell only) */}
       <FeedbackTrigger />
     </>

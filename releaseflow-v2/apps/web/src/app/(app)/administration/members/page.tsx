@@ -97,7 +97,7 @@ function InviteDialog({ open, onClose, orgName }: { open: boolean; onClose: () =
       <div className={`fixed inset-0 bg-surface-900/40 backdrop-blur-sm ${closing ? 'opacity-0 transition-opacity duration-200' : 'animate-fade-in'}`} onClick={handleClose} aria-hidden="true" />
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="invite-title" className={`relative z-10 w-full max-w-sm bg-layer-2 rounded-lg shadow-modal border border-surface-200 ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}`}>
         <div className="px-6 pt-6 pb-4">
-          <h2 id="invite-title" className="text-base font-semibold text-text-700">Invite Members</h2>
+          <h2 id="invite-title" className="text-base font-semibold text-content-secondary">Invite Members</h2>
           <p className="mt-3 text-sm text-text-500">Send an invitation to join <strong>{orgName}</strong>.</p>
         </div>
         <div className="px-6 pb-4 space-y-4">
@@ -114,7 +114,7 @@ function InviteDialog({ open, onClose, orgName }: { open: boolean; onClose: () =
           {success && <p className="text-xs text-success-500">{success}</p>}
         </div>
         <div className="px-6 py-4 border-t border-surface-100 flex items-center gap-3">
-          <button ref={closeBtnRef} type="button" onClick={handleClose} className="flex-1 h-10 px-4 text-sm font-medium text-text-700 rounded-md border border-surface-200 bg-layer-2 hover:bg-surface-50 transition-colors">
+          <button ref={closeBtnRef} type="button" onClick={handleClose} className="flex-1 h-10 px-4 text-sm font-medium text-content-secondary rounded-md border border-divider bg-layer-2 hover:bg-layer-3 transition-colors">
             Cancel
           </button>
           <button type="button" onClick={handleInvite} disabled={sending} className="flex-1 h-10 px-4 text-sm font-medium text-surface-50 rounded-md bg-primary-500 hover:bg-primary-600 disabled:opacity-50 transition-colors">
@@ -179,7 +179,7 @@ export default function AdministrationMembersPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Members</p>
+          <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Members</h1>
           <p className="text-sm text-text-500 mt-1">Manage members, roles, and permissions</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to manage its members." />
@@ -195,7 +195,7 @@ export default function AdministrationMembersPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Members</p>
+          <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Members</h1>
           <p className="text-sm text-text-500 mt-1">Manage members, roles, and permissions</p>
         </div>
         {isAdminOrOwner && (
@@ -228,7 +228,7 @@ export default function AdministrationMembersPage() {
             <div key={m.id} className="flex items-center justify-between rounded-xl border border-surface-200/80 bg-layer-2 px-4 py-3.5">
               <div className="flex items-center gap-3 min-w-0">
                 <div>
-                  <p className="text-sm font-medium text-text-900 truncate">{m.userId.slice(0, 8)}&hellip;</p>
+                  <p className="text-sm font-medium text-content-primary truncate">{m.userId.slice(0, 8)}&hellip;</p>
                   <p className="text-xs text-text-400">{m.userId}</p>
                 </div>
                 <StatusBadge status={m.status} />

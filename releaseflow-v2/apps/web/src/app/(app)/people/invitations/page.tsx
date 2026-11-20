@@ -142,7 +142,7 @@ export default function InvitationsPage() {
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Invite Collaborator</p>
+          <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Invite Collaborator</h1>
           <p className="mt-1 text-sm text-text-400">Invite collaborators to work on your releases.</p>
         </div>
         <Link href="/people">

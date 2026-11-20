@@ -55,7 +55,7 @@ function NewTaskWorkspace() {
         </Button>
       </div>
 
-      <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 sm:p-6">
+      <div className="rounded-xl border border-divider bg-layer-2 shadow-card p-5 sm:p-6">
         <TaskCreateForm
           organizationId={activeOrgId}
           actorId={user.uid}

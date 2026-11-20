@@ -74,6 +74,22 @@
   --text-overline-weight:  600;
   --text-overline-tracking: 0.08em;
 
+  /* Tailwind type utilities used by workspace, onboarding and account screens. */
+  --text-display-md: clamp(1.875rem, 2.7vw, 2.625rem);
+  --text-display-md--line-height: 1.12;
+  --text-display-sm: var(--text-heading-1-size);
+  --text-display-sm--line-height: 1.2;
+  --text-body: var(--text-body-size);
+  --text-body--line-height: var(--text-body-lh);
+  --text-body-small: var(--text-body-small-size);
+  --text-body-small--line-height: var(--text-body-small-lh);
+  --text-body-large: var(--text-body-large-size);
+  --text-body-large--line-height: var(--text-body-large-lh);
+  --text-caption: var(--text-caption-size);
+  --text-caption--line-height: var(--text-caption-lh);
+  --text-overline: var(--text-overline-size);
+  --text-overline--line-height: var(--text-overline-lh);
+
   /* ─── Spacing — 8-point system (PDS-13) ───────────────────────── */
   --spacing: 0.25rem; /* default unit (4px) */
   --space-4:  0.25rem;
@@ -88,11 +104,11 @@
 
   /* ─── Radius (PDS-13) ─────────────────────────────────────────── */
   --radius-none: 0;
-  --radius-sm:   6px;
-  --radius-md:   10px;
-  --radius-lg:   14px;
-  --radius-xl:   20px;
-  --radius-2xl:  28px;   /* implicit super-curve kept for editorial uses */
+  --radius-sm:   8px;
+  --radius-md:   13px;
+  --radius-lg:   19px;
+  --radius-xl:   24px;
+  --radius-2xl:  32px;   /* implicit super-curve kept for editorial uses */
   --radius-full: 9999px;
 
   /* ─── Shadows (PDS-13) — warm-tinted, editorial ───────────────── */
@@ -523,11 +539,11 @@
 
     /* Radius */
     --rf-radius-none: 0;
-    --rf-radius-sm:   6px;
-    --rf-radius-md:   10px;
-    --rf-radius-lg:   14px;
-    --rf-radius-xl:   20px;
-    --rf-radius-2xl:  28px;
+    --rf-radius-sm:   8px;
+    --rf-radius-md:   13px;
+    --rf-radius-lg:   19px;
+    --rf-radius-xl:   24px;
+    --rf-radius-2xl:  32px;
     --rf-radius-full: 9999px;
 
     /* Shadow */

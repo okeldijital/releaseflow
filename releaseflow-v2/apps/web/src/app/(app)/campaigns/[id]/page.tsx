@@ -117,7 +117,7 @@ export default function CampaignDetailPage() {
 
       <div className="flex items-start justify-between mb-8">
         <div>
-          <p className="text-2xl font-bold text-text-900">{campaign.name}</p>
+          <p className="text-2xl font-bold text-content-primary">{campaign.name}</p>
           <div className="flex gap-2 mt-2">
             <Badge label={typeLabels[campaign.type] ?? campaign.type} color="bg-surface-100 text-text-700" />
             <StatusBadge status={campaign.status} />
@@ -136,7 +136,7 @@ export default function CampaignDetailPage() {
       {readiness ? (
         <Card padding="md" className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-text-700 mb-3">Campaign Readiness</h2>
+            <h2 className="text-sm font-semibold text-content-secondary mb-3">Campaign Readiness</h2>
             <span className={`inline-block h-2.5 w-2.5 rounded-full ${readiness.canLaunch ? 'bg-success-500' : readiness.completeness >= 50 ? 'bg-warning-500' : 'bg-danger-500'}`} />
           </div>
           <ProgressBar value={readiness.completeness} color={readiness.canLaunch ? 'bg-success-500' : readiness.completeness >= 50 ? 'bg-warning-500' : 'bg-danger-500'} showLabel />
@@ -149,7 +149,7 @@ export default function CampaignDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card padding="md">
-          <h2 className="text-sm font-semibold text-text-700 mb-4">Tasks ({doneTasks}/{tasks.length})</h2>
+          <h2 className="text-sm font-semibold text-content-secondary mb-4">Tasks ({doneTasks}/{tasks.length})</h2>
           {tasks.length === 0 ? (
             <p className="text-sm text-text-400">No campaign tasks yet.</p>
           ) : (
@@ -178,14 +178,14 @@ export default function CampaignDetailPage() {
         </Card>
 
         <Card padding="md">
-          <h2 className="text-sm font-semibold text-text-700 mb-4">Promotional Assets ({assets.length})</h2>
+          <h2 className="text-sm font-semibold text-content-secondary mb-4">Promotional Assets ({assets.length})</h2>
           {assets.length === 0 ? (
             <p className="text-sm text-text-400">No assets linked.</p>
           ) : (
             <div className="space-y-2">
               {assets.map((a) => (
                 <div key={a.id} className="flex items-center justify-between rounded-lg border border-surface-100 px-3 py-2">
-                  <p className="text-sm text-text-900 truncate">{a.title}</p>
+                  <p className="text-sm text-content-primary truncate">{a.title}</p>
                   <StatusBadge status={a.status} />
                 </div>
               ))}

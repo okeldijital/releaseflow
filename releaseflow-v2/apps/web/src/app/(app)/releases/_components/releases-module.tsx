@@ -10,7 +10,7 @@
  * No second ReleaseCard, no ReleaseTabs, no domain redesign.
  */
 
-import { useState, useMemo, useEffect, type ReactNode } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useOrgStore } from '@/stores/org-store';
@@ -27,6 +27,7 @@ import {
   LoadingState,
   ModulePage,
   PageTabs,
+  Switch,
 } from '@releaseflow/ui';
 import { ReleaseCard, type ReleaseCardSize } from '@/components/release/cards/ReleaseCard';
 import { RELEASE_STATUS_CONFIG, RELEASE_TYPE_LABELS } from '@/components/release/status/release-status-config';
@@ -37,6 +38,7 @@ import {
   resolveReleaseCardVariant,
 } from '@/lib/release-workspace';
 import { RELEASE_PAGE_TABS } from '@/lib/navigation';
+import { useReleaseView, type ReleaseView } from '@/hooks/use-release-view';
 import ScheduleView from '@/app/(app)/schedule/schedule-view';
 
 export type ReleasesLifecycleTab =
@@ -46,7 +48,7 @@ export type ReleasesLifecycleTab =
   | 'archived'
   | 'schedule';
 
-type ViewMode = 'grid' | 'list';
+
 
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest' },
@@ -168,7 +170,7 @@ function SectionSkeleton() {
   return (
     <div className="animate-pulse space-y-3">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="h-24 rounded-xl bg-surface-100" />
+        <div key={i} className="h-24 rounded-xl bg-layer-3" />
       ))}
     </div>
   );
@@ -219,7 +221,7 @@ function ReleaseCardGrid({
   size = 'standard',
 }: {
   releases: Release[];
-  view: ViewMode;
+  view: ReleaseView;
   size?: ReleaseCardSize;
 }) {
   const gridClass =
@@ -270,12 +272,7 @@ export function ReleasesModule({ tab }: ReleasesModuleProps) {
   const canCreate = AuthorizationService.canCreateRelease();
   const isCollab = AuthorizationService.isCollaboratorWorkspace();
 
-  const [view, setView] = useState<ViewMode>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('rf-releases-view') as ViewMode) || 'grid';
-    }
-    return 'grid';
-  });
+  const { view, setCompact } = useReleaseView();
   const [sort, setSort] = useState<string>('newest');
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
@@ -286,10 +283,6 @@ export function ReleasesModule({ tab }: ReleasesModuleProps) {
   const continueWorking = useContinueWorking();
   const upcomingReleases = useUpcomingReleases(30);
   const recentlyUpdated = useRecentlyUpdated(10);
-
-  useEffect(() => {
-    localStorage.setItem('rf-releases-view', view);
-  }, [view]);
 
   const tabLifecycles = lifecycleFromTab(tab);
 
@@ -435,7 +428,7 @@ export function ReleasesModule({ tab }: ReleasesModuleProps) {
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value)}
-          className="h-10 rounded-xl border border-surface-200 bg-layer-2 px-3 text-sm text-text-600 focus:border-primary-500/60 focus:outline-none"
+          className="h-10 rounded-xl border border-divider bg-layer-2 px-3 text-sm text-text-600 focus:border-primary-500/60 focus:outline-none"
           aria-label="Sort releases"
         >
           {SORT_OPTIONS.map((opt) => (
@@ -464,37 +457,11 @@ export function ReleasesModule({ tab }: ReleasesModuleProps) {
             />
           </svg>
         </button>
-        <div className="flex rounded-xl border border-surface-200 overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setView('grid')}
-            className={`p-2 ${view === 'grid' ? 'bg-primary-500/10 text-primary-400' : 'text-text-400 hover:text-text-600'}`}
-            aria-label="Grid view"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => setView('list')}
-            className={`p-2 ${view === 'list' ? 'bg-primary-500/10 text-primary-400' : 'text-text-400 hover:text-text-600'}`}
-            aria-label="List view"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-          </button>
-        </div>
+        <Switch label="Compact view" checked={view === 'list'} onChange={setCompact} />
       </div>
 
       {showFilters && (
-        <div className="mt-3 p-4 rounded-xl border border-surface-200 bg-layer-2 space-y-3">
+        <div className="mt-3 p-4 rounded-xl border border-divider bg-layer-2 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-text-400 uppercase tracking-wider">Filters</span>
             {hasActiveFilters && (

@@ -65,7 +65,7 @@ export default function NewPersonPage() {
   return (
     <div className="mx-auto max-w-2xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Add Person</p>
+        <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Add Person</h1>
         <p className="mt-1 text-sm text-text-400">Add a new team member to your organization.</p>
       </div>
 

@@ -79,7 +79,7 @@ function EditDialog({ asset, releases, open, onClose, onSaved }: EditDialogProps
       <div className={`fixed inset-0 bg-surface-900/40 backdrop-blur-sm ${closing ? 'opacity-0 transition-opacity duration-200' : 'animate-fade-in'}`} onClick={handleClose} aria-hidden="true" />
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="edit-asset-title" className={`relative z-10 w-full max-w-sm bg-layer-2 rounded-lg shadow-modal border border-surface-200 ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}`}>
         <div className="px-6 pt-6 pb-4 space-y-4">
-          <h2 id="edit-asset-title" className="text-base font-semibold text-text-700">Edit Asset</h2>
+          <h2 id="edit-asset-title" className="text-base font-semibold text-content-secondary">Edit Asset</h2>
           <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} />
           <Select label="Type" options={TYPE_OPTIONS} value={type} onChange={(v) => setType(v as AssetType)} />
           <Select
@@ -160,7 +160,7 @@ export default function AssetsView() {
       <div className={`mx-auto max-w-4xl px-5 sm:px-7 ${embedded ? 'pb-8' : 'py-8'} page-transition`}>
         {!embedded ? (
           <div className="mb-8">
-            <p className="text-display-md font-semibold text-primary-400 tracking-tight">Assets</p>
+            <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Assets</h1>
             <p className="mt-1 text-sm text-text-400">Artwork, masters, videos and production files.</p>
           </div>
         ) : null}
@@ -180,7 +180,7 @@ export default function AssetsView() {
       <div className="mb-8 flex items-start justify-between">
         <div>
           {!embedded ? (
-            <p className="text-display-md font-semibold text-primary-400 tracking-tight">Assets</p>
+            <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Assets</h1>
           ) : null}
           <p className={`text-sm text-text-400 ${embedded ? '' : 'mt-1'}`}>
             Artwork, masters, videos and production files.
@@ -191,7 +191,7 @@ export default function AssetsView() {
 
       {showAddForm && (
         <div className="mb-6 rounded-xl border border-surface-200/80 bg-layer-2 p-5 space-y-4">
-          <p className="text-sm font-semibold text-text-700">New Asset</p>
+          <p className="text-sm font-semibold text-content-secondary">New Asset</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Album Artwork Final" />
             <Select label="Type" options={TYPE_OPTIONS} value={newType} onChange={(v) => setNewType(v as AssetType)} />
@@ -230,7 +230,7 @@ export default function AssetsView() {
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-text-900 truncate">{a.name}</p>
+                  <p className="text-sm font-medium text-content-primary truncate">{a.name}</p>
                   <p className="text-xs text-text-400 truncate">
                     {a.releaseId && releaseMap.has(a.releaseId) ? `${releaseMap.get(a.releaseId)}  ·  ` : ''}
                     {a.filename}

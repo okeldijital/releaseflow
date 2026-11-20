@@ -15,7 +15,7 @@ import {
   PREFERENCE_LABELS,
   type PreferenceKey,
 } from '@/lib/notification-type-registry';
-import { LoadingState } from '@releaseflow/ui';
+import { LoadingState, Switch } from '@releaseflow/ui';
 import { toast } from '@/stores/toast-store';
 
 const CHANNELS = [
@@ -64,16 +64,13 @@ function ToggleRow({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 min-h-[44px] text-sm text-content-primary">
-      <span className="min-w-0">{label}</span>
-      <input
-        type="checkbox"
-        className="h-4 w-4 shrink-0 rounded border-surface-600 accent-primary-500"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-    </label>
+    <Switch
+      label={label}
+      checked={checked}
+      disabled={disabled}
+      onChange={onChange}
+      className="w-full justify-between text-sm"
+    />
   );
 }
 

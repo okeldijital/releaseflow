@@ -173,53 +173,16 @@ export function Topbar({
           {children}
         </div>
 
-        {/* Center: Global Search (500–700px, flex-centered) */}
-        {showSearch ? (
-          <div className="flex flex-1 min-w-0 justify-center px-1 sm:px-2">
-            <div className="relative w-full max-w-[min(100%,700px)] min-w-0 sm:min-w-[200px] md:min-w-[280px] lg:min-w-[360px]">
-              {/* Desktop / tablet: existing Search component */}
-              <div
-                className="hidden sm:block w-full"
-                onFocusCapture={openGlobalSearch}
-                onClick={openGlobalSearch}
-              >
-                <Search
-                  value={searchValue}
-                  onChange={handleSearch}
-                  placeholder="Search releases, tracks, artists, people..."
-                  className="w-full"
-                />
-              </div>
-              {/* Mobile: same control pattern — open global search (no second search impl) */}
-              <button
-                type="button"
-                onClick={openGlobalSearch}
-                className="sm:hidden flex w-full items-center gap-2 h-10 rounded-md border border-surface-700 bg-surface-800 px-3 text-sm text-content-label"
-                aria-label="Open search"
-              >
-                <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path
-                    fillRule="evenodd"
-                    d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="truncate">Search…</span>
-              </button>
-              {onOpenCommandPalette ? (
-                <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center rounded border border-surface-200 bg-layer-2 px-1.5 py-0.5 text-caption font-medium text-content-label shadow-sm">
-                  ⌘K
-                </kbd>
-              ) : null}
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1 min-w-0" />
-        )}
-
-        {/* Right: notifications, avatar */}
+        <div className="min-w-0 flex-1" />
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-
+          {showSearch && (onOpenCommandPalette ? (
+            <button type="button" className="studio-search-trigger" onClick={openGlobalSearch}
+              aria-label="Search workspace" aria-haspopup="dialog" title="Search workspace (⌘K or Ctrl+K)">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" />
+              </svg>
+            </button>
+          ) : onSearch ? <Search value={searchValue} onChange={handleSearch} placeholder="Search" /> : null)}
           {onOpenNotifications ? (
             <button
               type="button"
@@ -238,7 +201,7 @@ export function Topbar({
             </button>
           ) : null}
 
-          {userEmail ? (
+          {userEmail || userName || onSignOut ? (
             <div className="relative">
               <button
                 ref={userMenuTriggerRef}
@@ -266,7 +229,7 @@ export function Topbar({
                   header={
                     <div className="px-3 py-2 border-b border-border-default mb-1.5">
                       <p className="text-caption font-bold uppercase tracking-wider text-content-label">Signed in as</p>
-                      <p className="text-sm font-medium text-content-primary truncate mt-0.5">{userEmail}</p>
+                      <p className="text-sm font-medium text-content-primary truncate mt-0.5">{userEmail || avatarName}</p>
                     </div>
                   }
                   onSelect={(item) => {

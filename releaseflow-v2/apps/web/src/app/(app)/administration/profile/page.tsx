@@ -133,7 +133,7 @@ export default function AdministrationProfilePage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Profile</p>
+        <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Profile</h1>
         <p className="text-sm text-text-500 mt-1">
           Your profile, display name, avatar, timezone, locale
         </p>

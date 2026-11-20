@@ -12,7 +12,7 @@ const typeLabels: Record<string, string> = {
 const columns = [
   { key: 'name', header: 'Name', render: (_: unknown, row: { name: string; type: string }) => (
     <div>
-      <div className="font-semibold text-text-700 text-sm">{row.name}</div>
+      <div className="font-semibold text-content-secondary text-sm">{row.name}</div>
       <div className="text-xs text-text-500">{typeLabels[row.type] ?? row.type}</div>
     </div>
   )},

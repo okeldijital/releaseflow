@@ -31,7 +31,7 @@ export default function UiLabPage() {
   const [segVal, setSegVal] = useState('all');
 
   return (
-    <div className="min-h-screen bg-surface-50">
+    <div className="min-h-screen bg-layer-1 text-content-primary">
       <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>

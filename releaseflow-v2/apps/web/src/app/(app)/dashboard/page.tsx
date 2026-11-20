@@ -4,6 +4,7 @@ import { PRODUCT_NAME } from '@/lib/product-identity';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useReleaseView } from '@/hooks/use-release-view';
 import { useOrgStore } from '@/stores/org-store';
 import { useReleases } from '@/hooks/useRelease';
 import { useAuth } from '@/contexts/auth-context';
@@ -11,7 +12,7 @@ import { getRecentActivity, type ActivityEventRecord } from '@/lib/activity-serv
 import {
   resolveActorIdentityKeys,
 } from '@/lib/assignment-identity';
-import { EmptyState, LoadingState, Button, Badge } from '@releaseflow/ui';
+import { EmptyState, LoadingState, Button, Badge, Switch } from '@releaseflow/ui';
 import { ArtworkDisplay } from '@/components/release/artwork-display';
 import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
 import { AssignmentCard } from '@/components/assignments/cards/AssignmentCard';
@@ -107,6 +108,7 @@ function humaniseActivity(action: string, metadata?: Record<string, unknown>): s
 }
 
 export default function DashboardPage() {
+  const { view, setCompact } = useReleaseView();
   const { user } = useAuth();
   const { activeOrgId, orgsLoaded } = useOrgStore();
   const router = useRouter();
@@ -287,14 +289,18 @@ export default function DashboardPage() {
 
   return (
     <div className="studio-dashboard mx-auto max-w-6xl px-4 sm:px-7 py-6 sm:py-9 page-transition">
+      <div className="studio-desk-heading">
+        <h1>Release desk</h1>
+        <Button size="md" onClick={() => router.push('/releases/new')}>+ New Release</Button>
+      </div>
       <header className="studio-overview">
         <div className="studio-overview-copy">
           <p>{greeting}{firstName ? `, ${firstName}` : ''}</p>
-          <h1>{featured?.title || 'Your release workspace'}</h1>
+          <h2>{featured?.title || 'Your release workspace'}</h2>
           <p>{featured ? (targetDate ? `Target release · ${targetDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}` : 'Release date to be confirmed') : 'Start a release to bring tracks, artwork and collaborators together.'}</p>
           <div className="studio-actions">
             {featured && <Link href={`/releases/${featured.id}`}>Open release <span aria-hidden="true">↗</span></Link>}
-            <Button size="md" onClick={() => router.push('/releases/new')}>+ New Release</Button>
+
             <Link href="/calendar/schedule">Open schedule <span aria-hidden="true">↗</span></Link>
           </div>
         </div>
@@ -316,15 +322,18 @@ export default function DashboardPage() {
         </div>
       </section>
       <div className="mb-10">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <h2>Upcoming Releases</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <h2 className="mr-auto">Upcoming Releases</h2>
+          {upcomingReleases.length > 0 && (
+            <Switch label="Compact view" checked={view === 'list'} onChange={setCompact} />
+          )}
           <Link href="/library/tracks" className="text-sm text-primary-400">Track library ↗</Link>
         </div>
         {upcomingReleases.length === 0 ? (
           <p className="text-sm text-text-500">Scheduled and in-progress releases will appear here.</p>
         ) : (
           <div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+            className={view === 'list' ? 'studio-catalogue-list grid grid-cols-1 gap-2' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'}
             data-release-card-grid
             data-count={upcomingReleases.length}
           >

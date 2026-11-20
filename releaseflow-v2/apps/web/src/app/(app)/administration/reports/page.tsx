@@ -108,7 +108,7 @@ export default function AdministrationReportsPage() {
     return (
       <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
         <div className="mb-8">
-          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Reports</p>
+          <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Reports</h1>
           <p className="text-sm text-text-500 mt-1">Generate and export organization reports</p>
         </div>
         <EmptyState title="No organization selected" description="Select an organization to manage reports." />
@@ -119,12 +119,12 @@ export default function AdministrationReportsPage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Reports</p>
+        <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Reports</h1>
         <p className="text-sm text-text-500 mt-1">Generate and export organization reports</p>
       </div>
 
       <Card padding="md" className="border border-surface-200/80 mb-6">
-        <p className="font-semibold text-text-700 mb-4">Generate Report</p>
+        <p className="font-semibold text-content-secondary mb-4">Generate Report</p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-4">
           <Select
             label="Domain"
@@ -164,7 +164,7 @@ export default function AdministrationReportsPage() {
           <Card padding="md" className="border border-surface-200/80 mb-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="font-semibold text-text-700">Report Results</p>
+                <p className="font-semibold text-content-secondary">Report Results</p>
                 <p className="text-sm text-text-400 mt-0.5">
                   {result.rowCount} row{result.rowCount !== 1 ? 's' : ''} &middot; Generated{' '}
                   {new Date(result.generatedAt).toLocaleString()}
@@ -185,7 +185,7 @@ export default function AdministrationReportsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-surface-200">
+                    <tr className="border-b border-divider">
                       {Object.keys(result.data[0]!).map((key) => (
                         <th
                           key={key}
@@ -198,9 +198,9 @@ export default function AdministrationReportsPage() {
                   </thead>
                   <tbody>
                     {result.data.slice(0, 20).map((row, i) => (
-                      <tr key={i} className="border-b border-surface-100 hover:bg-surface-50 transition-colors">
+                      <tr key={i} className="border-b border-surface-100 hover:bg-layer-3 transition-colors">
                         {Object.values(row).map((val, j) => (
-                          <td key={j} className="px-3 py-2 text-text-700 truncate max-w-[200px]">
+                          <td key={j} className="px-3 py-2 text-content-secondary truncate max-w-[200px]">
                             {val === null || val === undefined
                               ? '\u2014'
                               : typeof val === 'object'
@@ -225,16 +225,16 @@ export default function AdministrationReportsPage() {
 
       {savedReports.length > 0 && (
         <Card padding="md" className="border border-surface-200/80">
-          <p className="font-semibold text-text-700 mb-4">Saved Reports</p>
+          <p className="font-semibold text-content-secondary mb-4">Saved Reports</p>
           <div className="space-y-1.5">
             {savedReports.map((def) => (
               <div
                 key={def.id}
-                className="flex items-center justify-between rounded-lg bg-surface-50 px-4 py-3 hover:bg-surface-100 transition-colors cursor-pointer"
+                className="flex items-center justify-between rounded-lg bg-layer-3 px-4 py-3 hover:bg-layer-3 transition-colors cursor-pointer"
                 onClick={() => handleRunSaved(def)}
               >
                 <div>
-                  <p className="text-sm font-medium text-text-900">{def.name}</p>
+                  <p className="text-sm font-medium text-content-primary">{def.name}</p>
                   <p className="text-xs text-text-400 capitalize">{def.domain.replace(/_/g, ' ')}</p>
                 </div>
                 <span className="text-xs text-primary-500 font-medium">Run &rarr;</span>

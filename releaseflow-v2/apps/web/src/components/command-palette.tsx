@@ -42,8 +42,9 @@ export function CommandPalette({
   const router = useRouter();
 
   useEffect(() => {
-    if (open && initialQuery) {
+    if (open) {
       setQueryText(initialQuery);
+      setSelected(0);
     }
   }, [open, initialQuery]);
 
@@ -126,14 +127,15 @@ export function CommandPalette({
     <>
       <div className="fixed inset-0 z-[90] bg-surface-900/40 backdrop-blur-sm" onClick={() => setOpen(false)} aria-hidden="true" />
       <div
-        className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[91] w-full max-w-lg bg-layer-2 rounded-xl border border-surface-200 shadow-modal overflow-hidden"
+        className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[91] w-[calc(100%-2rem)] max-w-lg bg-layer-2 rounded-2xl border border-divider shadow-modal overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
       >
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-200">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-divider">
           <svg className="w-5 h-5 text-content-label shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
+            aria-label="Search workspace"
             autoFocus
             value={queryText}
             onChange={(e) => setQueryText(e.target.value)}

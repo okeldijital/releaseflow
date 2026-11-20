@@ -51,7 +51,7 @@ export default function CampaignsPage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
       <div className="flex items-center justify-between mb-8">
-        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Campaigns</p>
+        <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Campaigns</h1>
         <Link href="/campaigns/new"><Button variant="primary">New Campaign</Button></Link>
       </div>
 
@@ -66,7 +66,7 @@ export default function CampaignsPage() {
               <Card hover clickable>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-text-700">{c.name}</p>
+                    <p className="font-medium text-content-secondary">{c.name}</p>
                     <p className="text-sm text-text-500 mt-0.5">{typeLabels[c.type] ?? c.type} &middot; {c.status}</p>
                   </div>
                   <StatusBadge status={c.status} />

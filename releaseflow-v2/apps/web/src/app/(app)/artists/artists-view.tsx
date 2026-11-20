@@ -184,7 +184,7 @@ export default function ArtistsView() {
       <div className={`mx-auto max-w-5xl px-5 sm:px-7 ${embedded ? 'pb-8' : 'py-8'} page-transition`}>
         {!embedded ? (
           <div className="mb-8">
-            <p className="text-display-md font-semibold text-primary-400 tracking-tight">Artists</p>
+            <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Artists</h1>
             <p className="mt-1 text-sm text-text-400">Manage every artist across your catalogue.</p>
           </div>
         ) : null}
@@ -201,7 +201,7 @@ export default function ArtistsView() {
       <div className={`mx-auto max-w-5xl px-5 sm:px-7 ${embedded ? 'pb-8' : 'py-8'} page-transition`}>
         {!embedded ? (
           <div className="mb-8">
-            <p className="text-display-md font-semibold text-primary-400 tracking-tight">Artists</p>
+            <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Artists</h1>
             <p className="mt-1 text-sm text-text-400">Manage every artist across your catalogue.</p>
           </div>
         ) : null}
@@ -217,7 +217,7 @@ export default function ArtistsView() {
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           {!embedded ? (
-            <p className="text-display-md font-semibold text-content-primary tracking-tight">Artists</p>
+            <h1 className="text-display-md font-semibold text-content-primary tracking-tight">Artists</h1>
           ) : null}
           <p className={`text-sm text-content-secondary ${embedded ? '' : 'mt-1'}`}>
             Manage every artist across your catalogue.

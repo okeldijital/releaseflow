@@ -151,10 +151,6 @@ export function AppShell({
             sections={navSections}
             activePath={activePath}
             onNavigate={onNavigate}
-            userEmail={userEmail}
-            userName={userName}
-            userImage={userImage}
-            onSignOut={onSignOut}
             collapsed={collapsed}
             onToggle={handleToggle}
             hideMobile={hideMobileSidebar}

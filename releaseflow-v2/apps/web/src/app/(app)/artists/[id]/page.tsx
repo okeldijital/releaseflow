@@ -927,7 +927,7 @@ function RelationshipPicker({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-surface-900/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <div className="relative z-10 w-full max-w-md bg-layer-2 rounded-lg shadow-modal border border-surface-200 flex flex-col max-h-[80vh]">
+      <div className="relative z-10 w-full max-w-md bg-layer-2 rounded-lg shadow-modal border border-divider flex flex-col max-h-[80vh]">
         <div className="px-5 pt-5 pb-3 border-b border-divider">
           <h2 className="text-base font-semibold text-content-primary">{title}</h2>
           <input

@@ -148,7 +148,7 @@ export default function AdministrationPage() {
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-7 py-8 page-transition">
       <div className="mb-8">
-        <p className="text-display-md font-semibold text-primary-400 tracking-tight">Administration</p>
+        <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Administration</h1>
         <p className="mt-1 text-sm text-text-400">Manage your organisation, members and platform settings.</p>
       </div>
 

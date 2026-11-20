@@ -167,11 +167,11 @@
 
     /* ─── Radius (PDS-13) ─────────────────────────────────────────── */
     --rf-radius-none: 0;
-    --rf-radius-sm:   6px;
-    --rf-radius-md:   10px;
-    --rf-radius-lg:   14px;
-    --rf-radius-xl:   20px;
-    --rf-radius-2xl:  28px;
+    --rf-radius-sm:   8px;
+    --rf-radius-md:   13px;
+    --rf-radius-lg:   19px;
+    --rf-radius-xl:   24px;
+    --rf-radius-2xl:  32px;
     --rf-radius-full: 9999px;
 
     /* ─── Shadow (PDS-13) — warm-tinted, editorial ────────────────── */
