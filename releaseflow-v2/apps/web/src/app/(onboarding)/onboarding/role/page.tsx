@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
@@ -70,7 +71,7 @@ export default function ChooseRolePage() {
       </div>
 
       <h1 className="text-display-md font-semibold tracking-tight text-primary-400">What is your role at this company?</h1>
-      <p className="mt-2 text-sm text-text-400">We&apos;ll personalize ReleaseFlow based on the work you do.</p>
+      <p className="mt-2 text-sm text-text-400">We&apos;ll personalize {PRODUCT_NAME} based on the work you do.</p>
 
       <div className="mt-8 space-y-6">
         {ROLE_CATEGORIES.map((cat) => (
@@ -93,7 +94,7 @@ export default function ChooseRolePage() {
       </div>
 
       <button onClick={handleContinue} disabled={!selectedRole}
-        className="mt-10 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)]">
+        className="mt-10 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-raised">
         Continue
       </button>
 

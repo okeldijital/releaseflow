@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 /**
  * MUX-002.1 — Collaborator Home Workspace
  * Daily operational dashboard (not a static greeting).
@@ -256,7 +257,7 @@ export default function HomePage() {
   if (!activeOrgId) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-24 text-center page-transition">
-        <EmptyState title="Welcome to ReleaseFlow" description="Select an organization to get started." />
+        <EmptyState title={`Welcome to ${PRODUCT_NAME}`} description="Select an organization to get started." />
       </div>
     );
   }

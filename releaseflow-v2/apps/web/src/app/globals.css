@@ -101,7 +101,7 @@
   --shadow-raised:  0 4px 16px rgba(0, 0, 0, 0.32), 0 2px 6px rgba(0, 0, 0, 0.2);
   --shadow-modal:   0 24px 72px rgba(42, 35, 25, 0.14), 0 8px 24px rgba(42, 35, 25, 0.08);
   --shadow-overlay: 0 8px 24px rgba(42, 35, 25, 0.10);
-  --shadow-focus:   0 0 0 3px rgba(91, 109, 241, 0.18);
+  --shadow-focus:   0 0 0 3px rgba(188, 58, 41, 0.18);
 
   /* ─── Motion — duration (PDS-13) ──────────────────────────────── */
   --duration-instant: 0ms;
@@ -141,17 +141,17 @@
   --avatar-lg: 40px;
   --avatar-xl: 56px;
 
-  /* ─── Primary — Studio blue (PDS-13) ─────────────────────────── */
-  --color-primary-50:  #eef1ff;
-  --color-primary-100: #dfe5ff;
-  --color-primary-200: #c3cfff;
-  --color-primary-300: #a9b8ff;
-  --color-primary-400: #96abff;
-  --color-primary-500: #4a60d5;
-  --color-primary-600: #3d50ba;
-  --color-primary-700: #303e95;
-  --color-primary-800: #242e69;
-  --color-primary-900: #192044;
+  /* ─── Primary — Vermilion (PDS-13) ─────────────────────────── */
+  --color-primary-50:  #fff4ed;
+  --color-primary-100: #ffe2d9;
+  --color-primary-200: #ffc6b4;
+  --color-primary-300: #ffab96;
+  --color-primary-400: #ff987c;
+  --color-primary-500: #bb3928;
+  --color-primary-600: #a32e21;
+  --color-primary-700: #852719;
+  --color-primary-800: #612118;
+  --color-primary-900: #41160f;
 
   /* ─── Secondary — Warm Sand ───────────────────────────────────── */
   --color-secondary-50:  #FBF7F0;
@@ -173,19 +173,19 @@
   --color-surface-300: #c8ccda;
   --color-surface-400: #acb2c5;
   --color-surface-500: #9199ae;
-  --color-surface-600: #646d84;
-  --color-surface-700: #404759;
-  --color-surface-800: #282c39;
-  --color-surface-900: #191c26;
-  --color-surface-950: #101219;
+  --color-surface-600: #756d67;
+  --color-surface-700: #4e4945;
+  --color-surface-800: #373431;
+  --color-surface-900: #23211f;
+  --color-surface-950: #161514;
 
   /* ─── Text — Cool neutral scale (PDS-13) ─────────────────────────────── */
   --color-text-50:  #f5f6fb;
   --color-text-100: #e8eaf2;
   --color-text-200: #d6d9e6;
   --color-text-300: #c1c6d6;
-  --color-text-400: #aab0c2;
-  --color-text-500: #9ca3b7;
+  --color-text-400: #c3bbb2;
+  --color-text-500: #b0a8a1;
   --color-text-600: #727b90;
   --color-text-700: #464c60;
   --color-text-800: #323748;
@@ -234,9 +234,9 @@
   --color-status-released:  var(--color-workflow-released);
 
   /* ─── UAT-001 #008 — Dark readability hierarchy ───────────────── */
-  --color-layer-1: #11131a;
-  --color-layer-2: #191c26;
-  --color-layer-3: #252937;
+  --color-layer-1: #191817;
+  --color-layer-2: #23211f;
+  --color-layer-3: #302e2b;
   --color-content-primary:   #FFFFFF;
   --color-content-secondary: #EBEBF5;
   --color-content-label:     #AEAEB2;
@@ -354,7 +354,7 @@
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background: radial-gradient(ellipse 70% 60% at 50% 30%, rgba(91,109,241,0.04) 0%, transparent 70%);
+  background: radial-gradient(ellipse 70% 60% at 50% 30%, rgba(188,58,41,0.04) 0%, transparent 70%);
 }
 
 
@@ -377,16 +377,16 @@
     /* Components / inline styles should reference these names.         */
 
     /* Color.Primary */
-    --rf-color-primary-50:  #eef1ff;
-    --rf-color-primary-100: #dfe5ff;
-    --rf-color-primary-200: #c3cfff;
-    --rf-color-primary-300: #a9b8ff;
-    --rf-color-primary-400: #96abff;
-    --rf-color-primary-500: #4a60d5;
-    --rf-color-primary-600: #3d50ba;
-    --rf-color-primary-700: #303e95;
-    --rf-color-primary-800: #242e69;
-    --rf-color-primary-900: #192044;
+    --rf-color-primary-50:  #fff4ed;
+    --rf-color-primary-100: #ffe2d9;
+    --rf-color-primary-200: #ffc6b4;
+    --rf-color-primary-300: #ffab96;
+    --rf-color-primary-400: #ff987c;
+    --rf-color-primary-500: #bb3928;
+    --rf-color-primary-600: #a32e21;
+    --rf-color-primary-700: #852719;
+    --rf-color-primary-800: #612118;
+    --rf-color-primary-900: #41160f;
 
     /* Color.Surface */
     --rf-color-surface-0:   #ffffff;
@@ -396,16 +396,16 @@
     --rf-color-surface-300: #c8ccda;
     --rf-color-surface-400: #acb2c5;
     --rf-color-surface-500: #9199ae;
-    --rf-color-surface-600: #646d84;
-    --rf-color-surface-700: #404759;
-    --rf-color-surface-800: #282c39;
-    --rf-color-surface-900: #191c26;
-    --rf-color-surface-950: #101219;
+    --rf-color-surface-600: #756d67;
+    --rf-color-surface-700: #4e4945;
+    --rf-color-surface-800: #373431;
+    --rf-color-surface-900: #23211f;
+    --rf-color-surface-950: #161514;
 
     /* UAT-001 #008 — readability hierarchy */
-    --rf-color-layer-1: #11131a;
-    --rf-color-layer-2: #191c26;
-    --rf-color-layer-3: #252937;
+    --rf-color-layer-1: #191817;
+    --rf-color-layer-2: #23211f;
+    --rf-color-layer-3: #302e2b;
     --rf-color-content-primary:   #FFFFFF;
     --rf-color-content-secondary: #EBEBF5;
     --rf-color-content-label:     #AEAEB2;
@@ -536,7 +536,7 @@
     --rf-shadow-raised:  0 4px 12px rgba(42, 35, 25, 0.08), 0 2px 4px rgba(42, 35, 25, 0.05);
     --rf-shadow-modal:   0 24px 72px rgba(42, 35, 25, 0.14), 0 8px 24px rgba(42, 35, 25, 0.08);
     --rf-shadow-overlay: 0 8px 24px rgba(42, 35, 25, 0.10);
-    --rf-shadow-focus:   0 0 0 3px rgba(91, 109, 241, 0.18);
+    --rf-shadow-focus:   0 0 0 3px rgba(188, 58, 41, 0.18);
 
     /* Motion */
     --rf-motion-instant: 0ms;
@@ -591,7 +591,7 @@
   /* Focus ring — warm brand colour, visible but not aggressive */
   *:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px var(--color-primary-500), 0 0 0 4px rgba(91, 109, 241, 0.15);
+    box-shadow: 0 0 0 2px var(--color-primary-500), 0 0 0 4px rgba(188, 58, 41, 0.15);
     border-radius: 4px;
   }
 
@@ -618,7 +618,7 @@
 
   /* Selection colour */
   ::selection {
-    background: rgba(91, 109, 241, 0.28);
+    background: rgba(188, 58, 41, 0.28);
     color: var(--color-content-primary);
   }
 

@@ -12,7 +12,7 @@ export function Button({ href, children }: ButtonProps) {
       style={{
         display: 'inline-block',
         padding: '12px 32px',
-        backgroundColor: '#6366f1',
+        backgroundColor: '#bb3928',
         color: '#ffffff',
         textDecoration: 'none',
         borderRadius: '8px',

@@ -1,13 +1,11 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
+import { ReleaseFlowLogo } from './releaseflow-logo';
+
 export function StudioWordmark() {
   return (
     <span className="studio-wordmark">
-      <span className="studio-symbol" aria-hidden="true">
-        <i />
-        <i />
-        <i />
-        <i />
-      </span>
-      ReleaseFlow
+      <ReleaseFlowLogo width={30} alt="" />
+      {PRODUCT_NAME}
     </span>
   );
 }

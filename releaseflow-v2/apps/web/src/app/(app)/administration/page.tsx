@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import { useRouter } from 'next/navigation';
 import { MetricCard } from '@releaseflow/ui';
 import { TrackRow, TrackList } from '@/components/shared/track-row';
@@ -96,7 +97,7 @@ const sections: { title: string; links: AdminLink[] }[] = [
     ],
   },
   {
-    title: 'ReleaseFlow',
+    title: PRODUCT_NAME,
     links: [
       {
         label: 'Production',

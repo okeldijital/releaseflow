@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -276,7 +277,7 @@ export default function DashboardPage() {
   if (!activeOrgId) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-24 text-center page-transition">
-        <EmptyState title="Welcome to ReleaseFlow" description="Create your first release to begin managing production, legal, distribution and collaboration." action={{ label: 'New Release', onClick: () => router.push('/onboarding/company') }} />
+        <EmptyState title={`Welcome to ${PRODUCT_NAME}`} description="Create your first release to begin managing production, legal, distribution and collaboration." action={{ label: 'New Release', onClick: () => router.push('/onboarding/company') }} />
       </div>
     );
   }
@@ -287,7 +288,6 @@ export default function DashboardPage() {
   return (
     <div className="studio-dashboard mx-auto max-w-6xl px-4 sm:px-7 py-6 sm:py-9 page-transition">
       <header className="studio-overview">
-        <div className="studio-record" aria-hidden="true" />
         <div className="studio-overview-copy">
           <p>{greeting}{firstName ? `, ${firstName}` : ''}</p>
           <h1>{featured?.title || 'Your release workspace'}</h1>
@@ -298,7 +298,7 @@ export default function DashboardPage() {
             <Link href="/calendar/schedule">Open schedule <span aria-hidden="true">↗</span></Link>
           </div>
         </div>
-        {featured && (
+        {featured?.artwork?.secureUrl && (
           <div className="studio-cover" aria-hidden="true">
             <ArtworkDisplay artwork={featured.artwork} releaseTitle={featured.title} size="lg" />
           </div>

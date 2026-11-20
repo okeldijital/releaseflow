@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
 /**
  * BUILD-302C — Structured feedback email HTML + plain text.
  *
@@ -133,7 +134,7 @@ export function renderFeedbackEmailHtml(input: FeedbackEmailRenderInput): string
   const ctx = buildFeedbackContextLines(input.context, input.titles);
   const href = absoluteUrl(input.route || ctx.route);
   const logo = logoUrl();
-  const org = input.identity.organisationName || 'ReleaseFlow';
+  const org = input.identity.organisationName || PRODUCT_NAME;
 
   const messageBody = `<p style="margin:0;font-size:15px;line-height:1.65;color:#f8fafc;white-space:pre-wrap;">${escapeHtml(input.message)}</p>`;
 
@@ -169,7 +170,7 @@ export function renderFeedbackEmailHtml(input: FeedbackEmailRenderInput): string
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ReleaseFlow Feedback</title>
+  <title>${PRODUCT_NAME} Feedback</title>
 </head>
 <body style="margin:0;padding:0;background:#0b1120;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0b1120;padding:32px 16px;">
@@ -178,13 +179,13 @@ export function renderFeedbackEmailHtml(input: FeedbackEmailRenderInput): string
         <table role="presentation" width="100%" style="max-width:560px;background:#111827;border-radius:16px;border:1px solid rgba(148,163,184,0.2);overflow:hidden;">
           <tr>
             <td style="padding:28px 28px 8px;text-align:center;">
-              <img src="${logo}" width="88" height="88" alt="ReleaseFlow" style="display:inline-block;width:88px;height:auto;border:0;" />
+              <img src="${logo}" width="88" height="88" alt="${PRODUCT_NAME}" style="display:inline-block;width:88px;height:auto;border:0;" />
             </td>
           </tr>
           <tr>
             <td style="padding:8px 28px 0;text-align:center;">
               <p style="margin:0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">${escapeHtml(org)}</p>
-              <h1 style="margin:12px 0 0;font-size:22px;line-height:1.3;font-weight:700;color:#f8fafc;">ReleaseFlow Feedback</h1>
+              <h1 style="margin:12px 0 0;font-size:22px;line-height:1.3;font-weight:700;color:#f8fafc;">${PRODUCT_NAME} Feedback</h1>
             </td>
           </tr>
           ${sectionHtml('Message', messageBody)}
@@ -194,15 +195,15 @@ export function renderFeedbackEmailHtml(input: FeedbackEmailRenderInput): string
           ${sectionHtml('Time', timeBody)}
           <tr>
             <td style="padding:24px 28px;text-align:center;">
-              <a href="${escapeHtml(href)}" style="display:inline-block;padding:12px 28px;background:#B14512;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">
-                Open in ReleaseFlow
+              <a href="${escapeHtml(href)}" style="display:inline-block;padding:12px 28px;background:#bb3928;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">
+                Open in ${PRODUCT_NAME}
               </a>
             </td>
           </tr>
           <tr>
             <td style="padding:0 28px 24px;text-align:center;">
               <p style="margin:0;font-size:11px;color:#64748b;">Internal feedback notification — not a support ticket.</p>
-              <p style="margin:12px 0 0;font-size:11px;color:#475569;">— ReleaseFlow</p>
+              <p style="margin:12px 0 0;font-size:11px;color:#475569;">— ${PRODUCT_NAME}</p>
             </td>
           </tr>
         </table>
@@ -263,10 +264,10 @@ export function renderFeedbackEmailText(input: FeedbackEmailRenderInput): string
     '────────────────────────',
     input.timestampLabel,
     '',
-    'Open in ReleaseFlow:',
+    `Open in ${PRODUCT_NAME}:`,
     href,
     '',
-    '— ReleaseFlow',
+    `— ${PRODUCT_NAME}`,
   );
   return lines.join('\n');
 }

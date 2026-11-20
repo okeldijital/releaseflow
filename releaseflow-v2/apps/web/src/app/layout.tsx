@@ -1,19 +1,21 @@
-import type { Metadata } from 'next';
+import { PRODUCT_NAME } from '@/lib/product-identity';
+import type { Metadata, Viewport } from 'next';
 import { AppProviders } from '@/components/app-providers';
 import './globals.css';
 import '@/styles/theme.css';
 import '@/styles/studio.css';
 
+export const viewport: Viewport = { themeColor: '#171615' };
+
 export const metadata: Metadata = {
-  title: 'ReleaseFlow',
+  title: PRODUCT_NAME,
   description: 'Assignment-first release collaboration platform',
-  applicationName: 'ReleaseFlow',
+  applicationName: PRODUCT_NAME,
   manifest: '/manifest.webmanifest',
-  themeColor: '#101219',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'ReleaseFlow',
+    title: PRODUCT_NAME,
   },
   icons: {
     icon: [

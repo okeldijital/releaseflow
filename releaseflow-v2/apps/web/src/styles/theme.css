@@ -10,16 +10,16 @@
 @layer base {
   :root {
     /* ─── Color.Primary (PDS-13) ──────────────────────────────────── */
-    --rf-color-primary-50:  #eef1ff;
-    --rf-color-primary-100: #dfe5ff;
-    --rf-color-primary-200: #c3cfff;
-    --rf-color-primary-300: #a9b8ff;
-    --rf-color-primary-400: #96abff;
-    --rf-color-primary-500: #4a60d5;
-    --rf-color-primary-600: #3d50ba;
-    --rf-color-primary-700: #303e95;
-    --rf-color-primary-800: #242e69;
-    --rf-color-primary-900: #192044;
+    --rf-color-primary-50:  #fff4ed;
+    --rf-color-primary-100: #ffe2d9;
+    --rf-color-primary-200: #ffc6b4;
+    --rf-color-primary-300: #ffab96;
+    --rf-color-primary-400: #ff987c;
+    --rf-color-primary-500: #bb3928;
+    --rf-color-primary-600: #a32e21;
+    --rf-color-primary-700: #852719;
+    --rf-color-primary-800: #612118;
+    --rf-color-primary-900: #41160f;
 
     /* ─── Color.Surface (PDS-13) ──────────────────────────────────── */
     --rf-color-surface-0:   #ffffff;
@@ -29,16 +29,16 @@
     --rf-color-surface-300: #c8ccda;
     --rf-color-surface-400: #acb2c5;
     --rf-color-surface-500: #9199ae;
-    --rf-color-surface-600: #646d84;
-    --rf-color-surface-700: #404759;
-    --rf-color-surface-800: #282c39;
-    --rf-color-surface-900: #191c26;
-    --rf-color-surface-950: #101219;
+    --rf-color-surface-600: #756d67;
+    --rf-color-surface-700: #4e4945;
+    --rf-color-surface-800: #373431;
+    --rf-color-surface-900: #23211f;
+    --rf-color-surface-950: #161514;
 
     /* ─── UAT-001 #008 — readability hierarchy ─────────────────────── */
-    --rf-color-layer-1: #11131a;
-    --rf-color-layer-2: #191c26;
-    --rf-color-layer-3: #252937;
+    --rf-color-layer-1: #191817;
+    --rf-color-layer-2: #23211f;
+    --rf-color-layer-3: #302e2b;
     --rf-color-content-primary:   #FFFFFF;
     --rf-color-content-secondary: #EBEBF5;
     --rf-color-content-label:     #AEAEB2;
@@ -180,7 +180,7 @@
     --rf-shadow-raised:  0 4px 12px rgba(42, 35, 25, 0.08), 0 2px 4px rgba(42, 35, 25, 0.05);
     --rf-shadow-modal:   0 24px 72px rgba(42, 35, 25, 0.14), 0 8px 24px rgba(42, 35, 25, 0.08);
     --rf-shadow-overlay: 0 8px 24px rgba(42, 35, 25, 0.10);
-    --rf-shadow-focus:   0 0 0 3px rgba(91, 109, 241, 0.18);
+    --rf-shadow-focus:   0 0 0 3px rgba(188, 58, 41, 0.18);
 
     /* ─── Motion (PDS-13) ─────────────────────────────────────────── */
     --rf-motion-instant: 0ms;

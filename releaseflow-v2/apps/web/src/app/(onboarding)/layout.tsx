@@ -65,7 +65,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'radial-gradient(ellipse 80% 50% at 50% 40%, rgba(91,109,241,0.16) 0%, transparent 70%)',
+            background: 'radial-gradient(ellipse 80% 50% at 50% 40%, rgba(188,58,41,0.12) 0%, transparent 70%)',
           }}
         />
         <div className="relative z-10 w-full max-w-md animate-scale-in">

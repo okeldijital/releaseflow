@@ -1,11 +1,11 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import { StudioWordmark } from '@/components/branding/studio-wordmark';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <main id="main-content" className="studio-entry">
-      <section className="studio-poster" aria-label="ReleaseFlow music workspace">
+      <section className="studio-poster" aria-label={`${PRODUCT_NAME} music workspace`}>
         <StudioWordmark />
-        <div className="studio-record" aria-hidden="true" />
         <div className="studio-poster-copy">
           <h2>
             Release

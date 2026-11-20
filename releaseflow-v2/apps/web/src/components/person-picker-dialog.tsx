@@ -294,17 +294,17 @@ export function PersonPickerDialog({
           {mode === 'select' ? (
             selectedPerson ? (
               <button onClick={handleSelectExisting} disabled={saving}
-                className="flex-1 h-10 rounded-xl bg-primary-500 text-surface-50 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 transition-all shadow-[0_4px_24px_rgba(204,85,0,0.2)]">
+                className="flex-1 h-10 rounded-xl bg-primary-500 text-surface-50 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 transition-all shadow-raised">
                 {saving ? 'Adding...' : 'Add to Team'}
               </button>
             ) : (
-              <button onClick={() => setMode('invite')} className="flex-1 h-10 rounded-xl bg-primary-500 text-surface-50 text-sm font-semibold active:scale-[0.98] transition-all shadow-[0_4px_24px_rgba(204,85,0,0.2)]">
+              <button onClick={() => setMode('invite')} className="flex-1 h-10 rounded-xl bg-primary-500 text-surface-50 text-sm font-semibold active:scale-[0.98] transition-all shadow-raised">
                 Invite Someone New
               </button>
             )
           ) : (
             <button onClick={handleInvite} disabled={!inviteName.trim() || !inviteEmail.trim() || saving}
-              className="flex-1 h-10 rounded-xl bg-primary-500 text-surface-50 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 transition-all shadow-[0_4px_24px_rgba(204,85,0,0.2)]">
+              className="flex-1 h-10 rounded-xl bg-primary-500 text-surface-50 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 transition-all shadow-raised">
               {saving ? 'Sending...' : 'Send Invitation'}
             </button>
           )}

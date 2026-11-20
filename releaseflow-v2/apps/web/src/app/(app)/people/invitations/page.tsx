@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useInvitations, useInvitePerson, type InvitePersonInput } from '@/hooks/useInvitation';
@@ -56,8 +57,8 @@ export default function InvitationsPage() {
   async function handleShare() {
     if (!createdLink) return;
     const shareData = {
-      title: 'ReleaseFlow Invitation',
-      text: 'You have been invited to collaborate on ReleaseFlow.',
+      title: `${PRODUCT_NAME} Invitation`,
+      text: `You have been invited to collaborate on ${PRODUCT_NAME}.`,
       url: createdLink,
     };
     if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {

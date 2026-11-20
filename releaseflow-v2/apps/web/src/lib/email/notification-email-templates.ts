@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
 /**
  * NOT-002 — Branded HTML templates for notification emails.
  * Pure string builders (safe for Node worker without React SSR).
@@ -31,13 +32,13 @@ function logoUrl(): string {
 }
 
 function defaultCta(eventType?: string): string {
-  if (!eventType) return 'Open in ReleaseFlow';
+  if (!eventType) return `Open in ${PRODUCT_NAME}`;
   if (eventType.startsWith('comment.')) return 'View Comment';
   if (eventType.startsWith('review.')) return 'Open Review';
   if (eventType.startsWith('release.')) return 'Open Release';
   if (eventType.startsWith('invitation.')) return 'View Invitation';
   if (eventType.startsWith('assignment.')) return 'Open Assignment';
-  return 'Open in ReleaseFlow';
+  return `Open in ${PRODUCT_NAME}`;
 }
 
 /**
@@ -47,7 +48,7 @@ export function renderNotificationEmailHtml(payload: NotificationEmailPayload): 
   const cta = payload.ctaLabel || defaultCta(payload.eventType);
   const href = absoluteUrl(payload.deepLink);
   const when = payload.timestamp || new Date().toUTCString();
-  const org = payload.organizationName || 'ReleaseFlow';
+  const org = payload.organizationName || PRODUCT_NAME;
   const logo = logoUrl();
 
   return `<!DOCTYPE html>
@@ -64,7 +65,7 @@ export function renderNotificationEmailHtml(payload: NotificationEmailPayload): 
         <table role="presentation" width="100%" style="max-width:560px;background:#111827;border-radius:16px;border:1px solid rgba(148,163,184,0.2);overflow:hidden;">
           <tr>
             <td style="padding:28px 28px 8px;text-align:center;">
-              <img src="${logo}" width="88" height="88" alt="ReleaseFlow" style="display:inline-block;width:88px;height:auto;border:0;" />
+              <img src="${logo}" width="88" height="88" alt="${PRODUCT_NAME}" style="display:inline-block;width:88px;height:auto;border:0;" />
             </td>
           </tr>
           <tr>
@@ -82,7 +83,7 @@ export function renderNotificationEmailHtml(payload: NotificationEmailPayload): 
           </tr>
           <tr>
             <td style="padding:24px 28px;text-align:center;">
-              <a href="${href}" style="display:inline-block;padding:12px 28px;background:#B14512;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">
+              <a href="${href}" style="display:inline-block;padding:12px 28px;background:#bb3928;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600;">
                 ${escapeHtml(cta)}
               </a>
             </td>
@@ -91,10 +92,10 @@ export function renderNotificationEmailHtml(payload: NotificationEmailPayload): 
             <td style="padding:0 28px 24px;text-align:center;">
               <p style="margin:0;font-size:11px;color:#64748b;">${escapeHtml(when)}</p>
               <p style="margin:8px 0 0;font-size:11px;color:#64748b;">
-                You received this because email notifications are enabled in ReleaseFlow.
+                You received this because email notifications are enabled in ${PRODUCT_NAME}.
                 Manage preferences in Profile → Notifications.
               </p>
-              <p style="margin:12px 0 0;font-size:11px;color:#475569;">— ReleaseFlow</p>
+              <p style="margin:12px 0 0;font-size:11px;color:#475569;">— ${PRODUCT_NAME}</p>
             </td>
           </tr>
         </table>

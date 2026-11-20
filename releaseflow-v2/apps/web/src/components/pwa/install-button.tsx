@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import { useEffect, useState } from 'react';
 import { canInstallApp, isStandaloneDisplay, onCanInstall, promptInstall } from '@/lib/pwa/install';
 import { Button } from '@releaseflow/ui';
@@ -25,7 +26,7 @@ export function InstallButton({ variant = 'default' }: { variant?: 'default' | '
     if (variant === 'menu') {
       return (
         <p className="text-xs text-text-500 px-1">
-          Use your browser menu to install ReleaseFlow when available.
+          Use your browser menu to install {PRODUCT_NAME} when available.
         </p>
       );
     }
@@ -34,7 +35,7 @@ export function InstallButton({ variant = 'default' }: { variant?: 'default' | '
 
   const onClick = async () => {
     const result = await promptInstall();
-    if (result === 'accepted') toast.success('ReleaseFlow installed');
+    if (result === 'accepted') toast.success(`${PRODUCT_NAME} installed`);
     else if (result === 'unavailable') toast.error('Install is not available in this browser yet');
   };
 
@@ -45,14 +46,14 @@ export function InstallButton({ variant = 'default' }: { variant?: 'default' | '
         onClick={() => void onClick()}
         className="w-full text-left text-sm text-surface-100 hover:text-primary-400 py-2"
       >
-        Install ReleaseFlow
+        Install {PRODUCT_NAME}
       </button>
     );
   }
 
   return (
     <Button size="sm" variant="ghost" onClick={() => void onClick()}>
-      Install ReleaseFlow
+      Install {PRODUCT_NAME}
     </Button>
   );
 }

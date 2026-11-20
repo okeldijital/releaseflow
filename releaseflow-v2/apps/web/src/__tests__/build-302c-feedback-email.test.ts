@@ -94,7 +94,7 @@ describe('BUILD-302C subject generation', () => {
   it('Test 2 — Dashboard', () => {
     const ctx = resolveFeedbackContext('/dashboard');
     expect(buildFeedbackEmailSubject(ctx)).toBe(
-      '[ReleaseFlow Feedback] Dashboard',
+      '[Sleeve Feedback] Dashboard',
     );
   });
 
@@ -105,13 +105,13 @@ describe('BUILD-302C subject generation', () => {
         releaseTitle: 'Lua',
         trackTitle: 'Izizwe',
       }),
-    ).toBe('[ReleaseFlow Feedback] Lua — Track: Izizwe');
+    ).toBe('[Sleeve Feedback] Lua — Track: Izizwe');
   });
 
   it('never puts message or raw ids into subject when titles present', () => {
     const ctx = resolveFeedbackContext('/tracks/trk-secret-id');
     const subject = buildFeedbackEmailSubject(ctx, { trackTitle: 'Sunrise' });
-    expect(subject).toBe('[ReleaseFlow Feedback] Track: Sunrise');
+    expect(subject).toBe('[Sleeve Feedback] Track: Sunrise');
     expect(subject).not.toContain('trk-secret-id');
     expect(subject).not.toContain('user message');
   });
@@ -121,22 +121,22 @@ describe('BUILD-302C subject generation', () => {
       buildFeedbackEmailSubject(resolveFeedbackContext('/releases/r1'), {
         releaseTitle: 'Lua',
       }),
-    ).toBe('[ReleaseFlow Feedback] Lua');
+    ).toBe('[Sleeve Feedback] Lua');
     expect(
       buildFeedbackEmailSubject(resolveFeedbackContext('/artists/a1'), {
         artistName: 'Thandiswa',
       }),
-    ).toBe('[ReleaseFlow Feedback] Artist: Thandiswa');
+    ).toBe('[Sleeve Feedback] Artist: Thandiswa');
     expect(
       buildFeedbackEmailSubject(resolveFeedbackContext('/tasks/t1'), {
         taskTitle: 'Mastering',
       }),
-    ).toBe('[ReleaseFlow Feedback] Task: Mastering');
+    ).toBe('[Sleeve Feedback] Task: Mastering');
     expect(
       buildFeedbackEmailSubject(resolveFeedbackContext('/assignments/as1'), {
         assignmentTitle: 'Cover art',
       }),
-    ).toBe('[ReleaseFlow Feedback] Assignment: Cover art');
+    ).toBe('[Sleeve Feedback] Assignment: Cover art');
   });
 });
 
@@ -169,7 +169,7 @@ describe('BUILD-302C structured body', () => {
     expect(html).toContain('Release');
     expect(html).toContain(ctx.route);
     expect(html).toContain('09 August 2026, 10:42 SAST');
-    expect(html).toContain('Open in ReleaseFlow');
+    expect(html).toContain('Open in Sleeve');
   });
 
   it('Test 5 — Dashboard omits irrelevant entity fields', () => {
@@ -243,7 +243,7 @@ describe('BUILD-302C structured body', () => {
     expect(text).toContain('ORGANISATION');
     expect(text).toContain('CONTEXT');
     expect(text).toContain('TIME');
-    expect(text).toContain('Open in ReleaseFlow');
+    expect(text).toContain('Open in Sleeve');
   });
 
   it('timestamp formatting is human-readable', () => {

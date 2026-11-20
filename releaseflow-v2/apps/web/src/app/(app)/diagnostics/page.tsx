@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import { useMemo } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrgStore } from '@/stores/org-store';
@@ -170,7 +171,7 @@ export default function DiagnosticsPage() {
         </Card>
 
         <div className="text-xs text-text-400 text-center pt-2">
-          ReleaseFlow v{d.version} · Diagnostics · {new Date(d.timestamp).toLocaleTimeString()}
+          {PRODUCT_NAME} v{d.version} · Diagnostics · {new Date(d.timestamp).toLocaleTimeString()}
         </div>
       </div>
     </div>

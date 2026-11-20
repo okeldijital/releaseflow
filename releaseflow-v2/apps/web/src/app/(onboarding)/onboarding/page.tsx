@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
@@ -69,7 +70,7 @@ export default function WelcomePage() {
         ))}
       </div>
 
-      <h1 className="text-display-md font-semibold tracking-tight text-primary-400">Welcome to ReleaseFlow</h1>
+      <h1 className="text-display-md font-semibold tracking-tight text-primary-400">Welcome to {PRODUCT_NAME}</h1>
       <p className="mt-2 text-sm text-text-400">Let&apos;s confirm your identity and get started.</p>
 
       <div className="mt-10 flex justify-center">
@@ -94,7 +95,7 @@ export default function WelcomePage() {
       </div>
 
       <button onClick={handleContinue} disabled={saving}
-        className="mt-10 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-60 transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)]">
+        className="mt-10 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-60 transition-all duration-150 shadow-raised">
         {saving ? 'Setting up...' : 'Continue'}
       </button>
 
