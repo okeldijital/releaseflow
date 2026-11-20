@@ -28,22 +28,10 @@ describe('BRAND-001 canonical asset', () => {
 });
 
 describe('BRAND-001 adoption surfaces', () => {
-  it('auth layout uses ReleaseFlowLogo without orange badge mark', () => {
-    const src = read('app/(auth)/layout.tsx');
-    expect(src).toContain('ReleaseFlowLogo');
-    expect(src).not.toContain('bg-primary-500 shadow-[0_4px_24px');
-    expect(src).not.toContain('M4 3h6.5c2.485');
-  });
-
-  it('collaborator home shows logo above greeting', () => {
-    const src = read('app/(app)/home/page.tsx');
-    expect(src).toContain('ReleaseFlowLogo');
-    expect(src).toContain('width={88}');
-    // logo block appears before greeting header structure
-    const logoIdx = src.indexOf('ReleaseFlowLogo');
-    const greetingIdx = src.indexOf('{greeting}');
-    expect(logoIdx).toBeGreaterThan(-1);
-    expect(greetingIdx).toBeGreaterThan(logoIdx);
+  it('uses the studio wordmark at sign-in and in the workspace shell', () => {
+    for (const surface of ['app/(auth)/layout.tsx', 'app/(app)/layout.tsx']) {
+      expect(read(surface)).toContain('<StudioWordmark');
+    }
   });
 
   it('onboarding uses OnboardingBrandBar', () => {

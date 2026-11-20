@@ -92,8 +92,8 @@ export default function SignInPage() {
 
   return (
     <>
-      <h1 className="text-center text-display-md font-semibold text-primary-400 tracking-tight">Sign in</h1>
-      <p className="mt-1 text-center text-sm text-text-500">Welcome back to ReleaseFlow</p>
+      <h1 className="text-center text-display-md font-semibold text-primary-400 tracking-tight">Welcome back</h1>
+      <p className="mt-1 text-center text-sm text-text-500">Sign in to your release workspace.</p>
 
       {error && (
         <p className="mt-5 text-center text-sm text-danger-400 bg-danger-500/10 rounded-lg py-2 px-3">{error}</p>
@@ -123,21 +123,26 @@ export default function SignInPage() {
       </div>
 
       <form onSubmit={handleEmail} className="space-y-4">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          required
-          autoComplete="email"
-          className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-body text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
-        />
         <div>
+          <label htmlFor="signin-email" className="studio-field-label">Email address</label>
           <input
+            id="signin-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+            autoComplete="email"
+            className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-body text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
+          />
+        </div>
+        <div>
+          <label htmlFor="signin-password" className="studio-field-label">Password</label>
+          <input
+            id="signin-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
             required
             autoComplete="current-password"
             className="block w-full h-12 rounded-xl border border-surface-700 bg-surface-900 px-4 text-body text-surface-50 placeholder-text-500 focus:border-primary-500/60 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all duration-150"
@@ -151,7 +156,7 @@ export default function SignInPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.2)]"
+          className="w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-600 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-raised"
         >
           {submitting ? 'Signing in...' : 'Sign in'}
         </button>

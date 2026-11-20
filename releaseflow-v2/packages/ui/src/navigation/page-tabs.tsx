@@ -85,7 +85,7 @@ export function PageTabs({
   return (
     <nav
       aria-label={ariaLabel}
-      className={`border-b border-surface-200/70 ${className}`}
+      className={`studio-tabs ${className}`}
     >
       <div
         role="tablist"
@@ -100,7 +100,7 @@ export function PageTabs({
             px-4 py-3 text-sm font-medium border-b-2 transition-colors duration-100
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2
             ${active
-              ? 'border-primary-500 text-primary-600'
+              ? 'border-primary-400 bg-layer-3 text-content-primary'
               : 'border-transparent text-content-secondary hover:text-content-primary hover:border-surface-300'}
             ${tab.disabled ? 'opacity-50 pointer-events-none cursor-not-allowed' : 'cursor-pointer'}
           `.trim();

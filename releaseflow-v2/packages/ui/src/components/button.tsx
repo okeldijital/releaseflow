@@ -15,13 +15,13 @@ const variantClasses: Record<ButtonVariant, string> = {
   primary:
     'bg-primary-500 text-surface-50 shadow-sm hover:bg-primary-600 active:bg-primary-700 active:scale-[0.98] transition-transform',
   secondary:
-    'bg-secondary-100 text-text-800 hover:bg-secondary-200 active:bg-secondary-300 active:scale-[0.98] transition-transform',
+    'bg-layer-3 text-content-primary hover:bg-surface-700 active:bg-surface-800 active:scale-[0.98] transition-transform',
   tertiary:
-    'border border-surface-300 bg-layer-2 text-text-700 shadow-sm hover:bg-surface-50 hover:border-surface-400 active:scale-[0.98] transition-transform',
+    'border border-surface-700 bg-layer-2 text-content-primary shadow-sm hover:bg-layer-3 hover:border-surface-400 active:scale-[0.98] transition-transform',
   outline:
-    'border border-surface-300 bg-layer-2 text-text-700 shadow-sm hover:bg-surface-50 hover:border-surface-400 active:scale-[0.98] transition-transform',
+    'border border-surface-700 bg-layer-2 text-content-primary shadow-sm hover:bg-layer-3 hover:border-surface-400 active:scale-[0.98] transition-transform',
   ghost:
-    'text-text-600 hover:bg-surface-100 hover:text-text-900',
+    'text-content-secondary hover:bg-layer-3 hover:text-content-primary',
   danger:
     'bg-danger-500 text-surface-50 shadow-sm hover:bg-danger-600 active:bg-danger-700 active:scale-[0.98] transition-transform',
   'destructive-outline':
@@ -29,9 +29,9 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'h-8 px-3 text-xs rounded-md gap-2',
-  md: 'h-10 px-4 text-sm rounded-md gap-2',
-  lg: 'h-12 px-6 text-sm rounded-md gap-2',
+  sm: 'h-8 px-3 text-xs rounded-full gap-2',
+  md: 'h-10 px-4 text-sm rounded-full gap-2',
+  lg: 'h-12 px-6 text-sm rounded-full gap-2',
 };
 
 export function Button({

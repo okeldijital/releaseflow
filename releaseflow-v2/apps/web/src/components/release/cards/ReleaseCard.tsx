@@ -241,7 +241,7 @@ export function ReleaseCard({
 
   const cardBorder = isDraft
     ? 'border-2 border-dashed border-surface-600/60 bg-surface-900 hover:border-primary-500/40'
-    : 'border border-surface-200 bg-layer-2 shadow-card hover:shadow-card-hover';
+    : 'border border-divider bg-layer-2 hover:border-surface-600';
 
   function openDeleteDialog() {
     if (process.env.NODE_ENV === 'development') {
@@ -407,7 +407,7 @@ export function ReleaseCard({
     >
       {/* Artwork — always full-width square */}
       <div className="relative w-full overflow-hidden">
-        <Link href={`/releases/${release.id}`} className="block">
+        <Link href={`/releases/${release.id}`} aria-label={`Open ${release.title}`} className="block">
           <ArtworkDisplay
             artwork={release.artwork}
             releaseTitle={release.title}
@@ -427,7 +427,7 @@ export function ReleaseCard({
             className={`absolute top-3 right-3 z-10 ${
               styles.menuAlways
                 ? ''
-                : 'opacity-0 group-hover:opacity-100 transition-opacity duration-200'
+                : 'sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity duration-200'
             }`}
           >
             <EntityOverflowMenu align="right" items={overflowItems} />
@@ -450,14 +450,14 @@ export function ReleaseCard({
                 setNewTitle(release.title);
               }
             }}
-            className={`w-full ${styles.title} text-primary-400 bg-transparent border-b border-primary-500/40 outline-none px-0.5 py-0.5`}
+            className={`w-full ${styles.title} text-content-primary bg-transparent border-b border-primary-500/40 outline-none px-0.5 py-0.5`}
             autoFocus
             disabled={renaming}
           />
         ) : (
           <Link href={`/releases/${release.id}`} className="block min-w-0">
             <h3
-              className={`${styles.title} text-primary-400 ${isDraft ? 'cursor-pointer' : ''}`}
+              className={`${styles.title} text-content-primary ${isDraft ? 'cursor-pointer' : ''}`}
               onDoubleClick={
                 isDraft
                   ? (e) => {

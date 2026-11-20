@@ -153,14 +153,14 @@ export function Topbar({
   const avatarName = userName || userEmail || 'User';
 
   return (
-    <header className="sticky top-0 z-30 shrink-0 bg-transparent border-b border-surface-200/40 backdrop-blur-sm">
+    <header className="sticky top-0 z-30 shrink-0 bg-surface-950/90 border-b border-divider backdrop-blur-xl">
       <div className="flex h-16 items-center gap-3 px-3 sm:px-4 lg:px-6">
         {/* Left: Hamburger (mobile/tablet only) + Logo + Org switcher / global controls */}
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={onToggle}
-            className={`rounded-lg p-2 text-content-primary hover:bg-surface-100 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 lg:hidden ${hideMobileToggle ? 'hidden md:inline-flex' : ''}`}
+            className={`rounded-lg p-2 text-content-primary hover:bg-layer-3 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 lg:hidden ${hideMobileToggle ? 'hidden md:inline-flex' : ''}`}
             aria-label={collapsed ? 'Open navigation' : 'Close navigation'}
             aria-expanded={!collapsed}
             aria-controls={sidebarId}
@@ -224,7 +224,7 @@ export function Topbar({
             <button
               type="button"
               onClick={onOpenNotifications}
-              className="relative rounded-lg p-2 text-content-primary hover:bg-surface-100 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="relative rounded-lg p-2 text-content-primary hover:bg-layer-3 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
               aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount} unread)` : ''}`}
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

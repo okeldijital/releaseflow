@@ -734,7 +734,7 @@ export default function ReleaseWorkspacePage() {
       </div>
 
       {/* ── 1. Release header ─────────────────────────────────────────── */}
-      <section className="mb-10" aria-label="Release header">
+      <section className="studio-release-detail mb-10" aria-label="Release header">
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="w-full lg:w-64 shrink-0">
             <ReleaseArtwork

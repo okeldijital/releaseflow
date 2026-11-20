@@ -193,7 +193,8 @@ function CollapsibleSection({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 mb-4 group"
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 mb-4 group text-left"
       >
         <svg
           className={`h-4 w-4 text-text-400 transition-transform ${open ? 'rotate-90' : ''}`}
@@ -203,8 +204,8 @@ function CollapsibleSection({
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
-        <h2 className="text-sm font-semibold text-text-500 uppercase tracking-widest">{title}</h2>
-        <span className="text-xs text-text-400 bg-surface-100 px-2 py-0.5 rounded-full">{count}</span>
+        <h2 className="text-xl font-semibold text-content-primary tracking-tight">{title}</h2>
+        <span className="text-xs text-content-label bg-layer-3 px-2 py-0.5 rounded-full">{count}</span>
         {sectionError && <span className="text-xs text-danger-500 ml-2">Failed to load</span>}
       </button>
       {open && <div className="animate-fade-in">{children}</div>}
@@ -223,7 +224,7 @@ function ReleaseCardGrid({
 }) {
   const gridClass =
     view === 'list'
-      ? 'grid grid-cols-1 gap-4 max-w-md'
+      ? 'studio-catalogue-list grid grid-cols-1 gap-2'
       : size === 'compact'
         ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
         : size === 'large'
@@ -338,7 +339,7 @@ export function ReleasesModule({ tab }: ReleasesModuleProps) {
   const header = (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Releases</h1>
+        <h1 className="text-display-md font-semibold text-content-primary tracking-tight">Releases</h1>
         <p className="mt-1 text-sm text-text-400">
           {tab === 'schedule'
             ? isCollab

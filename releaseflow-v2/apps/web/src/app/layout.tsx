@@ -1,25 +1,15 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import { AppProviders } from '@/components/app-providers';
 import './globals.css';
 import '@/styles/theme.css';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+import '@/styles/studio.css';
 
 export const metadata: Metadata = {
   title: 'ReleaseFlow',
   description: 'Assignment-first release collaboration platform',
   applicationName: 'ReleaseFlow',
   manifest: '/manifest.webmanifest',
-  themeColor: '#4f46e5',
+  themeColor: '#101219',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -44,7 +34,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <body className="min-h-full flex flex-col">
         <a href="#main-content" className="skip-link">Skip to main content</a>

@@ -80,7 +80,7 @@ export function ReleaseWizard({ mode = 'create', releaseId, draftId }: { mode?: 
 
   if (mode === 'edit' && loadingEdit) {
     return (
-      <div className="mx-auto max-w-lg px-5 sm:px-7 py-12 page-transition">
+      <div className="mx-auto max-w-2xl px-5 sm:px-7 py-8 sm:py-12 page-transition">
         <div className="flex items-center justify-center py-20"><LoadingState /></div>
       </div>
     );
@@ -88,7 +88,7 @@ export function ReleaseWizard({ mode = 'create', releaseId, draftId }: { mode?: 
 
   if (mode === 'edit' && editForbidden) {
     return (
-      <div className="mx-auto max-w-lg px-5 sm:px-7 py-12 page-transition">
+      <div className="mx-auto max-w-2xl px-5 sm:px-7 py-8 sm:py-12 page-transition">
         <EmptyState
           title="Access Denied"
           description="You do not have permission to edit this release."
@@ -99,9 +99,9 @@ export function ReleaseWizard({ mode = 'create', releaseId, draftId }: { mode?: 
   }
 
   return (
-    <div className="mx-auto max-w-lg px-5 sm:px-7 py-12 page-transition">
+    <div className="mx-auto max-w-2xl px-5 sm:px-7 py-8 sm:py-12 page-transition">
       {/* BUILD-028 — header: Cancel · Previous · step context · Next · Save Draft (same handlers as footer Nav) */}
-      <div className="mb-6 space-y-3">
+      <div className="studio-wizard-head mb-7 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <button
             type="button"
