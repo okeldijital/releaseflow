@@ -134,7 +134,7 @@ export default function ReleaseReadinessPage() {
   if (error || !model) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <p className="text-display-md font-semibold text-primary-400 mb-2">Readiness unavailable</p>
+        <h1 className="text-display-md font-semibold text-primary-400 mb-2">Readiness unavailable</h1>
         <p className="text-sm text-text-500 mb-4">{error ?? 'Unable to compute readiness.'}</p>
         <Link href="/releases" className="text-sm text-primary-400 hover:underline">
           Back to releases

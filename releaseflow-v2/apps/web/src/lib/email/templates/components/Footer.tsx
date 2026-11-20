@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import React from 'react';
 
 interface FooterProps {
@@ -14,13 +15,13 @@ export function Footer({ orgName }: FooterProps) {
         fontSize: '12px', color: '#9ca3af', margin: '0 0 4px',
         fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
       }}>
-        {orgName ? `${orgName} ` : ''}&mdash; ReleaseFlow
+        {orgName ? `${orgName} ` : ''}&mdash; {PRODUCT_NAME}
       </p>
       <p style={{
         fontSize: '12px', color: '#9ca3af', margin: 0,
         fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
       }}>
-        You received this email because you have an account with ReleaseFlow.
+        You received this email because you have an account with {PRODUCT_NAME}.
       </p>
     </div>
   );

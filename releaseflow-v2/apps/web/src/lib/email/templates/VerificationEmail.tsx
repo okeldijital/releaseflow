@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import React from 'react';
 import { Logo } from './components/Logo';
 import { Header } from './components/Header';
@@ -19,7 +20,7 @@ export function VerificationEmail({ verifyUrl, orgName }: VerificationEmailProps
       <Logo />
       <Header title="Verify Your Email" orgName={orgName} />
       <p style={{ fontSize: '16px', color: '#374151', lineHeight: '1.6', margin: '0 0 24px' }}>
-        Please verify your email address to get started with ReleaseFlow.
+        Please verify your email address to get started with {PRODUCT_NAME}.
       </p>
       <div style={{ textAlign: 'center' as const, margin: '0 0 24px' }}>
         <Button href={verifyUrl}>Verify Email</Button>

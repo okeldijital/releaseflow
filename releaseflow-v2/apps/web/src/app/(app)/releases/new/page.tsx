@@ -121,7 +121,7 @@ export default function NewReleasePage() {
   if (drafts.length > 0 && !resumeDraftId) {
     return (
       <div className="mx-auto max-w-lg px-5 sm:px-7 py-12 page-transition">
-        <div className="rounded-xl border border-surface-200 bg-layer-2 divide-y divide-surface-200 overflow-hidden">
+        <div className="rounded-xl border border-divider bg-layer-2 divide-y divide-surface-200 overflow-hidden">
           {drafts.map((draft) => {
             const wd = (draft.wizardData || {}) as Partial<WizardDraftData>;
             return (

@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
@@ -68,8 +69,8 @@ export default function CompletePage() {
 
       <button
         onClick={() => router.replace('/dashboard')}
-        className="mt-10 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)] animate-scale-in">
-        Continue to ReleaseFlow
+        className="mt-10 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] transition-all duration-150 shadow-raised animate-scale-in">
+        Continue to {PRODUCT_NAME}
       </button>
 
             <OnboardingBrandBar />

@@ -1,8 +1,10 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useReleaseView } from '@/hooks/use-release-view';
 import { useOrgStore } from '@/stores/org-store';
 import { useReleases } from '@/hooks/useRelease';
 import { useAuth } from '@/contexts/auth-context';
@@ -10,7 +12,8 @@ import { getRecentActivity, type ActivityEventRecord } from '@/lib/activity-serv
 import {
   resolveActorIdentityKeys,
 } from '@/lib/assignment-identity';
-import { EmptyState, LoadingState, Button, Badge } from '@releaseflow/ui';
+import { EmptyState, LoadingState, Button, Badge, Switch } from '@releaseflow/ui';
+import { ArtworkDisplay } from '@/components/release/artwork-display';
 import { ReleaseCard } from '@/components/release/cards/ReleaseCard';
 import { AssignmentCard } from '@/components/assignments/cards/AssignmentCard';
 import { resolveReleaseCardVariant } from '@/lib/release-workspace';
@@ -105,6 +108,7 @@ function humaniseActivity(action: string, metadata?: Record<string, unknown>): s
 }
 
 export default function DashboardPage() {
+  const { view, setCompact } = useReleaseView();
   const { user } = useAuth();
   const { activeOrgId, orgsLoaded } = useOrgStore();
   const router = useRouter();
@@ -275,31 +279,74 @@ export default function DashboardPage() {
   if (!activeOrgId) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-24 text-center page-transition">
-        <EmptyState title="Welcome to ReleaseFlow" description="Create your first release to begin managing production, legal, distribution and collaboration." action={{ label: 'New Release', onClick: () => router.push('/onboarding/company') }} />
+        <EmptyState title={`Welcome to ${PRODUCT_NAME}`} description="Create your first release to begin managing production, legal, distribution and collaboration." action={{ label: 'New Release', onClick: () => router.push('/onboarding/company') }} />
       </div>
     );
   }
 
-  // BUG-009B: do not hide the Draft widget when the only releases are drafts.
-  // Empty catalogue still shows draft section below (or empty-state with draft path).
-  if (releases.length === 0 && drafts.length === 0 && !draftsLoading) {
-    return (
-      <div className="mx-auto max-w-2xl px-5 py-24 text-center page-transition">
-        <EmptyState title="Welcome to ReleaseFlow" description="Create your first release to begin managing production, legal, distribution and collaboration." action={{ label: 'New Release', onClick: () => router.push('/releases/new') }} />
-      </div>
-    );
-  }
+  const featured = upcomingReleases[0];
+  const targetDate = featured && toDate(featured.estimatedReleaseDate || featured.targetReleaseDate);
 
   return (
-    <div className="mx-auto max-w-4xl px-5 sm:px-7 py-10 page-transition">
-      <div className="mb-10">
-        <h1 className="text-2xl font-semibold text-surface-50 tracking-tight">
-          {greeting}{firstName ? `, ${firstName}` : ''}.
-        </h1>
-        <p className="text-body text-text-400 mt-1">What would you like to work on today?</p>
-        <div className="mt-4">
-          <Button size="md" onClick={() => router.push('/releases/new')}>+ New Release</Button>
+    <div className="studio-dashboard mx-auto max-w-6xl px-4 sm:px-7 py-6 sm:py-9 page-transition">
+      <div className="studio-desk-heading">
+        <h1>Release desk</h1>
+        <Button size="md" onClick={() => router.push('/releases/new')}>+ New Release</Button>
+      </div>
+      <header className="studio-overview">
+        <div className="studio-overview-copy">
+          <p>{greeting}{firstName ? `, ${firstName}` : ''}</p>
+          <h2>{featured?.title || 'Your release workspace'}</h2>
+          <p>{featured ? (targetDate ? `Target release · ${targetDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}` : 'Release date to be confirmed') : 'Start a release to bring tracks, artwork and collaborators together.'}</p>
+          <div className="studio-actions">
+            {featured && <Link href={`/releases/${featured.id}`}>Open release <span aria-hidden="true">↗</span></Link>}
+
+            <Link href="/calendar/schedule">Open schedule <span aria-hidden="true">↗</span></Link>
+          </div>
         </div>
+        {featured?.artwork?.secureUrl && (
+          <div className="studio-cover" aria-hidden="true">
+            <ArtworkDisplay artwork={featured.artwork} releaseTitle={featured.title} size="lg" />
+          </div>
+        )}
+      </header>
+
+      <section className="studio-pipeline" aria-label="Release pipeline">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {stats.map((s) => (
+            <div key={s.label} className="rounded-xl border border-surface-700/60 bg-surface-900 p-4">
+              <p className="text-2xl font-bold text-surface-50">{s.count}</p>
+              <p className="text-xs text-text-500 mt-1">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      <div className="mb-10">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <h2 className="mr-auto">Upcoming Releases</h2>
+          {upcomingReleases.length > 0 && (
+            <Switch label="Compact view" checked={view === 'list'} onChange={setCompact} />
+          )}
+          <Link href="/library/tracks" className="text-sm text-primary-400">Track library ↗</Link>
+        </div>
+        {upcomingReleases.length === 0 ? (
+          <p className="text-sm text-text-500">Scheduled and in-progress releases will appear here.</p>
+        ) : (
+          <div
+            className={view === 'list' ? 'studio-catalogue-list grid grid-cols-1 gap-2' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'}
+            data-release-card-grid
+            data-count={upcomingReleases.length}
+          >
+            {upcomingReleases.map((r) => (
+              <ReleaseCard
+                key={r.id}
+                release={r}
+                size="standard"
+                variant={resolveReleaseCardVariant(r)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {draftsLoading ? (
@@ -332,24 +379,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
-      <div className="mb-10">
-        <p className="text-xs font-semibold text-text-500 uppercase tracking-widest mb-4">Quick Actions</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Link href="/releases/new" className="block rounded-xl border border-surface-700/60 bg-surface-900 p-4 text-center hover:border-primary-500/40 transition-all duration-150">
-            <p className="text-sm font-medium text-primary-400">+ New Release</p>
-          </Link>
-          <Link href="/library/tracks" className="block rounded-xl border border-surface-700/60 bg-surface-900 p-4 text-center hover:border-primary-500/40 transition-all duration-150">
-            <p className="text-sm font-medium text-surface-100">Tracks</p>
-          </Link>
-          <Link href="/people" className="block rounded-xl border border-surface-700/60 bg-surface-900 p-4 text-center hover:border-primary-500/40 transition-all duration-150">
-            <p className="text-sm font-medium text-surface-100">People</p>
-          </Link>
-          <Link href="/calendar/schedule" className="block rounded-xl border border-surface-700/60 bg-surface-900 p-4 text-center hover:border-primary-500/40 transition-all duration-150">
-            <p className="text-sm font-medium text-surface-100">Schedule</p>
-          </Link>
-        </div>
-      </div>
 
       {/* BUILD-014 / BUILD-017 — Tasks KPI summary + compact TaskCards */}
       <div className="mb-10">
@@ -396,17 +425,6 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : null}
-      </div>
-
-      <div className="mb-10">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {stats.map((s) => (
-            <div key={s.label} className="rounded-xl border border-surface-700/60 bg-surface-900 p-4">
-              <p className="text-2xl font-bold text-surface-50">{s.count}</p>
-              <p className="text-xs text-text-500 mt-1">{s.label}</p>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* CE-009 — Release readiness summary */}
@@ -457,29 +475,7 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <p className="text-xs text-text-500">Computing readiness…</p>
-        )}
-      </div>
-
-      <div className="mb-10">
-        <h2 className="text-sm font-semibold text-primary-400 mb-4">Upcoming Releases</h2>
-        {upcomingReleases.length === 0 ? (
-          <p className="text-sm text-text-500">No upcoming releases.</p>
-        ) : (
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-            data-release-card-grid
-            data-count={upcomingReleases.length}
-          >
-            {upcomingReleases.map((r) => (
-              <ReleaseCard
-                key={r.id}
-                release={r}
-                size="standard"
-                variant={resolveReleaseCardVariant(r)}
-              />
-            ))}
-          </div>
+          <p className="text-xs text-text-500">No readiness summaries available.</p>
         )}
       </div>
 
@@ -491,6 +487,7 @@ export default function DashboardPage() {
               Open workspace
             </Link>
           </div>
+          <Link href="/people" className="mb-3 inline-block text-sm text-primary-400">People directory ↗</Link>
           {assignmentsLoading ? <LoadingState /> : myWorkRecords.length === 0 ? (
             <p className="text-sm text-text-500">No assignments require your attention.<br/>You&apos;re all caught up.</p>
           ) : (

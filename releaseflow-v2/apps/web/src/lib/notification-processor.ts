@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
 /**
  * NOT-001 / CE-006 — Notification Processor
  *
@@ -41,7 +42,7 @@ import { fetchPerson } from './person-service';
 import { getPeopleByOrg } from './people-repository';
 
 async function resolveActorName(actorId: string): Promise<string> {
-  if (!actorId || actorId === 'system') return 'ReleaseFlow';
+  if (!actorId || actorId === 'system') return PRODUCT_NAME;
   try {
     const person = await fetchPerson(actorId);
     if (person?.displayName) return person.displayName;

@@ -3,7 +3,7 @@
  * Caches: static shell, artwork (LRU-ish), navigation offline fallback.
  */
 
-const SW_VERSION = 'rf-sw-v1.0.0';
+const SW_VERSION = 'rf-sw-v1.1.0';
 const STATIC_CACHE = `${SW_VERSION}-static`;
 const ARTWORK_CACHE = `${SW_VERSION}-artwork`;
 const DATA_CACHE = `${SW_VERSION}-data`;
@@ -176,7 +176,7 @@ self.addEventListener('fetch', (event) => {
 /* ── Push delivery (CE-006 subscriptions) ─────────────────────────── */
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'ReleaseFlow', body: 'You have a new notification', data: {} };
+  let payload = { title: 'Sleeve', body: 'You have a new notification', data: {} };
   try {
     if (event.data) {
       const json = event.data.json();

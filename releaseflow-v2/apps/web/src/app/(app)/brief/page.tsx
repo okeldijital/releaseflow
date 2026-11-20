@@ -99,7 +99,7 @@ export default function BriefPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <p className="text-display-md font-semibold text-primary-400 tracking-tight mb-2">Daily Brief</p>
+      <h1 className="text-display-md font-semibold text-primary-400 tracking-tight mb-2">Daily Brief</h1>
       <p className="text-sm text-text-500 mb-8">Operational overview for today</p>
 
       {!activeOrgId ? (
@@ -107,7 +107,7 @@ export default function BriefPage() {
       ) : (
         <div className="space-y-6">
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-700 mb-3">Today's Risks ({alerts.length})</h2>
+            <h2 className="text-sm font-semibold text-content-secondary mb-3">Today's Risks ({alerts.length})</h2>
             {alerts.length === 0 ? (
               <p className="text-sm text-text-400">No active risks.</p>
             ) : (
@@ -138,14 +138,14 @@ export default function BriefPage() {
           </Card>
 
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-700 mb-3">Upcoming Deadlines ({upcoming.tasks.length})</h2>
+            <h2 className="text-sm font-semibold text-content-secondary mb-3">Upcoming Deadlines ({upcoming.tasks.length})</h2>
             {upcoming.tasks.length === 0 ? (
               <p className="text-sm text-text-400">No upcoming deadlines this week.</p>
             ) : (
               <div className="space-y-1.5">
                 {upcoming.tasks.map((t) => (
                   <div key={t.id} className="flex items-center justify-between text-sm">
-                    <Link href={`/releases/${t.releaseId}`} className="text-text-700 hover:underline truncate">{t.title}</Link>
+                    <Link href={`/releases/${t.releaseId}`} className="text-content-secondary hover:underline truncate">{t.title}</Link>
                     <span className="text-xs text-text-400 shrink-0 ml-2">{fmtDate(t.dueDate)}</span>
                   </div>
                 ))}
@@ -154,7 +154,7 @@ export default function BriefPage() {
           </Card>
 
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-700 mb-3">Blocked Items ({blocked.length})</h2>
+            <h2 className="text-sm font-semibold text-content-secondary mb-3">Blocked Items ({blocked.length})</h2>
             {blocked.length === 0 ? (
               <p className="text-sm text-text-400">No blocked items.</p>
             ) : (
@@ -167,7 +167,7 @@ export default function BriefPage() {
           </Card>
 
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-700 mb-3">Budget Warnings ({budgetWarnings.length})</h2>
+            <h2 className="text-sm font-semibold text-content-secondary mb-3">Budget Warnings ({budgetWarnings.length})</h2>
             {budgetWarnings.length === 0 ? (
               <p className="text-sm text-text-400">No budget warnings.</p>
             ) : (
@@ -183,7 +183,7 @@ export default function BriefPage() {
           </Card>
 
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-700 mb-3">Recommendations ({recs.length})</h2>
+            <h2 className="text-sm font-semibold text-content-secondary mb-3">Recommendations ({recs.length})</h2>
             {recs.length === 0 ? (
               <p className="text-sm text-text-400">No recommendations.</p>
             ) : (
@@ -192,7 +192,7 @@ export default function BriefPage() {
                   <div key={i} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2 min-w-0">
                       <StatusBadge status={rec.priority} />
-                      <Link href={`/releases/${rec.releaseId}`} className="text-text-700 hover:underline truncate">{rec.message}</Link>
+                      <Link href={`/releases/${rec.releaseId}`} className="text-content-secondary hover:underline truncate">{rec.message}</Link>
                     </div>
                     <span className="text-xs text-text-400 shrink-0 ml-2">{rec.action}</span>
                   </div>

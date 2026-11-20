@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import { useEffect, useState } from 'react';
 import { applyServiceWorkerUpdate, onSwUpdateAvailable } from '@/lib/pwa/register-sw';
 import { Button } from '@releaseflow/ui';
@@ -18,7 +19,7 @@ export function SwUpdateBanner() {
         rounded-xl border border-primary-500/40 bg-layer-2 shadow-lg px-4 py-3 flex items-center gap-3"
     >
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-surface-100">A new version of ReleaseFlow is available.</p>
+        <p className="text-sm font-medium text-surface-100">A new version of {PRODUCT_NAME} is available.</p>
         <p className="text-xs text-text-500 mt-0.5">Refresh when you are ready — unfinished work will not be interrupted automatically.</p>
       </div>
       <Button size="sm" onClick={() => void applyServiceWorkerUpdate()}>

@@ -734,7 +734,7 @@ export default function ReleaseWorkspacePage() {
       </div>
 
       {/* ── 1. Release header ─────────────────────────────────────────── */}
-      <section className="mb-10" aria-label="Release header">
+      <section className="studio-release-detail mb-10" aria-label="Release header">
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="w-full lg:w-64 shrink-0">
             <ReleaseArtwork
@@ -779,7 +779,7 @@ export default function ReleaseWorkspacePage() {
 
             {/* Compact identity cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4">
+              <div className="rounded-xl border border-divider bg-layer-2 shadow-card p-4">
                 <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Release</h3>
                 <dl className="space-y-1.5 text-sm">
                   <div className="flex justify-between gap-2">
@@ -796,7 +796,7 @@ export default function ReleaseWorkspacePage() {
                   ) : null}
                 </dl>
               </div>
-              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4">
+              <div className="rounded-xl border border-divider bg-layer-2 shadow-card p-4">
                 <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Publishing</h3>
                 <dl className="space-y-1.5 text-sm">
                   {release.upc ? (
@@ -815,7 +815,7 @@ export default function ReleaseWorkspacePage() {
                   ) : null}
                 </dl>
               </div>
-              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4">
+              <div className="rounded-xl border border-divider bg-layer-2 shadow-card p-4">
                 <h3 className="text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Team</h3>
                 <p className="text-sm text-content-label mb-2">Invite collaborators to this release.</p>
                 <Button size="sm" variant="outline" onClick={() => setInviteOpen(true)}>
@@ -833,7 +833,7 @@ export default function ReleaseWorkspacePage() {
           title="Liner Notes"
           description="Editorial notes, acknowledgements, and the story behind this release."
         />
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 sm:p-6 space-y-4">
+        <div className="rounded-xl border border-divider bg-layer-2 shadow-card p-4 sm:p-6 space-y-4">
           {linerNotesEditing ? (
             <>
               <RichTextEditor
@@ -936,7 +936,7 @@ export default function ReleaseWorkspacePage() {
               : undefined
           }
         />
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 sm:p-6">
+        <div className="rounded-xl border border-divider bg-layer-2 shadow-card p-4 sm:p-6">
           <AssignmentsSection
             entityType="release"
             entityId={releaseId}
@@ -962,7 +962,7 @@ export default function ReleaseWorkspacePage() {
               : undefined
           }
         />
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-4 sm:p-6">
+        <div className="rounded-xl border border-divider bg-layer-2 shadow-card p-4 sm:p-6">
           <TasksSection releaseId={releaseId} />
           {perms.canManageAssignments ? (
             <div className="mt-4 pt-4 border-t border-surface-100">
@@ -980,7 +980,7 @@ export default function ReleaseWorkspacePage() {
           title="Workflow"
           description="Stage orchestration and release progression. Work execution lives in Assignments."
         />
-        <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 space-y-4">
+        <div className="rounded-xl border border-divider bg-layer-2 shadow-card p-5 space-y-4">
           <p className="text-sm text-content-secondary">
             Workflow stages track progression. Contributor work is managed exclusively as{' '}
             <strong className="text-content-primary">Assignments</strong> above.
@@ -1034,7 +1034,7 @@ export default function ReleaseWorkspacePage() {
             description="Activity will appear as your team works on this release."
           />
         ) : (
-          <div className="space-y-0 rounded-xl border border-surface-200 bg-layer-2 shadow-card overflow-hidden">
+          <div className="space-y-0 rounded-xl border border-divider bg-layer-2 shadow-card overflow-hidden">
             {meaningfulActivities.slice(0, 12).map((ev, i) => {
               const label = humaniseActivity(ev);
               return (
@@ -1142,7 +1142,7 @@ export default function ReleaseWorkspacePage() {
                 description="Audio masters, artwork files, and marketing assets will appear here."
               />
             ) : (
-              <div className="rounded-xl border border-surface-200 bg-layer-2 shadow-card divide-y divide-surface-100">
+              <div className="rounded-xl border border-divider bg-layer-2 shadow-card divide-y divide-surface-100">
                 {deliverables.map((d) => (
                   <div key={d.id} className="flex items-center justify-between px-4 py-3 gap-3">
                     <div className="min-w-0">

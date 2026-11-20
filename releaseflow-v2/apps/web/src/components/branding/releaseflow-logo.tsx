@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
 /**
  * BRAND-001 — Canonical ReleaseFlow logo.
  *
@@ -32,7 +33,7 @@ export interface ReleaseFlowLogoProps
 export function ReleaseFlowLogo({
   width = 96,
   height,
-  alt = 'ReleaseFlow',
+  alt = PRODUCT_NAME,
   priority = false,
   className,
   style,

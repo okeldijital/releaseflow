@@ -10,35 +10,35 @@
 @layer base {
   :root {
     /* ─── Color.Primary (PDS-13) ──────────────────────────────────── */
-    --rf-color-primary-50:  #FFF5EE;
-    --rf-color-primary-100: #FFE6CC;
-    --rf-color-primary-200: #FFCC99;
-    --rf-color-primary-300: #FFB266;
-    --rf-color-primary-400: #FF9933;
-    --rf-color-primary-500: #CC5500;
-    --rf-color-primary-600: #B34A00;
-    --rf-color-primary-700: #8A3900;
-    --rf-color-primary-800: #5C2600;
-    --rf-color-primary-900: #2E1300;
+    --rf-color-primary-50:  #fff4ed;
+    --rf-color-primary-100: #ffe2d9;
+    --rf-color-primary-200: #ffc6b4;
+    --rf-color-primary-300: #ffab96;
+    --rf-color-primary-400: #ff987c;
+    --rf-color-primary-500: #bb3928;
+    --rf-color-primary-600: #a32e21;
+    --rf-color-primary-700: #852719;
+    --rf-color-primary-800: #612118;
+    --rf-color-primary-900: #41160f;
 
     /* ─── Color.Surface (PDS-13) ──────────────────────────────────── */
-    --rf-color-surface-0:   #FFFFFF;
-    --rf-color-surface-50:  #FAF8F5;
-    --rf-color-surface-100: #F4F0EB;
-    --rf-color-surface-200: #EAE5DE;
-    --rf-color-surface-300: #DDD7CE;
-    --rf-color-surface-400: #C9C2B8;
-    --rf-color-surface-500: #B5ADA2;
-    --rf-color-surface-600: #8A8278;
-    --rf-color-surface-700: #6B6360;
-    --rf-color-surface-800: #3A342F;
-    --rf-color-surface-900: #1E1A17;
-    --rf-color-surface-950: #130F0C;
+    --rf-color-surface-0:   #ffffff;
+    --rf-color-surface-50:  #f7f8fc;
+    --rf-color-surface-100: #f0f1f7;
+    --rf-color-surface-200: #e1e4ed;
+    --rf-color-surface-300: #c8ccda;
+    --rf-color-surface-400: #acb2c5;
+    --rf-color-surface-500: #9199ae;
+    --rf-color-surface-600: #756d67;
+    --rf-color-surface-700: #4e4945;
+    --rf-color-surface-800: #373431;
+    --rf-color-surface-900: #23211f;
+    --rf-color-surface-950: #161514;
 
     /* ─── UAT-001 #008 — readability hierarchy ─────────────────────── */
-    --rf-color-layer-1: #1C1C1E;
-    --rf-color-layer-2: #232326;
-    --rf-color-layer-3: #2C2C2E;
+    --rf-color-layer-1: #191817;
+    --rf-color-layer-2: #23211f;
+    --rf-color-layer-3: #302e2b;
     --rf-color-content-primary:   #FFFFFF;
     --rf-color-content-secondary: #EBEBF5;
     --rf-color-content-label:     #AEAEB2;
@@ -167,11 +167,11 @@
 
     /* ─── Radius (PDS-13) ─────────────────────────────────────────── */
     --rf-radius-none: 0;
-    --rf-radius-sm:   6px;
-    --rf-radius-md:   10px;
-    --rf-radius-lg:   14px;
-    --rf-radius-xl:   20px;
-    --rf-radius-2xl:  28px;
+    --rf-radius-sm:   8px;
+    --rf-radius-md:   13px;
+    --rf-radius-lg:   19px;
+    --rf-radius-xl:   24px;
+    --rf-radius-2xl:  32px;
     --rf-radius-full: 9999px;
 
     /* ─── Shadow (PDS-13) — warm-tinted, editorial ────────────────── */
@@ -180,7 +180,7 @@
     --rf-shadow-raised:  0 4px 12px rgba(42, 35, 25, 0.08), 0 2px 4px rgba(42, 35, 25, 0.05);
     --rf-shadow-modal:   0 24px 72px rgba(42, 35, 25, 0.14), 0 8px 24px rgba(42, 35, 25, 0.08);
     --rf-shadow-overlay: 0 8px 24px rgba(42, 35, 25, 0.10);
-    --rf-shadow-focus:   0 0 0 3px rgba(204, 85, 0, 0.18);
+    --rf-shadow-focus:   0 0 0 3px rgba(188, 58, 41, 0.18);
 
     /* ─── Motion (PDS-13) ─────────────────────────────────────────── */
     --rf-motion-instant: 0ms;

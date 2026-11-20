@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
 /**
  * NOT-002 — Email worker (server-only).
  *
@@ -93,7 +94,7 @@ export async function processPendingEmailJobs(
     }
 
     const payload = data.payload ?? {};
-    const subject = data.subject || 'ReleaseFlow notification';
+    const subject = data.subject || `${PRODUCT_NAME} notification`;
     const deepLink = String(payload.deepLink ?? '/notifications');
     const html = renderNotificationEmailHtml({
       subject,

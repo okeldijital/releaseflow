@@ -37,13 +37,13 @@ export default function AuditPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
-      <p className="text-display-md font-semibold text-primary-400 tracking-tight mb-2">System Audit</p>
+      <h1 className="text-display-md font-semibold text-primary-400 tracking-tight mb-2">System Audit</h1>
       <p className="text-sm text-text-500 mb-8">Permissions, activity coverage, data integrity, performance</p>
 
       <div className="space-y-6">
         {permReport ? (
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-700 mb-3">Permission Audit</h2>
+            <h2 className="text-sm font-semibold text-content-secondary mb-3">Permission Audit</h2>
             <div className="flex gap-3 text-xs mb-3">
               <Badge label={`${permReport.summary.total} routes`} color="bg-surface-100 text-text-500" />
               <Badge label={`${permReport.summary.orgScoped} org-scoped`} color="bg-success-50 text-success-600" />
@@ -68,7 +68,7 @@ export default function AuditPage() {
 
         {actReport ? (
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-700 mb-3">Activity Feed Audit</h2>
+            <h2 className="text-sm font-semibold text-content-secondary mb-3">Activity Feed Audit</h2>
             <div className="flex gap-3 text-xs mb-3">
               <Badge label={`${actReport.total} actions tracked`} color="bg-surface-100 text-text-500" />
               <Badge label={`${actReport.logged} logged`} color="bg-success-50 text-success-600" />
@@ -94,7 +94,7 @@ export default function AuditPage() {
 
         {integrity ? (
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-700 mb-3">Data Integrity</h2>
+            <h2 className="text-sm font-semibold text-content-secondary mb-3">Data Integrity</h2>
             <div className="flex gap-3 text-xs mb-3">
               <Badge label={`${integrity.scanned.length} collections scanned`} color="bg-surface-100 text-text-500" />
               <Badge label={`${integrity.totalOrphans} orphans`} color={integrity.totalOrphans > 0 ? 'bg-danger-50 text-danger-600' : 'bg-success-50 text-success-600'} />
@@ -117,14 +117,14 @@ export default function AuditPage() {
           </Card>
         ) : (
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-700 mb-3">Data Integrity</h2>
+            <h2 className="text-sm font-semibold text-content-secondary mb-3">Data Integrity</h2>
             <p className="text-sm text-text-400">Select an organization to run integrity scan.</p>
           </Card>
         )}
 
         {perf ? (
           <Card padding="md">
-            <h2 className="text-sm font-semibold text-text-700 mb-3">Performance Review</h2>
+            <h2 className="text-sm font-semibold text-content-secondary mb-3">Performance Review</h2>
 
             <div className="mb-4">
               <p className="text-xs font-medium text-text-400 uppercase tracking-wider mb-2">Suggested Indexes ({perf.suggestedIndexes.length})</p>

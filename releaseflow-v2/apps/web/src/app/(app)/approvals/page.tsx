@@ -116,7 +116,7 @@ export default function ApprovalsPage() {
     <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <p className="text-display-md font-semibold text-primary-400 tracking-tight">Approvals</p>
+          <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Approvals</h1>
           <p className="text-sm text-text-500 mt-1">{inboxCounts.pendingApprovals} pending review{pendingMyReview.length !== 1 ? 's' : ''}</p>
         </div>
       </div>
@@ -175,7 +175,7 @@ export default function ApprovalsPage() {
       {actionModal ? (
         <Modal open onClose={() => setActionModal(null)}>
           <div className="p-6">
-            <h3 className="text-lg font-semibold text-text-700 mb-2">
+            <h3 className="text-lg font-semibold text-content-secondary mb-2">
               {actionModal.action === 'changes' ? 'Request Changes' : 'Approve with Note'}
             </h3>
             <p className="text-sm text-text-500 mb-4">
@@ -184,7 +184,7 @@ export default function ApprovalsPage() {
                 : 'Add an optional note with your approval.'}
             </p>
             <textarea
-              className="w-full rounded-lg border border-surface-200 bg-layer-2 px-3 py-2 text-sm text-text-900 placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-[80px]"
+              className="w-full rounded-lg border border-divider bg-layer-2 px-3 py-2 text-sm text-content-primary placeholder:text-text-400 focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-[80px]"
               placeholder="Add a note..."
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
@@ -253,7 +253,7 @@ function ApprovalSection({
   return (
     <section>
       <div className="flex items-center gap-2 mb-3">
-        <h2 className="text-sm font-semibold text-text-700">{title}</h2>
+        <h2 className="text-sm font-semibold text-content-secondary">{title}</h2>
         <span className="text-xs text-text-400">({requests.length})</span>
       </div>
 
@@ -266,7 +266,7 @@ function ApprovalSection({
             const entityLabel = r.entityType ?? 'deliverable';
 
             return (
-              <div key={r.id} className="rounded-lg border border-surface-200 bg-layer-2 p-4">
+              <div key={r.id} className="rounded-lg border border-divider bg-layer-2 p-4">
                 <div
                   className="flex items-start justify-between cursor-pointer"
                   onClick={() => onToggle(r.id)}
@@ -274,7 +274,7 @@ function ApprovalSection({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <Badge label={entityLabel} color="bg-surface-100 text-text-500" size="sm" />
-                      <h3 className="text-sm font-semibold text-text-700">
+                      <h3 className="text-sm font-semibold text-content-secondary">
                         {r.deliverable?.title ?? r.entityId?.slice(0, 8) ?? r.deliverableId?.slice(0, 8) ?? '—'}
                       </h3>
                       {lifecycleBadge(r.lifecycleState)}
@@ -310,19 +310,19 @@ function ApprovalSection({
                     {r.notes ? (
                       <div>
                         <p className="text-xs font-medium text-text-500 mb-1">Notes</p>
-                        <p className="text-sm text-text-800">{r.notes}</p>
+                        <p className="text-sm text-content-primary">{r.notes}</p>
                       </div>
                     ) : null}
 
                     <div className="flex items-center gap-2 text-xs">
                       <span className="text-text-400">Requester:</span>
-                      <span className="text-text-700">{r.requesterId.slice(0, 12)}...</span>
+                      <span className="text-content-secondary">{r.requesterId.slice(0, 12)}...</span>
                       <span className="text-text-400 ml-3">Approver:</span>
-                      <span className="text-text-700">{r.approverId.slice(0, 12)}...</span>
+                      <span className="text-content-secondary">{r.approverId.slice(0, 12)}...</span>
                       {r.respondedAt ? (
                         <>
                           <span className="text-text-400 ml-3">Responded:</span>
-                          <span className="text-text-700">{fmtDate(r.respondedAt)}</span>
+                          <span className="text-content-secondary">{fmtDate(r.respondedAt)}</span>
                         </>
                       ) : null}
                     </div>

@@ -2,7 +2,6 @@
 
 import { type ReactNode, useRef, useEffect, useState } from 'react';
 import { Tooltip } from '../components/tooltip';
-import { Avatar } from '../components/avatar';
 
 export interface NavItem {
   label: string;
@@ -23,11 +22,6 @@ interface SidebarProps {
   sections: NavSection[];
   activePath: string;
   onNavigate: (href: string) => void;
-  userEmail?: string;
-  /** Canonical display name for Avatar (BUILD-014B). */
-  userName?: string;
-  userImage?: string;
-  onSignOut: () => void;
   /** true = icon-rail (desktop) / drawer-closed (mobile) */
   collapsed: boolean;
   onToggle: () => void;
@@ -67,25 +61,13 @@ export function shouldShowNavSectionHeading(
 }
 
 
-function SignOutIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-      />
-    </svg>
-  );
-}
+
 
 export function Sidebar({
   items,
   sections,
   activePath,
   onNavigate,
-  userEmail,
-  userName,
-  userImage,
-  onSignOut,
   collapsed,
   onToggle,
   hideMobile,
@@ -160,47 +142,6 @@ export function Sidebar({
     onNavigate(href);
     if (window.matchMedia('(max-width: 1023px)').matches) onToggle();
   }
-
-  /* ── Reusable button rows ─────────────────────────────────────────── */
-
-  const signOutButton = (
-    <button
-      onClick={onSignOut}
-      className={`
-        flex w-full items-center gap-3 rounded-lg text-sm font-medium text-left
-        text-content-secondary hover:bg-surface-100/20 hover:text-content-primary
-       
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-500/40
-        transition-colors duration-150 min-h-[44px]
-        ${collapsed ? 'lg:justify-center lg:px-2 px-3 py-2.5' : 'px-3 py-2.5'}
-      `}
-    >
-      <span className="text-content-secondary shrink-0"><SignOutIcon /></span>
-      <span className={`flex-1 ${collapsed ? 'lg:hidden' : ''}`}>Sign out</span>
-    </button>
-  );
-
-  const userCard = (
-    <div
-      className={`
-        flex items-center gap-3 rounded-lg min-h-[44px]
-        ${collapsed ? 'lg:justify-center lg:px-2 px-3 py-2.5' : 'px-3 py-2.5'}
-      `}
-    >
-      <Avatar
-        src={userImage}
-        name={userName || userEmail || 'User'}
-        size="md"
-        className="shadow-sm"
-      />
-      <div className={`min-w-0 flex-1 ${collapsed ? 'lg:hidden' : ''}`}>
-        {userName ? (
-          <p className="truncate text-xs font-medium text-content-primary">{userName}</p>
-        ) : null}
-        <p className="truncate text-xs font-medium text-content-secondary">{userEmail}</p>
-      </div>
-    </div>
-  );
 
   /* ── Sidebar element ────────────────────────────────────────────────
    *
@@ -356,26 +297,6 @@ export function Sidebar({
           })}
         </nav>
 
-          {/* ── User / Sign Out ─────────────────── */}
-          <div className="shrink-0 p-3 space-y-1">
-            {/* User card */}
-          <div className="hidden lg:block">
-            {collapsed
-              ? <Tooltip content={userEmail ?? 'Profile'} position="right" delay={150}>{userCard}</Tooltip>
-              : userCard
-            }
-          </div>
-          <div className="lg:hidden">{userCard}</div>
-
-          {/* Sign out */}
-          <div className="hidden lg:block">
-            {collapsed
-              ? <Tooltip content="Sign out" position="right" delay={150}>{signOutButton}</Tooltip>
-              : signOutButton
-            }
-          </div>
-          <div className="lg:hidden">{signOutButton}</div>
-        </div>
       </aside>
 
       {/* ── Backdrop — tablet/mobile only ───────────────────────────── */}

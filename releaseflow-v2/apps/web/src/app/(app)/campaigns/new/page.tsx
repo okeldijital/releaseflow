@@ -64,7 +64,7 @@ export default function NewCampaignPage() {
   return (
     <div className="mx-auto max-w-lg px-6 py-8">
       <Link href="/campaigns" className="text-sm text-text-500 hover:text-text-200 mb-6 inline-block">&larr; Back</Link>
-      <p className="text-display-md font-semibold text-primary-400 tracking-tight mb-8">New Campaign</p>
+      <h1 className="text-display-md font-semibold text-primary-400 tracking-tight mb-8">New Campaign</h1>
       <Card padding="lg">
         <form onSubmit={handleSubmit} className="space-y-5">
           <Input label="Name" type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Summer Release Campaign" />

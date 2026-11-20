@@ -63,10 +63,10 @@ export default function OrganizationsPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <p className="text-display-md font-semibold text-primary-400 tracking-tight mb-8">Organizations</p>
+      <h1 className="text-display-md font-semibold text-primary-400 tracking-tight mb-8">Organizations</h1>
 
       <Card padding="lg" className="mb-8">
-        <h2 className="text-sm font-semibold text-text-700 mb-4">Create Organization</h2>
+        <h2 className="text-sm font-semibold text-content-secondary mb-4">Create Organization</h2>
         <form onSubmit={handleCreate} className="flex gap-3 items-end">
           <Input label="Name" type="text" value={name} onChange={(e) => { setName(e.target.value); setSlug(generateSlug(e.target.value)); }} required placeholder="Organization name" />
           <div className="shrink-0"><Button type="submit" variant="primary" disabled={!name.trim()}>Create</Button></div>
@@ -75,11 +75,11 @@ export default function OrganizationsPage() {
 
       {invites.length > 0 && (
         <Card padding="lg" className="mb-8">
-          <h2 className="text-sm font-semibold text-text-700 mb-4">Pending Invitations ({invites.length})</h2>
+          <h2 className="text-sm font-semibold text-content-secondary mb-4">Pending Invitations ({invites.length})</h2>
           <div className="space-y-3">
             {invites.map((inv) => (
-              <div key={inv.id} className="flex items-center justify-between border border-surface-200 rounded-lg px-4 py-3">
-                <div><p className="text-sm font-medium text-text-900">{inv.orgName ?? inv.organizationId}</p><p className="text-xs text-text-500">{inv.roleId}</p></div>
+              <div key={inv.id} className="flex items-center justify-between border border-divider rounded-lg px-4 py-3">
+                <div><p className="text-sm font-medium text-content-primary">{inv.orgName ?? inv.organizationId}</p><p className="text-xs text-text-500">{inv.roleId}</p></div>
                 <div className="flex gap-2"><Button size="sm" variant="primary" onClick={() => handleAccept(inv.id)}>Accept</Button><Button size="sm" variant="outline" onClick={() => handleDecline(inv.id)}>Decline</Button></div>
               </div>
             ))}
@@ -94,7 +94,7 @@ export default function OrganizationsPage() {
           {orgs.map((org) => (
             <Card key={org.id} padding="md" hover clickable>
               <div className="flex items-center justify-between">
-                <div><p className="font-medium text-text-900">{org.name}</p><p className="text-xs text-text-500">{org.slug}</p></div>
+                <div><p className="font-medium text-content-primary">{org.name}</p><p className="text-xs text-text-500">{org.slug}</p></div>
                 <span className="text-xs text-text-400">Active</span>
               </div>
             </Card>

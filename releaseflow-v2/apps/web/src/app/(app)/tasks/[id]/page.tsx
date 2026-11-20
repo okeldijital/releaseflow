@@ -225,7 +225,7 @@ export default function TaskDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <section className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5">
+          <section className="rounded-xl border border-divider bg-layer-2 shadow-card p-5">
             <h2 className="text-sm font-semibold text-content-primary mb-2">Description</h2>
             <p className="text-sm text-content-secondary whitespace-pre-wrap">
               {task.description?.trim() || 'No description.'}
@@ -233,7 +233,7 @@ export default function TaskDetailPage() {
           </section>
 
           {assignment ? (
-            <section className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5">
+            <section className="rounded-xl border border-divider bg-layer-2 shadow-card p-5">
               <h2 className="text-sm font-semibold text-content-primary mb-2">Assignment</h2>
               <p className="text-sm text-content-secondary">
                 Ownership is managed by Assignment.{' '}
@@ -249,7 +249,7 @@ export default function TaskDetailPage() {
         </div>
 
         <aside className="space-y-4">
-          <section className="rounded-xl border border-surface-200 bg-layer-2 shadow-card p-5 space-y-3 text-sm">
+          <section className="rounded-xl border border-divider bg-layer-2 shadow-card p-5 space-y-3 text-sm">
             <div>
               <p className="text-xs text-content-label uppercase tracking-wide">Status</p>
               {canEdit && task.status !== 'completed' ? (

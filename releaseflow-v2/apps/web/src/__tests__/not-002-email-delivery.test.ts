@@ -95,7 +95,7 @@ describe('NOT-002 templates', () => {
       deepLink: '/assignments/a1?tab=comments',
       eventType: 'comment.created',
     });
-    expect(html).toContain('ReleaseFlow');
+    expect(html).toContain('Sleeve');
     expect(html).toContain('View Comment');
     expect(html).toContain('assignments/a1?tab=comments');
     expect(html).toContain('Alex');

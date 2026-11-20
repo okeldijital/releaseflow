@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
 /**
  * BUILD-302C — Deterministic feedback email subject generation.
  *
@@ -17,7 +18,7 @@ export interface FeedbackSubjectEntityTitles {
   personName?: string | null;
 }
 
-const PREFIX = '[ReleaseFlow Feedback]';
+const PREFIX = `[${PRODUCT_NAME} Feedback]`;
 
 function clean(value: string | null | undefined): string | undefined {
   const t = value?.trim();

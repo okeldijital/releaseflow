@@ -107,7 +107,7 @@ export default function ReleaseReadyPage() {
         type="button"
         onClick={handleCreate}
         disabled={creating}
-        className="mt-10 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-60 transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)]"
+        className="mt-10 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-60 transition-all duration-150 shadow-raised"
       >
         {creating ? 'Creating...' : 'Create Release'}
       </button>

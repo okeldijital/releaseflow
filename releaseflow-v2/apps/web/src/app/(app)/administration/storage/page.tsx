@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 /**
  * BUILD-301D / 301E / 301F — Organization Storage Settings.
  * Locations, policies, templates, routing preview, and durable storage references.
@@ -990,7 +991,7 @@ export default function AdministrationStoragePage() {
           Routing Preview
         </h2>
         <p className="text-xs text-content-secondary mb-3">
-          Preview where ReleaseFlow would route an asset. Does not upload.
+          Preview where {PRODUCT_NAME} would route an asset. Does not upload.
         </p>
         <div className="rounded-xl border border-surface-200/80 bg-layer-2 p-5 space-y-4">
           <Select

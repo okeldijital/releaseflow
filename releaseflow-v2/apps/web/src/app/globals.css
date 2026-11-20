@@ -17,8 +17,8 @@
 
 @theme {
   /* ─── Typography families ─────────────────────────────────────── */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
 
   /* ─── Typography size / line-height / weight (PDS-13) ─────────── */
   --text-display-xl-size:  3rem;     /* 48px */
@@ -74,6 +74,22 @@
   --text-overline-weight:  600;
   --text-overline-tracking: 0.08em;
 
+  /* Tailwind type utilities used by workspace, onboarding and account screens. */
+  --text-display-md: clamp(1.875rem, 2.7vw, 2.625rem);
+  --text-display-md--line-height: 1.12;
+  --text-display-sm: var(--text-heading-1-size);
+  --text-display-sm--line-height: 1.2;
+  --text-body: var(--text-body-size);
+  --text-body--line-height: var(--text-body-lh);
+  --text-body-small: var(--text-body-small-size);
+  --text-body-small--line-height: var(--text-body-small-lh);
+  --text-body-large: var(--text-body-large-size);
+  --text-body-large--line-height: var(--text-body-large-lh);
+  --text-caption: var(--text-caption-size);
+  --text-caption--line-height: var(--text-caption-lh);
+  --text-overline: var(--text-overline-size);
+  --text-overline--line-height: var(--text-overline-lh);
+
   /* ─── Spacing — 8-point system (PDS-13) ───────────────────────── */
   --spacing: 0.25rem; /* default unit (4px) */
   --space-4:  0.25rem;
@@ -88,11 +104,11 @@
 
   /* ─── Radius (PDS-13) ─────────────────────────────────────────── */
   --radius-none: 0;
-  --radius-sm:   6px;
-  --radius-md:   10px;
-  --radius-lg:   14px;
-  --radius-xl:   20px;
-  --radius-2xl:  28px;   /* implicit super-curve kept for editorial uses */
+  --radius-sm:   8px;
+  --radius-md:   13px;
+  --radius-lg:   19px;
+  --radius-xl:   24px;
+  --radius-2xl:  32px;   /* implicit super-curve kept for editorial uses */
   --radius-full: 9999px;
 
   /* ─── Shadows (PDS-13) — warm-tinted, editorial ───────────────── */
@@ -101,7 +117,7 @@
   --shadow-raised:  0 4px 16px rgba(0, 0, 0, 0.32), 0 2px 6px rgba(0, 0, 0, 0.2);
   --shadow-modal:   0 24px 72px rgba(42, 35, 25, 0.14), 0 8px 24px rgba(42, 35, 25, 0.08);
   --shadow-overlay: 0 8px 24px rgba(42, 35, 25, 0.10);
-  --shadow-focus:   0 0 0 3px rgba(204, 85, 0, 0.18);
+  --shadow-focus:   0 0 0 3px rgba(188, 58, 41, 0.18);
 
   /* ─── Motion — duration (PDS-13) ──────────────────────────────── */
   --duration-instant: 0ms;
@@ -141,17 +157,17 @@
   --avatar-lg: 40px;
   --avatar-xl: 56px;
 
-  /* ─── Primary — Burnt Sienna (PDS-13) ─────────────────────────── */
-  --color-primary-50:  #FFF5EE;
-  --color-primary-100: #FFE6CC;
-  --color-primary-200: #FFCC99;
-  --color-primary-300: #FFB266;
-  --color-primary-400: #FF9933;
-  --color-primary-500: #CC5500;
-  --color-primary-600: #B34A00;
-  --color-primary-700: #8A3900;
-  --color-primary-800: #5C2600;
-  --color-primary-900: #2E1300;
+  /* ─── Primary — Vermilion (PDS-13) ─────────────────────────── */
+  --color-primary-50:  #fff4ed;
+  --color-primary-100: #ffe2d9;
+  --color-primary-200: #ffc6b4;
+  --color-primary-300: #ffab96;
+  --color-primary-400: #ff987c;
+  --color-primary-500: #bb3928;
+  --color-primary-600: #a32e21;
+  --color-primary-700: #852719;
+  --color-primary-800: #612118;
+  --color-primary-900: #41160f;
 
   /* ─── Secondary — Warm Sand ───────────────────────────────────── */
   --color-secondary-50:  #FBF7F0;
@@ -165,31 +181,31 @@
   --color-secondary-800: #7A5630;
   --color-secondary-900: #5A3C1E;
 
-  /* ─── Surface — Warm Neutral (PDS-13) ─────────────────────────── */
-  --color-surface-0:   #FFFFFF;
-  --color-surface-50:  #FAF8F5;
-  --color-surface-100: #F4F0EB;
-  --color-surface-200: #EAE5DE;
-  --color-surface-300: #DDD7CE;
-  --color-surface-400: #C9C2B8;
-  --color-surface-500: #B5ADA2;
-  --color-surface-600: #8A8278;
-  --color-surface-700: #6B6360;
-  --color-surface-800: #3A342F;
-  --color-surface-900: #1E1A17;
-  --color-surface-950: #130F0C;
+  /* ─── Surface — Graphite (PDS-13) ─────────────────────────── */
+  --color-surface-0:   #ffffff;
+  --color-surface-50:  #f7f8fc;
+  --color-surface-100: #f0f1f7;
+  --color-surface-200: #e1e4ed;
+  --color-surface-300: #c8ccda;
+  --color-surface-400: #acb2c5;
+  --color-surface-500: #9199ae;
+  --color-surface-600: #756d67;
+  --color-surface-700: #4e4945;
+  --color-surface-800: #373431;
+  --color-surface-900: #23211f;
+  --color-surface-950: #161514;
 
-  /* ─── Text — Brown scale (PDS-13) ─────────────────────────────── */
-  --color-text-50:  #F5F0EA;
-  --color-text-100: #EAE2D7;
-  --color-text-200: #D6CBBC;
-  --color-text-300: #BDB4A8;
-  --color-text-400: #78716C;
-  --color-text-500: #857D76;
-  --color-text-600: #6D665F;
-  --color-text-700: #564F49;
-  --color-text-800: #3D3830;
-  --color-text-900: #2A2319;
+  /* ─── Text — Cool neutral scale (PDS-13) ─────────────────────────────── */
+  --color-text-50:  #f5f6fb;
+  --color-text-100: #e8eaf2;
+  --color-text-200: #d6d9e6;
+  --color-text-300: #c1c6d6;
+  --color-text-400: #c3bbb2;
+  --color-text-500: #b0a8a1;
+  --color-text-600: #727b90;
+  --color-text-700: #464c60;
+  --color-text-800: #323748;
+  --color-text-900: #202431;
 
   /* ─── Feedback (PDS-13) ───────────────────────────────────────── */
   --color-success-50:  #EDFAF0;
@@ -234,9 +250,9 @@
   --color-status-released:  var(--color-workflow-released);
 
   /* ─── UAT-001 #008 — Dark readability hierarchy ───────────────── */
-  --color-layer-1: #1C1C1E;
-  --color-layer-2: #232326;
-  --color-layer-3: #2C2C2E;
+  --color-layer-1: #191817;
+  --color-layer-2: #23211f;
+  --color-layer-3: #302e2b;
   --color-content-primary:   #FFFFFF;
   --color-content-secondary: #EBEBF5;
   --color-content-label:     #AEAEB2;
@@ -354,7 +370,7 @@
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background: radial-gradient(ellipse 70% 60% at 50% 30%, rgba(204,85,0,0.04) 0%, transparent 70%);
+  background: radial-gradient(ellipse 70% 60% at 50% 30%, rgba(188,58,41,0.04) 0%, transparent 70%);
 }
 
 
@@ -377,35 +393,35 @@
     /* Components / inline styles should reference these names.         */
 
     /* Color.Primary */
-    --rf-color-primary-50:  #FFF5EE;
-    --rf-color-primary-100: #FFE6CC;
-    --rf-color-primary-200: #FFCC99;
-    --rf-color-primary-300: #FFB266;
-    --rf-color-primary-400: #FF9933;
-    --rf-color-primary-500: #CC5500;
-    --rf-color-primary-600: #B34A00;
-    --rf-color-primary-700: #8A3900;
-    --rf-color-primary-800: #5C2600;
-    --rf-color-primary-900: #2E1300;
+    --rf-color-primary-50:  #fff4ed;
+    --rf-color-primary-100: #ffe2d9;
+    --rf-color-primary-200: #ffc6b4;
+    --rf-color-primary-300: #ffab96;
+    --rf-color-primary-400: #ff987c;
+    --rf-color-primary-500: #bb3928;
+    --rf-color-primary-600: #a32e21;
+    --rf-color-primary-700: #852719;
+    --rf-color-primary-800: #612118;
+    --rf-color-primary-900: #41160f;
 
     /* Color.Surface */
-    --rf-color-surface-0:   #FFFFFF;
-    --rf-color-surface-50:  #FAF8F5;
-    --rf-color-surface-100: #F4F0EB;
-    --rf-color-surface-200: #EAE5DE;
-    --rf-color-surface-300: #DDD7CE;
-    --rf-color-surface-400: #C9C2B8;
-    --rf-color-surface-500: #B5ADA2;
-    --rf-color-surface-600: #8A8278;
-    --rf-color-surface-700: #6B6360;
-    --rf-color-surface-800: #3A342F;
-    --rf-color-surface-900: #1E1A17;
-    --rf-color-surface-950: #130F0C;
+    --rf-color-surface-0:   #ffffff;
+    --rf-color-surface-50:  #f7f8fc;
+    --rf-color-surface-100: #f0f1f7;
+    --rf-color-surface-200: #e1e4ed;
+    --rf-color-surface-300: #c8ccda;
+    --rf-color-surface-400: #acb2c5;
+    --rf-color-surface-500: #9199ae;
+    --rf-color-surface-600: #756d67;
+    --rf-color-surface-700: #4e4945;
+    --rf-color-surface-800: #373431;
+    --rf-color-surface-900: #23211f;
+    --rf-color-surface-950: #161514;
 
     /* UAT-001 #008 — readability hierarchy */
-    --rf-color-layer-1: #1C1C1E;
-    --rf-color-layer-2: #232326;
-    --rf-color-layer-3: #2C2C2E;
+    --rf-color-layer-1: #191817;
+    --rf-color-layer-2: #23211f;
+    --rf-color-layer-3: #302e2b;
     --rf-color-content-primary:   #FFFFFF;
     --rf-color-content-secondary: #EBEBF5;
     --rf-color-content-label:     #AEAEB2;
@@ -523,11 +539,11 @@
 
     /* Radius */
     --rf-radius-none: 0;
-    --rf-radius-sm:   6px;
-    --rf-radius-md:   10px;
-    --rf-radius-lg:   14px;
-    --rf-radius-xl:   20px;
-    --rf-radius-2xl:  28px;
+    --rf-radius-sm:   8px;
+    --rf-radius-md:   13px;
+    --rf-radius-lg:   19px;
+    --rf-radius-xl:   24px;
+    --rf-radius-2xl:  32px;
     --rf-radius-full: 9999px;
 
     /* Shadow */
@@ -536,7 +552,7 @@
     --rf-shadow-raised:  0 4px 12px rgba(42, 35, 25, 0.08), 0 2px 4px rgba(42, 35, 25, 0.05);
     --rf-shadow-modal:   0 24px 72px rgba(42, 35, 25, 0.14), 0 8px 24px rgba(42, 35, 25, 0.08);
     --rf-shadow-overlay: 0 8px 24px rgba(42, 35, 25, 0.10);
-    --rf-shadow-focus:   0 0 0 3px rgba(204, 85, 0, 0.18);
+    --rf-shadow-focus:   0 0 0 3px rgba(188, 58, 41, 0.18);
 
     /* Motion */
     --rf-motion-instant: 0ms;
@@ -591,7 +607,7 @@
   /* Focus ring — warm brand colour, visible but not aggressive */
   *:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px var(--color-primary-500), 0 0 0 4px rgba(204, 85, 0, 0.15);
+    box-shadow: 0 0 0 2px var(--color-primary-500), 0 0 0 4px rgba(188, 58, 41, 0.15);
     border-radius: 4px;
   }
 
@@ -618,7 +634,7 @@
 
   /* Selection colour */
   ::selection {
-    background: rgba(204, 85, 0, 0.28);
+    background: rgba(188, 58, 41, 0.28);
     color: var(--color-content-primary);
   }
 

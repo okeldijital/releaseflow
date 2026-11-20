@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
 /**
  * BUG-005 / NOT-001 / NOT-002 — Server-side notification processor (Admin SDK).
  *
@@ -183,7 +184,7 @@ async function resolveRecipients(
 }
 
 async function resolveActorName(db: Firestore, actorId: string): Promise<string> {
-  if (!actorId || actorId === 'system') return 'ReleaseFlow';
+  if (!actorId || actorId === 'system') return PRODUCT_NAME;
   try {
     const p = await db.collection('people').doc(actorId).get();
     if (p.exists) {

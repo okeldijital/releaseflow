@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import React from 'react';
 
 /**
@@ -27,7 +28,7 @@ export function Logo() {
           src={src}
           width={96}
           height={96}
-          alt="ReleaseFlow"
+          alt={PRODUCT_NAME}
           style={{
             display: 'inline-block',
             width: 96,
@@ -40,11 +41,11 @@ export function Logo() {
         <span style={{
           fontSize: '18px',
           fontWeight: 700,
-          color: '#B14512',
+          color: '#bb3928',
           fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
           letterSpacing: '-0.3px',
         }}>
-          ReleaseFlow
+          {PRODUCT_NAME}
         </span>
       )}
     </div>

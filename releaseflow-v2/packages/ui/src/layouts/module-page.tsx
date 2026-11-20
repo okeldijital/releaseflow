@@ -33,7 +33,7 @@ export function ModulePage({
   className = '',
 }: ModulePageProps) {
   return (
-    <div className={`flex flex-col gap-0 ${className}`.trim()}>
+    <div className={`studio-module flex flex-col gap-0 ${className}`.trim()}>
       {header ? (
         <header className="mb-4 sm:mb-5">{header}</header>
       ) : null}

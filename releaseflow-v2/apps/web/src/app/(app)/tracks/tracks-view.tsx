@@ -194,7 +194,7 @@ function EditTrackDialog({ track, open, onClose, onSaved }: EditTrackDialogProps
       <div className={`fixed inset-0 bg-surface-900/40 backdrop-blur-sm ${closing ? 'opacity-0 transition-opacity duration-200' : 'animate-fade-in'}`} onClick={handleClose} aria-hidden="true" />
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="edit-track-title" className={`relative z-10 w-full max-w-sm bg-layer-2 rounded-lg shadow-modal border border-surface-200 ${closing ? 'opacity-0 scale-95 transition-all duration-200' : 'animate-scale-in'}`}>
         <div className="px-6 pt-6 pb-4 space-y-4">
-          <h2 id="edit-track-title" className="text-base font-semibold text-text-700">Edit Track</h2>
+          <h2 id="edit-track-title" className="text-base font-semibold text-content-secondary">Edit Track</h2>
           <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
           <Input label="Version" value={version} onChange={(e) => setVersion(e.target.value)} />
           <Input label="ISRC" value={isrc} onChange={(e) => setIsrc(e.target.value)} />
@@ -500,7 +500,7 @@ export default function TracksView() {
       <div className={`mx-auto max-w-4xl px-5 sm:px-7 ${embedded ? 'pb-8' : 'py-8'} page-transition`}>
         {!embedded ? (
           <div className="mb-8">
-            <p className="text-display-md font-semibold text-primary-400 tracking-tight">Tracks</p>
+            <h1 className="text-display-md font-semibold text-primary-400 tracking-tight">Tracks</h1>
             <p className="mt-1 text-sm text-text-400">Manage every recording across your releases.</p>
           </div>
         ) : null}
@@ -520,7 +520,7 @@ export default function TracksView() {
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           {!embedded ? (
-            <p className="text-display-md font-semibold text-content-primary tracking-tight">Tracks</p>
+            <h1 className="text-display-md font-semibold text-content-primary tracking-tight">Tracks</h1>
           ) : null}
           <p className={`text-sm text-content-secondary ${embedded ? '' : 'mt-1'}`}>Manage every recording across your releases.</p>
           <p className="mt-0.5 text-sm text-content-secondary">{summaryStats.total} track{summaryStats.total !== 1 ? 's' : ''} in your catalogue</p>

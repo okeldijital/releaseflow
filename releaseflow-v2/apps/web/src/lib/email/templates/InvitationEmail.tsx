@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import React from 'react';
 import { Logo } from './components/Logo';
 import { Header } from './components/Header';
@@ -50,17 +51,17 @@ export function renderInvitationEmail(props: InvitationEmailProps): string {
     ? (base.startsWith('http') ? base.replace(/\/$/, '') : `https://${base.replace(/\/$/, '')}`)
     : '';
   const logo = origin
-    ? `<div style="text-align:center;padding:12px 0"><img src="${origin}/icons/ReleaseFlow-Logo.svg" width="96" height="96" alt="ReleaseFlow" style="display:inline-block;width:96px;height:auto;border:0"/></div>`
-    : `<div style="text-align:center;padding:8px 0"><span style="font-size:18px;font-weight:700;color:#B14512">ReleaseFlow</span></div>`;
+    ? `<div style="text-align:center;padding:12px 0"><img src="${origin}/icons/ReleaseFlow-Logo.svg" width="96" height="96" alt="${PRODUCT_NAME}" style="display:inline-block;width:96px;height:auto;border:0"/></div>`
+    : `<div style="text-align:center;padding:8px 0"><span style="font-size:18px;font-weight:700;color:#bb3928">${PRODUCT_NAME}</span></div>`;
   return `<!DOCTYPE html>
 <html><body><div style="max-width:560px;margin:0 auto;padding:24px;background:#fff;border-radius:12px;font-family:sans-serif">
 ${logo}
 <div style="padding:32px 0 16px;text-align:center"><h1 style="font-size:24px;font-weight:700;color:#1a1a2e;margin:0 0 8px">Join ${props.orgName}</h1></div>
 <p style="font-size:16px;color:#374151;line-height:1.6;margin:0 0 16px">${props.inviterName} has invited you to join <strong>${props.orgName}</strong> as <strong>${props.roleName}</strong>.</p>
 <p style="font-size:14px;color:#6b7280;margin:0 0 24px">This invitation expires in ${props.expiresInDays} days.</p>
-<div style="text-align:center;margin:0 0 24px"><a href="${props.acceptUrl}" style="display:inline-block;padding:12px 32px;background:#6366f1;color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600">Accept Invitation</a></div>
+<div style="text-align:center;margin:0 0 24px"><a href="${props.acceptUrl}" style="display:inline-block;padding:12px 32px;background:#bb3928;color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600">Accept Invitation</a></div>
 <p style="font-size:13px;color:#9ca3af;margin:0">If you don't have an account yet, you'll be able to create one after clicking the button above.</p>
-<div style="padding:24px 0;text-align:center;border-top:1px solid #e5e7eb;margin-top:24px"><p style="font-size:12px;color:#9ca3af;margin:0">&mdash; ReleaseFlow</p></div>
+<div style="padding:24px 0;text-align:center;border-top:1px solid #e5e7eb;margin-top:24px"><p style="font-size:12px;color:#9ca3af;margin:0">&mdash; ${PRODUCT_NAME}</p></div>
 </div></body></html>`;
 }
 

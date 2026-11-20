@@ -1,13 +1,13 @@
 {
-  "name": "ReleaseFlow",
-  "short_name": "ReleaseFlow",
+  "name": "Sleeve",
+  "short_name": "Sleeve",
   "description": "Assignment-first release collaboration platform",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "theme_color": "#4f46e5",
-  "background_color": "#0b1120",
+  "theme_color": "#171615",
+  "background_color": "#171615",
   "lang": "en",
   "categories": ["business", "productivity", "music"],
   "icons": [

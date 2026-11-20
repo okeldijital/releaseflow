@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
@@ -355,7 +356,7 @@ function InvitationCard({
         <div className="mx-auto mb-4 flex justify-center">
           <ReleaseFlowLogo width={100} priority />
         </div>
-        <h1 className="text-xl font-semibold text-text-100">Welcome to ReleaseFlow</h1>
+        <h1 className="text-xl font-semibold text-text-100">Welcome to {PRODUCT_NAME}</h1>
       </div>
 
       <dl className="space-y-3 rounded-lg border border-surface-700/60 bg-surface-950/40 p-4 text-sm">
@@ -389,7 +390,7 @@ function InvitationCard({
           onClick={onSignIn}
           className="w-full rounded-lg border border-surface-700 bg-surface-800 py-2.5 text-sm font-medium text-text-300 hover:bg-surface-700 transition-colors"
         >
-          Already have a ReleaseFlow account? Sign In
+          Already have a {PRODUCT_NAME} account? Sign In
         </button>
         <p className="text-center text-xs text-text-500">
           Your organization, role, and access are configured automatically from this invitation.

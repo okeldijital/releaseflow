@@ -1,27 +1,26 @@
-import { ReleaseFlowLogo } from '@/components/branding/releaseflow-logo';
+import { PRODUCT_NAME } from '@/lib/product-identity';
+import { StudioWordmark } from '@/components/branding/studio-wordmark';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-surface-950 px-6 py-12">
-      <div
-        className="pointer-events-none fixed inset-0"
-        style={{
-          background: 'radial-gradient(ellipse 80% 50% at 50% 40%, rgba(204,85,0,0.06) 0%, transparent 70%)',
-        }}
-        aria-hidden="true"
-      />
-
-      <div className="relative z-10 w-full max-w-[360px] animate-scale-in">
-        <div className="mb-10 flex flex-col items-center">
-          <ReleaseFlowLogo width={112} priority />
+    <main id="main-content" className="studio-entry">
+      <section className="studio-poster" aria-label={`${PRODUCT_NAME} music workspace`}>
+        <StudioWordmark />
+        <div className="studio-poster-copy">
+          <h2>
+            Release
+            <br />
+            <em>workspace.</em>
+          </h2>
+          <p>Plan releases, coordinate your team, and prepare your catalogue for distribution.</p>
         </div>
-
-        {children}
-
-        <p className="mt-8 text-center text-xs text-text-500">
-          &copy; {new Date().getFullYear()} ReleaseFlow.
-        </p>
-      </div>
-    </div>
+      </section>
+      <section className="studio-auth">
+        <div className="studio-mobile-brand">
+          <StudioWordmark />
+        </div>
+        <div className="studio-form">{children}</div>
+      </section>
+    </main>
   );
 }

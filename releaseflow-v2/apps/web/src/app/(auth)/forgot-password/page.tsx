@@ -1,5 +1,6 @@
 'use client';
 
+import { PRODUCT_NAME } from '@/lib/product-identity';
 /**
  * UAT-006 / BUG-004A — Request password reset.
  * Surfaces real Firebase error codes. Success only after SDK resolves.
@@ -90,7 +91,7 @@ export default function ForgotPasswordPage() {
         Reset your password
       </h1>
       <p className="mt-1 text-center text-sm text-text-500">
-        Enter the email for your ReleaseFlow email/password account.
+        Enter the email for your {PRODUCT_NAME} email/password account.
       </p>
 
       {sent ? (
@@ -145,7 +146,7 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.2)]"
+              className="w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-raised"
             >
               {submitting ? 'Sending…' : 'Send Reset Link'}
             </button>

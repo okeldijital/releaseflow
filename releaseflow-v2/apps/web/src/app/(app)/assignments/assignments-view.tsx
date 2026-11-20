@@ -61,7 +61,7 @@ function CollapsibleSection({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
           <h2 className="text-sm font-semibold text-text-500 uppercase tracking-widest">{title}</h2>
-          <span className="text-xs text-text-400 bg-surface-100 px-2 py-0.5 rounded-full">{count}</span>
+          <span className="text-xs text-text-400 bg-layer-3 px-2 py-0.5 rounded-full">{count}</span>
         </button>
         {viewAllHref ? (
           <Link href={viewAllHref} className="text-xs font-medium text-primary-500 hover:text-primary-400">
@@ -86,7 +86,7 @@ function AssignmentCardGrid({
   if (view === 'list' || mode === 'table' || mode === 'table-row') {
     return (
       <div
-        className="rounded-xl border border-surface-200 bg-layer-2 overflow-hidden divide-y divide-surface-100"
+        className="rounded-xl border border-divider bg-layer-2 overflow-hidden divide-y divide-surface-100"
         data-assignment-card-grid
         data-count={records.length}
       >
@@ -264,7 +264,7 @@ export default function AssignmentsView() {
           <select
             value={filterPriority}
             onChange={(e) => setFilterPriority(e.target.value)}
-            className="min-h-[48px] sm:h-9 px-3 text-sm rounded-xl border border-surface-200 bg-layer-2 text-text-600"
+            className="min-h-[48px] sm:h-9 px-3 text-sm rounded-xl border border-divider bg-layer-2 text-text-600"
             aria-label="Filter by priority"
           >
             <option value="all">All Priority</option>
@@ -276,7 +276,7 @@ export default function AssignmentsView() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="min-h-[48px] sm:h-9 px-3 text-sm rounded-xl border border-surface-200 bg-layer-2 text-text-600"
+            className="min-h-[48px] sm:h-9 px-3 text-sm rounded-xl border border-divider bg-layer-2 text-text-600"
             aria-label="Filter by status"
           >
             <option value="all">All Status</option>
@@ -287,7 +287,7 @@ export default function AssignmentsView() {
             <option value="completed">Completed</option>
             <option value="blocked">Blocked</option>
           </select>
-          <div className="flex rounded-xl border border-surface-200 overflow-hidden">
+          <div className="flex rounded-xl border border-divider overflow-hidden">
             <button
               type="button"
               onClick={() => setView('grid')}

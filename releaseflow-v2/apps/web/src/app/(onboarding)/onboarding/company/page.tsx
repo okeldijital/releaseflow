@@ -97,7 +97,7 @@ export default function CompanyPage() {
           )}
 
           <button onClick={() => selectedOrg && handleContinue(selectedOrg)} disabled={!selectedOrg}
-            className="mt-6 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)]">
+            className="mt-6 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-raised">
             Continue
           </button>
 
@@ -118,7 +118,7 @@ export default function CompanyPage() {
           {error && <p className="mt-4 text-sm text-danger-400">{error}</p>}
 
           <button onClick={handleCreate} disabled={!companyName.trim() || saving}
-            className="mt-6 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-[0_4px_24px_rgba(204,85,0,0.25)]">
+            className="mt-6 w-full h-12 rounded-xl bg-primary-500 text-surface-50 font-semibold text-body hover:bg-primary-400 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-raised">
             {saving ? 'Creating...' : 'Continue'}
           </button>
 
